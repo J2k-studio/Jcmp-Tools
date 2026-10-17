@@ -2,6 +2,7 @@
 # test.sh [JCMP] -- build jget with the compiler JCMP (default: jcmp) and test it. Prints PASS or FAIL lines; the exit code is the number of failures.
 # Needs: jcmp with its Library (JCMP_LIB if the library is not next to it), python3 (a local web server for the http:// tests), sha256sum.
 cd "$(dirname "$0")" || exit 1
+HERE=$PWD
 JCMP=${1:-jcmp}
 W=${TMPDIR:-/tmp}/jget_test.$$
 mkdir -p "$W/src" "$W/lib" "$W/out" "$W/www" || exit 1
@@ -21,7 +22,7 @@ SRV=$!
 sleep 1
 printf '# index\ntwice 1.0 http://127.0.0.1:%s/nothing_here.j|http://127.0.0.1:%s/twice.j %s\nbad 1.0 http://127.0.0.1:%s/twice.j 0000\n' $PORT $PORT "$H" $PORT > "$W/index.txt"
 cd "$W/out" || exit 1
-t "version" '[ "$($J --version)" = "jget 0.2.0" ]'
+t "version" '[ "$($J --version)" = "jget $(cat $HERE/VERSION)" ]'
 t "download: the name of the file is the last part of the address" '$J -q http://127.0.0.1:$PORT/big.bin && cmp -s big.bin ../www/big.bin'
 t "download: -o names the file" '$J -q http://127.0.0.1:$PORT/page.txt -o mine.txt && [ "$(cat mine.txt)" = "hello jget" ]'
 t "download: -o - writes to the screen" '[ "$($J http://127.0.0.1:$PORT/page.txt -o - 2>/dev/null)" = "hello jget" ]'
@@ -42,6 +43,23 @@ printf '#import <twice>\nvoid main(){ cout << twice(21) << nl; }\n' > "$W/use.jk
 t "libraries: the installed library can be imported" 'J2K_PATH="$W/lib" $JCMP "$W/use.jk" -o "$W/use" >/dev/null 2>&1 && [ "$($W/use)" = "42" ]'
 t "libraries: uninstall" '$J -li uninstall twice >/dev/null 2>&1 && [ ! -f "$W/lib/twice.j" ]'
 unset JGET_INDEX JGET_LIB
+if command -v openssl >/dev/null 2>&1; then
+    # https against a server of our own: a CA made here, a certificate for localhost
+    (cd "$W/www" && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout ca.key -out ca.pem -days 2 -subj "/CN=jget test CA" -addext "basicConstraints=critical,CA:TRUE" >/dev/null 2>&1 &&
+     openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout key.pem -out leaf.csr -subj "/CN=localhost" >/dev/null 2>&1 &&
+     printf 'subjectAltName=DNS:localhost\nbasicConstraints=CA:FALSE\n' > leaf.ext &&
+     openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out cert.pem -days 2 -sha256 -extfile leaf.ext >/dev/null 2>&1)
+    SPORT=$((PORT + 1))
+    (cd "$W/www" && openssl s_server -accept $SPORT -cert cert.pem -key key.pem -tls1_3 -ciphersuites TLS_CHACHA20_POLY1305_SHA256 -WWW -quiet >/dev/null 2>&1) &
+    SSRV=$!
+    sleep 1
+    t "https: a file from a server whose certificate is trusted" 'J2K_CA="$W/www/ca.pem" $J -q https://localhost:$SPORT/page.txt -o s.txt && [ "$(cat s.txt)" = "hello jget" ]'
+    t "https: the certificate of an unknown CA is refused and not retried" '! J2K_CA="$W/www/page.txt" $J -q https://localhost:$SPORT/page.txt -o s2.txt 2>"$W/err.txt" && grep -q "not trusted" "$W/err.txt" && [ ! -e s2.txt ]'
+    t "https: the wrong name is refused" '! J2K_CA="$W/www/ca.pem" $J -q https://127.0.0.1:$SPORT/page.txt -o s3.txt 2>"$W/err.txt" && grep -q "not made for the name" "$W/err.txt"'
+    kill $SSRV 2>/dev/null
+else
+    echo "SKIP  https tests (no openssl here)"
+fi
 kill $SRV 2>/dev/null
 cd / ; rm -rf "$W"
 echo "jget: $FAILS failures"

@@ -11,9 +11,10 @@
 //   jget --version | --help
 //
 // A progress bar (percent, size, speed) is drawn on the screen when the error output is a terminal.
-// http:// addresses are fetched by jget itself (it looks the name up with DNS and speaks HTTP/1.1: redirects, chunked answers, big
-// files are written to disk as they arrive). https:// and other addresses are fetched by curl, or by wget when there is no curl:
-// jget has no TLS of its own yet.
+// http:// and https:// addresses are fetched by jget itself (it looks the name up with DNS, speaks TLS 1.3 with the check of the
+// certificate, and HTTP/1.1: redirects, chunked answers; big files are written to disk as they arrive). A server that cannot talk
+// TLS 1.3 with ChaCha20, and the other kinds of address (file://, ftp://), are fetched by curl, or by wget when there is no curl.
+// The trusted roots are those of the system (or the file named in J2K_CA). A certificate that is refused is never retried with curl.
 //
 // Libraries: the index is a text file, a line for each library:  NAME VERSION URL SHA256   (# starts a comment).
 //   URL may be several addresses separated by | (mirrors, tried in order).
@@ -23,7 +24,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.2.0"; }
+String jget_version() { return "0.3.0"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -152,10 +153,15 @@ bool download_external(String address, String to, bool quiet) {
     return put_in_place(target, to);
 }
 
+// a refusal because of the certificate or the proof of the key: curl would not be asked then (the answer is "no")
+bool security_refusal(String why) {
+    return why.contains("certificate") || why.contains("not trusted") || why.contains("did not prove");
+}
+
 // fetch one address; to = "-" writes it to the screen. false (with a message) when it cannot
 bool download_one(String address, String to, bool quiet) {
     String native_err = "";
-    if address.starts_with("http://") {
+    if address.starts_with("http://") || address.starts_with("https://") {
         if to == "-" {
             switch Net::http.try_get(address) {
                 Result::Ok(body): { syscall(64, 1, body.c(), body.len); return true; }
@@ -169,13 +175,13 @@ bool download_one(String address, String to, bool quiet) {
                 Result::Err(e): { native_err = e.message; }
             }
         }
-        // the server answered with an error: curl would get the same answer
-        if native_err.starts_with("HTTP ") {
+        // the server answered with an error (curl would get the same answer), or the certificate was refused
+        if native_err.starts_with("HTTP ") || security_refusal(native_err) {
             err("jget: " + native_err + "\n");
             return false;
         }
     }
-    // https:// and the other addresses, and a failure of the native client that curl or wget may do better
+    // other addresses (file://, ftp://), and a failure of the native client that curl or wget may do better (a server with an older TLS)
     if download_external(address, to, quiet) { return true; }
     if native_err.len > 0 { err("jget: " + native_err + "\n"); }
     return false;
