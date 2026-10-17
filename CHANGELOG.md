@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0
+* **`jget URL | sh` works**: when the output of jget goes to a pipe or a file (not a terminal) and there is no `-o`, the data goes there (like curl); in a terminal it is still saved in a file named after the address. `-O` saves in a file with the name of the address even in a pipe.
+* `jget -li install gfx` installs `canvas` and `screen`; the libraries that come with jcmp (stdlib, math, vector, matrix, cpu) are known: nothing to install; `simd`, `quat`, `complex`, `stats`, `canvas`, `screen` are downloaded.
+* The end of a very short download says `in 0:00 (2.2 MB/s)` and not `0 B/s`.
+
 ## 0.4.3
 * The source uses `Sys::` instead of numbers of system calls (the library of jcmp 0.9.186). Nothing changes for the user. Test servers of `test.sh` no longer stay running.
 

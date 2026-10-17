@@ -29,4 +29,4 @@ curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jget/main/install.sh | s
 
 ## Build
 
-jget is written in J2K and needs the compiler `jcmp` (0.9.186 or newer) with its library: `jcmp jget.jk -o jget`. `./test.sh` builds it and runs the tests (it needs `python3` for a local web server).
+jget is written in J2K and needs the compiler `jcmp` (0.9.187 or newer) with its library: `jcmp jget.jk -o jget`. `./test.sh` builds it and runs the tests (it needs `python3` for a local web server).

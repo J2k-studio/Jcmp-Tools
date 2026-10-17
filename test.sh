@@ -25,7 +25,7 @@ sleep 1
 printf '# index\ntwice 1.0 http://127.0.0.1:%s/nothing_here.j|http://127.0.0.1:%s/twice.j %s\nbad 1.0 http://127.0.0.1:%s/twice.j 0000\n' $PORT $PORT "$H" $PORT > "$W/index.txt"
 cd "$W/out" || exit 1
 t "version" '[ "$($J --version)" = "jget $(cat $HERE/VERSION)" ]'
-t "download: the name of the file is the last part of the address" '$J -q http://127.0.0.1:$PORT/big.bin && cmp -s big.bin ../www/big.bin'
+t "download: -O names the file after the address (the default in a terminal)" '$J -q -O http://127.0.0.1:$PORT/big.bin && cmp -s big.bin ../www/big.bin'
 t "download: -o names the file" '$J -q http://127.0.0.1:$PORT/page.txt -o mine.txt && [ "$(cat mine.txt)" = "hello jget" ]'
 t "download: -o - writes to the screen" '[ "$($J http://127.0.0.1:$PORT/page.txt -o - 2>/dev/null)" = "hello jget" ]'
 t "download: -h URL is the same" '$J -q -h http://127.0.0.1:$PORT/page.txt -o h.txt && [ "$(cat h.txt)" = "hello jget" ]'
@@ -35,8 +35,10 @@ t "download: an ordinary file is not made executable" '$J -q http://127.0.0.1:$P
 t "download: a program (ELF) is made executable by itself" '$J -q http://127.0.0.1:$PORT/prog.bin -o prog.bin && [ -x prog.bin ]'
 t "-sh: downloads a script, runs it with the arguments, leaves nothing" '[ "$($J -sh http://127.0.0.1:$PORT/hello.sh one 2>/dev/null)" = "ran with one" ]'
 t "--install: copies the program and the copy works" '$J --install "$W/inst" >/dev/null && [ "$("$W/inst/jget" --version)" = "jget $(cat $HERE/VERSION)" ]'
+t "pipe: with no -o the data goes to the output (jget URL | sh)" '[ "$($J -q http://127.0.0.1:$PORT/page.txt)" = "hello jget" ] && [ ! -e page.txt ]'
+t "pipe: a script goes to sh and runs" '[ "$($J -q http://127.0.0.1:$PORT/hello.sh | sh -s one)" = "ran with one" ]'
 t "download: no .part file is left" '[ -z "$(ls | grep part)" ]'
-t "download: an error status fails and leaves no file" '! $J -q http://127.0.0.1:$PORT/missing.bin 2>/dev/null && [ ! -e missing.bin ]'
+t "download: an error status fails and leaves no file" '! $J -q -O http://127.0.0.1:$PORT/missing.bin 2>/dev/null && [ ! -e missing.bin ]'
 t "download: file:// goes to curl" '$J -q file://$W/www/page.txt -o f.txt && [ "$(cat f.txt)" = "hello jget" ]'
 t "download: a bad address" '! $J -q nosuch://x/y 2>/dev/null; true'
 export JGET_INDEX="http://127.0.0.1:1/none http://127.0.0.1:$PORT/../index.txt file://$W/index.txt" JGET_LIB="$W/lib"
