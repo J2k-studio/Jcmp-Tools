@@ -1,0 +1,393 @@
+// jget -- download files from the web, and libraries for the J2K language
+//
+//   jget URL                      save the file at URL in the current folder (the name is the last part of the address)
+//   jget URL -o FILE              save it as FILE   (-o - writes it to the screen)
+//   jget -h URL ...               the same (-h = http: the address follows)
+//   jget -q ...                   no progress bar
+//   jget -li list                 the libraries of the index (a * marks the installed ones)
+//   jget -li install NAME         download a library, check its SHA-256 against the index, put it in the library folder
+//   jget -li uninstall NAME       delete an installed library
+//   jget -li installed            the libraries in the library folder
+//   jget --version | --help
+//
+// A progress bar (percent, size, speed) is drawn on the screen when the error output is a terminal.
+// http:// addresses are fetched by jget itself (it looks the name up with DNS and speaks HTTP/1.1: redirects, chunked answers, big
+// files are written to disk as they arrive). https:// and other addresses are fetched by curl, or by wget when there is no curl:
+// jget has no TLS of its own yet.
+//
+// Libraries: the index is a text file, a line for each library:  NAME VERSION URL SHA256   (# starts a comment).
+//   URL may be several addresses separated by | (mirrors, tried in order).
+//   JGET_INDEX  one or more addresses of an index, separated by spaces (mirrors) - default: the index of the project
+//   JGET_LIB    the library folder - default: ~/.j2k/Library, where `#import <name>` looks for libraries
+// A library is one J2K source file NAME.j. Nothing from a library is run when it is installed.
+#import <stdlib>
+using stdlib;
+
+String jget_version() { return "0.2.0"; }
+String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
+
+int g_quiet;                 // -q: no progress bar
+
+// the error output (the language has no cerr yet)
+void err(String m) {
+    syscall(64, 2, m.c(), m.len);
+}
+
+bool is_tty() {
+    char termios[64];
+    return syscall(29, 2, 21505, @termios) == 0;
+}
+
+String lib_dir() {
+    switch Env::get("JGET_LIB") {
+        Option::Some(d): return d;
+        Option::None: { }
+    }
+    switch Env::get("HOME") {
+        Option::Some(h): return h + "/.j2k/Library";
+        Option::None: return "./Library";
+    }
+    return "./Library";
+}
+
+// the addresses of the index, in the order to try
+String[] index_addresses() {
+    String spec = default_index();
+    switch Env::get("JGET_INDEX") {
+        Option::Some(u): { if u.trim().len > 0 { spec = u; } }
+        Option::None: { }
+    }
+    String[] all = spec.split(" ");
+    String[] r = arr(0);
+    for i in 0..all.len {
+        String a = all[i].trim();
+        if a.len > 0 { r.push(a); }
+    }
+    return r;
+}
+
+// a name is letters, digits and _ only: it becomes a file name, so no / and no ..
+bool name_ok(String n) {
+    if n.len == 0 || n.len > 60 { return false; }
+    for i in 0..n.len {
+        int c = n[i];
+        bool good = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+        if !good { return false; }
+    }
+    return true;
+}
+
+// run a program and give its exit code (127: it was not found or could not start)
+int run_prog(String cmd, String[] args) {
+    switch Proc::run(cmd, args) {
+        Result::Ok(code): return code;
+        Result::Err(e): return 127;
+    }
+    return 127;
+}
+
+// the name of the file for an address: the last part of the path, without ? and #; index.html when there is none
+String name_of(String url) {
+    String u = url;
+    int q = u.find("?");
+    if q >= 0 { u = u.slice(0, q); }
+    int h = u.find("#");
+    if h >= 0 { u = u.slice(0, h); }
+    int scheme = u.find("://");
+    if scheme >= 0 { u = u.slice(scheme + 3, u.len); }
+    int slash = u.find("/");
+    if slash < 0 { return "index.html"; }
+    String path = u.slice(slash, u.len);
+    int last = 0;
+    for i in 0..path.len {
+        if path[i] == '/' { last = i + 1; }
+    }
+    String n = path.slice(last, path.len);
+    if n.len == 0 || n == "." || n == ".." { return "index.html"; }
+    return n;
+}
+
+// move a finished file into place (a rename: the file is whole or it is not there)
+bool put_in_place(String part, String to) {
+    int r = syscall(38, -100, part.c(), -100, to.c());
+    if r < 0 {
+        err("jget: cannot write " + to + ": " + Error::reason(r) + "\n");
+        syscall(35, -100, part.c(), 0);
+        return false;
+    }
+    return true;
+}
+
+// curl, or wget when there is no curl; the file is written to to.part and renamed when it is whole. false (with a message) when it cannot
+bool download_external(String address, String to, bool quiet) {
+    bool show = !quiet && is_tty() && to != "-";
+    String target = to + ".part";
+    String[] a = arr(0);
+    a.push("-fL");
+    if show { a.push("--progress-bar"); } else { a.push("-sS"); }
+    if to != "-" {
+        a.push("-o");
+        a.push(target);
+    }
+    a.push(address);
+    int code = run_prog("curl", a);
+    if code == 127 {
+        String[] w = arr(0);
+        if !show { w.push("-q"); }
+        w.push("-O");
+        if to == "-" { w.push("-"); } else { w.push(target); }
+        w.push(address);
+        code = run_prog("wget", w);
+        if code == 127 {
+            err("jget: neither curl nor wget was found; jget can fetch http:// addresses by itself, but not " + address + "\n");
+            return false;
+        }
+    }
+    if code != 0 {
+        if to != "-" { syscall(35, -100, target.c(), 0); }
+        err("jget: cannot fetch " + address + " (exit code " + str(code) + ")\n");
+        return false;
+    }
+    if to == "-" { return true; }
+    return put_in_place(target, to);
+}
+
+// fetch one address; to = "-" writes it to the screen. false (with a message) when it cannot
+bool download_one(String address, String to, bool quiet) {
+    String native_err = "";
+    if address.starts_with("http://") {
+        if to == "-" {
+            switch Net::http.try_get(address) {
+                Result::Ok(body): { syscall(64, 1, body.c(), body.len); return true; }
+                Result::Err(e): { native_err = e.message; }
+            }
+        } else {
+            int show = 1;
+            if quiet { show = 0; }
+            switch Net::http.try_download(address, to, show) {
+                Result::Ok(n): { return true; }
+                Result::Err(e): { native_err = e.message; }
+            }
+        }
+        // the server answered with an error: curl would get the same answer
+        if native_err.starts_with("HTTP ") {
+            err("jget: " + native_err + "\n");
+            return false;
+        }
+    }
+    // https:// and the other addresses, and a failure of the native client that curl or wget may do better
+    if download_external(address, to, quiet) { return true; }
+    if native_err.len > 0 { err("jget: " + native_err + "\n"); }
+    return false;
+}
+
+// spec = one address, or several separated by | (the same file on several servers): the first that works
+bool download(String spec, String to, bool quiet) {
+    String[] list = spec.split("|");
+    for i in 0..list.len {
+        if list[i].trim().len > 0 {
+            if download_one(list[i].trim(), to, quiet) { return true; }
+        }
+    }
+    return false;
+}
+
+bool make_dir(String dir) {
+    switch Dir::make_all(dir) {
+        Result::Ok(x): return true;
+        Result::Err(e): { err("jget: cannot make the folder " + dir + ": " + e.message + "\n"); return false; }
+    }
+    return false;
+}
+
+// the text of the index, from the first address that works
+String fetch_index(String dir) {
+    String[] where = index_addresses();
+    String tmp = dir + "/.index.tmp";
+    for i in 0..where.len {
+        if download_one(where[i], tmp, true) {
+            switch Fs::read_text(tmp) {
+                Result::Ok(t): { Fs::remove(tmp); return t; }
+                Result::Err(e): { err("jget: cannot read the index: " + e.message + "\n"); }
+            }
+        }
+    }
+    err("jget: the index of libraries could not be fetched; set JGET_INDEX to the address (or the path) of an index\n");
+    return "";
+}
+
+// the line of the index for `name`, split in four; an empty list when there is none
+String[] find_entry(String index, String name) {
+    String[] lines = index.split("\n");
+    for i in 0..lines.len {
+        String line = lines[i].trim();
+        if line.len == 0 || line.starts_with("#") { continue; }
+        String[] w = line.split(" ");
+        if w.len >= 4 && w[0] == name { return w; }
+    }
+    String[] none = arr(0);
+    return none;
+}
+
+// the libraries that come with the compiler: #import <name> needs no install
+bool builtin_name(String n) {
+    String[] b = "stdlib core number text files system time data crypto net math gfx cpu simd vector matrix quat complex stats canvas screen".split(" ");
+    for i in 0..b.len {
+        if b[i] == n { return true; }
+    }
+    return false;
+}
+
+int cmd_install(String name) {
+    if builtin_name(name) {
+        cout << name << " is part of the standard library (installed with the compiler): write  #import <" << name << ">  in your program; nothing to install" << nl;
+        return 0;
+    }
+    if !name_ok(name) {
+        err("jget: '" + name + "' is not a library name (letters, digits and _ only)\n");
+        return 1;
+    }
+    String dir = lib_dir();
+    if !make_dir(dir) { return 1; }
+    String index = fetch_index(dir);
+    if index.len == 0 { return 1; }
+    String[] e = find_entry(index, name);
+    if e.len < 4 {
+        err("jget: the index has no library named '" + name + "' (try: jget -li list)\n");
+        return 1;
+    }
+    String tmp = dir + "/." + name + ".tmp";
+    if !download(e[2], tmp, g_quiet == 1) { return 1; }
+    switch Sha256::file(tmp) {
+        Result::Ok(h): {
+            if h != e[3] {
+                Fs::remove(tmp);
+                err("jget: the checksum of " + name + " does not match the index, nothing was installed\n");
+                err("  index: " + e[3] + "\n");
+                err("  file : " + h + "\n");
+                return 1;
+            }
+        }
+        Result::Err(er): {
+            err("jget: cannot check the file: " + er.message + "\n");
+            return 1;
+        }
+    }
+    String target = dir + "/" + name + ".j";
+    switch Fs::rename(tmp, target) {
+        Result::Ok(x): { cout << "installed " << name << " " << e[1] << " in " << target << nl; return 0; }
+        Result::Err(er): { err("jget: cannot install: " + er.message + "\n"); return 1; }
+    }
+    return 1;
+}
+
+int cmd_remove(String name) {
+    if !name_ok(name) {
+        err("jget: '" + name + "' is not a library name\n");
+        return 1;
+    }
+    String target = lib_dir() + "/" + name + ".j";
+    if !Fs::exists(target) {
+        err("jget: " + name + " is not installed\n");
+        return 1;
+    }
+    switch Fs::remove(target) {
+        Result::Ok(x): { cout << "removed " << name << nl; return 0; }
+        Result::Err(er): { err("jget: cannot remove: " + er.message + "\n"); return 1; }
+    }
+    return 1;
+}
+
+int cmd_list() {
+    String dir = lib_dir();
+    if !make_dir(dir) { return 1; }
+    String index = fetch_index(dir);
+    if index.len == 0 { return 1; }
+    String[] lines = index.split("\n");
+    for i in 0..lines.len {
+        String line = lines[i].trim();
+        if line.len == 0 || line.starts_with("#") { continue; }
+        String[] w = line.split(" ");
+        if w.len < 4 { continue; }
+        String mark = " ";
+        if Fs::exists(dir + "/" + w[0] + ".j") { mark = "*"; }
+        cout << mark << " " << w[0] << " " << w[1] << nl;
+    }
+    return 0;
+}
+
+int cmd_installed() {
+    String dir = lib_dir();
+    switch Dir::list(dir) {
+        Result::Ok(names): {
+            for i in 0..names.len {
+                if names[i].ends_with(".j") && !names[i].starts_with(".") {
+                    cout << names[i].slice(0, names[i].len - 2) << nl;
+                }
+            }
+            return 0;
+        }
+        Result::Err(er): { cout << "(no libraries installed)" << nl; return 0; }
+    }
+    return 0;
+}
+
+int usage() {
+    err("usage: jget URL [-o FILE]               download a file (-o - : to the screen)\n");
+    err("       jget -q URL                      without the progress bar\n");
+    err("       jget -li list | installed        libraries (the index / the installed ones)\n");
+    err("       jget -li install NAME            install a library\n");
+    err("       jget -li uninstall NAME          remove a library\n");
+    err("       jget --version\n");
+    return 1;
+}
+
+bool is_address(String s) {
+    return s.starts_with("http://") || s.starts_with("https://") || s.starts_with("ftp://") || s.starts_with("file://");
+}
+
+// jget URL [-o FILE]  (-h before the address is allowed: it only says that an address follows)
+int cmd_fetch(String[] av, int at) {
+    String url = "";
+    String to = "";
+    int i = at;
+    while i < av.len {
+        if av[i] == "-h" { i += 1; }
+        else if av[i] == "-o" && av.len > i + 1 { to = av[i + 1]; i += 2; }
+        else if url.len == 0 { url = av[i]; i += 1; }
+        else { return usage(); }
+    }
+    if url.len == 0 { return usage(); }
+    if to.len == 0 { to = name_of(url); }
+    if download(url, to, g_quiet == 1) { return 0; }
+    return 1;
+}
+
+int cmd_library(String[] av, int at) {
+    if av.len <= at { return usage(); }
+    String cmd = av[at];
+    if cmd == "list" { return cmd_list(); }
+    if cmd == "installed" { return cmd_installed(); }
+    if cmd == "install" || cmd == "remove" || cmd == "uninstall" {
+        if av.len <= at + 1 { return usage(); }
+        String name = av[at + 1];
+        if cmd == "install" { return cmd_install(name); }
+        return cmd_remove(name);
+    }
+    return usage();
+}
+
+int main() {
+    String[] all = Env::args();
+    String[] av = arr(0);
+    for i in 0..all.len {
+        if i > 0 && all[i] == "-q" { g_quiet = 1; } else { av.push(all[i]); }
+    }
+    if av.len < 2 { return usage(); }
+    String first = av[1];
+    if first == "--version" || first == "-V" { cout << "jget " << jget_version() << nl; return 0; }
+    if first == "--help" { usage(); return 0; }
+    if first == "-li" { return cmd_library(av, 2); }
+    if first == "-h" || is_address(first) { return cmd_fetch(av, 1); }
+    return cmd_library(av, 1);
+}
