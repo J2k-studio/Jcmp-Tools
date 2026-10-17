@@ -12,7 +12,7 @@
 //   jget -q ...                   no progress bar
 //   jget -li list                 the libraries of the index (a * marks the installed ones)
 //   jget -li install NAME         download a library, check its SHA-256 against the index, put it in the library folder
-//   jget -li uninstall NAME       delete an installed library
+//   jget -li unstall NAME         delete an installed library (remove and uninstall work too)
 //   jget -li installed            the libraries in the library folder
 //   jget --version | --help
 //
@@ -30,7 +30,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.5.0"; }
+String jget_version() { return "0.5.1"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -360,7 +360,7 @@ int usage() {
     err("       jget --install [DIR] | --update  install this program / replace it by the latest release\n");
     err("       jget -li list | installed        libraries (the index / the installed ones)\n");
     err("       jget -li install NAME            install a library\n");
-    err("       jget -li uninstall NAME          remove a library\n");
+    err("       jget -li unstall NAME            remove a library\n");
     err("       jget --version\n");
     return 1;
 }
@@ -553,7 +553,7 @@ int cmd_library(String[] av, int at) {
     String cmd = av[at];
     if cmd == "list" { return cmd_list(); }
     if cmd == "installed" { return cmd_installed(); }
-    if cmd == "install" || cmd == "remove" || cmd == "uninstall" {
+    if cmd == "install" || cmd == "remove" || cmd == "unstall" || cmd == "uninstall" {
         if av.len <= at + 1 { return usage(); }
         String name = av[at + 1];
         if cmd == "install" { return cmd_install(name); }

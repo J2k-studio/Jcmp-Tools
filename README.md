@@ -10,7 +10,7 @@ jget -x URL                                   make any file executable (scripts 
 jget -sh URL [args]                           download a script and run it at once
 jget --install [DIR]  /  jget --update        put this program in your commands folder / replace it by the latest release
 jget -li list                                 the libraries of the index
-jget -li install NAME / uninstall NAME        install / remove a library (a library is one J2K source file)
+jget -li install NAME / unstall NAME          install / remove a library (a library is one J2K source file)
 ```
 
 * A progress bar (percent, size, speed) is drawn when the error output is a terminal. A file is written as it arrives (any size, any bytes) and renamed when it is whole.

@@ -51,7 +51,7 @@ t "libraries: the standard ones need no install" '$J -li install cpu 2>&1 | grep
 t "libraries: installed lists the folder" '$J -li installed | grep -q twice'
 printf '#import <twice>\nvoid main(){ cout << twice(21) << nl; }\n' > "$W/use.jk"
 t "libraries: the installed library can be imported" 'J2K_PATH="$W/lib" $JCMP "$W/use.jk" -o "$W/use" >/dev/null 2>&1 && [ "$($W/use)" = "42" ]'
-t "libraries: uninstall" '$J -li uninstall twice >/dev/null 2>&1 && [ ! -f "$W/lib/twice.j" ]'
+t "libraries: unstall (uninstall and remove also work)" '$J -li unstall twice >/dev/null 2>&1 && [ ! -f "$W/lib/twice.j" ]'
 unset JGET_INDEX JGET_LIB
 if command -v openssl >/dev/null 2>&1; then
     # https against a server of our own: a CA made here, a certificate for localhost
