@@ -140,7 +140,7 @@ bool download_external(String address, String to, bool quiet) {
         w.push(address);
         code = run_prog("wget", w);
         if code == 127 {
-            err("jget: neither curl nor wget was found; jget can fetch http:// addresses by itself, but not " + address + "\n");
+            err("jget: neither curl nor wget was found; jget fetches http:// and https:// addresses by itself, but this one failed and the other kinds of address need curl or wget: " + address + "\n");
             return false;
         }
     }
