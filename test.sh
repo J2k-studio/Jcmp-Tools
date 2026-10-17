@@ -19,7 +19,7 @@ printf '\177ELFxxxx' > "$W/www/prog.bin"
 printf 'int twice(int x) { return x * 2; }\n' > "$W/www/twice.j"
 H=$(sha256sum "$W/www/twice.j" | cut -d' ' -f1)
 PORT=$((20000 + $$ % 20000))
-(cd "$W/www" && python3 -m http.server $PORT --bind 127.0.0.1 >/dev/null 2>&1) &
+(cd "$W/www" && exec python3 -m http.server $PORT --bind 127.0.0.1 >/dev/null 2>&1) &
 SRV=$!
 sleep 1
 printf '# index\ntwice 1.0 http://127.0.0.1:%s/nothing_here.j|http://127.0.0.1:%s/twice.j %s\nbad 1.0 http://127.0.0.1:%s/twice.j 0000\n' $PORT $PORT "$H" $PORT > "$W/index.txt"
@@ -58,7 +58,7 @@ if command -v openssl >/dev/null 2>&1; then
      printf 'subjectAltName=DNS:localhost\nbasicConstraints=CA:FALSE\n' > leaf.ext &&
      openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out cert.pem -days 2 -sha256 -extfile leaf.ext >/dev/null 2>&1)
     SPORT=$((PORT + 1))
-    (cd "$W/www" && openssl s_server -accept $SPORT -cert cert.pem -key key.pem -tls1_3 -ciphersuites TLS_CHACHA20_POLY1305_SHA256 -WWW -quiet >/dev/null 2>&1) &
+    (cd "$W/www" && exec openssl s_server -accept $SPORT -cert cert.pem -key key.pem -tls1_3 -ciphersuites TLS_CHACHA20_POLY1305_SHA256 -WWW -quiet >/dev/null 2>&1) &
     SSRV=$!
     sleep 1
     t "https: a file from a server whose certificate is trusted" 'J2K_CA="$W/www/ca.pem" $J -q https://localhost:$SPORT/page.txt -o s.txt && [ "$(cat s.txt)" = "hello jget" ]'

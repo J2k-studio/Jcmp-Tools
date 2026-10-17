@@ -28,7 +28,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.4.2"; }
+String jget_version() { return "0.4.3"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -36,12 +36,11 @@ int g_exec;                  // -x: make the downloaded file executable
 
 // the error output (the language has no cerr yet)
 void err(String m) {
-    syscall(64, 2, m.c(), m.len);
+    Sys::write(2, m.c(), m.len);
 }
 
 bool is_tty() {
-    char termios[64];
-    return syscall(29, 2, 21505, @termios) == 0;
+    return Sys::isatty(2) == 0;
 }
 
 String lib_dir() {
@@ -115,10 +114,10 @@ String name_of(String url) {
 
 // move a finished file into place (a rename: the file is whole or it is not there)
 bool put_in_place(String part, String to) {
-    int r = syscall(38, -100, part.c(), -100, to.c());
+    int r = Sys::rename(part.c(), to.c());
     if r < 0 {
         err("jget: cannot write " + to + ": " + Error::reason(r) + "\n");
-        syscall(35, -100, part.c(), 0);
+        Sys::unlink(part.c());
         return false;
     }
     return true;
@@ -150,7 +149,7 @@ bool download_external(String address, String to, bool quiet) {
         }
     }
     if code != 0 {
-        if to != "-" { syscall(35, -100, target.c(), 0); }
+        if to != "-" { Sys::unlink(target.c()); }
         err("jget: cannot fetch " + address + " (exit code " + str(code) + ")\n");
         return false;
     }
@@ -169,7 +168,7 @@ bool download_one(String address, String to, bool quiet) {
     if address.starts_with("http://") || address.starts_with("https://") {
         if to == "-" {
             switch Net::http.try_get(address) {
-                Result::Ok(body): { syscall(64, 1, body.c(), body.len); return true; }
+                Result::Ok(body): { Sys::write(1, body.c(), body.len); return true; }
                 Result::Err(e): { native_err = e.message; }
             }
         } else {
@@ -362,11 +361,11 @@ bool is_address(String s) {
 
 // does the file start with #! (a script) or with the mark of a program (ELF)?
 bool is_program(String path) {
-    int fd = syscall(56, -100, path.c(), 0, 0);
+    int fd = Sys::open_read(path.c());
     if fd < 0 { return false; }
     char four[8];
-    int n = syscall(63, fd, @four, 4);
-    syscall(57, fd);
+    int n = Sys::read(fd, @four, 4);
+    Sys::close(fd);
     if n >= 2 && four[0] == '#' && four[1] == '!' { return true; }
     return n == 4 && four[0] == 127 && four[1] == 'E' && four[2] == 'L' && four[3] == 'F';
 }
@@ -376,7 +375,7 @@ bool is_program(String path) {
 void after_download(String to) {
     if to == "-" { return; }
     int st[18];
-    if syscall(79, -100, to.c(), @st, 0) != 0 { return; }
+    if Sys::stat(to.c(), @st) != 0 { return; }
     int mode = st[2] & 0xFFFFFFFF;
     if g_exec != 1 {
         if (mode & 73) != 0 { return; }                   // already executable (0111): not touched
@@ -384,7 +383,7 @@ void after_download(String to) {
     }
     int fresh = (mode & 4095) | ((mode & 292) >> 2);       // x where r is (0444 -> 0111)
     if g_exec == 1 { fresh = (mode & 4095) | 73 | ((mode & 292) >> 2); }
-    int r = syscall(53, -100, to.c(), fresh, 0);
+    int r = Sys::chmod(to.c(), fresh);
     if r < 0 { err("jget: cannot make " + to + " executable: " + Error::reason(r) + "\n"); }
 }
 
@@ -414,8 +413,8 @@ int cmd_run_script(String[] av, int at) {
     String url = av[at];
     String tmp = "/data/local/tmp/.jget_script";
     switch Env::get("TMPDIR") {
-        Option::Some(t): { tmp = t + "/.jget_script." + str(syscall(172)); }
-        Option::None: { tmp = "/tmp/.jget_script." + str(syscall(172)); }
+        Option::Some(t): { tmp = t + "/.jget_script." + str(Sys::getpid()); }
+        Option::None: { tmp = "/tmp/.jget_script." + str(Sys::getpid()); }
     }
     if !download(url, tmp, true) { return 1; }
     String[] args = arr(0);
@@ -429,7 +428,7 @@ int cmd_run_script(String[] av, int at) {
 // the path of this program
 String self_path() {
     char buf[300];
-    int n = syscall(78, -100, "/proc/self/exe", @buf, 290);
+    int n = Sys::readlink("/proc/self/exe", @buf, 290);
     String r = "";
     if n <= 0 { return r; }
     for i in 0..n { r.push(buf[i]); }
@@ -450,37 +449,37 @@ String default_bin_dir() {
 
 // copy the file `from` to `to` (to.new first, then renamed), with the permissions of an executable; any bytes
 bool install_file(String from, String to) {
-    int in = syscall(56, -100, from.c(), 0, 0);
+    int in = Sys::open_read(from.c());
     if in < 0 { err("jget: cannot read " + from + ": " + Error::reason(in) + "\n"); return false; }
     String tmp = to + ".new";
-    int out = syscall(56, -100, tmp.c(), 577, 493);
+    int out = Sys::open(tmp.c(), 577, 493);
     if out < 0 {
-        syscall(57, in);
+        Sys::close(in);
         err("jget: cannot write " + tmp + ": " + Error::reason(out) + "\n");
         return false;
     }
     char buf[8192];
     bool ok = true;
     while true {
-        int n = syscall(63, in, @buf, 8192);
+        int n = Sys::read(in, @buf, 8192);
         if n < 0 { ok = false; break; }
         if n == 0 { break; }
         int off = 0;
         while off < n {
-            int w = syscall(64, out, @buf + off, n - off);
+            int w = Sys::write(out, @buf + off, n - off);
             if w <= 0 { ok = false; break; }
             off += w;
         }
         if !ok { break; }
     }
-    syscall(57, in);
-    syscall(57, out);
+    Sys::close(in);
+    Sys::close(out);
     if !ok {
-        syscall(35, -100, tmp.c(), 0);
+        Sys::unlink(tmp.c());
         err("jget: cannot copy " + from + "\n");
         return false;
     }
-    syscall(53, -100, tmp.c(), 493, 0);
+    Sys::chmod(tmp.c(), 493);
     return put_in_place(tmp, to);
 }
 
@@ -527,7 +526,7 @@ int cmd_update_self() {
         err("jget: the checksum of the new program does not match, nothing was changed\n");
         return 1;
     }
-    syscall(53, -100, tmp.c(), 493, 0);
+    Sys::chmod(tmp.c(), 493);
     if !put_in_place(tmp, me) { return 1; }
     cout << "jget is updated" << nl;
     return 0;

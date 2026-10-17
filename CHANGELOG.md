@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.3
+* The source uses `Sys::` instead of numbers of system calls (the library of jcmp 0.9.186). Nothing changes for the user. Test servers of `test.sh` no longer stay running.
+
 ## 0.4.2
 * **A better progress line**: `[#########>         ]  50%  13.1 MB / 25.9 MB  844.9 KB/s  ETA 0:15`; the speed is that of the last second, the bar fits the width of the terminal; when the size is not known a block goes to and fro with the size, the speed and the time; at the end `[##########] 100%  25.9 MB in 0:31  (840.1 KB/s)`. (From the library of jcmp 0.9.185.)
 * The repository is now called **Jget** (the old address still works); the program is still `jget`.
