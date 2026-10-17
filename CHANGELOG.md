@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+* Easier to use after a download: `-x` makes the file executable; a downloaded script that is not executable gets a hint (`sh NAME`); `jget -sh URL [args]` downloads a script, runs it at once and deletes it (what `curl URL | sh` does).
+* `jget --install [DIR]` copies the program into the folder of commands (`$PREFIX/bin` on Termux, else `~/.local/bin`); `jget --update` replaces it by the latest release after checking the SHA-256.
+
 ## 0.3.1
 * TLS also speaks AES-128-GCM (from the library of jcmp 0.9.184): more servers are reached. Needs jcmp 0.9.184 to build.
 

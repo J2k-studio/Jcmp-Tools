@@ -3,6 +3,10 @@
 //   jget URL                      save the file at URL in the current folder (the name is the last part of the address)
 //   jget URL -o FILE              save it as FILE   (-o - writes it to the screen)
 //   jget -h URL ...               the same (-h = http: the address follows)
+//   jget -x URL                   also make the file executable (chmod +x)
+//   jget -sh URL [args]           download a shell script and run it at once (what  curl URL | sh  does), then delete it
+//   jget --install [DIR]          copy this program into DIR (default: $PREFIX/bin on Termux, else ~/.local/bin)
+//   jget --update                 replace this program by the latest release
 //   jget -q ...                   no progress bar
 //   jget -li list                 the libraries of the index (a * marks the installed ones)
 //   jget -li install NAME         download a library, check its SHA-256 against the index, put it in the library folder
@@ -24,10 +28,11 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.3.1"; }
+String jget_version() { return "0.4.0"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
+int g_exec;                  // -x: make the downloaded file executable
 
 // the error output (the language has no cerr yet)
 void err(String m) {
@@ -340,7 +345,10 @@ int cmd_installed() {
 
 int usage() {
     err("usage: jget URL [-o FILE]               download a file (-o - : to the screen)\n");
+    err("       jget -x URL                      and make the file executable\n");
+    err("       jget -sh URL [args]              download a script and run it at once\n");
     err("       jget -q URL                      without the progress bar\n");
+    err("       jget --install [DIR] | --update  install this program / replace it by the latest release\n");
     err("       jget -li list | installed        libraries (the index / the installed ones)\n");
     err("       jget -li install NAME            install a library\n");
     err("       jget -li uninstall NAME          remove a library\n");
@@ -351,6 +359,31 @@ int usage() {
 bool is_address(String s) {
     return s.starts_with("http://") || s.starts_with("https://") || s.starts_with("ftp://") || s.starts_with("file://");
 }
+
+// does the file start with #! (a script) ?
+bool is_script(String path) {
+    int fd = syscall(56, -100, path.c(), 0, 0);
+    if fd < 0 { return false; }
+    char two[4];
+    int n = syscall(63, fd, @two, 2);
+    syscall(57, fd);
+    return n == 2 && two[0] == '#' && two[1] == '!';
+}
+
+// after a download: -x makes the file executable; a script that is not executable gets a hint
+void after_download(String to) {
+    if to == "-" { return; }
+    if g_exec == 1 {
+        int r = syscall(53, -100, to.c(), 493, 0);
+        if r < 0 { err("jget: cannot make " + to + " executable: " + Error::reason(r) + "\n"); }
+        return;
+    }
+    if is_script(to) && !g_quiet_hint() {
+        err("jget: " + to + " is a script: run it with  sh " + to + "  (or  jget -x  makes a file executable, jget -sh URL downloads and runs a script)\n");
+    }
+}
+
+bool g_quiet_hint() { return g_quiet == 1; }
 
 // jget URL [-o FILE]  (-h before the address is allowed: it only says that an address follows)
 int cmd_fetch(String[] av, int at) {
@@ -365,8 +398,136 @@ int cmd_fetch(String[] av, int at) {
     }
     if url.len == 0 { return usage(); }
     if to.len == 0 { to = name_of(url); }
-    if download(url, to, g_quiet == 1) { return 0; }
+    if download(url, to, g_quiet == 1) {
+        after_download(to);
+        return 0;
+    }
     return 1;
+}
+
+// jget -sh URL [args]: download a script, run it with sh, delete it
+int cmd_run_script(String[] av, int at) {
+    if av.len <= at { return usage(); }
+    String url = av[at];
+    String tmp = "/data/local/tmp/.jget_script";
+    switch Env::get("TMPDIR") {
+        Option::Some(t): { tmp = t + "/.jget_script." + str(syscall(172)); }
+        Option::None: { tmp = "/tmp/.jget_script." + str(syscall(172)); }
+    }
+    if !download(url, tmp, true) { return 1; }
+    String[] args = arr(0);
+    args.push(tmp);
+    for i in at + 1..av.len { args.push(av[i]); }
+    int code = run_prog("sh", args);
+    Fs::remove(tmp);
+    return code;
+}
+
+// the path of this program
+String self_path() {
+    char buf[300];
+    int n = syscall(78, -100, "/proc/self/exe", @buf, 290);
+    String r = "";
+    if n <= 0 { return r; }
+    for i in 0..n { r.push(buf[i]); }
+    return r;
+}
+
+String default_bin_dir() {
+    switch Env::get("PREFIX") {
+        Option::Some(p): { if p.len > 0 { return p + "/bin"; } }
+        Option::None: { }
+    }
+    switch Env::get("HOME") {
+        Option::Some(h): return h + "/.local/bin";
+        Option::None: return "./bin";
+    }
+    return "./bin";
+}
+
+// copy the file `from` to `to` (to.new first, then renamed), with the permissions of an executable; any bytes
+bool install_file(String from, String to) {
+    int in = syscall(56, -100, from.c(), 0, 0);
+    if in < 0 { err("jget: cannot read " + from + ": " + Error::reason(in) + "\n"); return false; }
+    String tmp = to + ".new";
+    int out = syscall(56, -100, tmp.c(), 577, 493);
+    if out < 0 {
+        syscall(57, in);
+        err("jget: cannot write " + tmp + ": " + Error::reason(out) + "\n");
+        return false;
+    }
+    char buf[8192];
+    bool ok = true;
+    while true {
+        int n = syscall(63, in, @buf, 8192);
+        if n < 0 { ok = false; break; }
+        if n == 0 { break; }
+        int off = 0;
+        while off < n {
+            int w = syscall(64, out, @buf + off, n - off);
+            if w <= 0 { ok = false; break; }
+            off += w;
+        }
+        if !ok { break; }
+    }
+    syscall(57, in);
+    syscall(57, out);
+    if !ok {
+        syscall(35, -100, tmp.c(), 0);
+        err("jget: cannot copy " + from + "\n");
+        return false;
+    }
+    syscall(53, -100, tmp.c(), 493, 0);
+    return put_in_place(tmp, to);
+}
+
+// jget --install [DIR]
+int cmd_install_self(String[] av, int at) {
+    String dir = default_bin_dir();
+    if av.len > at { dir = av[at]; }
+    if !make_dir(dir) { return 1; }
+    String me = self_path();
+    if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
+    if !install_file(me, dir + "/jget") { return 1; }
+    cout << "installed jget in " << dir << "/jget" << nl;
+    return 0;
+}
+
+// jget --update: the latest release replaces this program (checked with its SHA-256)
+int cmd_update_self() {
+    String me = self_path();
+    if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
+    String base = "https://github.com/J2k-studio/jget/releases/latest/download";
+    String tmp = me + ".new";
+    String sums = me + ".sums";
+    if !download(base + "/SHA256SUMS", sums, true) { return 1; }
+    if !download(base + "/jget", tmp, g_quiet == 1) { Fs::remove(sums); return 1; }
+    String want = "";
+    switch Fs::read_text(sums) {
+        Result::Ok(t): {
+            String[] lines = t.split("\n");
+            for i in 0..lines.len {
+                String[] w = lines[i].trim().split(" ");
+                if w.len >= 2 && w[w.len - 1] == "jget" { want = w[0]; }
+            }
+        }
+        Result::Err(e): { }
+    }
+    Fs::remove(sums);
+    String have = "";
+    switch Sha256::file(tmp) {
+        Result::Ok(h): { have = h; }
+        Result::Err(e): { }
+    }
+    if want.len == 0 || want != have {
+        Fs::remove(tmp);
+        err("jget: the checksum of the new program does not match, nothing was changed\n");
+        return 1;
+    }
+    syscall(53, -100, tmp.c(), 493, 0);
+    if !put_in_place(tmp, me) { return 1; }
+    cout << "jget is updated" << nl;
+    return 0;
 }
 
 int cmd_library(String[] av, int at) {
@@ -387,13 +548,18 @@ int main() {
     String[] all = Env::args();
     String[] av = arr(0);
     for i in 0..all.len {
-        if i > 0 && all[i] == "-q" { g_quiet = 1; } else { av.push(all[i]); }
+        if i > 0 && all[i] == "-q" { g_quiet = 1; }
+        else if i > 0 && all[i] == "-x" { g_exec = 1; }
+        else { av.push(all[i]); }
     }
     if av.len < 2 { return usage(); }
     String first = av[1];
     if first == "--version" || first == "-V" { cout << "jget " << jget_version() << nl; return 0; }
     if first == "--help" { usage(); return 0; }
     if first == "-li" { return cmd_library(av, 2); }
+    if first == "-sh" { return cmd_run_script(av, 2); }
+    if first == "--install" { return cmd_install_self(av, 2); }
+    if first == "--update" { return cmd_update_self(); }
     if first == "-h" || is_address(first) { return cmd_fetch(av, 1); }
     return cmd_library(av, 1);
 }

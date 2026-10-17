@@ -6,6 +6,9 @@ Download files from the web, and libraries for the [J2K language](https://github
 jget https://example.com/file.tar.gz          save it here, named file.tar.gz
 jget URL -o other.name                        save it with another name   (-o - : write it to the screen)
 jget -q URL                                   no progress bar
+jget -x URL                                   and make the file executable
+jget -sh URL [args]                           download a script and run it at once
+jget --install [DIR]  /  jget --update        put this program in your commands folder / replace it by the latest release
 jget -li list                                 the libraries of the index
 jget -li install NAME / uninstall NAME        install / remove a library (a library is one J2K source file)
 ```
