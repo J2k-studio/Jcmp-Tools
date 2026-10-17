@@ -1,11 +1,11 @@
 #!/bin/sh
-# install.sh -- download jget from the latest release of github.com/J2k-studio/jget, check its SHA-256 and put it in a folder.
-#   curl -fsSL https://raw.githubusercontent.com/J2k-studio/jget/main/install.sh | sh
+# install.sh -- download jget from the latest release of github.com/J2k-studio/Jget, check its SHA-256 and put it in a folder.
+#   curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jget/main/install.sh | sh
 # Options (after `sh -s --` when the script comes through a pipe):  --dir DIR   the folder (default: $PREFIX/bin on Termux, else ~/.local/bin)
 #                                                                   --version X.Y.Z   a specific release
 # Environment: JGET_BASE=URL to download from another place (a mirror, or file:///folder).
 set -eu
-REPO="J2k-studio/jget"
+REPO="J2k-studio/Jget"
 BINDIR=""
 VERSION=""
 while [ $# -gt 0 ]; do

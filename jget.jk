@@ -28,7 +28,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.4.1"; }
+String jget_version() { return "0.4.2"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -500,7 +500,7 @@ int cmd_install_self(String[] av, int at) {
 int cmd_update_self() {
     String me = self_path();
     if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
-    String base = "https://github.com/J2k-studio/jget/releases/latest/download";
+    String base = "https://github.com/J2k-studio/Jget/releases/latest/download";
     String tmp = me + ".new";
     String sums = me + ".sums";
     if !download(base + "/SHA256SUMS", sums, true) { return 1; }

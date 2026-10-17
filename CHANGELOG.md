@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+* **A better progress line**: `[#########>         ]  50%  13.1 MB / 25.9 MB  844.9 KB/s  ETA 0:15`; the speed is that of the last second, the bar fits the width of the terminal; when the size is not known a block goes to and fro with the size, the speed and the time; at the end `[##########] 100%  25.9 MB in 0:31  (840.1 KB/s)`. (From the library of jcmp 0.9.185.)
+* The repository is now called **Jget** (the old address still works); the program is still `jget`.
+
 ## 0.4.1
 * A downloaded **script (#!) or program (ELF) is made executable by itself**; one that already is executable is left alone; an ordinary file is not touched. `-x` still does it for any file. (No hint about scripts any more.)
 

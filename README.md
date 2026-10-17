@@ -1,4 +1,4 @@
-# jget
+# Jget
 
 Download files from the web, and libraries for the [J2K language](https://github.com/J2k-studio/Jcmp). A small program written in J2K.
 
@@ -22,11 +22,11 @@ jget -li install NAME / uninstall NAME        install / remove a library (a libr
 ## Install
 
 ```
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/jget/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jget/main/install.sh | sh
 ```
 
 (Linux ARM64, for example Termux; the program is one file.) `jget --version` shows the version.
 
 ## Build
 
-jget is written in J2K and needs the compiler `jcmp` (0.9.184 or newer) with its library: `jcmp jget.jk -o jget`. `./test.sh` builds it and runs the tests (it needs `python3` for a local web server).
+jget is written in J2K and needs the compiler `jcmp` (0.9.185 or newer) with its library: `jcmp jget.jk -o jget`. `./test.sh` builds it and runs the tests (it needs `python3` for a local web server).
