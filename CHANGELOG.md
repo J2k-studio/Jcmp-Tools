@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.1
+* TLS also speaks AES-128-GCM (from the library of jcmp 0.9.184): more servers are reached. Needs jcmp 0.9.184 to build.
+
 ## 0.3.0
 * **https:// is fetched by jget itself**: TLS 1.3 written in J2K (from the library of jcmp 0.9.183), with the check of the certificate chain, the name, the dates and the trusted roots (the system's, or the file in `J2K_CA`). No curl or wget is needed for http:// and https://.
 * A certificate that is refused (not trusted, wrong name, expired, bad proof of the key) is reported and **not** retried with curl; a server that only knows older protocols is still fetched by curl or wget.

@@ -24,7 +24,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.3.0"; }
+String jget_version() { return "0.3.1"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
