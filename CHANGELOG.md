@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.1
+* A downloaded **script (#!) or program (ELF) is made executable by itself**; one that already is executable is left alone; an ordinary file is not touched. `-x` still does it for any file. (No hint about scripts any more.)
+
 ## 0.4.0
 * Easier to use after a download: `-x` makes the file executable; a downloaded script that is not executable gets a hint (`sh NAME`); `jget -sh URL [args]` downloads a script, runs it at once and deletes it (what `curl URL | sh` does).
 * `jget --install [DIR]` copies the program into the folder of commands (`$PREFIX/bin` on Termux, else `~/.local/bin`); `jget --update` replaces it by the latest release after checking the SHA-256.

@@ -15,6 +15,7 @@ J="$W/jget"
 head -c 300000 /dev/urandom > "$W/www/big.bin"
 printf 'hello jget\n' > "$W/www/page.txt"
 printf '#!/bin/sh\necho "ran with $1"\n' > "$W/www/hello.sh"
+printf '\177ELFxxxx' > "$W/www/prog.bin"
 printf 'int twice(int x) { return x * 2; }\n' > "$W/www/twice.j"
 H=$(sha256sum "$W/www/twice.j" | cut -d' ' -f1)
 PORT=$((20000 + $$ % 20000))
@@ -29,7 +30,9 @@ t "download: -o names the file" '$J -q http://127.0.0.1:$PORT/page.txt -o mine.t
 t "download: -o - writes to the screen" '[ "$($J http://127.0.0.1:$PORT/page.txt -o - 2>/dev/null)" = "hello jget" ]'
 t "download: -h URL is the same" '$J -q -h http://127.0.0.1:$PORT/page.txt -o h.txt && [ "$(cat h.txt)" = "hello jget" ]'
 t "download: -x makes the file executable" '$J -q -x http://127.0.0.1:$PORT/hello.sh -o x.sh && [ -x x.sh ] && [ "$(./x.sh a)" = "ran with a" ]'
-t "download: a script that is not executable gets a hint" '$J http://127.0.0.1:$PORT/hello.sh -o y.sh 2>&1 | grep -q "is a script" && [ ! -x y.sh ]'
+t "download: a script is made executable by itself" '$J -q http://127.0.0.1:$PORT/hello.sh -o y.sh && [ -x y.sh ] && [ "$(./y.sh b)" = "ran with b" ]'
+t "download: an ordinary file is not made executable" '$J -q http://127.0.0.1:$PORT/page.txt -o plain.txt && [ ! -x plain.txt ]'
+t "download: a program (ELF) is made executable by itself" '$J -q http://127.0.0.1:$PORT/prog.bin -o prog.bin && [ -x prog.bin ]'
 t "-sh: downloads a script, runs it with the arguments, leaves nothing" '[ "$($J -sh http://127.0.0.1:$PORT/hello.sh one 2>/dev/null)" = "ran with one" ]'
 t "--install: copies the program and the copy works" '$J --install "$W/inst" >/dev/null && [ "$("$W/inst/jget" --version)" = "jget $(cat $HERE/VERSION)" ]'
 t "download: no .part file is left" '[ -z "$(ls | grep part)" ]'

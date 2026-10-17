@@ -3,7 +3,7 @@
 //   jget URL                      save the file at URL in the current folder (the name is the last part of the address)
 //   jget URL -o FILE              save it as FILE   (-o - writes it to the screen)
 //   jget -h URL ...               the same (-h = http: the address follows)
-//   jget -x URL                   also make the file executable (chmod +x)
+//   (a downloaded script or program is made executable by itself, unless it already is; -x does it for any file)
 //   jget -sh URL [args]           download a shell script and run it at once (what  curl URL | sh  does), then delete it
 //   jget --install [DIR]          copy this program into DIR (default: $PREFIX/bin on Termux, else ~/.local/bin)
 //   jget --update                 replace this program by the latest release
@@ -28,7 +28,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.4.0"; }
+String jget_version() { return "0.4.1"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -360,30 +360,33 @@ bool is_address(String s) {
     return s.starts_with("http://") || s.starts_with("https://") || s.starts_with("ftp://") || s.starts_with("file://");
 }
 
-// does the file start with #! (a script) ?
-bool is_script(String path) {
+// does the file start with #! (a script) or with the mark of a program (ELF)?
+bool is_program(String path) {
     int fd = syscall(56, -100, path.c(), 0, 0);
     if fd < 0 { return false; }
-    char two[4];
-    int n = syscall(63, fd, @two, 2);
+    char four[8];
+    int n = syscall(63, fd, @four, 4);
     syscall(57, fd);
-    return n == 2 && two[0] == '#' && two[1] == '!';
+    if n >= 2 && four[0] == '#' && four[1] == '!' { return true; }
+    return n == 4 && four[0] == 127 && four[1] == 'E' && four[2] == 'L' && four[3] == 'F';
 }
 
-// after a download: -x makes the file executable; a script that is not executable gets a hint
+// after a download: a script or a program that is not executable becomes executable (where it can be read);
+// one that already is executable is left alone; -x does it for any file
 void after_download(String to) {
     if to == "-" { return; }
-    if g_exec == 1 {
-        int r = syscall(53, -100, to.c(), 493, 0);
-        if r < 0 { err("jget: cannot make " + to + " executable: " + Error::reason(r) + "\n"); }
-        return;
+    int st[18];
+    if syscall(79, -100, to.c(), @st, 0) != 0 { return; }
+    int mode = st[2] & 0xFFFFFFFF;
+    if g_exec != 1 {
+        if (mode & 73) != 0 { return; }                   // already executable (0111): not touched
+        if !is_program(to) { return; }
     }
-    if is_script(to) && !g_quiet_hint() {
-        err("jget: " + to + " is a script: run it with  sh " + to + "  (or  jget -x  makes a file executable, jget -sh URL downloads and runs a script)\n");
-    }
+    int fresh = (mode & 4095) | ((mode & 292) >> 2);       // x where r is (0444 -> 0111)
+    if g_exec == 1 { fresh = (mode & 4095) | 73 | ((mode & 292) >> 2); }
+    int r = syscall(53, -100, to.c(), fresh, 0);
+    if r < 0 { err("jget: cannot make " + to + " executable: " + Error::reason(r) + "\n"); }
 }
-
-bool g_quiet_hint() { return g_quiet == 1; }
 
 // jget URL [-o FILE]  (-h before the address is allowed: it only says that an address follows)
 int cmd_fetch(String[] av, int at) {
