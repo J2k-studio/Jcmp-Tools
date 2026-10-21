@@ -30,7 +30,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.5.1"; }
+String jget_version() { return "0.5.2"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -515,7 +515,17 @@ int cmd_install_self(String[] av, int at) {
 int cmd_update_self() {
     String me = self_path();
     if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
-    String base = "https://github.com/J2k-studio/Jget/releases/latest/download";
+    // the newest version of jget is the text of tools/jget/LATEST in the repository of the tools (a release of another tool cannot be mistaken for it)
+    String lv = me + ".latest";
+    if !download("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools/jget/LATEST", lv, true) { return 1; }
+    String ver = "";
+    switch Fs::read_text(lv) {
+        Result::Ok(t): { ver = t.trim(); }
+        Result::Err(e): { }
+    }
+    Fs::remove(lv);
+    if ver.len == 0 { err("jget: cannot read the newest version\n"); return 1; }
+    String base = "https://github.com/J2k-studio/Jcmp-Tools/releases/download/jget-v" + ver;
     String tmp = me + ".new";
     String sums = me + ".sums";
     if !download(base + "/SHA256SUMS", sums, true) { return 1; }

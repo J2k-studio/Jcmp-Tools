@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.2
+* The repository is now **Jcmp-Tools** (tools of J2K in one place; jget lives in `tools/jget/`). `jget --update` reads the newest version from `tools/jget/LATEST` and downloads the release `jget-vX.Y.Z` of Jcmp-Tools. Nothing else changes for the user. The old address `github.com/J2k-studio/Jget` still leads here.
+
 ## 0.5.1
 * `jget -li unstall NAME` removes a library (shorter; `remove` and `uninstall` still work).
 
