@@ -12,3 +12,6 @@
 
 ## Unreleased
 * `makej init -ai`: an AI project (makej, src/chat.jk, data/data.json; steps train and ask).
+
+## 0.3.0
+* list, clean, -n (dry run), install FOLDER, the time of a build, targets named in the error of a wrong name, init -ai.

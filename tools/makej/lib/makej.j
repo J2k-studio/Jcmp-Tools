@@ -19,6 +19,8 @@ struct Build {
     String[] flags;
     String[] needs_of;    // the names this target needs, separated by spaces
     int verbose;
+    int dry;              // -n: show what would be done
+    String install_to;     // makej install FOLDER
     int jobs;
     String want;
     String outdir;
@@ -33,6 +35,8 @@ struct Build {
         b.needs_of = arr(8);
         b.verbose = 0;
         b.want = "all";
+        b.install_to = "";
+        b.dry = 0;
         b.outdir = "_out";
         b.jcmp = "jcmp";
         b.jobs = Build::cores();
@@ -40,8 +44,10 @@ struct Build {
         int i = 1;
         while i < a.len {
             if a[i] == "-v" { b.verbose = 1; }
+            else if a[i] == "-n" { b.dry = 1; b.verbose = 1; }
             else if a[i] == "-j" && i + 1 < a.len { b.jobs = a[i + 1].to_int(); i += 1; }
             else if a[i].starts_with("-j") && a[i].len > 2 { b.jobs = a[i].slice(2, a[i].len).to_int(); }
+            else if a[i] == "install" && i + 1 < a.len { b.want = "install"; b.install_to = a[i + 1]; i += 1; }
             else { b.want = a[i]; }
             i += 1;
         }
@@ -205,7 +211,13 @@ struct Build {
     // mark a target and what it needs as wanted
     void want_it(self, String name, int^ wanted) {
         int i = self.find(name);
-        if i < 0 { cerr << "makej: there is no target '" << name << "'\n"; wanted[self.names.len] = 1; return; }
+        if i < 0 {
+            cerr << "makej: there is no target '" << name << "'. The targets: ";
+            for k in 0..self.names.len { cerr << self.names[k] << " "; }
+            cerr << "(makej list shows them)\n";
+            wanted[self.names.len] = 1;
+            return;
+        }
         if wanted[i] == 1 { return; }
         wanted[i] = 1;
         String[] ns = self.needs_of[i].split(" ");
@@ -216,6 +228,35 @@ struct Build {
     // the targets run at the same time (up to jobs processes), each as soon as what it needs is done
     int run(self) {
         int n = self.names.len;
+        if self.want == "list" {                                   // makej list: the targets and what they need
+            for i in 0..n {
+                String needs = self.needs_of[i].trim();
+                cout << self.names[i] << "\t" << self.kinds[i] << "\t" << self.mains[i];
+                if self.flags[i].len > 0 { cout << "  [" << self.flags[i] << "]"; }
+                if needs.len > 0 { cout << "  needs: " << needs; }
+                cout << "\n";
+            }
+            return 0;
+        }
+        if self.want == "clean" {                                  // makej clean: the folder of the results goes
+            if Dir::exists(self.outdir) { self.sh("rm -rf '" + self.outdir + "'"); cout << "makej: removed " << self.outdir << "\n"; }
+            else { cout << "makej: nothing to clean\n"; }
+            return 0;
+        }
+        if self.want == "install" {                                // makej install FOLDER: build everything, then copy the results there
+            String keep = self.want;
+            self.want = "all";
+            int rc0 = self.run();
+            self.want = keep;
+            if rc0 != 0 { return rc0; }
+            if self.install_to.len == 0 { cerr << "makej: usage: makej install FOLDER\n"; return 2; }
+            Dir::make_all(self.install_to);
+            for i in 0..n {
+                if self.kinds[i] != "step" { self.sh("cp '" + self.out_of(i) + "' '" + self.install_to + "/'"); cout << "makej: installed " << self.names[i] << " in " << self.install_to << "\n"; }
+            }
+            return 0;
+        }
+        int started_at = Time::now_ms();
         int^ wanted = (int^)Mem::alloc0(8 * (n + 1));
         int^ state = (int^)Mem::alloc0(8 * (n + 1));      // 0 waiting, 1 running, 2 done, 3 failed
         int^ pid_of = (int^)Mem::alloc0(8 * (n + 1));
@@ -254,10 +295,15 @@ struct Build {
                             String[] args = arr(2);
                             args.push("-c");
                             args.push(cmd);
-                            pid_of[i] = Proc::launch("sh", args, 0 - 1);
-                            state[i] = 1;
-                            running += 1;
-                            progress = true;
+                            if self.dry == 1 {
+                                state[i] = 2;
+                                progress = true;
+                            } else {
+                                pid_of[i] = Proc::launch("sh", args, 0 - 1);
+                                state[i] = 1;
+                                running += 1;
+                                progress = true;
+                            }
                         }
                     }
                 }
@@ -292,7 +338,8 @@ struct Build {
         Mem::free(wanted);
         Mem::free(state);
         Mem::free(pid_of);
-        if rc == 0 { cout << "makej: done\n"; }
+        int secs10 = (Time::now_ms() - started_at) / 100;
+        if rc == 0 { cout << "makej: done in " << secs10 / 10 << "." << secs10 % 10 << " s\n"; }
         return rc;
     }
 }

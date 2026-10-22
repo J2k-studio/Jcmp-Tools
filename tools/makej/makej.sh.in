@@ -1,6 +1,6 @@
 #!/bin/sh
 # makej: a build tool for J2K projects. The build file is the file "makej" (a simple TOML, written by hand: nano makej) or "makej.jk" (a J2K program).
-#   makej [init [-ai]] [target] [-v]        makej --version
+#   makej [init [-ai]] [target] [-v] [-n] [-j N]   makej list   makej clean   makej install FOLDER   makej --version
 # This file is the whole tool: the library of makej is inside it and is written to a cache folder at the first run.
 MAKEJ_VERSION=@VERSION@
 case "${1:-}" in --version|-version) echo "makej $MAKEJ_VERSION"; exit 0 ;; esac

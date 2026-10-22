@@ -37,6 +37,7 @@ int main() {
 }
 ```
 
+* `makej list` shows the targets and what they need; `makej clean` removes the folder of the results; `makej -n` shows what would be built (nothing runs); `makej install FOLDER` builds and copies the results there; `makej init` writes a starting `makej`, `makej init -ai` an AI project. The end says how long it took.
 * `makej -j 4` builds 4 things at once (the default is the number of cores); a target starts as soon as what it needs is done.
 * `makej` builds every program and library (the target `all`); `makej test` builds `test` and what it needs first; `makej -v` shows the commands.
 * A program or library is built again only when a `.jk` / `.j` file in the folder of its main file (and below) is newer than the result.

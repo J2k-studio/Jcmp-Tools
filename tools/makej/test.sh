@@ -3,6 +3,7 @@
 set -eu
 cd "$(dirname "$0")"
 ROOT=$PWD
+ROOT=$PWD
 JCMP=${1:-jcmp}
 sh ./build.sh
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
@@ -20,3 +21,13 @@ mkdir "$T/ai" && cd "$T/ai"
 "$MK" init -ai >/dev/null || { echo "init -ai"; exit 1; }
 "$MK" train | grep -q "data:" || { echo "ai train"; exit 1; }
 echo "makej tests: ok"
+# list, clean, -n, install
+T2=$(mktemp -d); cp -r "$ROOT/example/." "$T2/"; cd "$T2"
+"$ROOT/dist/makej" list | grep -q "hello" || { echo "list"; exit 1; }
+"$ROOT/dist/makej" -n | grep -q "hello" || { echo "dry run"; exit 1; }
+[ ! -f _out/hello ] || { echo "-n must not build"; exit 1; }
+"$ROOT/dist/makej" > /dev/null && [ -f _out/hello ] || { echo "build"; exit 1; }
+"$ROOT/dist/makej" install "$T2/bin" | grep -q installed && [ -f "$T2/bin/hello" ] || { echo "install"; exit 1; }
+"$ROOT/dist/makej" clean | grep -q removed && [ ! -d _out ] || { echo "clean"; exit 1; }
+rm -rf "$T2"
+echo "makej tests (more): ok"
