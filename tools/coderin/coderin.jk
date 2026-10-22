@@ -275,11 +275,57 @@ void load(String p) {
     if lines.len == 0 { lines.push(""); }
 }
 
+// ---------------------------------------------------------------- the extension j2k: the errors of the compiler (jcmp on the PATH)
+int[] err_line;
+String[] err_msg;
+int err_i;
+bool has_err(int y) {
+    for i in 0..err_line.len { if err_line[i] == y { return true; } }
+    return false;
+}
+// runs the compiler on the saved file; the lines with an error get a red number, the first one is shown (next: the others)
+void check_code() {
+    err_line = arr(8);
+    err_msg = arr(8);
+    err_i = 0;
+    if !(path.ends_with(".jk") || path.ends_with(".j")) { return; }
+    String out = path + ".chk";
+    String[] args = arr(4);
+    args.push("-c");
+    args.push("jcmp '" + path + "' -o '" + out + "' 2>&1");
+    Result<String, Error> r = Proc::output("sh", args);
+    Fs::remove(out);
+    if !r.is_ok() { return; }
+    String[] ls = r.take().split("\n");
+    for i in 0..ls.len {
+        String l = ls[i];
+        int at = 0;
+        bool found = false;
+        while at + 9 <= l.len && !found { if l.slice(at, at + 9) == ": error: " { found = true; } else { at += 1; } }
+        if !found { continue; }
+        String[] parts = l.slice(0, at).split(":");
+        if parts.len < 3 { continue; }
+        int ln = parts[parts.len - 2].to_int();
+        if ln < 1 { continue; }
+        err_line.push(ln - 1);
+        err_msg.push(l.slice(at + 9, l.len) + "");
+    }
+    if err_line.len == 0 { msg = msg + "  no errors"; return; }
+    show_error();
+}
+void show_error() {
+    if err_line.len == 0 { msg = "no errors (save to check)"; return; }
+    int y = err_line[err_i];
+    if y >= lines.len { y = lines.len - 1; }
+    move_to(y, 0, false);
+    msg = "error " + str(err_i + 1) + "/" + str(err_line.len) + " line " + str(y + 1) + ": " + err_msg[err_i];
+}
+
 void save() {
     String text = "";
     for i in 0..lines.len { text = text + lines[i] + "\n"; }
     Result<int, Error> r = Fs::write_text(path, text);
-    if r.is_ok() { dirty = false; msg = "saved " + path + " (" + str(lines.len) + " lines)"; }
+    if r.is_ok() { dirty = false; msg = "saved " + path + " (" + str(lines.len) + " lines)"; if ext_j2k { check_code(); } }
     else { msg = "cannot save " + path; }
 }
 
@@ -710,7 +756,8 @@ String draw_line(int y) {
     if ruler {
         String num = str(y + 1);
         String pad = " ".repeat(g - 1 - num.len);
-        out = out + rgb(c_gut) + pad + num + " " + e + "[0m" + bgs();
+        if has_err(y) { out = out + rgb(0xFF5F5F) + pad + num + "!" + e + "[0m" + bgs(); }
+        else { out = out + rgb(c_gut) + pad + num + " " + e + "[0m" + bgs(); }
     }
     int col = 0;
     int i = 0;
@@ -981,9 +1028,11 @@ void command_bar() {
     }
     else if cmd == "set" && w.len == 3 { set_option(w[1], w[2]); save_setting(w[1], w[2]); if msg.len == 0 { msg = w[1] + " = " + w[2]; } }
     else if cmd == "bind" && w.len == 3 { bind_keys.push(w[1]); bind_acts.push(w[2]); msg = w[1] + " does " + w[2] + " (put it in ~/.config/coderin/bindings to keep it)"; }
+    else if cmd == "check" { check_code(); if err_line.len == 0 { msg = "no errors"; } }
+    else if cmd == "next" { if err_line.len > 0 { err_i = (err_i + 1) % err_line.len; } show_error(); }
     else if cmd == "run" && w.len > 1 { run_ext_command(w[1]); }
     else if cmd == "extensions" { msg = "loaded: "; for i in 0..xs_loaded.len { msg = msg + xs_loaded[i] + " "; } if xs_loaded.len == 0 { msg = "none in ~/.config/coderin/extensions/"; } }
-    else if cmd == "help" { msg = "run NAME (extension command) extensions save quit goto N find TEXT replace A B set NAME VALUE bind Ctrl-x ACTION; settings: tabsize tabstospaces ruler autoindent autopair helpbar mouse colorscheme"; }
+    else if cmd == "help" { msg = "check next (errors of the compiler) run NAME (extension command) extensions save quit goto N find TEXT replace A B set NAME VALUE bind Ctrl-x ACTION; settings: tabsize tabstospaces ruler autoindent autopair helpbar mouse colorscheme"; }
     else { msg = "unknown command: " + cmd + " (help)"; }
 }
 
@@ -1295,6 +1344,8 @@ int main() {
     redo_text = arr(8); redo_cy = arr(8); redo_cx = arr(8);
     bind_default();
     apply_scheme("dark");
+    err_line = arr(1);
+    err_msg = arr(1);
     load_extensions();
     load_settings();
     load_bindings();

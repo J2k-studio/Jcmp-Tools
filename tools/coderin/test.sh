@@ -58,4 +58,8 @@ rm -f e.txt e.txt.mark
 [ "$(cat e.txt)" = 'hello Z
 zebrafish!' ] || { echo "coderin test: extension snippet and word"; cat -A e.txt; exit 1; }
 [ "$(cat e.txt.mark 2>/dev/null)" = 'marked' ] || { echo "coderin test: extension command"; exit 1; }
+# the errors of the compiler: saving a .jk file with a mistake shows the error and marks the line
+rm -f bad.jk
+( sleep 0.3; printf 'void main() { int a = ; }'; sleep 0.3; printf '\023'; sleep 1.5; printf '\021'; sleep 0.3; printf '\021' ) | PATH="$(dirname "${JCMP:-$(command -v jcmp)}"):$PATH" $PTY -w 80 -h 24 "$ED" bad.jk > frames
+grep -aq 'error 1/' frames || { echo "coderin test: the errors of the compiler"; exit 1; }
 echo "coderin test: ok"
