@@ -1,0 +1,425 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// jbox: the small commands of Jaric in ONE program (like busybox). `jbox ls -l`, or a link/copy named ls.
+// jsh runs `jbox NAME args` for the commands it does not find in PATH. Only the library and Sys:: calls are used.
+#import <stdlib>
+
+int fail(String app, String msg) {
+    cerr << app << ": " << msg << "\n";
+    return 1;
+}
+
+String stdin_all() {
+    String r = "";
+    char b[4097];
+    int n = Sys::read(0, @b, 4096);
+    while n > 0 {
+        b[n] = 0;
+        r.append((char^)@b);
+        n = Sys::read(0, @b, 4096);
+    }
+    return r;
+}
+
+// the text of a file, or of the standard input when the name is "-" or missing
+String load(String app, String path, int^ rc) {
+    if path == "-" { return stdin_all(); }
+    String out = "";
+    Result<String, Error> r = Fs::read_text(path);
+    switch r {
+        Result::Ok(t): out = t;
+        Result::Err(e): rc[0] = fail(app, e.message);
+    }
+    return out;
+}
+
+// the lines of a text without the empty piece after the last newline
+String[] lines_of(String text) {
+    String[] parts = text.split("\n");
+    String[] r = arr(parts.len + 1);
+    for i in 0..parts.len {
+        if i == parts.len - 1 && parts[i].len == 0 { continue; }
+        r.push(parts[i]);
+    }
+    return r;
+}
+
+bool is_flag(String a) { return a.len > 1 && a[0] == 45; }
+bool has_flag(String[] a, char f) {
+    for i in 1..a.len {
+        if is_flag(a[i]) {
+            for k in 1..a[i].len { if a[i][k] == f { return true; } }
+        }
+    }
+    return false;
+}
+// the arguments that are not flags (and not the values after -n)
+String[] operands(String[] a, bool valued) {
+    String[] r = arr(a.len + 1);
+    int i = 1;
+    while i < a.len {
+        if valued && a[i] == "-n" { i += 2; continue; }
+        if !is_flag(a[i]) { r.push(a[i]); }
+        i += 1;
+    }
+    return r;
+}
+// the value after -n, or the default
+int count_of(String[] a, int dflt) {
+    for i in 1..a.len - 1 {
+        if a[i] == "-n" { return a[i + 1].to_int(); }
+    }
+    return dflt;
+}
+
+// ---------------------------------------------------------------- the commands
+int do_ls(String[] a) {
+    bool all = has_flag(a, 'a');
+    bool lng = has_flag(a, 'l');
+    String[] ops = operands(a, false);
+    if ops.len == 0 { ops.push("."); }
+    int rc = 0;
+    for p in 0..ops.len {
+        String[] names = arr(4);
+        String base = ops[p];
+        if Dir::exists(base) {
+            Result<String[], Error> r = Dir::list(base);
+            if r.is_ok() { names = r.take(); }
+            else { rc = fail("ls", base + ": cannot read the folder"); }
+            if ops.len > 1 { cout << base << ":\n"; }
+        } else if Fs::exists(base) {
+            names.push(base);
+            base = "";
+        } else { rc = fail("ls", base + ": no such file or folder"); }
+        for i in 0..names.len {
+            String n = names[i];
+            if !all && n.len > 0 && n[0] == 46 { continue; }
+            String full = n;
+            if base.len > 0 { full = Path::join(base, n); }
+            if lng {
+                if Dir::exists(full) { cout << "d        - " << n << "/\n"; }
+                else {
+                    int sz = 0;
+                    Result<int, Error> s = Fs::size(full);
+                    switch s {
+                        Result::Ok(v): sz = v;
+                        Result::Err(e): sz = 0;
+                    }
+                    String num = str(sz);
+                    cout << "- " << " ".repeat(8 - num.len) << num << " " << n << "\n";
+                }
+            } else {
+                if Dir::exists(full) { cout << n << "/\n"; } else { cout << n << "\n"; }
+            }
+        }
+    }
+    return rc;
+}
+
+int do_cat(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len == 0 { ops.push("-"); }
+    int rc = 0;
+    for i in 0..ops.len { cout << load("cat", ops[i], @rc); }
+    return rc;
+}
+
+int do_head_tail(String[] a, bool head) {
+    int n = count_of(a, 10);
+    String[] ops = operands(a, true);
+    if ops.len == 0 { ops.push("-"); }
+    int rc = 0;
+    for p in 0..ops.len {
+        String who = "tail";
+        if head { who = "head"; }
+        String[] ls = lines_of(load(who, ops[p], @rc));
+        int first = 0;
+        int last = ls.len;
+        if head { if n < last { last = n; } } else { if ls.len > n { first = ls.len - n; } }
+        for i in first..last { cout << ls[i] << "\n"; }
+    }
+    return rc;
+}
+
+int do_wc(String[] a) {
+    bool l = has_flag(a, 'l');
+    bool w = has_flag(a, 'w');
+    bool c = has_flag(a, 'c');
+    if !l && !w && !c { l = true; w = true; c = true; }
+    String[] ops = operands(a, false);
+    if ops.len == 0 { ops.push("-"); }
+    int rc = 0;
+    for p in 0..ops.len {
+        String t = load("wc", ops[p], @rc);
+        int nl = 0;
+        int nw = 0;
+        bool inw = false;
+        for i in 0..t.len {
+            char ch = t[i];
+            if ch == 10 { nl += 1; }
+            bool sp = ch == 32 || ch == 10 || ch == 9 || ch == 13;
+            if sp { inw = false; } else { if !inw { nw += 1; } inw = true; }
+        }
+        if l { cout << nl << " "; }
+        if w { cout << nw << " "; }
+        if c { cout << t.len << " "; }
+        if ops[p] != "-" { cout << ops[p]; }
+        cout << "\n";
+    }
+    return rc;
+}
+
+int do_mkdir(String[] a) {
+    bool deep = has_flag(a, 'p');
+    String[] ops = operands(a, false);
+    if ops.len == 0 { return fail("mkdir", "a folder name is needed"); }
+    int rc = 0;
+    for i in 0..ops.len {
+        Result<int, Error> r = Dir::make(ops[i]);
+        if deep { r = Dir::make_all(ops[i]); }
+        switch r {
+            Result::Ok(v): rc = rc;
+            Result::Err(e): rc = fail("mkdir", ops[i] + ": " + e.message);
+        }
+    }
+    return rc;
+}
+
+int do_rm(String[] a) {
+    bool force = has_flag(a, 'f');
+    String[] ops = operands(a, false);
+    if ops.len == 0 && !force { return fail("rm", "a file name is needed"); }
+    int rc = 0;
+    for i in 0..ops.len {
+        Result<int, Error> r = Fs::remove(ops[i]);
+        if Dir::exists(ops[i]) { r = Dir::remove(ops[i]); }
+        switch r {
+            Result::Ok(v): rc = rc;
+            Result::Err(e): if !force { rc = fail("rm", ops[i] + ": " + e.message); }
+        }
+    }
+    return rc;
+}
+
+int do_rmdir(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len == 0 { return fail("rmdir", "a folder name is needed"); }
+    int rc = 0;
+    for i in 0..ops.len {
+        Result<int, Error> r = Dir::remove(ops[i]);
+        switch r {
+            Result::Ok(v): rc = rc;
+            Result::Err(e): rc = fail("rmdir", e.message);
+        }
+    }
+    return rc;
+}
+
+int do_touch(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len == 0 { return fail("touch", "a file name is needed"); }
+    int rc = 0;
+    for i in 0..ops.len {
+        if !Fs::exists(ops[i]) {
+            Result<int, Error> r = Fs::write_text(ops[i], "");
+            switch r {
+                Result::Ok(v): rc = rc;
+                Result::Err(e): rc = fail("touch", ops[i] + ": " + e.message);
+            }
+        }
+    }
+    return rc;
+}
+
+int do_cp(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len != 2 { return fail("cp", "usage: cp FROM TO"); }
+    int rc = 0;
+    String t = load("cp", ops[0], @rc);
+    if rc != 0 { return rc; }
+    String to = ops[1];
+    if Dir::exists(to) { to = Path::join(to, Path::name(ops[0])); }
+    Result<int, Error> r = Fs::write_text(to, t);
+    switch r {
+        Result::Ok(v): rc = rc;
+        Result::Err(e): rc = fail("cp", to + ": " + e.message);
+    }
+    return rc;
+}
+
+int do_mv(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len != 2 { return fail("mv", "usage: mv FROM TO"); }
+    String to = ops[1];
+    if Dir::exists(to) { to = Path::join(to, Path::name(ops[0])); }
+    int rc = 0;
+    Result<int, Error> r = Fs::rename(ops[0], to);
+    switch r {
+        Result::Ok(v): rc = rc;
+        Result::Err(e): rc = fail("mv", ops[0] + ": " + e.message);
+    }
+    return rc;
+}
+
+int do_grep(String[] a) {
+    bool number = has_flag(a, 'n');
+    bool invert = has_flag(a, 'v');
+    bool icase = has_flag(a, 'i');
+    String[] ops = operands(a, false);
+    if ops.len == 0 { return fail("grep", "usage: grep [-n -v -i] PATTERN [FILE]"); }
+    String pat = ops[0];
+    if icase { pat = pat.lower(); }
+    int rc = 1;
+    int errs = 0;
+    int nfiles = ops.len - 1;
+    if nfiles == 0 { ops.push("-"); nfiles = 1; }
+    for p in 1..ops.len {
+        String[] ls = lines_of(load("grep", ops[p], @errs));
+        for i in 0..ls.len {
+            String line = ls[i];
+            if icase { line = line.lower(); }
+            bool hit = Regex::find(pat, line) >= 0;
+            if hit != invert {
+                rc = 0;
+                if nfiles > 1 { cout << ops[p] << ":"; }
+                if number { cout << i + 1 << ":"; }
+                cout << ls[i] << "\n";
+            }
+        }
+    }
+    if errs != 0 { return 2; }
+    return rc;
+}
+
+int do_sort(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len == 0 { ops.push("-"); }
+    int rc = 0;
+    String[] all = arr(16);
+    for p in 0..ops.len {
+        String[] ls = lines_of(load("sort", ops[p], @rc));
+        for i in 0..ls.len { all.push(ls[i]); }
+    }
+    all.sort();
+    bool rev = has_flag(a, 'r');
+    if rev { for i in 0..all.len { cout << all[all.len - 1 - i] << "\n"; } }
+    else { for i in 0..all.len { cout << all[i] << "\n"; } }
+    return rc;
+}
+
+int do_uniq(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len == 0 { ops.push("-"); }
+    int rc = 0;
+    String[] ls = lines_of(load("uniq", ops[0], @rc));
+    for i in 0..ls.len {
+        if i == 0 || ls[i] != ls[i - 1] { cout << ls[i] << "\n"; }
+    }
+    return rc;
+}
+
+int do_tee(String[] a) {
+    bool append = has_flag(a, 'a');
+    String[] ops = operands(a, false);
+    String t = stdin_all();
+    cout << t;
+    int rc = 0;
+    for i in 0..ops.len {
+        Result<int, Error> r = Fs::write_text(ops[i], t);
+        if append { r = Fs::append_text(ops[i], t); }
+        switch r {
+            Result::Ok(v): rc = rc;
+            Result::Err(e): rc = fail("tee", ops[i] + ": " + e.message);
+        }
+    }
+    return rc;
+}
+
+int do_seq(String[] a) {
+    String[] ops = operands(a, false);
+    int lo = 1;
+    int hi = 0;
+    if ops.len == 1 { hi = ops[0].to_int(); }
+    else if ops.len >= 2 { lo = ops[0].to_int(); hi = ops[1].to_int(); }
+    else { return fail("seq", "usage: seq [FIRST] LAST"); }
+    for i in lo..hi + 1 { cout << i << "\n"; }
+    return 0;
+}
+
+int do_basename(String[] a) {
+    if a.len < 2 { return fail("basename", "a path is needed"); }
+    cout << Path::name(a[1]) << "\n";
+    return 0;
+}
+
+int do_dirname(String[] a) {
+    if a.len < 2 { return fail("dirname", "a path is needed"); }
+    cout << Path::parent(a[1]) << "\n";
+    return 0;
+}
+
+int do_sleep(String[] a) {
+    if a.len < 2 { return fail("sleep", "seconds are needed"); }
+    Time::sleep_ms(a[1].to_int() * 1000);
+    return 0;
+}
+
+int do_clear() {
+    cout << (char)27 << "[2J" << (char)27 << "[H";
+    return 0;
+}
+
+int do_env() {
+    int ne = 0;
+    while Sys::arg(Sys::argc() + 1 + ne) != null {
+        String e = "";
+        e.append((char^)Sys::arg(Sys::argc() + 1 + ne));
+        cout << e << "\n";
+        ne += 1;
+    }
+    return 0;
+}
+
+int do_help() {
+    cout << "jbox commands: ls cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env true false\n";
+    cout << "flags: ls -a -l   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
+    return 0;
+}
+
+int main() {
+    String[] args = Env::args();
+    String app = Path::name(args[0]);
+    String[] a = args;
+    if app == "jbox" {
+        if args.len < 2 { return do_help(); }
+        app = args[1];
+        a = arr(args.len);
+        for i in 1..args.len { a.push(args[i]); }
+    }
+    if app == "ls" { return do_ls(a); }
+    if app == "cat" { return do_cat(a); }
+    if app == "head" { return do_head_tail(a, true); }
+    if app == "tail" { return do_head_tail(a, false); }
+    if app == "wc" { return do_wc(a); }
+    if app == "mkdir" { return do_mkdir(a); }
+    if app == "rm" { return do_rm(a); }
+    if app == "rmdir" { return do_rmdir(a); }
+    if app == "touch" { return do_touch(a); }
+    if app == "cp" { return do_cp(a); }
+    if app == "mv" { return do_mv(a); }
+    if app == "grep" { return do_grep(a); }
+    if app == "sort" { return do_sort(a); }
+    if app == "uniq" { return do_uniq(a); }
+    if app == "tee" { return do_tee(a); }
+    if app == "seq" { return do_seq(a); }
+    if app == "basename" { return do_basename(a); }
+    if app == "dirname" { return do_dirname(a); }
+    if app == "sleep" { return do_sleep(a); }
+    if app == "clear" { return do_clear(); }
+    if app == "env" { return do_env(); }
+    if app == "true" { return 0; }
+    if app == "false" { return 1; }
+    if app == "help" { return do_help(); }
+    cerr << "jsh: " << app << ": command not found\n";
+    return 127;
+}
