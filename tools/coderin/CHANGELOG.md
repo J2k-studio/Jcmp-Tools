@@ -12,3 +12,4 @@
 ## Unreleased
 * Extensions that you write: `~/.config/coderin/extensions/NAME/{snippets,words,commands}` and `DIR/coderin-extensions/NAME/` on the PATH; command bar `run NAME`, `extensions`.
 * The j2k extension shows the errors of the compiler: after a save the lines with an error are marked, `next` / `check` in the command bar.
+* A list of words under the cursor while typing (Down / Up / Tab / Enter / Esc), like VS Code.

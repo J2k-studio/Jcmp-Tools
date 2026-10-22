@@ -62,4 +62,8 @@ zebrafish!' ] || { echo "coderin test: extension snippet and word"; cat -A e.txt
 rm -f bad.jk
 ( sleep 0.3; printf 'void main() { int a = ; }'; sleep 0.3; printf '\023'; sleep 1.5; printf '\021'; sleep 0.3; printf '\021' ) | PATH="$(dirname "${JCMP:-$(command -v jcmp)}"):$PATH" $PTY -w 80 -h 24 "$ED" bad.jk > frames
 grep -aq 'error 1/' frames || { echo "coderin test: the errors of the compiler"; exit 1; }
+# the list of words under the cursor: typing whi shows it, Enter takes the word
+rm -f p.jk
+( sleep 0.3; printf 'whi'; sleep 0.3; printf '\r'; sleep 0.2; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 80 -h 24 "$ED" p.jk > /dev/null
+[ "$(cat p.jk)" = 'while' ] || { echo "coderin test: the list of words"; cat -A p.jk; exit 1; }
 echo "coderin test: ok"

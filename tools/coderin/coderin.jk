@@ -52,6 +52,10 @@ int K_MOUSE = 1020;
 bool helpbar = true;          // a line with the keys under the text, as nano shows it (set helpbar off)
 bool ext_undo = true;         // the extensions that are on (the setting  extensions = undo j2k ): undo and redo; help for writing J2K
 bool ext_j2k = true;
+String[] pop_c;
+int pop_i;
+bool pop_on;
+int pop_st;            // the list of words under the cursor
 String[] undo_text;           // the states before the changes (the whole text joined by new lines) and where the cursor was
 int[] undo_cy;
 int[] undo_cx;
@@ -527,6 +531,28 @@ String snippet_for(String w) {
     if w == "exp" { return "export int name(int a) {\n    |\n}"; }
     return "";
 }
+// the words that continue w: the words of J2K and of the extensions, then the words of the text
+String[] word_cands(String w) {
+    String kws = "if else while for in return break continue switch case default struct enum using module import defer try catch throw new delete true false null sizeof export operator String Result Option Error double float bool char void int";
+    String[] cands = arr(16);
+    String[] kw = kws.split(" ");
+    for i in 0..kw.len { if kw[i].starts_with(w) && kw[i].len > w.len { add_cand(cands, kw[i]); } }
+    for i in 0..xs_words.len { if xs_words[i].starts_with(w) && xs_words[i].len > w.len { add_cand(cands, xs_words[i]); } }
+    for y in 0..lines.len {
+        String t = lines[y];
+        int i = 0;
+        while i < t.len {
+            if is_word(t[i] & 255) {
+                int j = i;
+                while j < t.len && is_word(t[j] & 255) { j += 1; }
+                String x = t.slice(i, j);
+                if x.starts_with(w) && x.len > w.len { add_cand(cands, x); }
+                i = j;
+            } else { i += 1; }
+        }
+    }
+    return cands;
+}
 bool tab_help() {
     if !ext_j2k && xs_loaded.len == 0 { return false; }
     String l = lines[cy];
@@ -557,24 +583,7 @@ bool tab_help() {
     }
     if w.len < 2 { return false; }
     // word completion: the words of the J2K language and the words of the text
-    String kws = "if else while for in return break continue switch case default struct enum using module import defer try catch throw new delete true false null sizeof export operator String Result Option Error double float bool char void int";
-    String[] cands = arr(16);
-    String[] kw = kws.split(" ");
-    for i in 0..kw.len { if kw[i].starts_with(w) && kw[i].len > w.len { add_cand(cands, kw[i]); } }
-    for i in 0..xs_words.len { if xs_words[i].starts_with(w) && xs_words[i].len > w.len { add_cand(cands, xs_words[i]); } }
-    for y in 0..lines.len {
-        String t = lines[y];
-        int i = 0;
-        while i < t.len {
-            if is_word(t[i] & 255) {
-                int j = i;
-                while j < t.len && is_word(t[j] & 255) { j += 1; }
-                String x = t.slice(i, j);
-                if x.starts_with(w) && x.len > w.len { add_cand(cands, x); }
-                i = j;
-            } else { i += 1; }
-        }
-    }
+    String[] cands = word_cands(w);
     if cands.len == 0 { return false; }
     String common = cands[0];
     for i in 1..cands.len {
@@ -821,6 +830,7 @@ void draw() {
     int g = gutter();
     int sr = cy - top + 1;
     int sc = col_of(lines[cy], cx) - left + g + 1;
+    if pop_on { f = f + draw_popup(sr, sc); }
     f = f + e + "[" + str(sr) + ";" + str(sc) + "H" + e + "[?25h";
     cout << f;
 }
@@ -1111,7 +1121,55 @@ bool type_pair(int c) {
     return true;
 }
 
-void handle(int k) {
+// ---------------------------------------------------------------- the list of words under the cursor (like VS Code): Down / Up choose, Tab or Enter take, Esc closes
+void update_popup() {
+    pop_on = false;
+    if !ext_j2k && xs_loaded.len == 0 { return; }
+    String l = lines[cy];
+    int st = cx;
+    while st > 0 && is_word(l[st - 1] & 255) { st -= 1; }
+    if cx - st < 2 || sel { return; }
+    if cx < l.len && is_word(l[cx] & 255) { return; }
+    String w = l.slice(st, cx);
+    String[] all = word_cands(w);
+    if all.len == 0 { return; }
+    all.sort();
+    pop_c = arr(8);
+    for i in 0..all.len { if i < 7 { pop_c.push(all[i] + ""); } }
+    pop_i = 0;
+    pop_st = st;
+    pop_on = true;
+}
+void accept_popup() {
+    String l = lines[cy];
+    begin_edit(0);
+    lines[cy] = l.slice(0, pop_st) + pop_c[pop_i] + l.slice(cx, l.len);
+    cx = pop_st + pop_c[pop_i].len;
+    dirty = true;
+    pop_on = false;
+}
+String draw_popup(int sr, int sc) {
+    String e = esc();
+    String f = "";
+    int n = pop_c.len;
+    int w = 0;
+    for i in 0..n { if pop_c[i].len > w { w = pop_c[i].len; } }
+    w += 2;
+    int col = sc - (cx - pop_st);
+    if col + w > cols { col = cols - w; }
+    if col < 1 { col = 1; }
+    int row = sr + 1;
+    if row + n > text_rows_count() { row = sr - n; }
+    if row < 1 { return ""; }
+    for i in 0..n {
+        String t = " " + pop_c[i] + " ".repeat(w - 1 - pop_c[i].len);
+        if i == pop_i { f = f + e + "[" + str(row + i) + ";" + str(col) + "H" + e + "[48;2;60;70;102m" + e + "[38;2;255;255;255m" + t + e + "[0m"; }
+        else { f = f + e + "[" + str(row + i) + ";" + str(col) + "H" + e + "[48;2;31;41;55m" + e + "[38;2;201;209;217m" + t + e + "[0m"; }
+    }
+    return f;
+}
+
+void handle_key(int k) {
     String act = "";
     if k >= 1 && k <= 26 { act = binding("Ctrl-" + letter_of(k)); }
     if act != "quit" { quit_asked = 0; }
@@ -1285,6 +1343,18 @@ void handle(int k) {
     }
 }
 
+void handle(int k) {
+    if pop_on {
+        if k == K_DOWN { pop_i = (pop_i + 1) % pop_c.len; return; }
+        if k == K_UP { pop_i = (pop_i + pop_c.len - 1) % pop_c.len; return; }
+        if k == K_TAB || k == K_ENTER { accept_popup(); return; }
+        pop_on = false;
+        if k == K_ESC { return; }
+    }
+    handle_key(k);
+    if k == K_TEXT || k == K_BS { update_popup(); }
+}
+
 // ---------------------------------------------------------------- coderin -ex : extensions from the repository of the tools (downloaded with jget)
 String ex_base() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/extensions"; }
 int jget_to(String url, String file) {
@@ -1346,6 +1416,7 @@ int main() {
     apply_scheme("dark");
     err_line = arr(1);
     err_msg = arr(1);
+    pop_c = arr(1);
     load_extensions();
     load_settings();
     load_bindings();

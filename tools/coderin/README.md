@@ -23,6 +23,8 @@ coderin FILE
 * `words`: words for the Tab completion.
 * `commands`: lines `name = shell command` (`%f` is the file). Ctrl-E then `run name`; the last line of the output shows in the status line. `extensions` lists what is loaded.
 
+**A list of words under the cursor, as in VS Code** (extensions on): type 2 letters or more and a small list shows the words that continue it (J2K, the extensions, the text). Down / Up choose, Tab or Enter take the word, Esc closes, any other key goes on typing.
+
 **Errors of the compiler** (extension j2k, `jcmp` on the PATH): saving a `.jk` / `.j` file runs `jcmp` on it; the lines with an error get a red number with `!`, the cursor goes to the first error and the status line says it (`error 1/2 line 5: ...`). Ctrl-E then `next` shows the next one, `check` runs the compiler again.
 
 Not yet: several files.
