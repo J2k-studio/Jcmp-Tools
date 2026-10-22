@@ -17,6 +17,6 @@ sh test.sh
 _out/jsh
 ```
 
-`break` / `continue`, arithmetic `$(( ))` (+ - * / %, ( ), < > <= >= == !=), `read NAME`, `jobs` and `wait` for the commands started with `&`, and Ctrl-C stops the loop of a script. Not yet: `fg` / `bg`, here-documents, a quoted `;` `&&` `||` `|` (they are always operators).
+`break` / `continue`, arithmetic `$(( ))` (+ - * / %, ( ), < > <= >= == !=), `read NAME`, `jobs` and `wait` for the commands started with `&`, and Ctrl-C stops the loop of a script. Redirections also `2> 2>> 2>&1 1>&2 &> <<<` and here-documents (`<<EOT` in a script). Not yet: `fg` / `bg`, `${x%.y}`, arrays, a quoted `;` `&&` `||` `|` (they are always operators).
 
 **Licence:** Mozilla Public License 2.0 (`LICENSE` in this folder): use it, change it, share it; if you distribute a changed version of these files, you publish the changed files under the same licence.

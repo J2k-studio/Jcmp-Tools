@@ -424,8 +424,8 @@ bool is_digits(String s) {
 }
 
 int do_help() {
-    cout << "jbox commands: dir cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
-    cout << "flags: dir -a -l   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
+    cout << "jbox commands: dir tree find ln chmod cut tr diff cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
+    cout << "flags: dir -a -l   tree -a -L N   find -name P -type f|d -maxdepth N   ln -s   cut -d X -f N   tr -d   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
     return 0;
 }
 
