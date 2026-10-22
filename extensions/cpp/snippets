@@ -1,0 +1,15 @@
+# C++ snippets
+main = int main() {\n    |\n    return 0;\n}
+inc = #include <|>
+forr = for (int i = 0; i < n; i++) {\n    |\n}
+fore = for (auto& x : items) {\n    |\n}
+wh = while (cond) {\n    |\n}
+if = if (cond) {\n    |\n}
+ife = if (cond) {\n    |\n} else {\n    \n}
+cls = class Name {\npublic:\n    Name() {}\n    |\n};
+st = struct Name {\n    int a;\n    |\n};
+ns = namespace name {\n|\n}
+tpl = template <typename T>\n|
+cout = std::cout << | << "\\n";
+vec = std::vector<int> v;
+fn = int name(int a) {\n    |\n}

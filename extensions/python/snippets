@@ -1,0 +1,15 @@
+# Python snippets (Tab after the prefix at the start of a line)
+main = def main():\n    |\n\n\nif __name__ == "__main__":\n    main()
+def = def name(arg):\n    |
+cls = class Name:\n    def __init__(self):\n        |
+forr = for i in range(n):\n    |
+fore = for x in items:\n    |
+wh = while cond:\n    |
+if = if cond:\n    |
+ife = if cond:\n    |\nelse:\n    pass
+try = try:\n    |\nexcept Exception as e:\n    print(e)
+with = with open("file") as f:\n    |
+imp = import |
+from = from module import |
+pr = print(|)
+lam = lambda x: |

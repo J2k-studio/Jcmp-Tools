@@ -1,0 +1,14 @@
+# C snippets
+main = int main(void) {\n    |\n    return 0;\n}
+inc = #include <|>
+incl = #include "|"
+forr = for (int i = 0; i < n; i++) {\n    |\n}
+wh = while (cond) {\n    |\n}
+if = if (cond) {\n    |\n}
+ife = if (cond) {\n    |\n} else {\n    \n}
+sw = switch (value) {\n    case 1:\n        |\n        break;\n    default:\n        break;\n}
+st = struct Name {\n    int a;\n    |\n};
+td = typedef struct {\n    |\n} Name;
+fn = int name(int a) {\n    |\n}
+pr = printf("|\\n");
+def = #define |

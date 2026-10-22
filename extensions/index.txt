@@ -1,1 +1,4 @@
 jcmp    snippets, words and run commands for J2K
+python  snippets, words, run and check for Python
+c       snippets, words and build for C
+cpp     snippets, words and build for C++

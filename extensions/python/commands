@@ -1,0 +1,2 @@
+run = python3 %f 2>&1 | tail -1
+check = python3 -m py_compile %f 2>&1 | tail -1

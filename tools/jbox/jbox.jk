@@ -430,8 +430,55 @@ int do_help() {
 }
 
 // jbox --install [DIR]: a link in DIR for every command (DIR = the folder of jbox), so that any program or shell finds them in the PATH
+// tree [-a] [-L N] [FOLDER]: the folders and files under a folder, drawn as a tree (the root first); -a also the names that start with a dot
+int tree_walk(String dir, String prefix, bool all, int depth, int maxd, int^ nd, int^ nf) {
+    if depth >= maxd { return 0; }
+    Result<String[], Error> r = Dir::list(dir);
+    if !r.is_ok() { return 1; }
+    String[] names = r.take();
+    names.sort();
+    String[] shown = arr(names.len + 1);
+    for i in 0..names.len {
+        if !all && names[i].len > 0 && names[i][0] == '.' { continue; }
+        shown.push(names[i] + "");
+    }
+    for i in 0..shown.len {
+        bool last = i == shown.len - 1;
+        String full = Path::join(dir, shown[i]);
+        bool isdir = Dir::exists(full);
+        String mark = "|-- ";
+        if last { mark = "`-- "; }
+        if isdir { cout << prefix << mark << shown[i] << "/\n"; nd[0] += 1; }
+        else { cout << prefix << mark << shown[i] << "\n"; nf[0] += 1; }
+        if isdir {
+            String next = prefix + "|   ";
+            if last { next = prefix + "    "; }
+            tree_walk(full, next, all, depth + 1, maxd, nd, nf);
+        }
+    }
+    return 0;
+}
+int do_tree(String[] a) {
+    bool all = has_flag(a, 'a');
+    int maxd = 64;
+    String root = ".";
+    int i = 1;
+    while i < a.len {
+        if a[i] == "-L" && i + 1 < a.len { maxd = a[i + 1].to_int(); i += 2; continue; }
+        if !is_flag(a[i]) { root = a[i] + ""; }
+        i += 1;
+    }
+    if !Dir::exists(root) { return fail("tree", root + ": no such folder"); }
+    cout << root << "\n";
+    int nd = 0;
+    int nf = 0;
+    int rc = tree_walk(root, "", all, 0, maxd, @nd, @nf);
+    cout << "\n" << nd << " folders, " << nf << " files\n";
+    return rc;
+}
+
 int do_install(String[] args) {
-    String names_text = "dir cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false";
+    String names_text = "dir tree cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false";
     String[] names = names_text.split(" ");
     String dir = ".";
     if args.len > 2 { dir = args[2]; }
@@ -453,7 +500,7 @@ int do_install(String[] args) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && args[1] == "--version" { cout << "jbox 0.2.0\n"; return 0; }
+    if args.len > 1 && args[1] == "--version" { cout << "jbox 0.3.0\n"; return 0; }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
     String app = Path::name(args[0]);
     String[] a = args;
@@ -465,6 +512,7 @@ int main() {
     }
     if app == "dir" { return do_ls(a); }
     if app == "cat" { return do_cat(a); }
+    if app == "tree" { return do_tree(a); }
     if app == "head" { return do_head_tail(a, true); }
     if app == "tail" { return do_head_tail(a, false); }
     if app == "wc" { return do_wc(a); }
