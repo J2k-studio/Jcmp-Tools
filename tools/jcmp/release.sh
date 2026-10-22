@@ -9,6 +9,6 @@ JCMP=$1; LIB=$2; VER=$3
 [ "$(cat "$LIB/VERSION")" = "$VER" ] || { echo "release: the library is not $VER"; exit 1; }
 rm -rf dist; mkdir dist
 cp "$JCMP" dist/jcmp
-( cd "$(dirname "$LIB")" && tar cf "$OLDPWD/dist/jcmp-files.tar" "$(basename "$LIB")" -C "$OLDPWD" coderin-extensions )
+( cd "$(dirname "$LIB")" && tar cf "$OLDPWD/dist/jcmp-files.tar" "$(basename "$LIB")" -C "$OLDPWD/../.." --transform "s,^extensions/jcmp,coderin-extensions/jcmp," extensions/jcmp )
 echo "$VER" > VERSION; echo "$VER" > LATEST
 ( cd dist && sha256sum jcmp jcmp-files.tar > SHA256SUMS && ls -l )

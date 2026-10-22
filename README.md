@@ -46,6 +46,8 @@ makej init                  # a build file for a bigger project; then  makej  an
 
 ## For the maker of a tool
 
+**Layout:** `tools/` holds only the tools (programs); `extensions/` the extensions of coderin (`coderin -ex NAME`); the scripts `install.sh` and `install-NAME.sh` and the list `tools.txt` stay at the top (their addresses are used by `curl` and by `jget`). The `jcmp` tool brings the extension `extensions/jcmp` with it.
+
 A tool lives in `tools/NAME/` (its source, `VERSION`, `LATEST` = the newest released version, `test.sh`, `release.sh`). A release has the tag `NAME-vX.Y.Z` with the files `NAME` and `SHA256SUMS`. Add a line to `tools.txt` (`NAME|what it is`) and `install-NAME.sh` is the same as `install.sh NAME`.
 
 The old address `github.com/J2k-studio/Jget` leads here.
