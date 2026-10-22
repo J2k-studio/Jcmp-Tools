@@ -683,12 +683,13 @@ void run_words(String[] raw0) {
     }
 }
 
-// the prompt shows ~ for the home folder and $PREFIX for the programs; a path elsewhere shows only its last two folders (pwd gives the full path)
+// the prompt shows ~ for the home folder, $PREFIX for the programs, and a deeper path as ../parent/folder (pwd gives the full path)
 String short_path(String d) {
-    if d == "~" || d.starts_with("~/") || d.starts_with("$PREFIX") { return d; }
+    if d == "~" || d == "$PREFIX" || d == "/" { return d; }
     String[] parts = d.split("/");
-    if parts.len <= 3 { return d; }
-    return ".../" + parts[parts.len - 2] + "/" + parts[parts.len - 1];
+    int n = parts.len;
+    if n <= 3 { return d; }
+    return "../" + parts[n - 2] + "/" + parts[n - 1];
 }
 
 String prompt_text() {
@@ -703,9 +704,9 @@ String prompt_text() {
     // the prompt is only shown on a terminal: 24-bit colours (the folder blue, the mark green, red after a failure)
     String e = esc();
     String reset = e + "[0m";
-    String mark = e + "[1;38;2;255;255;255m>" + e + "[22;38;2;176;176;176m>" + reset;     // white to grey
-    if last_status != 0 { mark = e + "[38;2;255;95;95m[" + str(last_status) + "]" + mark; }
-    return e + "[38;2;200;200;200m" + dir + reset + " " + mark + " ";
+    String mark = e + "[1;38;2;255;255;255m>" + e + "[22;38;2;176;176;176m>" + reset;                     // white to grey
+    if last_status != 0 { mark = e + "[1;38;2;255;95;95m>>" + reset; }                                     // red after a failure (echo $? shows the code)
+    return e + "[38;2;200;200;200m" + dir + reset + mark + " ";
 }
 
 // a command line: commands joined by ; && ||
