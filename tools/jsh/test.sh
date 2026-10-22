@@ -72,3 +72,13 @@ check6 'for a in 1 2; do for b in x y; do if [ $b = y ]; then break; fi; echo $a
 2x'
 got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" -c 'sleep 0 & wait; echo waited' 2>&1 | tail -n 1); [ "$got" = "waited" ] || { echo "shell test (step 7): wait"; exit 1; }
 echo "shell test (step 7): ok"
+# step 8: stderr redirects, here-documents, here-strings
+check6 'ls /nonexistent_dir_x 2> e8.txt; cat e8.txt | wc -l' '1'
+check6 'echo hi > o8.txt 2>&1; cat o8.txt' 'hi'
+check6 'ls /nonexistent_dir_x &> b8.txt; cat b8.txt | wc -l' '1'
+check6 'echo err 1>&2 2> /dev/null; echo done' 'err
+done'
+check6 'cat <<<"from a string"' 'from a string'
+printf 'cat <<EOT\nline one\nline two\nEOT\necho after\n' > h8.jsh
+got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" h8.jsh 2>&1 | tr '\n' '|'); [ "$got" = "line one|line two|after|" ] || { echo "shell test (step 8): here-document: $got"; exit 1; }
+echo "shell test (step 8): ok"

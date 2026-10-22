@@ -48,6 +48,8 @@ int cols_of(String s, int a, int b) {
 }
 
 // ---------------------------------------------------------------- the ghost text and completion
+int here_n;
+String[] here_files;
 String[] cmd_cache;
 bool cmd_cached;
 
@@ -60,7 +62,7 @@ void add_unique(String[] list, String name) {
 String[] command_names() {
     if cmd_cached { return cmd_cache; }
     cmd_cache = arr(64);
-    String fixed_text = "exit cd pwd echo history help install jaric-setup-folder export unset env alias unalias type which source dir cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear true false";
+    String fixed_text = "exit cd pwd echo history help install jaric-setup-folder export unset env alias unalias type which source dir tree cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear true false";
     String[] fixed = fixed_text.split(" ");
     for q in 0..fixed.len { cmd_cache.push(fixed[q]); }
     String path = getv("PATH");
@@ -225,10 +227,27 @@ bool read_command(String prompt) {
                 cursor = line.len;
             } else if cursor == line.len && line.len > 0 && line[line.len - 1] != ' ' {
                 String[] c = candidates(line);
-                if c.len > 1 {                                        // several: show them under the line
-                    cout << "\n";
-                    for i in 0..c.len { cout << c[i] << "  "; }
-                    cout << "\n";
+                if c.len > 1 {                                        // several: take what they share, show them under the line
+                    int sp2 = 0 - 1;
+                    for i in 0..line.len { if line[i] == ' ' { sp2 = i; } }
+                    String word2 = line.slice(sp2 + 1, line.len);
+                    int sl2 = 0 - 1;
+                    for i in 0..word2.len { if word2[i] == '/' { sl2 = i; } }
+                    int shared = c[0].len;
+                    for i in 1..c.len {
+                        int m = 0;
+                        while m < shared && m < c[i].len && c[i][m] == c[0][m] { m += 1; }
+                        shared = m;
+                    }
+                    int have = word2.len - (sl2 + 1);
+                    if shared > have {
+                        line = line + c[0].slice(have, shared);
+                        cursor = line.len;
+                    } else {
+                        cout << "\n";
+                        for i in 0..c.len { cout << c[i] << "  "; }
+                        cout << "\n";
+                    }
                 }
             } else {
                 line = line.slice(0, cursor) + "  " + line.slice(cursor, line.len);
@@ -284,12 +303,23 @@ String[] words_of(String line) {
             i = line.len;                                           // a comment: the rest of the line is ignored
         } else if c == ' ' || c == '\t' {
             if have { w.push(cur); cur = ""; have = false; }
+        } else if (c == '2' || c == '1') && !have && i + 1 < line.len && line[i + 1] == '>' {
+            String op = "";                                         // 2> 2>> 2>&1 1>&2 (a number right in front of >)
+            op.push(c);
+            op.push('>');
+            i += 1;
+            if i + 1 < line.len && line[i + 1] == '>' { op.push('>'); i += 1; }
+            else if i + 2 < line.len && line[i + 1] == '&' && (line[i + 2] == '1' || line[i + 2] == '2') { op.push('&'); op.push(line[i + 2]); i += 2; }
+            w.push(op);
         } else if c == '|' || c == '<' || c == '&' || c == '>' || c == ';' {
             if have { w.push(cur); cur = ""; have = false; }
             String op = "";
             op.push(c);
             if c == '>' && i + 1 < line.len && line[i + 1] == '>' { op.push('>'); i += 1; }
-            if (c == '|' || c == '&') && i + 1 < line.len && line[i + 1] == c { op.push(c); i += 1; }
+            else if c == '>' && i + 2 < line.len && line[i + 1] == '&' && (line[i + 2] == '1' || line[i + 2] == '2') { op.push('&'); op.push(line[i + 2]); i += 2; }
+            else if c == '&' && i + 1 < line.len && line[i + 1] == '>' { op.push('>'); i += 1; if i + 1 < line.len && line[i + 1] == '>' { op.push('>'); i += 1; } }
+            else if c == '<' && i + 2 < line.len && line[i + 1] == '<' && line[i + 2] == '<' { op.push('<'); op.push('<'); i += 2; }
+            else if (c == '|' || c == '&') && i + 1 < line.len && line[i + 1] == c { op.push(c); i += 1; }
             w.push(op);
         } else {
             have = true;
@@ -441,7 +471,7 @@ void exec_path(String name, int^ av, int^ envp) {
 }
 
 // one program: fork, set the files, exec (the PATH is searched)
-int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_file, String out_file) {
+int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_file, String out_file, String err_file, int err_mode) {          // err_mode: 0 as is, 1 file, 2 file (append), 3 stderr to where stdout goes, 4 stdout to where stderr goes
     int^ av = build_argv(argv, argv.len);
     int ne = envv.len;
     int^ envp = (int^)Mem::alloc(8 * (ne + 1));
@@ -465,6 +495,13 @@ int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_
             if g < 0 { cerr << "jsh: cannot write " << out_file << "\n"; Sys::exit(1); }
             Sys::dup2(g, 1);
         }
+        if err_mode == 1 || err_mode == 2 {
+            int h = 0;
+            if err_mode == 2 { h = Sys::open_append(err_file.c()); } else { h = Sys::open_write(err_file.c()); }
+            if h < 0 { cerr << "jsh: cannot write " << err_file << "\n"; Sys::exit(1); }
+            Sys::dup2(h, 2);
+        } else if err_mode == 3 { Sys::dup2(1, 2); }
+        else if err_mode == 4 { Sys::dup2(2, 1); }
         bool slash = false;
         for i in 0..argv[0].len { if argv[0][i] == '/' { slash = true; } }
         if slash {
@@ -516,7 +553,7 @@ bool have_program(String name) {
 
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "install" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "jaric" || n == "install" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
@@ -754,9 +791,30 @@ bool builtin(String[] a) {
         bcode = run_file(a[1]);
         return true;
     }
+    if name == "jaric" {                                         // settings of the Jaric app (other terminals ignore the sequences)
+        bcode = 0;
+        if a.len >= 2 && a[1] == "theme" {
+            if a.len == 2 { cout << "themes: black soft amber green ice   (jaric theme NAME)\n"; }
+            else { cout << esc() << "]7777;theme;" << a[2] << (char)7; }
+        } else if a.len >= 3 && a[1] == "font" {
+            cout << esc() << "]7777;font;" << a[2] << (char)7;
+        } else if a.len >= 2 && a[1] == "core" {
+            cout << esc() << "]7777;core" << (char)7;
+        } else {
+            cout << "jaric theme [NAME]   the colours (black soft amber green ice)\n";
+            cout << "jaric font SIZE      the size of the letters (8 .. 28; a pinch on the screen does it too)\n";
+            cout << "jaric core           call the library of the app (J2K through JNI)\n";
+        }
+        return true;
+    }
     if name == "help" {
-        cout << "jsh: cd pwd echo history exit help; the commands of jbox (dir cat head tail wc grep sort uniq cp mv rm mkdir rmdir touch tee seq sleep clear env ...); programs with arguments; a | b; a > file; a >> file; a < file; a &\n";
-        cout << "keys: arrows (history, move), Home End, Delete, Ctrl-A Ctrl-E Ctrl-U, Ctrl-D (exit), Ctrl-C (cancel the line)\n";
+        cout << "jsh, the shell of Jaric\n\n";
+        cout << "  built-ins   cd pwd echo history export unset env alias unalias type which source install test [ ] read break continue return jobs wait exit\n";
+        cout << "  scripts     if / elif / else / fi    while / until / for ... do ... done    name() { ... }    $(command)  $((1 + 2))\n";
+        cout << "  lines       a | b    a > file    a >> file    a < file    a &    a ; b    a && b    a || b    * ? ~ globs\n";
+        cout << "  keys        Tab takes the grey text    arrows: history, move    Ctrl-J another line    Ctrl-C cancel    Ctrl-D leave\n";
+        cout << "  tools       install NAME ...  (install alone lists them; install all takes every one)\n";
+        cout << "  the app     jaric theme | font | core\n";
         bcode = 0;
         return true;
     }
@@ -1094,8 +1152,42 @@ int run_tokens(String[] t) {
 int run_script_text(String text) {
     String[] ls = text.split("\n");
     String[] all = arr(16);
-    for i in 0..ls.len {
-        String[] w = words_of(ls[i]);
+    int i = 0;
+    while i < ls.len {
+        String line = ls[i];
+        i += 1;
+        int hd = 0 - 1;                                              // a here-document:  command <<WORD  ... lines ...  WORD
+        for k in 0..line.len {
+            if hd < 0 && k + 1 < line.len && line[k] == '<' && line[k + 1] == '<' && (k + 2 >= line.len || line[k + 2] != '<') && (k == 0 || line[k - 1] != '<') { hd = k; }
+        }
+        if hd >= 0 {
+            int a = hd + 2;
+            bool dash = a < line.len && line[a] == '-';
+            if dash { a += 1; }
+            while a < line.len && line[a] == ' ' { a += 1; }
+            int b = a;
+            while b < line.len && line[b] != ' ' && line[b] != ';' && line[b] != '|' { b += 1; }
+            String word = line.slice(a, b);
+            bool quoted = false;
+            if word.len >= 2 && (word[0] == '\'' || word[0] == '"') { quoted = true; word = word.slice(1, word.len - 1); }
+            String body = "";
+            while i < ls.len {
+                String bl = ls[i];
+                i += 1;
+                String cmp = bl;
+                if dash { cmp = bl.trim(); }
+                if cmp == word { break; }
+                if dash { bl = bl.trim(); }
+                if !quoted { bl = expand(bl); }
+                body = body + bl + "\n";
+            }
+            here_n += 1;
+            String tmp = Path::join(getv("HOME"), ".jsh_here_" + str(here_n));
+            Fs::write_text(tmp, body);
+            here_files.push(tmp);
+            line = line.slice(0, hd) + "< " + tmp + line.slice(b, line.len);
+        }
+        String[] w = words_of(line);
         for k in 0..w.len { all.push(w[k]); }
         all.push(";");
     }
@@ -1117,7 +1209,7 @@ void run_words(String[] raw0) {
     String[] w = arr(raw.len);
     for i in 0..raw.len {
         String e = raw[i];
-        if e == "|" || e == "<" || e == ">" || e == ">>" || e == "&" { w.push(e); }
+        if e == "|" || e == "<" || e == ">" || e == ">>" || e == "&" || e == "2>" || e == "2>>" || e == "2>&1" || e == "1>&2" || e == ">&2" || e == ">&1" || e == "1>" || e == "1>>" || e == "&>" || e == "&>>" || e == "<<<" { w.push(e); }
         else {
             String x = expand(e);
             bool star = false;
@@ -1137,11 +1229,26 @@ void run_words(String[] raw0) {
         String[] argv = arr(4);
         String in_file = "";
         String out_file = "";
+        String err_file = "";
+        int err_mode = 0;
         int append = 0;
         while i < nwords && w[i] != "|" {
             if w[i] == "<" && i + 1 < nwords { in_file = w[i + 1]; i += 2; }
-            else if w[i] == ">" && i + 1 < nwords { out_file = w[i + 1]; i += 2; }
-            else if w[i] == ">>" && i + 1 < nwords { out_file = w[i + 1]; append = 1; i += 2; }
+            else if (w[i] == ">" || w[i] == "1>") && i + 1 < nwords { out_file = w[i + 1]; i += 2; }
+            else if (w[i] == ">>" || w[i] == "1>>") && i + 1 < nwords { out_file = w[i + 1]; append = 1; i += 2; }
+            else if w[i] == "2>" && i + 1 < nwords { err_file = w[i + 1]; err_mode = 1; i += 2; }
+            else if w[i] == "2>>" && i + 1 < nwords { err_file = w[i + 1]; err_mode = 2; i += 2; }
+            else if w[i] == "2>&1" || w[i] == ">&1" { err_mode = 3; i += 1; }
+            else if w[i] == "1>&2" || w[i] == ">&2" { err_mode = 4; i += 1; }
+            else if w[i] == "&>" && i + 1 < nwords { out_file = w[i + 1]; err_mode = 3; i += 2; }
+            else if w[i] == "&>>" && i + 1 < nwords { out_file = w[i + 1]; append = 1; err_mode = 3; i += 2; }
+            else if w[i] == "<<<" && i + 1 < nwords {                                  // a here-string: the word and a new line become the input
+                here_n += 1;
+                in_file = Path::join(getv("HOME"), ".jsh_here_" + str(here_n));
+                Fs::write_text(in_file, w[i + 1] + "\n");
+                here_files.push(in_file);
+                i += 2;
+            }
             else { argv.push(w[i]); i += 1; }
         }
         bool more = i < nwords;
@@ -1155,7 +1262,7 @@ void run_words(String[] raw0) {
             out_pipe_read = fds[0] & 4294967295;
             out_pipe_write = fds[0] >> 32;
         }
-        bool redirected = out_file.len > 0 || in_file.len > 0;
+        bool redirected = out_file.len > 0 || in_file.len > 0 || err_mode != 0;
         bool printing = argv[0] == "dir" || argv[0] == "echo" || argv[0] == "pwd" || argv[0] == "history" || argv[0] == "help" || argv[0] == "env"
             || argv[0] == "alias" || argv[0] == "type" || argv[0] == "which";
         if npid == 0 && !more && redirected && printing {
@@ -1168,6 +1275,12 @@ void run_words(String[] raw0) {
                     if g < 0 { cerr << "jsh: cannot write " << out_file << "\n"; Sys::exit(1); }
                     Sys::dup2(g, 1);
                 }
+                if err_mode == 1 || err_mode == 2 {
+                    int h = 0;
+                    if err_mode == 2 { h = Sys::open_append(err_file.c()); } else { h = Sys::open_write(err_file.c()); }
+                    if h >= 0 { Sys::dup2(h, 2); }
+                } else if err_mode == 3 { Sys::dup2(1, 2); }
+                else if err_mode == 4 { Sys::dup2(2, 1); }
                 builtin(argv);
                 Sys::exit(bcode);
             }
@@ -1180,7 +1293,7 @@ void run_words(String[] raw0) {
             last_status = bcode;
             return;
         }
-        int pid = spawn(argv, in_pipe, out_pipe_write, append, in_file, out_file);
+        int pid = spawn(argv, in_pipe, out_pipe_write, append, in_file, out_file, err_file, err_mode);
         if npid < 16 { pids[npid] = pid; npid += 1; }
         if in_pipe >= 0 { Sys::close(in_pipe); }
         if out_pipe_write >= 0 { Sys::close(out_pipe_write); }
@@ -1196,6 +1309,8 @@ void run_words(String[] raw0) {
         Sys::wait(pids[k], @raw_status);
         if k == npid - 1 { last_status = status_of(raw_status); }
     }
+    for h in 0..here_files.len { Fs::remove(here_files[h]); }
+    here_files = arr(2);
 }
 
 // the prompt shows ~ for the home folder, $PREFIX for the programs, and a deeper path as ../parent/folder (pwd gives the full path)
@@ -1267,6 +1382,7 @@ int run_file(String path) {
 
 int main() {
     history = arr(16);
+    here_files = arr(4);
     envv = arr(32);
     alias_n = arr(8);
     alias_v = arr(8);
@@ -1290,7 +1406,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.4.1\n"; return 0; }
+    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.5.0\n"; return 0; }
     if cmdline.len > 1 && cmdline[1] == "install" {                              // jsh install NAME ...
         running = 1;
         String[] jw = arr(cmdline.len + 2);

@@ -1403,7 +1403,7 @@ int ex_mode(String[] a) {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && a[1] == "--version" { cout << "coderin 0.3.0\n"; return 0; }
+    if a.len > 1 && a[1] == "--version" { cout << "coderin 0.4.0\n"; return 0; }
     if a.len > 1 && a[1] == "-ex" { return ex_mode(a); }
     if a.len < 2 { cerr << "usage: coderin FILE   |   coderin -ex [NAME]\n"; return 2; }
     if Sys::isatty(0) != 0 { cerr << "coderin: it needs a terminal\n"; return 2; }

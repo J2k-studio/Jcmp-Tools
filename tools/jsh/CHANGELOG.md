@@ -21,3 +21,6 @@
 
 ## 0.1.0
 * First release.
+
+## 0.5.0
+* Redirections 2> 2>> 2>&1 1>&2 &> <<< and here-documents; tree in the command list.
