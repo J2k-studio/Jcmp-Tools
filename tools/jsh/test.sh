@@ -39,3 +39,26 @@ two" ] || { echo "shell test: -c failed"; exit 1; }
 [ "$(HOME="$T2" "$SH" s.jsh)" = "echo in the script
 k=5" ] || { echo "shell test: script failed"; exit 1; }
 echo "shell test (step 5): ok"
+# step 6: if / elif / else, while, until, for, functions, $( ), test and [ ]
+T3=$(mktemp -d); trap 'rm -rf "$T" "$T2" "$T3"' EXIT
+cd "$T3"; touch a.txt b.txt
+cp "$OLDPWD/_out/jbox" . 2>/dev/null || cp "$(dirname "$SH")/jbox" .
+check6() { got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" -c "$1" 2>&1); [ "$got" = "$2" ] || { echo "shell test (step 6): '$1' gave '$got', wanted '$2'"; exit 1; }; }
+check6 'if [ -f zzz ]; then echo yes; elif [ 3 -gt 2 ]; then echo elif; else echo no; fi' 'elif'
+check6 'if false; then echo A; else echo B; fi' 'B'
+check6 'x=5; if [ $x -eq 5 ]; then echo five; fi' 'five'
+check6 'for i in a b c; do echo i=$i; done' 'i=a
+i=b
+i=c'
+check6 'for f in *.txt; do echo $f; done' 'a.txt
+b.txt'
+check6 'greet() { echo hi $1 and $2; }; greet jao ploy' 'hi jao and ploy'
+check6 'y=$(echo captured | cat); echo got $y' 'got captured'
+check6 'echo $(echo nested $(echo deep))' 'nested deep'
+check6 'f() { echo in f; return 3; echo not; }; f; echo status $?' 'in f
+status 3'
+check6 'while false; do echo no; done; echo after' 'after'
+check6 'until true; do echo no; done; echo after' 'after'
+check6 'test -d . && echo dir; test -f nosuch || echo nofile' 'dir
+nofile'
+echo "shell test (step 6): ok"

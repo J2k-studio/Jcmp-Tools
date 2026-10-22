@@ -9,7 +9,7 @@ A shell written in J2K, on the J2K library only. It is the shell of the Jaric pr
 * Several lines in one command: Ctrl-J (the key New line of the Jaric app) starts another line, Enter runs them all.
 * Several commands on a line: `a ; b`, `a && b`, `a || b`.
 * Variables: `export NAME=value`, or `NAME=value`; aliases: `alias ll="ls -l"`.
-* Scripts: `jsh file`, `jsh -c "commands"`, `source file`; at start an interactive jsh runs `~/.jshrc`.
+* Scripts: **`if` / `elif` / `else` / `fi`, `while`, `until`, `for NAME in WORDS`, functions `name() { ... }` with `$1 $2 ... $#` and `return`, command substitution `$(command)`, and `test` / `[ ]`** (`-f -d -e -z -n`, `= !=`, `-eq -ne -lt -gt -le -ge`, `!`). The keywords are keywords only where a command may start. Scripts: `jsh file`, `jsh -c "commands"`, `source file`; at start an interactive jsh runs `~/.jshrc`.
 
 ```
 sh build.sh            # builds _out/jsh and _out/jbox (needs jcmp 1.0.0.0 or newer; JCMP=path chooses the compiler)
@@ -17,6 +17,6 @@ sh test.sh
 _out/jsh
 ```
 
-Not yet: job control (`fg` / `bg`), tab completion, `if` / `while` in scripts, a quoted `;` `&&` `||` `|` (they are always operators).
+Not yet: job control (`fg` / `bg`), arithmetic `$(( ))`, `break` / `continue`, here-documents, a quoted `;` `&&` `||` `|` (they are always operators).
 
 **Licence:** Mozilla Public License 2.0 (`LICENSE` in this folder): use it, change it, share it; if you distribute a changed version of these files, you publish the changed files under the same licence.

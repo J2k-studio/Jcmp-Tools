@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0
+* Scripts: if / elif / else, while, until, for, functions with parameters and return, command substitution $( ), test and [ ].
+* A failed cd sdcard asks the Jaric app to make the link (a private sequence, ignored by other terminals).
+
 ## 0.1.2
 * A private sequence (ESC ] 7777 ; prompt BEL) after the prompt tells a terminal program where the typing starts (the Jaric app moves the cursor with a tap only inside that line); other terminals ignore it.
 

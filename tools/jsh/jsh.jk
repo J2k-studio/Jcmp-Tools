@@ -12,6 +12,9 @@ int running;
 String[] envv;                                                // the environment of the shell: "NAME=value" (children get a copy)
 String[] alias_n;
 String[] alias_v;
+int returning;                                                // 1 while a function returns
+String[] fn_names;
+String[] fn_bodies;                                           // the tokens of the body joined by the character 1
 
 // ---------------------------------------------------------------- the line editor
 // raw terminal keys: read.key() gives letters as they are, arrows 257 up 258 down 259 right 260 left, 261 Home, 262 End, 263 Delete
@@ -264,6 +267,16 @@ String[] words_of(String line) {
             have = true;
             i += 1;
             cur.push(line[i]);
+        } else if c == '$' && i + 1 < line.len && line[i + 1] == '(' {
+            have = true;                                            // $( ... ) with its spaces is one word (it is run later, by expand)
+            int depth = 0;
+            while i < line.len {
+                char d = line[i];
+                cur.push(d);
+                if d == '(' { depth += 1; }
+                if d == ')' { depth -= 1; if depth == 0 { break; } }
+                i += 1;
+            }
         } else if c == '#' && !have {
             i = line.len;                                           // a comment: the rest of the line is ignored
         } else if c == ' ' || c == '\t' {
@@ -357,6 +370,18 @@ String expand(String w) {
     if w.len > 0 && w[0] == '~' && (w.len == 1 || w[1] == '/') { r = getv("HOME"); i = 1; }
     while i < w.len {
         if w[i] == '$' && i + 1 < w.len {
+            if w[i + 1] == '(' {                                     // command substitution: the output of the command
+                int depth = 0;
+                int j = i + 1;
+                while j < w.len {
+                    if w[j] == '(' { depth += 1; }
+                    if w[j] == ')' { depth -= 1; if depth == 0 { break; } }
+                    j += 1;
+                }
+                r = r + capture(w.slice(i + 2, j));
+                i = j + 1;
+                continue;
+            }
             if w[i + 1] == '?' { r = r + str(last_status); i += 2; continue; }
             int j = i + 1;
             String name = "";
@@ -453,7 +478,7 @@ int status_of(int raw) {
 int bcode;                                                    // the exit code of a built-in
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "test" || n == "[" || n == "return" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
@@ -522,6 +547,16 @@ bool builtin(String[] a) {
     if name == "jaric-setup-folder" {                          // a request to the Jaric app (other terminals ignore the sequence)
         cout << esc() << "]7777;setup-folder" << (char)7;
         bcode = 0;
+        return true;
+    }
+    if name == "test" || name == "[" {
+        bcode = test_eval(a);
+        return true;
+    }
+    if name == "return" {
+        if a.len > 1 { last_status = a[1].to_int(); }
+        returning = 1;
+        bcode = last_status;
         return true;
     }
     if name == "export" {
@@ -613,9 +648,263 @@ bool builtin(String[] a) {
 }
 
 // ---------------------------------------------------------------- one line
+// ---------------------------------------------------------------- scripts: if / while / until / for, functions, $( )
+
+bool is_number(String s) {
+    if s.len == 0 { return false; }
+    for i in 0..s.len {
+        if !((s[i] >= '0' && s[i] <= '9') || (i == 0 && s[i] == '-' && s.len > 1)) { return false; }
+    }
+    return true;
+}
+
+// test and [ ]: -f -d -e -z -n, = != , -eq -ne -lt -gt -le -ge, ! in front
+int test_eval(String[] a) {
+    String[] t = arr(a.len);
+    for i in 1..a.len { t.push(a[i]); }
+    if a[0] == "[" {
+        if t.len > 0 && t[t.len - 1] == "]" { t.pop(); }
+    }
+    bool neg = false;
+    if t.len > 0 && t[0] == "!" {
+        neg = true;
+        String[] u = arr(t.len);
+        for i in 1..t.len { u.push(t[i]); }
+        t = u;
+    }
+    bool r = false;
+    if t.len == 1 { r = t[0].len > 0; }
+    else if t.len == 2 {
+        String o = t[0];
+        String x = t[1];
+        if o == "-f" { r = Fs::exists(x) && !Dir::exists(x); }
+        else if o == "-d" { r = Dir::exists(x); }
+        else if o == "-e" { r = Fs::exists(x) || Dir::exists(x); }
+        else if o == "-z" { r = x.len == 0; }
+        else if o == "-n" { r = x.len > 0; }
+    } else if t.len == 3 {
+        String o = t[1];
+        if o == "=" || o == "==" { r = t[0] == t[2]; }
+        else if o == "!=" { r = t[0] != t[2]; }
+        else if is_number(t[0]) && is_number(t[2]) {
+            int x = t[0].to_int();
+            int y = t[2].to_int();
+            if o == "-eq" { r = x == y; }
+            else if o == "-ne" { r = x != y; }
+            else if o == "-lt" { r = x < y; }
+            else if o == "-gt" { r = x > y; }
+            else if o == "-le" { r = x <= y; }
+            else if o == "-ge" { r = x >= y; }
+        }
+    }
+    if neg { r = !r; }
+    if r { return 0; }
+    return 1;
+}
+
+// the output of a command (without the new lines at its end)
+String capture(String cmd) {
+    int fds[1];
+    Sys::pipe(@fds);
+    int rd = fds[0] & 4294967295;
+    int wr = fds[0] >> 32;
+    int pid = Sys::fork();
+    if pid == 0 {
+        Sys::close(rd);
+        Sys::dup2(wr, 1);
+        Sys::close(wr);
+        run_script_text(cmd);
+        Sys::exit(last_status);
+    }
+    Sys::close(wr);
+    String out = "";
+    char b[4097];
+    int n = Sys::read(rd, @b, 4096);
+    while n > 0 {
+        b[n] = 0;
+        out.append((char^)@b);
+        n = Sys::read(rd, @b, 4096);
+    }
+    Sys::close(rd);
+    int st = 0;
+    Sys::wait(pid, @st);
+    last_status = status_of(st);
+    while out.len > 0 && out[out.len - 1] == 10 { out = out.slice(0, out.len - 1); }
+    return out;
+}
+
+// a word is a keyword (if, then, fi, do, done ...) only where a command may start: at the beginning, after ; or after another keyword
+bool cmd_pos(String[] t, int k) {
+    if k == 0 { return true; }
+    String p = t[k - 1];
+    return p == ";" || p == "then" || p == "do" || p == "else" || p == "elif" || p == "{" || p == "&&" || p == "||" || p == "|" || p == "!" || p == "if" || p == "while" || p == "until";
+}
+
+String[] slice_t(String[] t, int a, int b) {
+    String[] r = arr(b - a + 1);
+    for i in a..b { r.push(t[i]); }
+    return r;
+}
+
+// the closing word that goes with the opening word at i (if .. fi, while / until / for .. done, { .. }); -1 if there is none
+int match_end(String[] t, int i) {
+    String open = t[i];
+    bool loop = open == "while" || open == "until" || open == "for";
+    int depth = 0;
+    for k in i..t.len {
+        String w = t[k];
+        if k > i && !cmd_pos(t, k) { continue; }
+        if open == "if" && w == "if" { depth += 1; }
+        if loop && (w == "while" || w == "until" || w == "for") { depth += 1; }
+        if open == "{" && w == "{" { depth += 1; }
+        if (open == "if" && w == "fi") || (loop && w == "done") || (open == "{" && w == "}") {
+            depth -= 1;
+            if depth == 0 { return k; }
+        }
+    }
+    return 0 - 1;
+}
+
+// the first of the words k1 / k2 at the level of the block itself (not inside an if / while / for / { } in it)
+int find_kw(String[] t, int from, String k1, String k2) {
+    int depth = 0;
+    for k in from..t.len {
+        String w = t[k];
+        if k > 0 && !cmd_pos(t, k) { continue; }
+        if depth == 0 && (w == k1 || (k2.len > 0 && w == k2)) { return k; }
+        if w == "if" || w == "while" || w == "until" || w == "for" || w == "{" { depth += 1; }
+        else if w == "fi" || w == "done" || w == "}" { depth -= 1; }
+    }
+    return 0 - 1;
+}
+
+int bad_script(String what) {
+    cerr << "jsh: " << what << "\n";
+    last_status = 2;
+    return 2;
+}
+
+void run_if(String[] b) {
+    int pos = 0;
+    while returning == 0 {
+        int th = find_kw(b, pos, "then", "");
+        if th < 0 { bad_script("if without then"); return; }
+        run_tokens(slice_t(b, pos, th));
+        int ok = last_status;
+        int nx = find_kw(b, th + 1, "elif", "else");
+        int stop = nx;
+        if nx < 0 { stop = b.len; }
+        if ok == 0 { run_tokens(slice_t(b, th + 1, stop)); return; }
+        if nx < 0 { last_status = 0; return; }
+        if b[nx] == "else" { run_tokens(slice_t(b, nx + 1, b.len)); return; }
+        pos = nx + 1;
+    }
+}
+
+void run_while(String[] b, bool until) {
+    int d = find_kw(b, 0, "do", "");
+    if d < 0 { bad_script("while without do"); return; }
+    String[] cond = slice_t(b, 0, d);
+    String[] body = slice_t(b, d + 1, b.len);
+    int rounds = 0;
+    last_status = 0;
+    while running == 1 && returning == 0 && rounds < 1000000 {
+        run_tokens(cond);
+        bool yes = last_status == 0;
+        if until { yes = !yes; }
+        if !yes { last_status = 0; return; }
+        run_tokens(body);
+        rounds += 1;
+    }
+}
+
+void run_for(String[] b) {
+    int d = find_kw(b, 0, "do", "");
+    if d < 2 || b[1] != "in" { bad_script("for NAME in WORDS; do ... done"); return; }
+    String name = b[0];
+    String[] vals = arr(8);
+    for i in 2..d {
+        if b[i] == ";" { continue; }
+        String x = expand(b[i]);
+        bool star = false;
+        for k in 0..x.len { if x[k] == '*' || x[k] == '?' { star = true; } }
+        if star { glob_into(vals, x); } else { vals.push(x); }
+    }
+    String[] body = slice_t(b, d + 1, b.len);
+    last_status = 0;
+    for i in 0..vals.len {
+        if running == 0 || returning == 1 { return; }
+        setv(name, vals[i]);
+        run_tokens(body);
+    }
+}
+
+int find_fn(String name) {
+    for i in 0..fn_names.len { if fn_names[i] == name { return i; } }
+    return 0 - 1;
+}
+
+void call_fn(int f, String[] words) {
+    String[] body = fn_bodies[f].split("\x01");
+    for i in 1..words.len {
+        if i < 10 { setv(str(i), expand(words[i])); }
+    }
+    for i in words.len..10 { unsetv(str(i)); }
+    setv("#", str(words.len - 1));
+    run_tokens(body);
+    returning = 0;
+}
+
+// the statements of a list of words (the new lines are ";"): the compound ones here, the simple ones by run_andor
+int run_tokens(String[] t) {
+    int i = 0;
+    while i < t.len && running == 1 && returning == 0 {
+        String w = t[i];
+        if w == ";" { i += 1; continue; }
+        if w == "if" || w == "while" || w == "until" || w == "for" {
+            int e = match_end(t, i);
+            if e < 0 { return bad_script("a " + w + " that is not closed"); }
+            String[] inner = slice_t(t, i + 1, e);
+            if w == "if" { run_if(inner); }
+            else if w == "for" { run_for(inner); }
+            else { run_while(inner, w == "until"); }
+            i = e + 1;
+        } else if w.len > 2 && w.ends_with("()") && i + 1 < t.len && t[i + 1] == "{" {
+            int e = match_end(t, i + 1);
+            if e < 0 { return bad_script("a function that is not closed with }"); }
+            String name = w.slice(0, w.len - 2);
+            String joined = "";
+            for k in i + 2..e { if k > i + 2 { joined = joined + "\x01"; } joined = joined + t[k]; }
+            int f = find_fn(name);
+            if f >= 0 { fn_bodies[f] = joined; } else { fn_names.push(name); fn_bodies.push(joined); }
+            i = e + 1;
+        } else {
+            int k = i;
+            while k < t.len && t[k] != ";" { k += 1; }
+            run_andor(slice_t(t, i, k));
+            i = k;
+        }
+    }
+    return last_status;
+}
+
+// a text of one or many lines (a script, a pasted block, the line of the keyboard)
+int run_script_text(String text) {
+    String[] ls = text.split("\n");
+    String[] all = arr(16);
+    for i in 0..ls.len {
+        String[] w = words_of(ls[i]);
+        for k in 0..w.len { all.push(w[k]); }
+        all.push(";");
+    }
+    return run_tokens(all);
+}
+
 void run_words(String[] raw0) {
     String[] raw = raw0;
     if raw.len == 0 { return; }
+    int fnx = find_fn(raw[0]);
+    if fnx >= 0 { call_fn(fnx, raw); return; }
     int al = find_alias(raw[0]);
     if al >= 0 {
         String[] spliced = words_of(alias_v[al]);
@@ -741,11 +1030,10 @@ String prompt_text() {
     return e + "[38;2;200;200;200m" + dir + reset + mark + " " + prompt_mark();
 }
 
-// a command line: commands joined by ; && ||
-void run_line(String text) {
-    String[] all = words_of(text);
+// commands joined by && and || (the words are already split)
+void run_andor(String[] all) {
     String[] cur = arr(8);
-    int link = 0;                                             // how the command is joined to the one before: 0 first, 1 ;  2 &&  3 ||
+    int link = 0;                                             // how the command is joined to the one before: 0 first, 2 &&  3 ||
     for i in 0..all.len + 1 {
         bool end = i == all.len;
         String t = "";
@@ -756,9 +1044,13 @@ void run_line(String text) {
             if link == 3 && last_status == 0 { go = false; }
             if go && cur.len > 0 { run_words(cur); }
             cur = arr(8);
-            if t == ";" { link = 1; } else if t == "&&" { link = 2; } else if t == "||" { link = 3; }
+            if t == "&&" { link = 2; } else if t == "||" { link = 3; } else { link = 0; }
         } else { cur.push(t); }
     }
+}
+
+void run_line(String text) {
+    run_script_text(text);
 }
 
 // the lines of a file are run one by one (a script, .jshrc); the result is the status of the last line
@@ -767,13 +1059,7 @@ int run_file(String path) {
     Result<String, Error> r = Fs::read_text(path);
     if r.is_ok() { text = r.take(); }
     else { cerr << "jsh: " << path << ": cannot read it\n"; return 1; }
-    String[] ls = text.split("\n");
-    for i in 0..ls.len {
-        String t = ls[i].trim();
-        if t.len == 0 || running == 0 { continue; }
-        run_line(t);
-    }
-    return last_status;
+    return run_script_text(text);
 }
 
 int main() {
@@ -781,6 +1067,8 @@ int main() {
     envv = arr(32);
     alias_n = arr(8);
     alias_v = arr(8);
+    fn_names = arr(8);
+    fn_bodies = arr(8);
     int nenv = 0;
     while Sys::arg(Sys::argc() + 1 + nenv) != null {          // the environment of the shell starts as the one it was given
         String ev = "";
@@ -798,7 +1086,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.1.2\n"; return 0; }
+    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.2.0\n"; return 0; }
     if cmdline.len > 1 {                                      // jsh -c "commands"   or   jsh script
         running = 1;
         if cmdline[1] == "-c" && cmdline.len > 2 { run_line(cmdline[2]); return last_status; }
@@ -825,11 +1113,7 @@ int main() {
         String t = line.trim();
         if t.len == 0 { continue; }
         history.push(t);
-        String[] each = t.split("\n");
-        for e in 0..each.len {
-            String one = each[e].trim();
-            if one.len > 0 { run_line(one); }
-        }
+        run_script_text(t);
     }
     return last_status;
 }
