@@ -39,6 +39,7 @@ bool m_press;
 int click_time;               // for the double click
 int click_y;
 int click_x;
+int c_bg = 0x0D1117;
 int c_kw;                     // the colours of the scheme: 0xRRGGBB
 int c_str;
 int c_num;
@@ -624,6 +625,7 @@ int[] kinds_of(String s) {
 String rgb(int c) {
     return esc() + "[38;2;" + str((c >> 16) & 255) + ";" + str((c >> 8) & 255) + ";" + str(c & 255) + "m";
 }
+String bgs() { return esc() + "[48;2;" + str((c_bg >> 16) & 255) + ";" + str((c_bg >> 8) & 255) + ";" + str(c_bg & 255) + "m"; }
 String color_of(int kind) {
     if kind == 1 { return rgb(c_kw); }
     if kind == 2 { return rgb(c_str); }
@@ -635,10 +637,10 @@ String color_of(int kind) {
 // the colours of a scheme: dark (the default), light, mono, amber; a file ~/.config/coderin/colors/NAME with lines  keyword = #RRGGBB  changes or adds one
 void apply_scheme(String name) {
     scheme = name;
-    c_kw = 0xFF7B72; c_str = 0xA5D6FF; c_num = 0xD2A8FF; c_com = 0x7D8590; c_typ = 0x79C0FF; c_txt = 0xF2F2F2; c_gut = 0x7D8590; c_sel = 0x3C4666;
-    if name == "light" { c_kw = 0xCF222E; c_str = 0x0A3069; c_num = 0x8250DF; c_com = 0x6E7781; c_typ = 0x0550AE; c_txt = 0x1F2328; c_gut = 0x8C959F; c_sel = 0xB6D6F2; }
-    else if name == "mono" { c_kw = 0xFFFFFF; c_str = 0xCCCCCC; c_num = 0xCCCCCC; c_com = 0x808080; c_typ = 0xFFFFFF; c_txt = 0xE0E0E0; c_gut = 0x808080; c_sel = 0x444444; }
-    else if name == "amber" { c_kw = 0xFFB000; c_str = 0xFFD060; c_num = 0xFFD060; c_com = 0x9A6B00; c_typ = 0xFFC030; c_txt = 0xFFB000; c_gut = 0x9A6B00; c_sel = 0x553A00; }
+    c_kw = 0xFF7B72; c_str = 0xA5D6FF; c_num = 0xD2A8FF; c_com = 0x7D8590; c_typ = 0x79C0FF; c_txt = 0xF2F2F2; c_gut = 0x7D8590; c_sel = 0x3C4666; c_bg = 0x0D1117;
+    if name == "light" { c_kw = 0xCF222E; c_str = 0x0A3069; c_num = 0x8250DF; c_com = 0x6E7781; c_typ = 0x0550AE; c_txt = 0x1F2328; c_gut = 0x8C959F; c_sel = 0xB6D6F2; c_bg = 0xFAFAFA; }
+    else if name == "mono" { c_kw = 0xFFFFFF; c_str = 0xCCCCCC; c_num = 0xCCCCCC; c_com = 0x808080; c_typ = 0xFFFFFF; c_txt = 0xE0E0E0; c_gut = 0x808080; c_sel = 0x444444; c_bg = 0x000000; }
+    else if name == "amber" { c_kw = 0xFFB000; c_str = 0xFFD060; c_num = 0xFFD060; c_com = 0x9A6B00; c_typ = 0xFFC030; c_txt = 0xFFB000; c_gut = 0x9A6B00; c_sel = 0x553A00; c_bg = 0x120C00; }
     String file = config_dir() + "/colors/" + name;
     Result<String, Error> r = Fs::read_text(file);
     if r.is_ok() {
@@ -652,7 +654,7 @@ void apply_scheme(String name) {
             int v = hex_value(val.slice(1, 7));
             if key == "keyword" { c_kw = v; } else if key == "string" { c_str = v; } else if key == "number" { c_num = v; }
             else if key == "comment" { c_com = v; } else if key == "type" { c_typ = v; } else if key == "text" { c_txt = v; }
-            else if key == "gutter" { c_gut = v; } else if key == "selection" { c_sel = v; }
+            else if key == "background" { c_bg = v; } else if key == "gutter" { c_gut = v; } else if key == "selection" { c_sel = v; }
         }
     }
 }
@@ -703,12 +705,12 @@ String draw_line(int y) {
     String s = lines[y];
     int[] k = kinds_of(s);
     String e = esc();
-    String out = "";
+    String out = bgs();
     int g = gutter();
     if ruler {
         String num = str(y + 1);
         String pad = " ".repeat(g - 1 - num.len);
-        out = out + rgb(c_gut) + pad + num + " " + e + "[0m";
+        out = out + rgb(c_gut) + pad + num + " " + e + "[0m" + bgs();
     }
     int col = 0;
     int i = 0;
@@ -724,7 +726,7 @@ String draw_line(int y) {
         bool s_on = selected(y, i);
         if col + w > left && col < left + text_cols {
             if k[i] != last || s_on != rev {
-                out = out + e + "[0m";
+                out = out + e + "[0m" + bgs();
                 if s_on { out = out + e + "[48;2;" + str((c_sel >> 16) & 255) + ";" + str((c_sel >> 8) & 255) + ";" + str(c_sel & 255) + "m"; }
                 out = out + color_of(k[i]);
                 last = k[i];
@@ -736,7 +738,7 @@ String draw_line(int y) {
         col += w;
         i = n;
     }
-    out = out + e + "[0m" + e + "[K";
+    out = out + e + "[0m" + bgs() + e + "[K";
     return out;
 }
 
@@ -748,7 +750,7 @@ void draw() {
         int y = top + r;
         f = f + e + "[" + str(r + 1) + ";1H";
         if y < lines.len { f = f + draw_line(y); }
-        else { f = f + rgb(c_gut) + "~" + e + "[0m" + e + "[K"; }
+        else { f = f + bgs() + rgb(c_gut) + "~" + e + "[0m" + bgs() + e + "[K"; }
     }
     if helpbar {                                                  // the keys, in the way of nano: the key reversed, then what it does
         String hints = "";
@@ -1300,7 +1302,7 @@ int main() {
     raw_mode(true);
     read_size();
     String e = esc();
-    cout << e << "[?1049h" << e << "[2J";
+    cout << e << "[?1049h" << bgs() << e << "[2J";
     if mouse_on { cout << e << "[?1000h" << e << "[?1002h" << e << "[?1006h"; }
     while quit_asked != 2 {
         draw();
@@ -1309,13 +1311,13 @@ int main() {
             int orows = rows;
             int ocols = cols;
             read_size();
-            if orows != rows || ocols != cols { cout << e << "[2J"; }
+            if orows != rows || ocols != cols { cout << bgs() << e << "[2J"; }
             continue;
         }
         if k < 0 { break; }
         handle(k);
     }
-    cout << e << "[?1006l" << e << "[?1002l" << e << "[?1000l" << e << "[?25h" << e << "[?1049l";
+    cout << e << "[?1006l" << e << "[?1002l" << e << "[?1000l" << e << "[?25h" << e << "[0m" << e << "[?1049l";
     raw_mode(false);
     return 0;
 }
