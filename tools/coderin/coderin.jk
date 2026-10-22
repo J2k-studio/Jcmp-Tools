@@ -49,6 +49,16 @@ int c_gut;
 int c_sel;
 int K_MOUSE = 1020;
 bool helpbar = true;          // a line with the keys under the text, as nano shows it (set helpbar off)
+bool ext_undo = true;         // the extensions that are on (the setting  extensions = undo j2k ): undo and redo; help for writing J2K
+bool ext_j2k = true;
+String[] undo_text;           // the states before the changes (the whole text joined by new lines) and where the cursor was
+int[] undo_cy;
+int[] undo_cx;
+String[] redo_text;
+int[] redo_cy;
+int[] redo_cx;
+int last_kind;                // what the last change was: 1 typing, 2 deleting characters, 0 anything else (it always starts a new step)
+int last_edit_ms;
 bool free_scroll;             // the wheel moved the view: it does not follow the cursor until a key comes
 
 int K_TEXT = 1000;
@@ -313,6 +323,155 @@ void set_clip(String t) {
     clip = t;
     cout << esc() << "]52;c;" << Base64::encode(t) << (char)7;
 }
+// ---------------------------------------------------------------- the extension undo / redo
+String join_lines() {
+    String t = "";
+    for i in 0..lines.len {
+        if i > 0 { t = t + "\n"; }
+        t = t + lines[i];
+    }
+    return t;
+}
+void set_from_text(String t) {
+    lines = arr(64);
+    String[] p = t.split("\n");
+    for i in 0..p.len { lines.push(p[i]); }
+    if lines.len == 0 { lines.push(""); }
+}
+// called before a change: the state is kept so that Ctrl-Z can come back to it (typing in one go, or deleting in one go, is one step)
+void begin_edit(int kind) {
+    if !ext_undo { return; }
+    int now = Time::now_ms();
+    if kind != 0 && kind == last_kind && now - last_edit_ms < 900 { last_edit_ms = now; return; }
+    undo_text.push(join_lines());
+    undo_cy.push(cy);
+    undo_cx.push(cx);
+    if undo_text.len > 200 {                                      // only the last 200 steps
+        String[] t2 = arr(256);
+        int[] y2 = arr(256);
+        int[] x2 = arr(256);
+        for i in 1..undo_text.len { t2.push(undo_text[i]); y2.push(undo_cy[i]); x2.push(undo_cx[i]); }
+        undo_text = t2; undo_cy = y2; undo_cx = x2;
+    }
+    redo_text = arr(8);
+    redo_cy = arr(8);
+    redo_cx = arr(8);
+    last_kind = kind;
+    last_edit_ms = now;
+}
+void undo_step(bool redo) {
+    if !ext_undo { msg = "the extension undo is off (set extensions undo j2k)"; return; }
+    if redo {
+        if redo_text.len == 0 { msg = "nothing to redo"; return; }
+        undo_text.push(join_lines()); undo_cy.push(cy); undo_cx.push(cx);
+        int n = redo_text.len - 1;
+        set_from_text(redo_text[n]);
+        cy = redo_cy[n]; cx = redo_cx[n];
+        redo_text.pop(); redo_cy.pop(); redo_cx.pop();
+        msg = "redo";
+    } else {
+        if undo_text.len == 0 { msg = "nothing to undo"; return; }
+        redo_text.push(join_lines()); redo_cy.push(cy); redo_cx.push(cx);
+        int n = undo_text.len - 1;
+        set_from_text(undo_text[n]);
+        cy = undo_cy[n]; cx = undo_cx[n];
+        undo_text.pop(); undo_cy.pop(); undo_cx.pop();
+        msg = "undo";
+    }
+    if cy >= lines.len { cy = lines.len - 1; }
+    if cx > lines[cy].len { cx = lines[cy].len; }
+    sel = false;
+    dirty = true;
+    last_kind = 0;
+}
+
+// ---------------------------------------------------------------- the extension j2k: snippets and word completion with Tab
+String snippet_for(String w) {
+    if w == "main" { return "void main() {\n    |\n}"; }
+    if w == "for" { return "for i in 0..n {\n    |\n}"; }
+    if w == "while" { return "while cond {\n    |\n}"; }
+    if w == "if" { return "if cond {\n    |\n}"; }
+    if w == "ife" { return "if cond {\n    |\n} else {\n    \n}"; }
+    if w == "struct" { return "struct Name {\n    int field;\n    |\n}"; }
+    if w == "enum" { return "enum class Name { First, Second;\n}"; }
+    if w == "switch" { return "switch value {\n    |\n}"; }
+    if w == "try" { return "try {\n    |\n} catch (e) {\n    \n}"; }
+    if w == "cout" { return "cout << |\"\\n\";"; }
+    if w == "fn" { return "int name(int a) {\n    |\n}"; }
+    if w == "exp" { return "export int name(int a) {\n    |\n}"; }
+    return "";
+}
+bool tab_help() {
+    if !ext_j2k { return false; }
+    String l = lines[cy];
+    int st = cx;
+    while st > 0 && is_word(l[st - 1] & 255) { st -= 1; }
+    if st == cx { return false; }
+    String w = l.slice(st, cx);
+    String snip = snippet_for(w);
+    String lead = l.slice(0, st).trim();
+    if snip.len > 0 && lead.len == 0 {                                        // a snippet is for the start of a line
+        begin_edit(0);
+        int base = 0;
+        while base < l.len && l[base] == ' ' { base += 1; }
+        String text = snip.replace("\n", "\n" + " ".repeat(base));
+        int m = 0;
+        while m < text.len && text[m] != '|' { m += 1; }
+        String before = text.slice(0, m);
+        String after = "";
+        if m < text.len { after = text.slice(m + 1, text.len); } else { before = text; }
+        lines[cy] = l.slice(0, st) + l.slice(cx, l.len);
+        cx = st;
+        int y0 = cy;
+        insert_text(before + after);
+        String[] bl = before.split("\n");
+        cy = y0 + bl.len - 1;
+        if bl.len == 1 { cx = st + before.len; } else { cx = bl[bl.len - 1].len; }
+        return true;
+    }
+    if w.len < 2 { return false; }
+    // word completion: the words of the J2K language and the words of the text
+    String kws = "if else while for in return break continue switch case default struct enum using module import defer try catch throw new delete true false null sizeof export operator String Result Option Error double float bool char void int";
+    String[] cands = arr(16);
+    String[] kw = kws.split(" ");
+    for i in 0..kw.len { if kw[i].starts_with(w) && kw[i].len > w.len { add_cand(cands, kw[i]); } }
+    for y in 0..lines.len {
+        String t = lines[y];
+        int i = 0;
+        while i < t.len {
+            if is_word(t[i] & 255) {
+                int j = i;
+                while j < t.len && is_word(t[j] & 255) { j += 1; }
+                String x = t.slice(i, j);
+                if x.starts_with(w) && x.len > w.len { add_cand(cands, x); }
+                i = j;
+            } else { i += 1; }
+        }
+    }
+    if cands.len == 0 { return false; }
+    String common = cands[0];
+    for i in 1..cands.len {
+        int n = 0;
+        while n < common.len && n < cands[i].len && common[n] == cands[i][n] { n += 1; }
+        common = common.slice(0, n);
+    }
+    if common.len > w.len {
+        begin_edit(0);
+        lines[cy] = l.slice(0, st) + common + l.slice(cx, l.len);
+        cx = st + common.len;
+        dirty = true;
+        if cands.len > 1 { msg = str(cands.len) + " words: " + cands[0] + " " + cands[1] + " ..."; }
+        return true;
+    }
+    msg = "words: ";
+    for i in 0..cands.len { if i < 6 { msg = msg + cands[i] + " "; } }
+    return true;
+}
+void add_cand(String[] c, String x) {
+    for i in 0..c.len { if c[i] == x { return; } }
+    c.push(x);
+}
+
 void insert_text(String t) {
     if sel { delete_selection(); }
     if t == "}" && cx >= tabsize && use_spaces {                  // a closing brace at the start of a line steps back one level
@@ -513,7 +672,7 @@ void draw() {
     }
     if helpbar {                                                  // the keys, in the way of nano: the key reversed, then what it does
         String hints = "";
-        String acts = "save:Save quit:Quit find:Find goto:Goto copy:Copy cut:Cut paste:Paste command:Command";
+        String acts = "save:Save quit:Quit find:Find goto:Goto undo:Undo copy:Copy cut:Cut paste:Paste command:Command";
         String[] as = acts.split(" ");
         for i in 0..as.len {
             String[] an = as[i].split(":");
@@ -622,7 +781,7 @@ String letter_of(int k) {
 void bind_default() {
     bind_keys = arr(16);
     bind_acts = arr(16);
-    String pairs = "Ctrl-s=save Ctrl-q=quit Ctrl-f=find Ctrl-g=goto Ctrl-c=copy Ctrl-x=cut Ctrl-v=paste Ctrl-a=selectall Ctrl-d=duplicate Ctrl-k=deleteline Ctrl-e=command";
+    String pairs = "Ctrl-s=save Ctrl-q=quit Ctrl-f=find Ctrl-g=goto Ctrl-c=copy Ctrl-x=cut Ctrl-v=paste Ctrl-a=selectall Ctrl-d=duplicate Ctrl-k=deleteline Ctrl-e=command Ctrl-z=undo Ctrl-y=redo";
     String[] ps = pairs.split(" ");
     for i in 0..ps.len {
         String[] kv = ps[i].split("=");
@@ -661,6 +820,7 @@ void set_option(String name, String val) {
     else if name == "autoindent" { autoindent = on_off(val); }
     else if name == "autopair" { autopair = on_off(val); }
     else if name == "helpbar" { helpbar = on_off(val); }
+    else if name == "extensions" { ext_undo = false; ext_j2k = false; String[] ex = val.split(" "); for i in 0..ex.len { if ex[i] == "undo" { ext_undo = true; } if ex[i] == "j2k" { ext_j2k = true; } } }
     else if name == "mouse" {
         mouse_on = on_off(val);
         String e = esc();
@@ -728,6 +888,7 @@ void command_bar() {
     else if cmd == "goto" && w.len > 1 { int n = w[1].to_int(); if n < 1 { n = 1; } if n > lines.len { n = lines.len; } move_to(n - 1, 0, false); }
     else if cmd == "find" && w.len > 1 { find_next(c.slice(5, c.len), cy, cx + 1); }
     else if cmd == "replace" && w.len == 3 {
+        begin_edit(0);
         int n = 0;
         for y in 0..lines.len {
             String l = lines[y];
@@ -824,17 +985,21 @@ void handle(int k) {
     if k != K_MOUSE { free_scroll = false; }
     if k == K_MOUSE { on_mouse(); return; }
     if k == K_TEXT {
+        begin_edit(1);
         if autopair && key_text.len == 1 && type_pair(key_text[0] & 255) { msg = ""; return; }
         insert_text(key_text);
         msg = "";
         return;
     }
-    if k == K_ENTER { newline(); msg = ""; return; }
+    if k == K_ENTER { begin_edit(0); newline(); msg = ""; return; }
     if k == K_TAB {
+        if tab_help() { return; }
+        begin_edit(0);
         if use_spaces { insert_text(" ".repeat(tabsize)); } else { insert_text("\t"); }
         return;
     }
     if k == K_BS {
+        begin_edit(2);
         if sel { delete_selection(); return; }
         if autopair && cx > 0 && cx < lines[cy].len {
             int pc = lines[cy][cx - 1] & 255;
@@ -863,6 +1028,7 @@ void handle(int k) {
         return;
     }
     if k == K_DEL {
+        begin_edit(2);
         if sel { delete_selection(); return; }
         if cx < lines[cy].len {
             lines[cy] = lines[cy].slice(0, cx) + lines[cy].slice(next_char(lines[cy], cx), lines[cy].len);
@@ -940,23 +1106,29 @@ void handle(int k) {
         else { set_clip(lines[cy] + "\n"); msg = "line copied"; }
         return;
     }
-    if act == "cut" {                                               // Ctrl-X: cut
+    if act == "undo" { undo_step(false); return; }
+    if act == "redo" { undo_step(true); return; }
+    if act == "cut" {
+        begin_edit(0);                                               // Ctrl-X: cut
         if sel { set_clip(selected_text()); delete_selection(); msg = "cut"; }
         else { set_clip(lines[cy] + "\n"); remove_line(cy); if cy >= lines.len { cy = lines.len - 1; } cx = 0; dirty = true; msg = "line cut"; }
         return;
     }
-    if act == "paste" {                                             // Ctrl-V: paste
+    if act == "paste" {
+        begin_edit(0);                                             // Ctrl-V: paste
         if clip.len > 0 { insert_text(clip); msg = "pasted"; }
         return;
     }
-    if act == "deleteline" {                                        // Ctrl-K: delete the line
+    if act == "deleteline" {
+        begin_edit(0);                                        // Ctrl-K: delete the line
         remove_line(cy);
         if cy >= lines.len { cy = lines.len - 1; }
         cx = 0;
         dirty = true;
         return;
     }
-    if act == "duplicate" {                                         // Ctrl-D: copy the line below
+    if act == "duplicate" {
+        begin_edit(0);                                         // Ctrl-D: copy the line below
         insert_line(cy + 1, lines[cy]);
         cy += 1;
         dirty = true;
@@ -982,12 +1154,14 @@ void handle(int k) {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && a[1] == "--version" { cout << "coderin 0.2.0\n"; return 0; }
+    if a.len > 1 && a[1] == "--version" { cout << "coderin 0.3.0\n"; return 0; }
     if a.len < 2 { cerr << "usage: coderin FILE\n"; return 2; }
     if Sys::isatty(0) != 0 { cerr << "coderin: it needs a terminal\n"; return 2; }
     path = a[1];
     clip = "";
     msg = "";
+    undo_text = arr(16); undo_cy = arr(16); undo_cx = arr(16);
+    redo_text = arr(8); redo_cy = arr(8); redo_cx = arr(8);
     bind_default();
     apply_scheme("dark");
     load_settings();

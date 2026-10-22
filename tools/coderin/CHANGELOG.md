@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.0
+* Extensions: undo / redo (Ctrl-Z, Ctrl-Y) and j2k (snippets and the completion of a word with Tab); `extensions = undo j2k` in the settings.
+
 ## 0.2.0
 * The mouse (click, drag, double click, wheel), brackets and quotes closed for you, the command bar (Ctrl-E), settings, key bindings and colour schemes in ~/.config/coderin/ (as micro), the keys shown under the text (as nano), 4 colour schemes.
 

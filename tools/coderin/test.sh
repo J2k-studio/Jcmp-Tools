@@ -36,4 +36,16 @@ mkdir -p .config/coderin; printf 'autopair = off\ntabsize = 2\n' > .config/coder
 rm -f s.txt
 ( sleep 0.3; printf '(\t'; sleep 0.3; printf '\023'; sleep 0.3; printf '\021' ) | HOME="$T" $PTY -w 80 -h 24 "$ED" s.txt > /dev/null
 [ "$(cat s.txt)" = '(  ' ] || { echo "coderin test: settings"; cat -A s.txt; exit 1; }
+# the extensions: undo and redo, a snippet of J2K, the completion of a word
+rm -f u.txt r.txt s.jk w.jk
+( sleep 0.3; printf 'abc'; sleep 1.2; printf '\032'; sleep 0.2; printf 'x'; sleep 0.2; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 80 -h 24 "$ED" u.txt > /dev/null
+[ "$(cat u.txt)" = 'x' ] || { echo "coderin test: undo"; cat -A u.txt; exit 1; }
+( sleep 0.3; printf 'abc'; sleep 1.2; printf '\032'; sleep 0.2; printf '\031'; sleep 0.2; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 80 -h 24 "$ED" r.txt > /dev/null
+[ "$(cat r.txt)" = 'abc' ] || { echo "coderin test: redo"; cat -A r.txt; exit 1; }
+( sleep 0.3; printf 'main\t'; sleep 0.3; printf 'x'; sleep 0.2; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 80 -h 24 "$ED" s.jk > /dev/null
+[ "$(cat s.jk)" = 'void main() {
+    x
+}' ] || { echo "coderin test: a snippet"; cat -A s.jk; exit 1; }
+( sleep 0.3; printf 'String\r'; sleep 0.2; printf 'Str\t'; sleep 0.3; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 80 -h 24 "$ED" w.jk > /dev/null
+[ "$(sed -n 2p w.jk)" = 'String' ] || { echo "coderin test: the completion of a word"; cat -A w.jk; exit 1; }
 echo "coderin test: ok"
