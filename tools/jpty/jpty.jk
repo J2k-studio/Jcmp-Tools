@@ -1,0 +1,100 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// jpty: runs a program on a pseudo terminal (a pty) and relays the bytes: what jpty reads from its standard input goes
+// to the program as typing, what the program writes comes out on the standard output of jpty. So a program that
+// needs a terminal (a shell, an editor) can be driven through two pipes, for example by an Android app.
+//   jpty [-w COLUMNS] [-h ROWS] PROGRAM [arguments]
+#import <stdlib>
+
+int rd(int fd, char^ buf, int n) { return Sys::call(63, fd, (int)buf, n, 0, 0, 0); }
+int wr(int fd, char^ buf, int n) {
+    int done = 0;
+    while done < n {
+        int k = Sys::call(64, fd, (int)buf + done, n - done, 0, 0, 0);
+        if k <= 0 { return k; }
+        done += k;
+    }
+    return done;
+}
+
+int main() {
+    String[] a = Env::args();
+    int cols = 80;
+    int rows = 24;
+    int i = 1;
+    while i < a.len && a[i].len > 1 && a[i][0] == '-' {
+        if a[i] == "-w" && i + 1 < a.len { cols = a[i + 1].to_int(); i += 2; }
+        else if a[i] == "-h" && i + 1 < a.len { rows = a[i + 1].to_int(); i += 2; }
+        else { cerr << "jpty: unknown option " << a[i] << "\n"; return 2; }
+    }
+    if i >= a.len { cerr << "usage: jpty [-w COLUMNS] [-h ROWS] PROGRAM [arguments]\n"; return 2; }
+
+    int master = Sys::call(56, 0 - 100, (int)"/dev/ptmx".c(), 2 | 256, 0, 0, 0);       // openat(AT_FDCWD, "/dev/ptmx", O_RDWR | O_NOCTTY)
+    if master < 0 { cerr << "jpty: cannot open /dev/ptmx\n"; return 1; }
+    int zero = 0;
+    Sys::call(29, master, 1074025521, (int)@zero, 0, 0, 0);                              // TIOCSPTLCK 0: unlock the slave
+    int num = 0;
+    Sys::call(29, master, 2147767344, (int)@num, 0, 0, 0);                               // TIOCGPTN: the number of the slave
+    String slave = "/dev/pts/" + str(num & 4294967295);
+    char ws[8];                                                                          // struct winsize: rows, columns, 0, 0 (16 bits each)
+    for k in 0..8 { ws[k] = 0; }
+    ws[0] = rows & 255;
+    ws[1] = (rows >> 8) & 255;
+    ws[2] = cols & 255;
+    ws[3] = (cols >> 8) & 255;
+    Sys::call(29, master, 21524, (int)@ws, 0, 0, 0);                                     // TIOCSWINSZ
+
+    int pid = Sys::fork();
+    if pid == 0 {
+        Sys::call(157, 0, 0, 0, 0, 0, 0);                                               // setsid
+        int s = Sys::call(56, 0 - 100, (int)slave.c(), 2, 0, 0, 0);
+        if s < 0 { cerr << "jpty: cannot open " << slave << "\n"; Sys::exit(1); }
+        Sys::call(29, s, 21534, 0, 0, 0, 0);                                            // TIOCSCTTY: the terminal of the program
+        Sys::dup2(s, 0);
+        Sys::dup2(s, 1);
+        Sys::dup2(s, 2);
+        if s > 2 { Sys::close(s); }
+        Sys::close(master);
+        int n = a.len - i;
+        int^ av = (int^)Mem::alloc(8 * (n + 1));
+        for k in 0..n { av[k] = (int)a[i + k].c(); }
+        av[n] = 0;
+        int ne = 0;
+        while Sys::arg(Sys::argc() + 1 + ne) != null { ne += 1; }
+        int^ envp = (int^)Mem::alloc(8 * (ne + 1));
+        for k in 0..ne { envp[k] = (int)Sys::arg(Sys::argc() + 1 + k); }
+        envp[ne] = 0;
+        Sys::execve(a[i].c(), av, envp);
+        cerr << "jpty: cannot run " << a[i] << "\n";
+        Sys::exit(127);
+    }
+
+    // the relay: ppoll on standard input and the master
+    char buf[4096];
+    char pfd[16];
+    int^ q = (int^)@pfd;                                                                 // two struct pollfd: fd (32 bits), events, revents (16 bits each)
+    bool open_in = true;
+    while true {
+        int fd0 = 4294967295;
+        if open_in { fd0 = 0; }
+        q[0] = fd0 | (1 << 32);
+        q[1] = master | (1 << 32);
+        int r = Sys::call(73, (int)@pfd, 2, 0, 0, 8, 0);
+        if r < 0 { continue; }
+        int rev0 = (q[0] >> 48) & 65535;
+        int rev1 = (q[1] >> 48) & 65535;
+        if (rev1 & 1) != 0 {
+            int n = rd(master, @buf, 4096);
+            if n <= 0 { break; }
+            wr(1, @buf, n);
+        } else if (rev1 & 25) != 0 { break; }                                           // hang-up or error: the program ended
+        if open_in && (rev0 & 17) != 0 {
+            int n = rd(0, @buf, 4096);
+            if n <= 0 { open_in = false; } else { wr(master, @buf, n); }
+        }
+    }
+    int status = 0;
+    Sys::wait(pid, @status);
+    if (status & 127) == 0 { return (status >> 8) & 255; }
+    return 128 + (status & 127);
+}
