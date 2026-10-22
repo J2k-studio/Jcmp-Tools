@@ -30,7 +30,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.7.1"; }
+String jget_version() { return "0.7.2"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -740,11 +740,11 @@ int cmd_tool(String[] av, int at) {
             Fs::remove(sums + ".keep");
         }
         cout << "installed " << name << " " << ver << " in " << dir << nl;
-        if name == "jbox" {                                                               // its commands as links next to it
+        if name == "jbox" || name == "zipj" {                                             // its commands as links next to it
             String[] ja = arr(2);
             ja.push("--install");
             ja.push(dir);
-            Proc::run(dir + "/jbox", ja);
+            Proc::run(dir + "/" + name, ja);
         }
     }
     return rc;

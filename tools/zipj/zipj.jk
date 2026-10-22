@@ -1,0 +1,227 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// zipj and unj: make and open .zip files (and open .gz). One program: it acts as unj or as zipj by its name (a link or a copy).
+#import <stdlib>
+#import "zipcore"
+
+int fail(String who, String msg) {
+    cerr << who << ": " << msg << "\n";
+    return 1;
+}
+
+// a password typed without an echo (the letters are not shown)
+String ask_password(String prompt) {
+    cerr << prompt;
+    char t[64];
+    bool tty = Sys::isatty(0) == 0;
+    if tty {
+        Sys::call(29, 0, 21505, (int)@t, 0, 0, 0);
+        char raw[64];
+        for i in 0..64 { raw[i] = t[i]; }
+        raw[12] = raw[12] & 245;                      // no echo (8), no line editing (2)... the line is read byte by byte
+        Sys::call(29, 0, 21506, (int)@raw, 0, 0, 0);
+    }
+    String pw = "";
+    char b[2];
+    int n = Sys::read(0, @b, 1);
+    while n > 0 && b[0] != 10 && b[0] != 13 {
+        if b[0] == 127 || b[0] == 8 { if pw.len > 0 { pw = pw.slice(0, pw.len - 1); } }
+        else { pw.push(b[0]); }
+        n = Sys::read(0, @b, 1);
+    }
+    if tty { Sys::call(29, 0, 21506, (int)@t, 0, 0, 0); }
+    cerr << "\n";
+    return pw;
+}
+
+bool safe_name(String name) {
+    if name.len == 0 || name[0] == '/' { return false; }
+    String[] parts = name.split("/");
+    for i in 0..parts.len { if parts[i] == ".." { return false; } }
+    return true;
+}
+
+// makes the folders above a file
+void make_parents(String path) {
+    String dir = Path::parent(path);
+    if dir.len > 0 && !Dir::exists(dir) { Dir::make_all(dir); }
+}
+
+int do_unj(String[] a) {
+    String file = "";
+    String outdir = "";
+    bool folder = false;
+    bool list = false;
+    bool quiet = false;
+    String password = "";
+    String[] only = arr(4);
+    int i = 1;
+    while i < a.len {
+        if a[i] == "-o" && i + 1 < a.len { outdir = a[i + 1] + ""; i += 2; }
+        else if a[i] == "-p" && i + 1 < a.len { password = a[i + 1] + ""; i += 2; }
+        else if a[i] == "-f" { folder = true; i += 1; }
+        else if a[i] == "-l" { list = true; i += 1; }
+        else if a[i] == "-q" { quiet = true; i += 1; }
+        else if file.len == 0 { file = a[i] + ""; i += 1; }
+        else { only.push(a[i] + ""); i += 1; }
+    }
+    if file.len == 0 {
+        cerr << "usage: unj FILE.zip [-f] [-o FOLDER] [-p PASSWORD] [-l] [-q] [names...]\n";
+        cerr << "  (nothing)  open here, without a folder      -f  open into a folder named like the file (test.zip -> test)\n";
+        cerr << "  -o DIR     open into DIR                    -l  only list                -p  the password (without it, it is asked when needed)\n";
+        return 2;
+    }
+    bool rok = false;
+    String z = read_bin(file, @rok);
+    if !rok { return fail("unj", "cannot read " + file); }
+    if z.len > 2 && (z[0] & 255) == 31 && (z[1] & 255) == 139 { return do_gunzip(file, z, outdir, quiet); }
+    if !zip_list(z) { return fail("unj", file + " is not a zip file"); }
+    String base = Path::name(file);
+    if base.ends_with(".zip") { base = base.slice(0, base.len - 4); }
+    String dest = outdir;
+    if dest.len == 0 && folder { dest = base; }
+    int rc = 0;
+    int done = 0;
+    for k in 0..zn_name.len {
+        String name = zn_name[k];
+        if only.len > 0 {
+            bool want = false;
+            for q in 0..only.len { String pre = only[q] + "/"; if name == only[q] { want = true; } if name.starts_with(pre) { want = true; } }
+            if !want { continue; }
+        }
+        if list {
+            String mark = " ";
+            if (zn_flags[k] & 1) != 0 { mark = "*"; }
+            cout << mark << " " << zn_usize[k] << "\t" << name << "\n";
+            continue;
+        }
+        if !safe_name(name) { rc = fail("unj", "skipped " + name + " (a path that goes out of the folder)"); continue; }
+        String target = name;
+        if dest.len > 0 { target = Path::join(dest, name); }
+        if name.ends_with("/") {
+            Dir::make_all(target);
+            continue;
+        }
+        String data = zip_extract(z, k, password);
+        if zip_err == "password" && password.len == 0 {
+            password = ask_password("Password for " + file + ": ");
+            data = zip_extract(z, k, password);
+        }
+        if zip_err.len > 0 {
+            if zip_err == "password" { return fail("unj", "the password is wrong"); }
+            rc = fail("unj", name + ": " + zip_err);
+            continue;
+        }
+        make_parents(target);
+        Result<int, Error> w = Fs::write_text(target, data);
+        if !w.is_ok() { rc = fail("unj", "cannot write " + target); continue; }
+        done += 1;
+        if !quiet { cout << "  " << target << "\n"; }
+    }
+    if !list && !quiet { cout << done << " files\n"; }
+    return rc;
+}
+
+// a .gz file: one file, opened next to it (or into -o)
+int do_gunzip(String file, String z, String outdir, bool quiet) {
+    int flg = z[3] & 255;
+    int p = 10;
+    if (flg & 4) != 0 { p += 2 + le16(z, p); }
+    String nm = "";
+    if (flg & 8) != 0 { while p < z.len && z[p] != 0 { nm.push(z[p]); p += 1; } p += 1; }
+    if (flg & 16) != 0 { while p < z.len && z[p] != 0 { p += 1; } p += 1; }
+    if (flg & 2) != 0 { p += 2; }
+    bool ok = false;
+    String data = inflate_raw(z, p, z.len - 8, @ok);
+    if !ok { return fail("unj", file + " is damaged"); }
+    if crc32_of(data, 0, data.len) != le32(z, z.len - 8) { return fail("unj", "the check sum of " + file + " is wrong"); }
+    String target = Path::name(file);
+    if target.ends_with(".gz") { target = target.slice(0, target.len - 3); } else { target = target + ".out"; }
+    if outdir.len > 0 { Dir::make_all(outdir); target = Path::join(outdir, target); }
+    Fs::write_text(target, data);
+    if !quiet { cout << "  " << target << "\n"; }
+    return 0;
+}
+
+// ---------------------------------------------------------------- zipj
+void add_path(String path, String name, String password, bool quiet) {
+    if Dir::exists(path) {
+        String dname = name;
+        if !dname.ends_with("/") { dname = dname + "/"; }
+        zw_add(dname, "", true, "");
+        Result<String[], Error> r = Dir::list(path);
+        if r.is_ok() {
+            String[] names = r.take();
+            names.sort();
+            for i in 0..names.len { add_path(Path::join(path, names[i]), Path::join(name, names[i]), password, quiet); }
+        }
+        return;
+    }
+    bool rok = false;
+    String t = read_bin(path, @rok);
+    if !rok { cerr << "zipj: cannot read " << path << "\n"; return; }
+    zw_add(name, t, false, password);
+    if !quiet { cout << "  adding " << name << "\n"; }
+}
+
+int do_zipj(String[] a) {
+    String out = "";
+    String password = "";
+    bool ask = false;
+    bool quiet = false;
+    String[] files = arr(8);
+    int i = 1;
+    while i < a.len {
+        if a[i] == "-p" { ask = true; i += 1; }
+        else if a[i] == "-P" && i + 1 < a.len { password = a[i + 1] + ""; i += 2; }
+        else if a[i] == "-q" { quiet = true; i += 1; }
+        else if out.len == 0 { out = a[i] + ""; i += 1; }
+        else { files.push(a[i] + ""); i += 1; }
+    }
+    if out.len == 0 || files.len == 0 {
+        cerr << "usage: zipj OUT.zip FILES-OR-FOLDERS... [-p] [-P PASSWORD] [-q]\n";
+        cerr << "  folders are added with everything inside      -p  ask for a password (twice)      -P PASS  give it on the line\n";
+        return 2;
+    }
+    if ask {
+        password = ask_password("Password: ");
+        String again = ask_password("Again: ");
+        if again != password { return fail("zipj", "the two passwords differ"); }
+    }
+    zw_start();
+    for k in 0..files.len {
+        String name = files[k];
+        while name.starts_with("./") { name = name.slice(2, name.len); }
+        while name.len > 1 && name.ends_with("/") { name = name.slice(0, name.len - 1); }
+        if name.starts_with("/") { name = name.slice(1, name.len); }
+        if !Dir::exists(files[k]) && !Fs::exists(files[k]) { return fail("zipj", files[k] + ": no such file"); }
+        add_path(files[k], name, password, quiet);
+    }
+    String z = zw_finish();
+    Result<int, Error> w = Fs::write_text(out, z);
+    if !w.is_ok() { return fail("zipj", "cannot write " + out); }
+    if !quiet { cout << zw_count << " entries, " << z.len << " bytes: " << out << "\n"; }
+    return 0;
+}
+
+int main() {
+    String[] args = Env::args();
+    if args.len > 1 && args[1] == "--version" { cout << "zipj 0.1.0\n"; return 0; }
+    if args.len > 1 && args[1] == "--install" {
+        String self = "";
+        self.append((char^)Sys::arg(0));
+        String dir = Path::parent(self);
+        if dir.len == 0 { dir = "."; }
+        String link = Path::join(dir, "unj");
+        if !Fs::exists(link) { Sys::call(36, (int)"zipj".c(), 0 - 100, (int)link.c(), 0, 0, 0); }
+        cout << "zipj: unj linked in " << dir << "\n";
+        return 0;
+    }
+    String app = Path::name(args[0]);
+    if app == "unj" { return do_unj(args); }
+    if app == "zipj" { return do_zipj(args); }
+    if args.len > 1 && args[1] == "unj" { String[] r = arr(args.len); for i in 1..args.len { r.push(args[i]); } return do_unj(r); }
+    if args.len > 1 && args[1] == "zipj" { String[] r = arr(args.len); for i in 1..args.len { r.push(args[i]); } return do_zipj(r); }
+    cerr << "zipj: make a zip file     unj: open one.   Names: zipj OUT.zip files...   unj FILE.zip [-f] [-o DIR]\n";
+    return 2;
+}

@@ -6,3 +6,4 @@ jbox|The basic commands in one program (dir cat cp mv rm mkdir grep sort ...); i
 jpty|Run a program on a pseudo terminal, driven through two pipes (for apps and tools)
 coderin|A text editor for the terminal (colours for J2K, select, copy and paste, find)
 jcmp|The J2K compiler and its library (the language): jget tool jcmp
+zipj|Make and open zip files (zipj, unj): folders, a password, deflate, also .gz
