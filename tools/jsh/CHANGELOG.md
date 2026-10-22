@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.0
+* `install NAME ...` (also `jsh install NAME`): puts tools of Jcmp-Tools next to jget (it runs `jget tool NAME`); `install` alone lists them.
+
 ## 0.3.0
 * break and continue, $(( )) arithmetic, read, jobs and wait (a command with & runs in the background and ends its statement), Ctrl-C stops a loop of a script.
 

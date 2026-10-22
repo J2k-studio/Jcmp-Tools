@@ -60,7 +60,7 @@ void add_unique(String[] list, String name) {
 String[] command_names() {
     if cmd_cached { return cmd_cache; }
     cmd_cache = arr(64);
-    String fixed_text = "exit cd pwd echo history help jaric-setup-folder export unset env alias unalias type which source dir cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear true false";
+    String fixed_text = "exit cd pwd echo history help install jaric-setup-folder export unset env alias unalias type which source dir cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear true false";
     String[] fixed = fixed_text.split(" ");
     for q in 0..fixed.len { cmd_cache.push(fixed[q]); }
     String path = getv("PATH");
@@ -498,7 +498,7 @@ int status_of(int raw) {
 int bcode;                                                    // the exit code of a built-in
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "install" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
@@ -567,6 +567,16 @@ bool builtin(String[] a) {
     if name == "jaric-setup-folder" {                          // a request to the Jaric app (other terminals ignore the sequence)
         cout << esc() << "]7777;setup-folder" << (char)7;
         bcode = 0;
+        return true;
+    }
+    if name == "install" {                                    // install NAME ...: the tools of Jcmp-Tools (jget does the work)
+        String[] jw = arr(a.len + 2);
+        jw.push("jget");
+        jw.push("tool");
+        if a.len == 1 { jw.push("list"); }
+        for i in 1..a.len { jw.push(a[i]); }
+        run_words(jw);
+        bcode = last_status;
         return true;
     }
     if name == "test" || name == "[" {
@@ -1228,7 +1238,17 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.3.0\n"; return 0; }
+    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.4.0\n"; return 0; }
+    if cmdline.len > 1 && cmdline[1] == "install" {                              // jsh install NAME ...
+        running = 1;
+        String[] jw = arr(cmdline.len + 2);
+        jw.push("jget");
+        jw.push("tool");
+        if cmdline.len == 2 { jw.push("list"); }
+        for i in 2..cmdline.len { jw.push(cmdline[i]); }
+        run_words(jw);
+        return last_status;
+    }
     if cmdline.len > 1 {                                      // jsh -c "commands"   or   jsh script
         running = 1;
         if cmdline[1] == "-c" && cmdline.len > 2 { run_line(cmdline[2]); return last_status; }
