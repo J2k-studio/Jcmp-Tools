@@ -481,7 +481,11 @@ int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_
             self.append((char^)Sys::arg(0));
             Sys::execve(Path::join(Path::parent(self), "jbox").c(), jav, envp);
         }
-        cerr << "jsh: " << argv[0] << ": command not found\n";
+        String hint = "";
+        if is_jbox_name(argv[0]) { hint = "  (install jbox)"; }
+        if argv[0] == "jcmp" { hint = "  (install jcmp: the language)"; }
+        if argv[0] == "makej" || argv[0] == "coderin" || argv[0] == "jget" { hint = "  (install " + argv[0] + ")"; }
+        cerr << "jsh: " << argv[0] << ": command not found" << hint << "\n";
         Sys::exit(127);
     }
     Mem::free(av);
@@ -498,7 +502,7 @@ int status_of(int raw) {
 int bcode;                                                    // the exit code of a built-in
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "install" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "install" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
@@ -561,6 +565,11 @@ bool builtin(String[] a) {
     }
     if eq0 > 0 && a.len == 1 {
         setv(name.slice(0, eq0), name.slice(eq0 + 1, name.len));
+        bcode = 0;
+        return true;
+    }
+    if name == "jaric-core" {                                  // a request to the Jaric app: call its library (J2K, through JNI)
+        cout << esc() << "]7777;core" << (char)7;
         bcode = 0;
         return true;
     }
