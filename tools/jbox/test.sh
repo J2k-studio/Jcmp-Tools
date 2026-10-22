@@ -21,11 +21,11 @@ check "$("$J" seq 3)" "1
 2
 3" seq
 "$J" mkdir -p d/e; "$J" touch d/x; "$J" cp f.txt d/g.txt; "$J" mv d/g.txt d/h.txt
-check "$("$J" ls d)" "e/
+check "$("$J" dir d)" "e/
 h.txt
-x" ls
+x" dir
 "$J" rm d/h.txt d/x; "$J" rmdir d/e d
-check "$("$J" ls)" "f.txt" ls-after
+check "$("$J" dir)" "f.txt" dir-after
 check "$("$J" basename /x/y.txt)" "y.txt" basename
 check "$(echo hi | "$J" tee out.txt; "$J" cat out.txt)" "hi
 hi" tee

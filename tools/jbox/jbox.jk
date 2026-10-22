@@ -85,12 +85,12 @@ int do_ls(String[] a) {
         if Dir::exists(base) {
             Result<String[], Error> r = Dir::list(base);
             if r.is_ok() { names = r.take(); }
-            else { rc = fail("ls", base + ": cannot read the folder"); }
+            else { rc = fail("dir", base + ": cannot read the folder"); }
             if ops.len > 1 { cout << base << ":\n"; }
         } else if Fs::exists(base) {
             names.push(base);
             base = "";
-        } else { rc = fail("ls", base + ": no such file or folder"); }
+        } else { rc = fail("dir", base + ": no such file or folder"); }
         for i in 0..names.len {
             String n = names[i];
             if !all && n.len > 0 && n[0] == 46 { continue; }
@@ -381,13 +381,37 @@ int do_env() {
 }
 
 int do_help() {
-    cout << "jbox commands: dir (also ls) cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env true false\n";
-    cout << "flags: dir/ls -a -l   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
+    cout << "jbox commands: dir cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env true false\n";
+    cout << "flags: dir -a -l   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
     return 0;
+}
+
+// jbox --install [DIR]: a link in DIR for every command (DIR = the folder of jbox), so that any program or shell finds them in the PATH
+int do_install(String[] args) {
+    String names_text = "dir cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env true false";
+    String[] names = names_text.split(" ");
+    String dir = ".";
+    if args.len > 2 { dir = args[2]; }
+    else {
+        String self = "";
+        self.append((char^)Sys::arg(0));
+        dir = Path::parent(self);
+        if dir.len == 0 { dir = "."; }
+    }
+    int rc = 0;
+    for i in 0..names.len {
+        String link = Path::join(dir, names[i]);
+        if Fs::exists(link) { continue; }
+        if Sys::call(36, (int)"jbox".c(), 0 - 100, (int)link.c(), 0, 0, 0) < 0 { rc = fail("jbox", "cannot make " + link); }
+    }
+    if rc == 0 { cout << "jbox: " << names.len << " commands linked in " << dir << "\n"; }
+    return rc;
 }
 
 int main() {
     String[] args = Env::args();
+    if args.len > 1 && args[1] == "--version" { cout << "jbox 0.1.0\n"; return 0; }
+    if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
     String app = Path::name(args[0]);
     String[] a = args;
     if app == "jbox" {
@@ -396,7 +420,7 @@ int main() {
         a = arr(args.len);
         for i in 1..args.len { a.push(args[i]); }
     }
-    if app == "ls" || app == "dir" { return do_ls(a); }
+    if app == "dir" { return do_ls(a); }
     if app == "cat" { return do_cat(a); }
     if app == "head" { return do_head_tail(a, true); }
     if app == "tail" { return do_head_tail(a, false); }

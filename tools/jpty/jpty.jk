@@ -19,6 +19,7 @@ int wr(int fd, char^ buf, int n) {
 
 int main() {
     String[] a = Env::args();
+    if a.len > 1 && a[1] == "--version" { cout << "jpty 0.1.0\n"; return 0; }
     int cols = 80;
     int rows = 24;
     int i = 1;

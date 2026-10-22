@@ -69,5 +69,6 @@ for N in $NAMES; do
     [ -n "$WANT" ] && [ "$WANT" = "$HAVE" ] || { echo "install: the checksum of $N does not match, nothing installed"; exit 1; }
     cp "$TMP/$N" "$BINDIR/.$N.new"; chmod +x "$BINDIR/.$N.new"; mv -f "$BINDIR/.$N.new" "$BINDIR/$N"
     echo "installed: $BINDIR/$N  ($("$BINDIR/$N" --version 2>/dev/null | head -1))"
+    case "$N" in jbox) "$BINDIR/jbox" --install "$BINDIR" 2>/dev/null || true ;; esac      # jbox links its commands (dir cat cp ...) next to itself
 done
 case ":$PATH:" in *":$BINDIR:"*) ;; *) echo "add the folder to your PATH:  export PATH=\"$BINDIR:\$PATH\"" ;; esac
