@@ -12,6 +12,9 @@ int running;
 String[] envv;                                                // the environment of the shell: "NAME=value" (children get a copy)
 String[] alias_n;
 String[] alias_v;
+int loop_ctl;                                                 // 1: break, 2: continue (until the loop takes it)
+int interrupted;                                              // Ctrl-C came while a script ran
+int[] jobs;                                                   // the process numbers of the commands started with &
 int returning;                                                // 1 while a function returns
 String[] fn_names;
 String[] fn_bodies;                                           // the tokens of the body joined by the character 1
@@ -158,7 +161,7 @@ void set_icrnl(bool on) {
     if Sys::isatty(0) != 0 { return; }
     char t[64];
     Sys::call(29, 0, 21505, (int)@t, 0, 0, 0);                   // TCGETS
-    if on { t[1] = t[1] | 1; } else { t[1] = t[1] & 254; }       // iflag ICRNL (0x100)
+    if on { t[1] = t[1] | 1; t[12] = t[12] | 1; } else { t[1] = t[1] & 254; t[12] = t[12] & 254; }       // iflag ICRNL (0x100); lflag ISIG (1): while a line is read Ctrl-C is a key
     Sys::call(29, 0, 21506, (int)@t, 0, 0, 0);                   // TCSETS
 }
 
@@ -298,6 +301,11 @@ String[] words_of(String line) {
     return w;
 }
 
+// Ctrl-C while the shell runs a script: a flag (the program in front gets the signal itself and ends)
+void on_sigint(int sig) {
+    interrupted = 1;
+}
+
 // ---------------------------------------------------------------- the environment, aliases
 int findv(String name) {
     String key = name + "=";
@@ -370,6 +378,18 @@ String expand(String w) {
     if w.len > 0 && w[0] == '~' && (w.len == 1 || w[1] == '/') { r = getv("HOME"); i = 1; }
     while i < w.len {
         if w[i] == '$' && i + 1 < w.len {
+            if w[i + 1] == '(' && i + 2 < w.len && w[i + 2] == '(' {  // $(( expression ))
+                int depth = 0;
+                int j = i + 1;
+                while j < w.len {
+                    if w[j] == '(' { depth += 1; }
+                    if w[j] == ')' { depth -= 1; if depth == 0 { break; } }
+                    j += 1;
+                }
+                r = r + str(arith(w.slice(i + 3, j - 1)));
+                i = j + 1;
+                continue;
+            }
             if w[i + 1] == '(' {                                     // command substitution: the output of the command
                 int depth = 0;
                 int j = i + 1;
@@ -478,12 +498,12 @@ int status_of(int raw) {
 int bcode;                                                    // the exit code of a built-in
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "test" || n == "[" || n == "return" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
         || n == "cp" || n == "mv" || n == "grep" || n == "sort" || n == "uniq" || n == "tee" || n == "seq" || n == "basename"
-        || n == "dirname" || n == "sleep" || n == "clear" || n == "true" || n == "false";
+        || n == "dirname" || n == "kill" || n == "sleep" || n == "clear" || n == "true" || n == "false";
 }
 bool builtin(String[] a) {
     String name = a[0];
@@ -551,6 +571,40 @@ bool builtin(String[] a) {
     }
     if name == "test" || name == "[" {
         bcode = test_eval(a);
+        return true;
+    }
+    if name == "break" || name == "continue" {
+        if name == "break" { loop_ctl = 1; } else { loop_ctl = 2; }
+        bcode = 0;
+        return true;
+    }
+    if name == "read" {                                       // read NAME: a line of the input into the variable
+        String got = "";
+        char one[2];
+        int n = Sys::read(0, @one, 1);
+        while n > 0 && one[0] != 10 {
+            one[1] = 0;
+            got.append((char^)@one);
+            n = Sys::read(0, @one, 1);
+        }
+        if a.len > 1 { setv(a[1], got); }
+        bcode = 0;
+        if n <= 0 && got.len == 0 { bcode = 1; }
+        return true;
+    }
+    if name == "jobs" {
+        for i in 0..jobs.len { cout << "[" << i + 1 << "] " << jobs[i] << "\n"; }
+        bcode = 0;
+        return true;
+    }
+    if name == "wait" {
+        for i in 0..jobs.len {
+            int st = 0;
+            Sys::wait(jobs[i], @st);
+            last_status = status_of(st);
+        }
+        jobs = arr(8);
+        bcode = last_status;
         return true;
     }
     if name == "return" {
@@ -702,6 +756,84 @@ int test_eval(String[] a) {
     return 1;
 }
 
+// $(( expression )): whole numbers with + - * / % ( ) and the comparisons < > <= >= == != (1 or 0); a name is the value of the variable
+int ar_pos;
+String ar_text;
+int ar_skip() {
+    while ar_pos < ar_text.len && ar_text[ar_pos] == ' ' { ar_pos += 1; }
+    return ar_pos;
+}
+int ar_factor() {
+    ar_skip();
+    if ar_pos >= ar_text.len { return 0; }
+    char c = ar_text[ar_pos];
+    if c == '-' { ar_pos += 1; return 0 - ar_factor(); }
+    if c == '(' {
+        ar_pos += 1;
+        int v = ar_cmp();
+        ar_skip();
+        if ar_pos < ar_text.len && ar_text[ar_pos] == ')' { ar_pos += 1; }
+        return v;
+    }
+    if c == '$' { ar_pos += 1; ar_skip(); c = ar_text[ar_pos]; }
+    if c >= '0' && c <= '9' {
+        int v = 0;
+        while ar_pos < ar_text.len && ar_text[ar_pos] >= '0' && ar_text[ar_pos] <= '9' { v = v * 10 + (ar_text[ar_pos] - '0'); ar_pos += 1; }
+        return v;
+    }
+    String name = "";
+    while ar_pos < ar_text.len && ((ar_text[ar_pos] >= 'a' && ar_text[ar_pos] <= 'z') || (ar_text[ar_pos] >= 'A' && ar_text[ar_pos] <= 'Z') || ar_text[ar_pos] == '_' || (ar_text[ar_pos] >= '0' && ar_text[ar_pos] <= '9')) { name.push(ar_text[ar_pos]); ar_pos += 1; }
+    if name.len == 0 { ar_pos += 1; return 0; }
+    String val = getv(name);
+    if is_number(val) { return val.to_int(); }
+    return 0;
+}
+int ar_term() {
+    int v = ar_factor();
+    while true {
+        ar_skip();
+        if ar_pos >= ar_text.len { return v; }
+        char c = ar_text[ar_pos];
+        if c == '*' { ar_pos += 1; v = v * ar_factor(); }
+        else if c == '/' { ar_pos += 1; int d = ar_factor(); if d == 0 { cerr << "jsh: division by 0\n"; d = 1; } v = v / d; }
+        else if c == '%' { ar_pos += 1; int d2 = ar_factor(); if d2 == 0 { cerr << "jsh: division by 0\n"; d2 = 1; } v = v % d2; }
+        else { return v; }
+    }
+    return v;
+}
+int ar_sum() {
+    int v = ar_term();
+    while true {
+        ar_skip();
+        if ar_pos >= ar_text.len { return v; }
+        char c = ar_text[ar_pos];
+        if c == '+' { ar_pos += 1; v = v + ar_term(); }
+        else if c == '-' { ar_pos += 1; v = v - ar_term(); }
+        else { return v; }
+    }
+    return v;
+}
+int ar_cmp() {
+    int v = ar_sum();
+    ar_skip();
+    if ar_pos >= ar_text.len { return v; }
+    char c = ar_text[ar_pos];
+    char d = 0;
+    if ar_pos + 1 < ar_text.len { d = ar_text[ar_pos + 1]; }
+    if c == '<' && d == '=' { ar_pos += 2; if v <= ar_sum() { return 1; } return 0; }
+    if c == '>' && d == '=' { ar_pos += 2; if v >= ar_sum() { return 1; } return 0; }
+    if c == '=' && d == '=' { ar_pos += 2; if v == ar_sum() { return 1; } return 0; }
+    if c == '!' && d == '=' { ar_pos += 2; if v != ar_sum() { return 1; } return 0; }
+    if c == '<' { ar_pos += 1; if v < ar_sum() { return 1; } return 0; }
+    if c == '>' { ar_pos += 1; if v > ar_sum() { return 1; } return 0; }
+    return v;
+}
+int arith(String text) {
+    ar_text = text;
+    ar_pos = 0;
+    return ar_cmp();
+}
+
 // the output of a command (without the new lines at its end)
 String capture(String cmd) {
     int fds[1];
@@ -808,13 +940,16 @@ void run_while(String[] b, bool until) {
     String[] body = slice_t(b, d + 1, b.len);
     int rounds = 0;
     last_status = 0;
-    while running == 1 && returning == 0 && rounds < 1000000 {
+    while running == 1 && returning == 0 && interrupted == 0 && rounds < 1000000 {
         run_tokens(cond);
         bool yes = last_status == 0;
         if until { yes = !yes; }
         if !yes { last_status = 0; return; }
         run_tokens(body);
         rounds += 1;
+        if loop_ctl == 1 { loop_ctl = 0; return; }
+        if loop_ctl == 2 { loop_ctl = 0; }
+        if interrupted == 1 { return; }
     }
 }
 
@@ -836,6 +971,9 @@ void run_for(String[] b) {
         if running == 0 || returning == 1 { return; }
         setv(name, vals[i]);
         run_tokens(body);
+        if loop_ctl == 1 { loop_ctl = 0; return; }
+        if loop_ctl == 2 { loop_ctl = 0; }
+        if interrupted == 1 { return; }
     }
 }
 
@@ -853,12 +991,13 @@ void call_fn(int f, String[] words) {
     setv("#", str(words.len - 1));
     run_tokens(body);
     returning = 0;
+    loop_ctl = 0;
 }
 
 // the statements of a list of words (the new lines are ";"): the compound ones here, the simple ones by run_andor
 int run_tokens(String[] t) {
     int i = 0;
-    while i < t.len && running == 1 && returning == 0 {
+    while i < t.len && running == 1 && returning == 0 && loop_ctl == 0 && interrupted == 0 {
         String w = t[i];
         if w == ";" { i += 1; continue; }
         if w == "if" || w == "while" || w == "until" || w == "for" {
@@ -880,7 +1019,8 @@ int run_tokens(String[] t) {
             i = e + 1;
         } else {
             int k = i;
-            while k < t.len && t[k] != ";" { k += 1; }
+            while k < t.len && t[k] != ";" && t[k] != "&" { k += 1; }
+            if k < t.len && t[k] == "&" { k += 1; }                    // a command with & ends there (it runs in the background)
             run_andor(slice_t(t, i, k));
             i = k;
         }
@@ -985,7 +1125,8 @@ void run_words(String[] raw0) {
         in_pipe = out_pipe_read;
     }
     if background {
-        cout << "[" << pids[npid - 1] << "]\n";
+        jobs.push(pids[npid - 1]);
+        cout << "[" << jobs.len << "] " << pids[npid - 1] << "\n";
         return;
     }
     for k in 0..npid {
@@ -1068,6 +1209,7 @@ int main() {
     alias_n = arr(8);
     alias_v = arr(8);
     fn_names = arr(8);
+    jobs = arr(8);
     fn_bodies = arr(8);
     int nenv = 0;
     while Sys::arg(Sys::argc() + 1 + nenv) != null {          // the environment of the shell starts as the one it was given
@@ -1086,7 +1228,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.2.0\n"; return 0; }
+    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.3.0\n"; return 0; }
     if cmdline.len > 1 {                                      // jsh -c "commands"   or   jsh script
         running = 1;
         if cmdline[1] == "-c" && cmdline.len > 2 { run_line(cmdline[2]); return last_status; }
@@ -1095,7 +1237,10 @@ int main() {
     running = 1;
     char act[32];
     for q in 0..32 { act[q] = 0; }
-    act[0] = 1;                                                   // SIG_IGN for SIGINT: Ctrl-C stops the program in front, not the shell
+    void(int)^ onint = on_sigint;                                 // SIGINT: the program in front gets it and ends; the shell only notes it (a loop of a script stops)
+    int^ actw = (int^)@act;
+    actw[0] = (int)onint;
+    actw[1] = 268435456;                                          // SA_RESTART
     Sys::call(134, 2, (int)@act, 0, 8, 0, 0);
     cout << "jsh 0.1 (the shell of Jaric): help shows the commands\n";
     bool tty = Sys::isatty(0) == 0;
@@ -1113,7 +1258,9 @@ int main() {
         String t = line.trim();
         if t.len == 0 { continue; }
         history.push(t);
+        interrupted = 0;
         run_script_text(t);
+        interrupted = 0;
     }
     return last_status;
 }

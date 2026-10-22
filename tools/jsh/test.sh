@@ -62,3 +62,13 @@ check6 'until true; do echo no; done; echo after' 'after'
 check6 'test -d . && echo dir; test -f nosuch || echo nofile' 'dir
 nofile'
 echo "shell test (step 6): ok"
+# step 7: break, continue, $(( )), &, jobs, wait, read
+check6 'i=0; while [ $i -lt 5 ]; do i=$((i+1)); if [ $i -eq 2 ]; then continue; fi; if [ $i -eq 4 ]; then break; fi; echo i=$i; done; echo end $i' 'i=1
+i=3
+end 4'
+check6 'echo $((2+3*4)) $(((2+3)*4)) $((10/3)) $((10%3)) $((7-10)) $((3<5)) $((3>5))' '14 20 3 1 -3 1 0'
+check6 'n=10; echo $((n*n))' '100'
+check6 'for a in 1 2; do for b in x y; do if [ $b = y ]; then break; fi; echo $a$b; done; done' '1x
+2x'
+got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" -c 'sleep 0 & wait; echo waited' 2>&1 | tail -n 1); [ "$got" = "waited" ] || { echo "shell test (step 7): wait"; exit 1; }
+echo "shell test (step 7): ok"

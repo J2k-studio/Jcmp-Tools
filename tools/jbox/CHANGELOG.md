@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.0
+* kill [-9 | -TERM | -INT | -HUP ...] PID ...
+
 ## 0.1.1
 * head, tail, wc, sort, uniq and grep called without a file while the input is the keyboard say what is needed, instead of waiting for typing.
 

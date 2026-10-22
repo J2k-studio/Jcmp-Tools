@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.0
+* break and continue, $(( )) arithmetic, read, jobs and wait (a command with & runs in the background and ends its statement), Ctrl-C stops a loop of a script.
+
 ## 0.2.0
 * Scripts: if / elif / else, while, until, for, functions with parameters and return, command substitution $( ), test and [ ].
 * A failed cd sdcard asks the Jaric app to make the link (a private sequence, ignored by other terminals).
