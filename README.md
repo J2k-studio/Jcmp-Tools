@@ -8,6 +8,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [makej](tools/makej/README.md) | a build tool for J2K projects: the build file is a plain file (`nano makej`) or a J2K program |
 | [jsh](tools/jsh/README.md) | a small shell: line editing, history, pipes, variables, aliases, scripts (MPL-2.0) |
 | [jbox](tools/jbox/README.md) | `ls cat grep sort cp mv rm ...` in one program (MPL-2.0) |
+| [jpty](tools/jpty/README.md) | run a program on a pseudo terminal, driven through two pipes (MPL-2.0) |
 
 (more will come here, for example a build tool.)
 
@@ -31,4 +32,4 @@ A tool lives in `tools/NAME/` (its source, `VERSION`, `LATEST` = the newest rele
 The old address `github.com/J2k-studio/Jget` leads here.
 
 ## Licences
-The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh and jbox** are under the Mozilla Public License 2.0: each of their folders has its own `LICENSE`.
+The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox and jpty** are under the Mozilla Public License 2.0: each of their folders has its own `LICENSE`.
