@@ -30,7 +30,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.5.2"; }
+String jget_version() { return "0.6.0"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -358,7 +358,8 @@ int usage() {
     err("       jget -sh URL [args]              download a script and run it at once\n");
     err("       jget -q URL                      without the progress bar\n");
     err("       jget --install [DIR] | --update  install this program / replace it by the latest release\n");
-    err("       jget -li list | installed        libraries (the index / the installed ones)\n");
+    err("       jget tool list | NAME ...        the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...): install them next to jget
+       jget -li list | installed        libraries (the index / the installed ones)\n");
     err("       jget -li install NAME            install a library\n");
     err("       jget -li unstall NAME            remove a library\n");
     err("       jget --version\n");
@@ -558,6 +559,89 @@ int cmd_update_self() {
     return 0;
 }
 
+// jget tool list | jget tool NAME ... : the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...), put next to jget, checked with their SHA-256
+int cmd_tool(String[] av, int at) {
+    String me = self_path();
+    if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
+    String dir = default_bin_dir();
+    int slash = 0 - 1;
+    for i in 0..me.len { if me[i] == '/' { slash = i; } }
+    if slash > 0 { dir = me.slice(0, slash); }                      // the tools go where jget is
+    String list = me + ".tools";
+    if !download("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools.txt", list, true) { return 1; }
+    String text = "";
+    switch Fs::read_text(list) {
+        Result::Ok(t): { text = t; }
+        Result::Err(e): { }
+    }
+    Fs::remove(list);
+    if av.len <= at || av[at] == "list" {
+        String[] ls = text.split("\n");
+        for i in 0..ls.len {
+            if ls[i].len == 0 || ls[i][0] == '#' { continue; }
+            String[] parts = ls[i].split("|");
+            if parts.len >= 2 { cout << "  " << parts[0] << "   " << parts[1] << nl; }
+        }
+        if av.len <= at { cout << "jget tool NAME installs one (more than one: jget tool jsh jbox coderin)" << nl; }
+        return 0;
+    }
+    int rc = 0;
+    for k in at..av.len {
+        String name = av[k];
+        bool known = false;
+        String[] ls = text.split("\n");
+        for i in 0..ls.len { if ls[i].starts_with(name + "|") { known = true; } }
+        if !known { err("jget: there is no tool '" + name + "' (jget tool list shows them)\n"); rc = 1; continue; }
+        String lv = dir + "/." + name + ".latest";
+        if !download("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools/" + name + "/LATEST", lv, true) { rc = 1; continue; }
+        String ver = "";
+        switch Fs::read_text(lv) {
+            Result::Ok(t): { ver = t.trim(); }
+            Result::Err(e): { }
+        }
+        Fs::remove(lv);
+        if ver.len == 0 { err("jget: cannot read the newest version of " + name + "\n"); rc = 1; continue; }
+        String base = "https://github.com/J2k-studio/Jcmp-Tools/releases/download/" + name + "-v" + ver;
+        String tmp = dir + "/." + name + ".new";
+        String sums = dir + "/." + name + ".sums";
+        if !download(base + "/SHA256SUMS", sums, true) { rc = 1; continue; }
+        if !download(base + "/" + name, tmp, g_quiet == 1) { Fs::remove(sums); rc = 1; continue; }
+        String want = "";
+        switch Fs::read_text(sums) {
+            Result::Ok(t): {
+                String[] sl = t.split("\n");
+                for i in 0..sl.len {
+                    String[] w = sl[i].trim().split(" ");
+                    if w.len >= 2 && w[w.len - 1] == name { want = w[0]; }
+                }
+            }
+            Result::Err(e): { }
+        }
+        Fs::remove(sums);
+        String have = "";
+        switch Sha256::file(tmp) {
+            Result::Ok(h): { have = h; }
+            Result::Err(e): { }
+        }
+        if want.len == 0 || want != have {
+            Fs::remove(tmp);
+            err("jget: the checksum of " + name + " does not match, nothing was installed\n");
+            rc = 1;
+            continue;
+        }
+        Sys::chmod(tmp.c(), 493);
+        if !put_in_place(tmp, dir + "/" + name) { rc = 1; continue; }
+        cout << "installed " << name << " " << ver << " in " << dir << nl;
+        if name == "jbox" {                                                               // its commands as links next to it
+            String[] ja = arr(2);
+            ja.push("--install");
+            ja.push(dir);
+            Proc::run(dir + "/jbox", ja);
+        }
+    }
+    return rc;
+}
+
 int cmd_library(String[] av, int at) {
     if av.len <= at { return usage(); }
     String cmd = av[at];
@@ -586,6 +670,7 @@ int main() {
     if first == "--help" { usage(); return 0; }
     if first == "-li" { return cmd_library(av, 2); }
     if first == "-sh" { return cmd_run_script(av, 2); }
+    if first == "tool" { return cmd_tool(av, 2); }
     if first == "--install" { return cmd_install_self(av, 2); }
     if first == "--update" { return cmd_update_self(); }
     if first == "-h" || first == "-O" || is_address(first) { return cmd_fetch(av, 1); }

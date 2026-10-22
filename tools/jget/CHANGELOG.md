@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.0
+* `jget tool list` and `jget tool NAME ...`: the tools of Jcmp-Tools (jsh, jbox, jpty, coderin, makej ...) are put next to jget, checked with their SHA-256 (jbox also links its commands). This is how the Jaric app gets the tools it does not carry.
+
 ## 0.5.2
 * The repository is now **Jcmp-Tools** (tools of J2K in one place; jget lives in `tools/jget/`). `jget --update` reads the newest version from `tools/jget/LATEST` and downloads the release `jget-vX.Y.Z` of Jcmp-Tools. Nothing else changes for the user. The old address `github.com/J2k-studio/Jget` still leads here.
 

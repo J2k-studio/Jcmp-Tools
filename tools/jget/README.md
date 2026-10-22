@@ -30,3 +30,7 @@ curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install-
 ## Build
 
 jget is written in J2K and needs the compiler `jcmp` (0.9.187 or newer) with its library: `jcmp tools/jget/jget.jk -o jget`. `tools/jget/test.sh` builds it and runs the tests (it needs `python3` for a local web server).
+
+## Tools of Jcmp-Tools
+
+`jget tool list` shows them and `jget tool coderin` (or several: `jget tool jsh jbox makej`) puts them next to jget, after a check of their SHA-256. No curl and no `sh` script are needed, so it works inside the Jaric app too.
