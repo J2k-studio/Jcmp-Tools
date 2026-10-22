@@ -1,0 +1,9 @@
+[makej]
+out = "_out"
+
+[program.hello]
+main = "src/hello.jk"
+
+[step.run]
+run = "_out/hello"
+needs = "hello"

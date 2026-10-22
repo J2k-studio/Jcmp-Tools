@@ -1,0 +1,2 @@
+#import <stdlib>
+void main() { cout << "hello from makej\n"; }

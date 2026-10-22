@@ -1,0 +1,7 @@
+#import <stdlib>
+#import <makej>
+
+int main() {
+    Build b = Build::from_file("makej");
+    return b.run();
+}

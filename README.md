@@ -5,6 +5,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | tool | what it does |
 |---|---|
 | [jget](tools/jget/README.md) | download files from the web (https, a progress bar) and the libraries of J2K |
+| [makej](tools/makej/README.md) | a build tool for J2K projects: the build file is a plain file (`nano makej`) or a J2K program |
 
 (more will come here, for example a build tool.)
 

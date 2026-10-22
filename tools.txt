@@ -1,2 +1,3 @@
 # The tools of Jcmp-Tools: NAME|what it is
 jget|Download files from the web (https, a progress bar), and the libraries of the J2K language
+makej|A build tool for J2K projects: the build file is a plain file (nano makej) or a J2K program

@@ -1,0 +1,40 @@
+#!/bin/sh
+# makej: a build tool for J2K projects. The build file is the file "makej" (a simple TOML, written by hand: nano makej) or "makej.jk" (a J2K program).
+#   makej [init] [target] [-v]        makej --version
+# This file is the whole tool: the library of makej is inside it and is written to a cache folder at the first run.
+MAKEJ_VERSION=@VERSION@
+case "${1:-}" in --version|-version) echo "makej $MAKEJ_VERSION"; exit 0 ;; esac
+home="${MAKEJ_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/makej/$MAKEJ_VERSION}"
+if [ ! -f "$home/makej_file.jk" ]; then
+    mkdir -p "$home"
+cat > "$home/makej.j" <<'MAKEJ_LIB_EOF'
+@LIB_J@
+MAKEJ_LIB_EOF
+cat > "$home/makej_file.jk" <<'MAKEJ_FILE_EOF'
+@LIB_JK@
+MAKEJ_FILE_EOF
+fi
+export J2K_PATH="$home${J2K_PATH:+:$J2K_PATH}"
+if [ "${1:-}" = "init" ]; then
+    [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
+cat > makej <<'MAKEJ_INIT_EOF'
+# the build file of this project (nano makej). Run it with:  makej   or   makej NAME   (-v shows the commands)
+[makej]
+out = "_out"
+
+[program.hello]
+main = "src/hello.jk"
+flags = ""
+
+[step.run]
+run = "_out/hello"
+needs = "hello"
+MAKEJ_INIT_EOF
+    echo "makej: wrote the file makej"; exit 0
+fi
+mkdir -p _out
+if [ -f makej.jk ]; then src=makej.jk
+elif [ -f makej ]; then src="$home/makej_file.jk"
+else echo "makej: there is no makej.jk and no file makej in this folder (makej init writes one)" >&2; exit 2; fi
+jcmp "$src" -o _out/.makej_run >/dev/null 2>_out/.makej_err || { cat _out/.makej_err >&2; echo "makej: the build file does not compile" >&2; exit 2; }
+exec _out/.makej_run "$@"
