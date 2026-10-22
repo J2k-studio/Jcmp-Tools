@@ -19,6 +19,7 @@ struct Build {
     String[] flags;
     String[] needs_of;    // the names this target needs, separated by spaces
     int verbose;
+    int jobs;
     String want;
     String outdir;
     String jcmp;
@@ -34,12 +35,36 @@ struct Build {
         b.want = "all";
         b.outdir = "_out";
         b.jcmp = "jcmp";
+        b.jobs = Build::cores();
         String[] a = Env::args();
-        for i in 1..a.len {
+        int i = 1;
+        while i < a.len {
             if a[i] == "-v" { b.verbose = 1; }
+            else if a[i] == "-j" && i + 1 < a.len { b.jobs = a[i + 1].to_int(); i += 1; }
+            else if a[i].starts_with("-j") && a[i].len > 2 { b.jobs = a[i].slice(2, a[i].len).to_int(); }
             else { b.want = a[i]; }
+            i += 1;
         }
+        if b.jobs < 1 { b.jobs = 1; }
         return b;
+    }
+    // the number of cores that are on (the file /sys/devices/system/cpu/online: 0-7 or 0-3,6), 4 when it cannot be read
+    static int cores() {
+        Result<String, Error> r = Fs::read_text("/sys/devices/system/cpu/online");
+        int n = 0;
+        switch r {
+            Result::Ok(t): {
+                String[] parts = t.trim().split(",");
+                for i in 0..parts.len {
+                    int dash = parts[i].find("-");
+                    if dash > 0 { n += parts[i].slice(dash + 1, parts[i].len).to_int() - parts[i].slice(0, dash).to_int() + 1; }
+                    else if parts[i].len > 0 { n += 1; }
+                }
+            }
+            Result::Err(e): n = 4;
+        }
+        if n < 1 { n = 4; }
+        return n;
     }
     // read the build file written by hand (the file called makej, a simple TOML):
     //   [program.jemu]            [library.core]              [step.test]
@@ -165,48 +190,108 @@ struct Build {
         }
         return 127;
     }
-    // make one target (its needs first); 0 is success
-    int make_one(self, String name, int^ done) {
-        int i = self.find(name);
-        if i < 0 { cerr << "makej: there is no target '" << name << "'\n"; return 2; }
-        if done[i] == 1 { return 0; }
-        done[i] = 1;
-        String[] ns = self.needs_of[i].split(" ");
-        for k in 0..ns.len {
-            if ns[k].len > 0 {
-                int rc = self.make_one(ns[k], done);
-                if rc != 0 { return rc; }
-            }
-        }
-        if self.kinds[i] == "step" {
-            cout << "makej: " << name << "\n";
-            return self.sh(self.mains[i]);
-        }
+    // the command that makes a target ("" when the result is up to date)
+    String command_of(self, int i) {
+        if self.kinds[i] == "step" { return self.mains[i]; }
         String out = self.out_of(i);
         String src = Path::parent(self.mains[i]);
         if src.len == 0 { src = "."; }
         int newest = Build::newest(src);
-        if Build::mtime(out) > newest && newest > 0 {
-            if self.verbose == 1 { cout << "makej: " << name << " is up to date\n"; }
-            return 0;
-        }
-        cout << "makej: building " << name << "\n";
-        Dir::make_all(self.outdir);
+        if Build::mtime(out) > newest && newest > 0 { return ""; }
         String cmd = self.jcmp + " " + self.mains[i] + " -o " + out;
         if self.flags[i].len > 0 { cmd = cmd + " " + self.flags[i]; }
-        return self.sh(cmd);
+        return cmd;
     }
-    int run(self) {
-        int^ done = (int^)Mem::alloc0(8 * (self.names.len + 1));
-        int rc = 0;
-        if self.want == "all" {
-            for i in 0..self.names.len {
-                if self.kinds[i] != "step" && rc == 0 { rc = self.make_one(self.names[i], done); }
-            }
-        } else {
-            rc = self.make_one(self.want, done);
+    // mark a target and what it needs as wanted
+    void want_it(self, String name, int^ wanted) {
+        int i = self.find(name);
+        if i < 0 { cerr << "makej: there is no target '" << name << "'\n"; wanted[self.names.len] = 1; return; }
+        if wanted[i] == 1 { return; }
+        wanted[i] = 1;
+        String[] ns = self.needs_of[i].split(" ");
+        for k in 0..ns.len {
+            if ns[k].len > 0 { self.want_it(ns[k], wanted); }
         }
-        Mem::free(done);
+    }
+    // the targets run at the same time (up to jobs processes), each as soon as what it needs is done
+    int run(self) {
+        int n = self.names.len;
+        int^ wanted = (int^)Mem::alloc0(8 * (n + 1));
+        int^ state = (int^)Mem::alloc0(8 * (n + 1));      // 0 waiting, 1 running, 2 done, 3 failed
+        int^ pid_of = (int^)Mem::alloc0(8 * (n + 1));
+        if self.want == "all" {
+            for i in 0..n { if self.kinds[i] != "step" { self.want_it(self.names[i], wanted); } }
+        } else {
+            self.want_it(self.want, wanted);
+        }
+        if wanted[n] == 1 { return 2; }
+        int running = 0;
+        bool failed = false;
+        bool progress = true;
+        while progress {
+            progress = false;
+            // start every target that is ready
+            for i in 0..n {
+                if wanted[i] == 1 && state[i] == 0 && !failed && running < self.jobs {
+                    bool ready = true;
+                    String[] ns = self.needs_of[i].split(" ");
+                    for k in 0..ns.len {
+                        if ns[k].len > 0 {
+                            int j = self.find(ns[k]);
+                            if j < 0 || state[j] != 2 { ready = false; }
+                        }
+                    }
+                    if ready {
+                        String cmd = self.command_of(i);
+                        if cmd.len == 0 {
+                            if self.verbose == 1 { cout << "makej: " << self.names[i] << " is up to date\n"; }
+                            state[i] = 2;
+                            progress = true;
+                        } else {
+                            if self.kinds[i] == "step" { cout << "makej: " << self.names[i] << "\n"; } else { cout << "makej: building " << self.names[i] << "\n"; }
+                            if self.verbose == 1 { cout << "  $ " << cmd << "\n"; }
+                            if self.kinds[i] != "step" { Dir::make_all(self.outdir); }
+                            String[] args = arr(2);
+                            args.push("-c");
+                            args.push(cmd);
+                            pid_of[i] = Proc::launch("sh", args, 0 - 1);
+                            state[i] = 1;
+                            running += 1;
+                            progress = true;
+                        }
+                    }
+                }
+            }
+            // wait for one of them
+            if running > 0 {
+                int status = 0;
+                int done_pid = Sys::wait(0 - 1, @status);
+                for i in 0..n {
+                    if state[i] == 1 && pid_of[i] == done_pid {
+                        running -= 1;
+                        int code = (status >> 8) & 255;
+                        if (status & 127) != 0 { code = 128 + (status & 127); }
+                        if code == 0 { state[i] = 2; }
+                        else {
+                            state[i] = 3;
+                            failed = true;
+                            cerr << "makej: " << self.names[i] << " failed (exit code " << code << ")\n";
+                        }
+                    }
+                }
+                progress = true;
+            }
+        }
+        int rc = 0;
+        for i in 0..n {
+            if wanted[i] == 1 && state[i] != 2 {
+                rc = 1;
+                if state[i] == 0 && !failed { cerr << "makej: " << self.names[i] << " cannot start: a needed target does not exist or the needs go round in a circle\n"; }
+            }
+        }
+        Mem::free(wanted);
+        Mem::free(state);
+        Mem::free(pid_of);
         if rc == 0 { cout << "makej: done\n"; }
         return rc;
     }

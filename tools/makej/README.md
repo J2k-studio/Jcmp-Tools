@@ -37,6 +37,7 @@ int main() {
 }
 ```
 
+* `makej -j 4` builds 4 things at once (the default is the number of cores); a target starts as soon as what it needs is done.
 * `makej` builds every program and library (the target `all`); `makej test` builds `test` and what it needs first; `makej -v` shows the commands.
 * A program or library is built again only when a `.jk` / `.j` file in the folder of its main file (and below) is newer than the result.
 * A step is any shell command. `needs(a, b)`: b is made before a.

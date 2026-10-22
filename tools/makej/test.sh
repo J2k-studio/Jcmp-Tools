@@ -12,5 +12,6 @@ cd "$T"
 "$OLDPWD/dist/makej" run | grep -q "hello from makej" || { echo "run"; exit 1; }
 sleep 1.1
 "$OLDPWD/dist/makej" -v | grep -q "up to date" || { echo "up to date"; exit 1; }
+"$OLDPWD/dist/makej" -j 4 | grep -q "done" || { echo "jobs"; exit 1; }
 if "$OLDPWD/dist/makej" nosuch 2>/dev/null; then echo "bad target"; exit 1; fi
 echo "makej tests: ok"
