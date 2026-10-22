@@ -175,7 +175,7 @@ bool read_command(String prompt) {
             pending = pending + line + "\n";
             line = "";
             cursor = 0;
-            shown = ".. ";
+            shown = ".. " + prompt_mark();
             cout << "\n" << shown;
             continue;
         }
@@ -712,6 +712,15 @@ String short_path(String d) {
     return "../" + parts[n - 2] + "/" + parts[n - 1];
 }
 
+// where the typing starts: a private sequence after the prompt (a terminal that does not know it ignores it); the Jaric app lets a tap
+// move the cursor only inside the line that is being typed
+String prompt_mark() {
+    String m = esc();
+    m = m + "]7777;prompt";
+    m.push((char)7);
+    return m;
+}
+
 String prompt_text() {
     char buf[512];
     String dir = "?";
@@ -726,7 +735,7 @@ String prompt_text() {
     String reset = e + "[0m";
     String mark = e + "[1;38;2;255;255;255m>" + e + "[22;38;2;176;176;176m>" + reset;                     // white to grey
     if last_status != 0 { mark = e + "[1;38;2;255;95;95m>>" + reset; }                                     // red after a failure (echo $? shows the code)
-    return e + "[38;2;200;200;200m" + dir + reset + mark + " ";
+    return e + "[38;2;200;200;200m" + dir + reset + mark + " " + prompt_mark();
 }
 
 // a command line: commands joined by ; && ||
@@ -786,7 +795,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.1.1\n"; return 0; }
+    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.1.2\n"; return 0; }
     if cmdline.len > 1 {                                      // jsh -c "commands"   or   jsh script
         running = 1;
         if cmdline[1] == "-c" && cmdline.len > 2 { run_line(cmdline[2]); return last_status; }
