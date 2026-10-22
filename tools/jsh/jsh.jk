@@ -150,20 +150,40 @@ void redraw(String prompt, String line, int cursor) {
 
 // returns false at the end of the input (Ctrl-D on an empty line)
 String got_line;                                              // the line that read_command read
+// Enter (13) and the key New line (10, Ctrl-J) must be told apart: while a line is read the terminal does not turn 13 into 10
+void set_icrnl(bool on) {
+    if Sys::isatty(0) != 0 { return; }
+    char t[64];
+    Sys::call(29, 0, 21505, (int)@t, 0, 0, 0);                   // TCGETS
+    if on { t[1] = t[1] | 1; } else { t[1] = t[1] & 254; }       // iflag ICRNL (0x100)
+    Sys::call(29, 0, 21506, (int)@t, 0, 0, 0);                   // TCSETS
+}
+
 bool read_command(String prompt) {
     String line = "";
+    String pending = "";                                         // the lines before this one (the key New line)
+    String shown = prompt;
     int cursor = 0;
     int hist = history.len;
+    set_icrnl(false);
     cout << prompt;
     while true {
         int k = read.key();
-        if k < 0 { cout << "\n"; return false; }
-        if k == 10 || k == 13 { cout << "\n"; got_line = line; return true; }
-        if k == 4 {
-            if line.len == 0 { cout << "\n"; return false; }
+        if k < 0 { cout << "\n"; set_icrnl(true); return false; }
+        if k == 13 { cout << "\n"; got_line = pending + line; set_icrnl(true); return true; }       // Enter: run
+        if k == 10 {                                                                                   // New line: another line of the same command
+            pending = pending + line + "\n";
+            line = "";
+            cursor = 0;
+            shown = ".. ";
+            cout << "\n" << shown;
             continue;
         }
-        if k == 3 { cout << "^C\n"; got_line = ""; return true; }
+        if k == 4 {
+            if line.len == 0 && pending.len == 0 { cout << "\n"; set_icrnl(true); return false; }
+            continue;
+        }
+        if k == 3 { cout << "^C\n"; got_line = ""; set_icrnl(true); return true; }
         if k == 127 || k == 8 {
             if cursor > 0 {
                 int pc = prev_char(line, cursor);
@@ -214,7 +234,7 @@ bool read_command(String prompt) {
             line = line.slice(0, cursor) + ch + line.slice(cursor, line.len);
             cursor += 1;
         }
-        redraw(prompt, line, cursor);
+        redraw(shown, line, cursor);
     }
     return false;
 }
@@ -766,7 +786,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.1.0\n"; return 0; }
+    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.1.1\n"; return 0; }
     if cmdline.len > 1 {                                      // jsh -c "commands"   or   jsh script
         running = 1;
         if cmdline[1] == "-c" && cmdline.len > 2 { run_line(cmdline[2]); return last_status; }
@@ -793,7 +813,11 @@ int main() {
         String t = line.trim();
         if t.len == 0 { continue; }
         history.push(t);
-        run_line(t);
+        String[] each = t.split("\n");
+        for e in 0..each.len {
+            String one = each[e].trim();
+            if one.len > 0 { run_line(one); }
+        }
     }
     return last_status;
 }

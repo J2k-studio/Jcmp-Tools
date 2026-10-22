@@ -6,6 +6,7 @@ A shell written in J2K, on the J2K library only. It is the shell of the Jaric pr
 * Built-ins: `cd pwd echo history exit help export unset env alias unalias type which source .`
 * Programs with arguments, found in `$PATH`; for the others jsh runs [jbox](../jbox/README.md) (`ls cat grep sort ...`).
 * Pipes `a | b`, redirection `> >> <`, background `&`, `$?`, `$NAME`, `~`, globs `* ?`, quotes `'..'` `".."`, comments `#`.
+* Several lines in one command: Ctrl-J (the key New line of the Jaric app) starts another line, Enter runs them all.
 * Several commands on a line: `a ; b`, `a && b`, `a || b`.
 * Variables: `export NAME=value`, or `NAME=value`; aliases: `alias ll="ls -l"`.
 * Scripts: `jsh file`, `jsh -c "commands"`, `source file`; at start an interactive jsh runs `~/.jshrc`.
