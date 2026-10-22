@@ -54,7 +54,7 @@ void add_unique(String[] list, String name) {
 String[] command_names() {
     if cmd_cached { return cmd_cache; }
     cmd_cache = arr(64);
-    String fixed_text = "exit cd pwd echo history help export unset env alias unalias type which source ls cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear true false";
+    String fixed_text = "exit cd pwd echo history help jaric-setup-folder export unset env alias unalias type which source ls cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear true false";
     String[] fixed = fixed_text.split(" ");
     for q in 0..fixed.len { cmd_cache.push(fixed[q]); }
     String path = getv("PATH");
@@ -433,7 +433,7 @@ int status_of(int raw) {
 int bcode;                                                    // the exit code of a built-in
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "ls" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
@@ -493,6 +493,11 @@ bool builtin(String[] a) {
     }
     if eq0 > 0 && a.len == 1 {
         setv(name.slice(0, eq0), name.slice(eq0 + 1, name.len));
+        bcode = 0;
+        return true;
+    }
+    if name == "jaric-setup-folder" {                          // a request to the Jaric app (other terminals ignore the sequence)
+        cout << esc() << "]7777;setup-folder" << (char)7;
         bcode = 0;
         return true;
     }
@@ -678,22 +683,12 @@ void run_words(String[] raw0) {
     }
 }
 
-// a long path is shortened like fish does: every folder but the last two keeps its first character (~/p/jaric/app -> ~/p/j/app)
+// the prompt shows ~ for the home folder and $PREFIX for the programs; a path elsewhere shows only its last two folders (pwd gives the full path)
 String short_path(String d) {
+    if d == "~" || d.starts_with("~/") || d.starts_with("$PREFIX") { return d; }
     String[] parts = d.split("/");
     if parts.len <= 3 { return d; }
-    String r = "";
-    for i in 0..parts.len {
-        String c = parts[i];
-        if i < parts.len - 2 && c.len > 1 && c != "~" && c != "$PREFIX" {
-            int e = 1;
-            while e < c.len && is_cont(c, e) { e += 1; }              // one whole character, also for Thai
-            c = c.slice(0, e);
-        }
-        if i > 0 { r = r + "/"; }
-        r = r + c;
-    }
-    return r;
+    return ".../" + parts[parts.len - 2] + "/" + parts[parts.len - 1];
 }
 
 String prompt_text() {

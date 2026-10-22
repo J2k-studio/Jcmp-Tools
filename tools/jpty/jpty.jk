@@ -90,7 +90,35 @@ int main() {
         } else if (rev1 & 25) != 0 { break; }                                           // hang-up or error: the program ended
         if open_in && (rev0 & 17) != 0 {
             int n = rd(0, @buf, 4096);
-            if n <= 0 { open_in = false; } else { wr(master, @buf, n); }
+            if n <= 0 { open_in = false; }
+            else {
+                // the app tells a new size with ESC ] jpty ; COLUMNS ; ROWS BEL (taken out of the typing)
+                int at = 0;
+                int out = 0;
+                while at < n {
+                    bool mark = at + 7 < n && buf[at] == 27 && buf[at + 1] == 93 && buf[at + 2] == 'j' && buf[at + 3] == 'p' && buf[at + 4] == 't' && buf[at + 5] == 'y' && buf[at + 6] == ';';
+                    if mark {
+                        int e = at + 7;
+                        int c1 = 0;
+                        int r1 = 0;
+                        while e < n && buf[e] >= '0' && buf[e] <= '9' { c1 = c1 * 10 + (buf[e] - '0'); e += 1; }
+                        if e < n && buf[e] == ';' { e += 1; }
+                        while e < n && buf[e] >= '0' && buf[e] <= '9' { r1 = r1 * 10 + (buf[e] - '0'); e += 1; }
+                        if e < n && buf[e] == 7 { e += 1; }
+                        ws[0] = r1 & 255;
+                        ws[1] = (r1 >> 8) & 255;
+                        ws[2] = c1 & 255;
+                        ws[3] = (c1 >> 8) & 255;
+                        Sys::call(29, master, 21524, (int)@ws, 0, 0, 0);                  // TIOCSWINSZ: the program gets SIGWINCH
+                        at = e;
+                    } else {
+                        buf[out] = buf[at];
+                        out += 1;
+                        at += 1;
+                    }
+                }
+                if out > 0 { wr(master, @buf, out); }
+            }
         }
     }
     int status = 0;
