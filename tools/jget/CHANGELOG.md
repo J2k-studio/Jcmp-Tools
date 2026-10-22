@@ -46,3 +46,6 @@
 * Downloads a **file** (any size, any bytes) to disk as it arrives, with a progress bar (percent, size, speed) on a terminal; `jget URL` names the file after the address; `-o FILE`, `-o -`, `-q`.
 * `http://` is fetched by jget itself; `https://` and others by curl or wget (written to `NAME.part` and renamed when whole).
 * Libraries: `-li list | install | uninstall | installed`; several indexes (mirrors) in `JGET_INDEX`; several addresses (`a|b`) for a library file; the SHA-256 is checked before installing.
+
+## 0.7.2
+* jget tool zipj links unj too (like jbox).
