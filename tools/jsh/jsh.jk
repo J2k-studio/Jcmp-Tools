@@ -21,9 +21,130 @@ String esc() {
     return e;
 }
 
+// UTF-8: a byte 10xxxxxx continues a character; the cursor moves by characters, and the screen by columns
+bool is_cont(String s, int i) { return i >= 0 && i < s.len && (s[i] & 192) == 128; }
+int prev_char(String s, int at) {
+    if at <= 0 { return 0; }
+    at -= 1;
+    while at > 0 && is_cont(s, at) { at -= 1; }
+    return at;
+}
+int next_char(String s, int at) {
+    if at >= s.len { return s.len; }
+    at += 1;
+    while at < s.len && is_cont(s, at) { at += 1; }
+    return at;
+}
+int cols_of(String s, int a, int b) {
+    int n = 0;
+    for i in a..b { if !is_cont(s, i) { n += 1; } }
+    return n;
+}
+
+// ---------------------------------------------------------------- the ghost text and completion
+String[] cmd_cache;
+bool cmd_cached;
+
+void add_unique(String[] list, String name) {
+    for i in 0..list.len { if list[i] == name { return; } }
+    list.push(name);
+}
+
+// the names of the commands: built-ins, jbox and the programs of the PATH (listed once)
+String[] command_names() {
+    if cmd_cached { return cmd_cache; }
+    cmd_cache = arr(64);
+    String fixed_text = "exit cd pwd echo history help export unset env alias unalias type which source ls cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear true false";
+    String[] fixed = fixed_text.split(" ");
+    for q in 0..fixed.len { cmd_cache.push(fixed[q]); }
+    String path = getv("PATH");
+    int start = 0;
+    for k in 0..path.len + 1 {
+        if k == path.len || path[k] == ':' {
+            String dir = path.slice(start, k);
+            start = k + 1;
+            if dir.len == 0 || !Dir::exists(dir) { continue; }
+            Result<String[], Error> r = Dir::list(dir);
+            if r.is_ok() {
+                String[] names = r.take();
+                for i in 0..names.len { add_unique(cmd_cache, names[i]); }
+            }
+        }
+    }
+    for i in 0..alias_n.len { add_unique(cmd_cache, alias_n[i]); }
+    cmd_cache.sort();
+    cmd_cached = true;
+    return cmd_cache;
+}
+
+// what could the last word of the line become: commands (first word) or files
+String[] candidates(String line) {
+    String[] out = arr(8);
+    int sp = 0 - 1;
+    for i in 0..line.len { if line[i] == ' ' { sp = i; } }
+    String word = line.slice(sp + 1, line.len);
+    bool first = true;
+    for i in 0..sp + 1 { if line[i] != ' ' { first = false; } }
+    bool bare = true;
+    for i in 0..word.len { if word[i] == '/' { bare = false; } }
+    if first && bare {
+        String[] all = command_names();
+        for i in 0..all.len { if all[i].starts_with(word) && all[i].len > word.len { out.push(all[i]); } }
+        return out;
+    }
+    int slash = 0 - 1;
+    for i in 0..word.len { if word[i] == '/' { slash = i; } }
+    String dir = ".";
+    String part = word;
+    if slash >= 0 { dir = word.slice(0, slash + 1); part = word.slice(slash + 1, word.len); }
+    if word.len > 0 && word[0] == '~' && slash < 0 { return out; }
+    if !Dir::exists(dir) { return out; }
+    Result<String[], Error> r = Dir::list(dir);
+    if r.is_ok() {
+        String[] names = r.take();
+        for i in 0..names.len {
+            String n = names[i];
+            if n.len > 0 && n[0] == '.' && (part.len == 0 || part[0] != '.') { continue; }
+            if n.starts_with(part) && (n.len > part.len || part.len == 0) {
+                String full = n;
+                if Dir::exists(Path::join(dir, n)) { full = n + "/"; }
+                out.push(full);
+            }
+        }
+    }
+    return out;
+}
+
+// the grey text after the cursor: the newest history line that continues the line, else the first completion
+String suggestion_for(String line) {
+    if line.len == 0 { return ""; }
+    int i = history.len - 1;
+    while i >= 0 {
+        if history[i].len > line.len && history[i].starts_with(line) { return history[i].slice(line.len, history[i].len); }
+        i -= 1;
+    }
+    String[] c = candidates(line);
+    if c.len == 0 { return ""; }
+    int sp = 0 - 1;
+    for k in 0..line.len { if line[k] == ' ' { sp = k; } }
+    String word = line.slice(sp + 1, line.len);
+    int slash = 0 - 1;
+    for k in 0..word.len { if word[k] == '/' { slash = k; } }
+    String part = word.slice(slash + 1, word.len);
+    if part.len == 0 { return ""; }                                   // nothing typed in this word yet: no guess
+    return c[0].slice(part.len, c[0].len);
+}
+
 void redraw(String prompt, String line, int cursor) {
     cout << "\r" << prompt << line << esc() << "[K";
-    int back = line.len - cursor;
+    int back = cols_of(line, cursor, line.len);
+    if cursor == line.len {
+        String ghost = suggestion_for(line);
+        if ghost.len > 0 {
+            cout << esc() << "[38;2;110;110;110m" << ghost << esc() << "[0m";
+            back += cols_of(ghost, 0, ghost.len);
+        }
+    }
     if back > 0 { cout << esc() << "[" << back << "D"; }
 }
 
@@ -45,15 +166,16 @@ bool read_command(String prompt) {
         if k == 3 { cout << "^C\n"; got_line = ""; return true; }
         if k == 127 || k == 8 {
             if cursor > 0 {
-                line = line.slice(0, cursor - 1) + line.slice(cursor, line.len);
-                cursor -= 1;
+                int pc = prev_char(line, cursor);
+                line = line.slice(0, pc) + line.slice(cursor, line.len);
+                cursor = pc;
             }
         } else if k == 263 {
-            if cursor < line.len { line = line.slice(0, cursor) + line.slice(cursor + 1, line.len); }
+            if cursor < line.len { line = line.slice(0, cursor) + line.slice(next_char(line, cursor), line.len); }
         } else if k == 260 {
-            if cursor > 0 { cursor -= 1; }
+            if cursor > 0 { cursor = prev_char(line, cursor); }
         } else if k == 259 {
-            if cursor < line.len { cursor += 1; }
+            if cursor < line.len { cursor = next_char(line, cursor); }
         } else if k == 261 || k == 1 {
             cursor = 0;
         } else if k == 262 || k == 5 {
@@ -70,8 +192,22 @@ bool read_command(String prompt) {
                 cursor = line.len;
             }
         } else if k == 9 {
-            line = line.slice(0, cursor) + "  " + line.slice(cursor, line.len);
-            cursor += 2;
+            String ghost = "";
+            if cursor == line.len { ghost = suggestion_for(line); }
+            if ghost.len > 0 {
+                line = line + ghost;                                  // Tab takes the grey text
+                cursor = line.len;
+            } else if cursor == line.len && line.len > 0 && line[line.len - 1] != ' ' {
+                String[] c = candidates(line);
+                if c.len > 1 {                                        // several: show them under the line
+                    cout << "\n";
+                    for i in 0..c.len { cout << c[i] << "  "; }
+                    cout << "\n";
+                }
+            } else {
+                line = line.slice(0, cursor) + "  " + line.slice(cursor, line.len);
+                cursor += 2;
+            }
         } else if k >= 32 && k < 257 {
             String ch = "";
             ch.push((char)k);
