@@ -30,7 +30,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.6.0"; }
+String jget_version() { return "0.7.0"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -559,6 +559,80 @@ int cmd_update_self() {
     return 0;
 }
 
+// ---- tar files (no compression): the files that belong to a tool, such as the library of the compiler
+bool read_exact(int fd, char^ buf, int n) {
+    int got = 0;
+    while got < n {
+        int r = Sys::read(fd, buf + got, n - got);
+        if r <= 0 { return false; }
+        got += r;
+    }
+    return true;
+}
+int tar_number(char^ p, int len) {
+    int v = 0;
+    for i in 0..len {
+        int c = p[i] & 255;
+        if c >= '0' && c <= '7' { v = v * 8 + (c - '0'); } else if v > 0 { break; }
+    }
+    return v;
+}
+// puts the files of the tar into the folder dir; a name with .. or a name that starts with / is refused
+bool untar(String path, String dir) {
+    int fd = Sys::open_read(path.c());
+    if fd < 0 { err("jget: cannot read " + path + "\n"); return false; }
+    char h[512];
+    char blk[4096];
+    bool ok = true;
+    while ok {
+        if !read_exact(fd, @h, 512) { break; }
+        if h[0] == 0 { break; }
+        String name = "";
+        for i in 0..100 { if h[i] != 0 { name.push(h[i]); } else { break; } }
+        String prefix = "";
+        if h[257] == 'u' && h[258] == 's' && h[259] == 't' {
+            for i in 345..500 { if h[i] != 0 { prefix.push(h[i]); } else { break; } }
+        }
+        if prefix.len > 0 { name = prefix + "/" + name; }
+        int size = tar_number(@h + 124, 12);
+        int kind = h[156] & 255;
+        bool bad = name.len == 0 || name[0] == '/';
+        for i in 0..name.len { if name[i] == '.' && i + 1 < name.len && name[i + 1] == '.' { bad = true; } }
+        if bad { err("jget: a file name in the tar is not allowed: " + name + "\n"); ok = false; break; }
+        String full = dir + "/" + name;
+        if kind == '5' || name[name.len - 1] == '/' {
+            if !make_dir(full) { ok = false; }
+        } else if kind == '0' || kind == 0 {
+            int slash = 0 - 1;
+            for i in 0..full.len { if full[i] == '/' { slash = i; } }
+            if slash > 0 { make_dir(full.slice(0, slash)); }
+            int out = Sys::open_write(full.c());
+            if out < 0 { err("jget: cannot write " + full + "\n"); ok = false; break; }
+            int left = size;
+            while left > 0 {
+                int n = left;
+                if n > 4096 { n = 4096; }
+                if !read_exact(fd, @blk, n) { ok = false; break; }
+                Sys::write(out, @blk, n);
+                left -= n;
+            }
+            Sys::close(out);
+            int pad = (512 - size % 512) % 512;
+            if pad > 0 && ok { if !read_exact(fd, @blk, pad) { ok = false; } }
+        } else {
+            int skip = (size + 511) / 512 * 512;                    // another kind of entry (a link ...): skipped
+            while skip > 0 {
+                int n = skip;
+                if n > 4096 { n = 4096; }
+                if !read_exact(fd, @blk, n) { ok = false; break; }
+                skip -= n;
+            }
+        }
+    }
+    Sys::close(fd);
+    return ok;
+}
+
 // jget tool list | jget tool NAME ... : the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...), put next to jget, checked with their SHA-256
 int cmd_tool(String[] av, int at) {
     String me = self_path();
@@ -613,6 +687,8 @@ int cmd_tool(String[] av, int at) {
                 for i in 0..sl.len {
                     String[] w = sl[i].trim().split(" ");
                     if w.len >= 2 && w[w.len - 1] == name { want = w[0]; }
+                    String tarname = name + "-files.tar";
+                    if w.len >= 2 && w[w.len - 1] == tarname { Fs::write_text(sums + ".keep", w[0]); }
                 }
             }
             Result::Err(e): { }
@@ -625,12 +701,32 @@ int cmd_tool(String[] av, int at) {
         }
         if want.len == 0 || want != have {
             Fs::remove(tmp);
+            Fs::remove(sums + ".keep");
             err("jget: the checksum of " + name + " does not match, nothing was installed\n");
             rc = 1;
             continue;
         }
         Sys::chmod(tmp.c(), 493);
         if !put_in_place(tmp, dir + "/" + name) { rc = 1; continue; }
+        // the files of the tool (the library of the compiler): NAME-files.tar, when it is in the release; it goes into the folder of the tool
+        String extra = "";
+        switch Fs::read_text(sums + ".keep") {
+            Result::Ok(t): { extra = t; }
+            Result::Err(e): { }
+        }
+        if extra.len > 0 {
+            String tarfile = dir + "/." + name + ".files.tar";
+            if download(base + "/" + name + "-files.tar", tarfile, g_quiet == 1) {
+                String thave = "";
+                switch Sha256::file(tarfile) {
+                    Result::Ok(h): { thave = h; }
+                    Result::Err(e): { }
+                }
+                if thave == extra { if !untar(tarfile, dir) { rc = 1; } } else { err("jget: the checksum of the files of " + name + " does not match\n"); rc = 1; }
+                Fs::remove(tarfile);
+            } else { rc = 1; }
+            Fs::remove(sums + ".keep");
+        }
         cout << "installed " << name << " " << ver << " in " << dir << nl;
         if name == "jbox" {                                                               // its commands as links next to it
             String[] ja = arr(2);

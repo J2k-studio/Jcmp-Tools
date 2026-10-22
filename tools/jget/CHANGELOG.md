@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.0
+* `jget tool NAME` also puts the files of a tool next to it (NAME-files.tar of the release, checked with SHA-256, unpacked by jget itself): `jget tool jcmp` installs the compiler and its Library.
+
 ## 0.6.0
 * `jget tool list` and `jget tool NAME ...`: the tools of Jcmp-Tools (jsh, jbox, jpty, coderin, makej ...) are put next to jget, checked with their SHA-256 (jbox also links its commands). This is how the Jaric app gets the tools it does not carry.
 

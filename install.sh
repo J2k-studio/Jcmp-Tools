@@ -69,6 +69,14 @@ for N in $NAMES; do
     [ -n "$WANT" ] && [ "$WANT" = "$HAVE" ] || { echo "install: the checksum of $N does not match, nothing installed"; exit 1; }
     cp "$TMP/$N" "$BINDIR/.$N.new"; chmod +x "$BINDIR/.$N.new"; mv -f "$BINDIR/.$N.new" "$BINDIR/$N"
     echo "installed: $BINDIR/$N  ($("$BINDIR/$N" --version 2>/dev/null | head -1))"
-    case "$N" in jbox) "$BINDIR/jbox" --install "$BINDIR" 2>/dev/null || true ;; esac      # jbox links its commands (dir cat cp ...) next to itself
+    case "$N" in jbox) "$BINDIR/jbox" --install "$BINDIR" 2>/dev/null || true ;; esac
+    # the files that belong to the tool (the library of the compiler): NAME-files.tar, when the release has it
+    FW="$(grep " $N-files.tar\$" "$TMP/SHA256SUMS.$N" | cut -d' ' -f1 || true)"
+    if [ -n "$FW" ]; then
+        fetch "$BASE/$N-files.tar" "$TMP/$N-files.tar"
+        [ "$(sha256sum "$TMP/$N-files.tar" | cut -d' ' -f1)" = "$FW" ] || { echo "install: the checksum of the files of $N does not match"; exit 1; }
+        tar xf "$TMP/$N-files.tar" -C "$BINDIR"
+        echo "installed the files of $N in $BINDIR"
+    fi      # jbox links its commands (dir cat cp ...) next to itself
 done
 case ":$PATH:" in *":$BINDIR:"*) ;; *) echo "add the folder to your PATH:  export PATH=\"$BINDIR:\$PATH\"" ;; esac

@@ -1,6 +1,8 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
 // distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-// coderin: a text editor for the terminal, written in J2K (for the Jaric app and any ANSI terminal). Version 0.1.
+// coderin: a text editor for the terminal, written in J2K (for the Jaric app and any ANSI terminal). Version 0.2, in the way of micro:
+// the mouse (a tap or a click puts the cursor there, a drag selects, a double click takes a word, the wheel scrolls), brackets and
+// quotes are closed for you, a command bar (Ctrl-E), and settings, key bindings and colour schemes in ~/.config/coderin/ (no file is made for you).
 //   coderin FILE          Ctrl-S save   Ctrl-Q quit   Ctrl-F find   Ctrl-G go to a line   Ctrl-C copy   Ctrl-X cut   Ctrl-V paste
 //   Shift + arrows select   Ctrl-A select all   Ctrl-D copy the line below   Ctrl-K delete the line   Home End PageUp PageDown Tab
 #import <stdlib>
@@ -21,6 +23,33 @@ int rows;
 int cols;
 int quit_asked;
 String key_text;              // the characters of the last K_TEXT key
+int tabsize = 4;              // settings (the file ~/.config/coderin/settings, or the command  set NAME VALUE )
+bool use_spaces = true;       // Tab gives spaces
+bool ruler = true;            // the numbers of the lines
+bool mouse_on = true;
+bool autoindent = true;
+bool autopair = true;         // ( ) [ ] { } " " ' ' are closed when the first is typed
+String scheme;                // the name of the colour scheme (dark when empty)
+String[] bind_keys;           // the key bindings: "Ctrl-s" -> "save"
+String[] bind_acts;
+int m_btn;                    // the last mouse event: the button, the place (1-based) and press / release
+int m_x;
+int m_y;
+bool m_press;
+int click_time;               // for the double click
+int click_y;
+int click_x;
+int c_kw;                     // the colours of the scheme: 0xRRGGBB
+int c_str;
+int c_num;
+int c_com;
+int c_typ;
+int c_txt;
+int c_gut;
+int c_sel;
+int K_MOUSE = 1020;
+bool helpbar = true;          // a line with the keys under the text, as nano shows it (set helpbar off)
+bool free_scroll;             // the wheel moved the view: it does not follow the cursor until a key comes
 
 int K_TEXT = 1000;
 int K_UP = 1001;
@@ -96,13 +125,24 @@ int read_key(int ms) {
         if c2 != 91 { return K_ESC; }
         int p1 = 0;
         int p2 = 0;
+        int p3 = 0;
         int field = 1;
         int last = rd();
-        while (last >= 48 && last <= 59) || last == 63 {
-            if last == 59 { field = 2; }
+        bool sgr = false;
+        while (last >= 48 && last <= 59) || last == 63 || last == 60 {
+            if last == 60 { sgr = true; }
+            else if last == 59 { field += 1; }
             else if field == 1 { p1 = p1 * 10 + (last - 48); }
-            else { p2 = p2 * 10 + (last - 48); }
+            else if field == 2 { p2 = p2 * 10 + (last - 48); }
+            else { p3 = p3 * 10 + (last - 48); }
             last = rd();
+        }
+        if sgr && (last == 77 || last == 109) {                   // the mouse (SGR): ESC [ < button ; x ; y M (press) or m (release)
+            m_btn = p1;
+            m_x = p2;
+            m_y = p3;
+            m_press = last == 77;
+            return K_MOUSE;
         }
         int mod = 0;
         if p2 == 2 { mod = K_SHIFT; }
@@ -171,7 +211,7 @@ int col_of(String s, int upto) {
     int i = 0;
     while i < upto && i < s.len {
         int c = s[i] & 255;
-        if c == 9 { col = (col / 4 + 1) * 4; }
+        if c == 9 { col = (col / tabsize + 1) * tabsize; }
         else if !is_cont(s, i) && !zero_width(s, i) { col += 1; }
         i += 1;
     }
@@ -275,9 +315,9 @@ void set_clip(String t) {
 }
 void insert_text(String t) {
     if sel { delete_selection(); }
-    if t == "}" && cx >= 4 {                                      // a closing brace at the start of a line steps back one level
+    if t == "}" && cx >= tabsize && use_spaces {                  // a closing brace at the start of a line steps back one level
         String before = lines[cy].slice(0, cx);
-        if before.trim().len == 0 { lines[cy] = lines[cy].slice(4, lines[cy].len); cx -= 4; }
+        if before.trim().len == 0 { lines[cy] = lines[cy].slice(tabsize, lines[cy].len); cx -= tabsize; }
     }
     String[] parts = t.split("\n");
     String tail = lines[cy].slice(cx, lines[cy].len);
@@ -342,25 +382,76 @@ int[] kinds_of(String s) {
     }
     return k;
 }
+String rgb(int c) {
+    return esc() + "[38;2;" + str((c >> 16) & 255) + ";" + str((c >> 8) & 255) + ";" + str(c & 255) + "m";
+}
 String color_of(int kind) {
-    String e = esc();
-    if kind == 1 { return e + "[38;2;255;123;114m"; }
-    if kind == 2 { return e + "[38;2;165;214;255m"; }
-    if kind == 3 { return e + "[38;2;210;168;255m"; }
-    if kind == 4 { return e + "[38;2;125;133;144m"; }
-    if kind == 5 { return e + "[38;2;121;192;255m"; }
-    return e + "[38;2;242;242;242m";
+    if kind == 1 { return rgb(c_kw); }
+    if kind == 2 { return rgb(c_str); }
+    if kind == 3 { return rgb(c_num); }
+    if kind == 4 { return rgb(c_com); }
+    if kind == 5 { return rgb(c_typ); }
+    return rgb(c_txt);
+}
+// the colours of a scheme: dark (the default), light, mono, amber; a file ~/.config/coderin/colors/NAME with lines  keyword = #RRGGBB  changes or adds one
+void apply_scheme(String name) {
+    scheme = name;
+    c_kw = 0xFF7B72; c_str = 0xA5D6FF; c_num = 0xD2A8FF; c_com = 0x7D8590; c_typ = 0x79C0FF; c_txt = 0xF2F2F2; c_gut = 0x7D8590; c_sel = 0x3C4666;
+    if name == "light" { c_kw = 0xCF222E; c_str = 0x0A3069; c_num = 0x8250DF; c_com = 0x6E7781; c_typ = 0x0550AE; c_txt = 0x1F2328; c_gut = 0x8C959F; c_sel = 0xB6D6F2; }
+    else if name == "mono" { c_kw = 0xFFFFFF; c_str = 0xCCCCCC; c_num = 0xCCCCCC; c_com = 0x808080; c_typ = 0xFFFFFF; c_txt = 0xE0E0E0; c_gut = 0x808080; c_sel = 0x444444; }
+    else if name == "amber" { c_kw = 0xFFB000; c_str = 0xFFD060; c_num = 0xFFD060; c_com = 0x9A6B00; c_typ = 0xFFC030; c_txt = 0xFFB000; c_gut = 0x9A6B00; c_sel = 0x553A00; }
+    String file = config_dir() + "/colors/" + name;
+    Result<String, Error> r = Fs::read_text(file);
+    if r.is_ok() {
+        String[] ls = r.take().split("\n");
+        for i in 0..ls.len {
+            String[] kv = ls[i].split("=");
+            if kv.len != 2 { continue; }
+            String key = kv[0].trim();
+            String val = kv[1].trim();
+            if val.len != 7 || val[0] != '#' { continue; }
+            int v = hex_value(val.slice(1, 7));
+            if key == "keyword" { c_kw = v; } else if key == "string" { c_str = v; } else if key == "number" { c_num = v; }
+            else if key == "comment" { c_com = v; } else if key == "type" { c_typ = v; } else if key == "text" { c_txt = v; }
+            else if key == "gutter" { c_gut = v; } else if key == "selection" { c_sel = v; }
+        }
+    }
+}
+int hex_value(String h) {
+    int v = 0;
+    for i in 0..h.len {
+        int c = h[i] & 255;
+        int d = 0;
+        if c >= '0' && c <= '9' { d = c - '0'; }
+        else if c >= 'a' && c <= 'f' { d = c - 'a' + 10; }
+        else if c >= 'A' && c <= 'F' { d = c - 'A' + 10; }
+        v = v * 16 + d;
+    }
+    return v;
+}
+String config_dir() {
+    Option<String> h = Env::get("HOME");
+    String home = "";
+    if h.is_some() { home = h.unwrap(); }
+    return home + "/.config/coderin";
 }
 
 // ---------------------------------------------------------------- drawing
 int gutter() {
+    if !ruler { return 0; }
     String nstr = str(lines.len);
     return nstr.len + 2;
 }
 
+int text_rows_count() {
+    if helpbar { return rows - 2; }
+    return rows - 1;
+}
+
 void scroll_to_cursor() {
+    if free_scroll { return; }
     int g = gutter();
-    int text_rows = rows - 1;
+    int text_rows = text_rows_count();
     if cy < top { top = cy; }
     if cy >= top + text_rows { top = cy - text_rows + 1; }
     int cc = col_of(lines[cy], cx);
@@ -375,9 +466,11 @@ String draw_line(int y) {
     String e = esc();
     String out = "";
     int g = gutter();
-    String num = str(y + 1);
-    String pad = " ".repeat(g - 1 - num.len);
-    out = out + e + "[38;2;125;133;144m" + pad + num + " " + e + "[0m";
+    if ruler {
+        String num = str(y + 1);
+        String pad = " ".repeat(g - 1 - num.len);
+        out = out + rgb(c_gut) + pad + num + " " + e + "[0m";
+    }
     int col = 0;
     int i = 0;
     int last = 0 - 1;
@@ -387,13 +480,13 @@ String draw_line(int y) {
         int n = next_char(s, i);
         int c = s[i] & 255;
         int w = 1;
-        if c == 9 { w = (col / 4 + 1) * 4 - col; }
+        if c == 9 { w = (col / tabsize + 1) * tabsize - col; }
         else if zero_width(s, i) { w = 0; }
         bool s_on = selected(y, i);
         if col + w > left && col < left + text_cols {
             if k[i] != last || s_on != rev {
                 out = out + e + "[0m";
-                if s_on { out = out + e + "[48;2;60;70;90m"; }
+                if s_on { out = out + e + "[48;2;" + str((c_sel >> 16) & 255) + ";" + str((c_sel >> 8) & 255) + ";" + str(c_sel & 255) + "m"; }
                 out = out + color_of(k[i]);
                 last = k[i];
                 rev = s_on;
@@ -412,11 +505,22 @@ void draw() {
     scroll_to_cursor();
     String e = esc();
     String f = e + "[?25l";
-    for r in 0..rows - 1 {
+    for r in 0..text_rows_count() {
         int y = top + r;
         f = f + e + "[" + str(r + 1) + ";1H";
         if y < lines.len { f = f + draw_line(y); }
-        else { f = f + e + "[38;2;125;133;144m~" + e + "[0m" + e + "[K"; }
+        else { f = f + rgb(c_gut) + "~" + e + "[0m" + e + "[K"; }
+    }
+    if helpbar {                                                  // the keys, in the way of nano: the key reversed, then what it does
+        String hints = "";
+        String acts = "save:Save quit:Quit find:Find goto:Goto copy:Copy cut:Cut paste:Paste command:Command";
+        String[] as = acts.split(" ");
+        for i in 0..as.len {
+            String[] an = as[i].split(":");
+            String keyname = binding_key_of(an[0]);
+            if keyname.len > 0 { hints = hints + e + "[7m" + keyname + e + "[0m " + an[1] + "  "; }
+        }
+        f = f + e + "[" + str(rows - 1) + ";1H" + hints + e + "[K";
     }
     String name = path;
     if dirty { name = name + " *"; }
@@ -487,21 +591,262 @@ void newline() {
     while ind < l.len && l[ind] == ' ' && ind < cx { ind += 1; }
     String head = l.slice(0, cx);
     String tail = l.slice(cx, l.len);
-    if head.trim().len > 0 && head[head.len - 1] == '{' { ind += 4; }
+    bool between = autopair && head.len > 0 && tail.len > 0 && head[head.len - 1] == '{' && tail[0] == '}';
+    if !autoindent { ind = 0; }
+    String head_trim = head.trim();
+    if autoindent && head_trim.len > 0 && head[head.len - 1] == '{' { ind += tabsize; }
     lines[cy] = head;
+    if between {                                                  // {|} : the closing brace goes to a line of its own, the cursor to an indented empty line
+        int base = ind - tabsize;
+        if base < 0 { base = 0; }
+        insert_line(cy + 1, " ".repeat(base) + tail);
+        insert_line(cy + 1, " ".repeat(ind));
+        cy += 1;
+        cx = ind;
+        dirty = true;
+        return;
+    }
     insert_line(cy + 1, " ".repeat(ind) + tail);
     cy += 1;
     cx = ind;
     dirty = true;
 }
 
+// ---------------------------------------------------------------- settings, key bindings, the command bar
+String letter_of(int k) {
+    String l = "";
+    l.push((char)(k + 96));
+    return l;
+}
+
+void bind_default() {
+    bind_keys = arr(16);
+    bind_acts = arr(16);
+    String pairs = "Ctrl-s=save Ctrl-q=quit Ctrl-f=find Ctrl-g=goto Ctrl-c=copy Ctrl-x=cut Ctrl-v=paste Ctrl-a=selectall Ctrl-d=duplicate Ctrl-k=deleteline Ctrl-e=command";
+    String[] ps = pairs.split(" ");
+    for i in 0..ps.len {
+        String[] kv = ps[i].split("=");
+        bind_keys.push(kv[0]);
+        bind_acts.push(kv[1]);
+    }
+}
+// the key of an action, as ^S (the last binding of the action)
+String binding_key_of(String act) {
+    int i = bind_keys.len - 1;
+    while i >= 0 {
+        if bind_acts[i] == act && bind_keys[i].starts_with("Ctrl-") && bind_keys[i].len == 6 {
+            String k = "^";
+            k.push((char)(bind_keys[i][5] - 32));
+            return k;
+        }
+        i -= 1;
+    }
+    return "";
+}
+// the action of a key; the last binding of a key counts (the file of the user comes after the defaults)
+String binding(String key) {
+    int i = bind_keys.len - 1;
+    while i >= 0 {
+        if bind_keys[i] == key { return bind_acts[i] + ""; }              // a copy (jcmp 1.0.0.0 gives away the String of the array itself: fixed after it)
+        i -= 1;
+    }
+    return "";
+}
+bool on_off(String v) { return v == "on" || v == "true" || v == "yes" || v == "1"; }
+
+void set_option(String name, String val) {
+    if name == "tabsize" { int n = val.to_int(); if n >= 1 && n <= 16 { tabsize = n; } }
+    else if name == "tabstospaces" { use_spaces = on_off(val); }
+    else if name == "ruler" { ruler = on_off(val); }
+    else if name == "autoindent" { autoindent = on_off(val); }
+    else if name == "autopair" { autopair = on_off(val); }
+    else if name == "helpbar" { helpbar = on_off(val); }
+    else if name == "mouse" {
+        mouse_on = on_off(val);
+        String e = esc();
+        if mouse_on { cout << e << "[?1000h" << e << "[?1002h" << e << "[?1006h"; } else { cout << e << "[?1006l" << e << "[?1002l" << e << "[?1000l"; }
+    }
+    else if name == "colorscheme" { apply_scheme(val); }
+    else { msg = "unknown setting " + name; }
+}
+
+void load_settings() {
+    Result<String, Error> r = Fs::read_text(config_dir() + "/settings");
+    if !r.is_ok() { return; }
+    String[] ls = r.take().split("\n");
+    for i in 0..ls.len {
+        String l = ls[i].trim();
+        if l.len == 0 || l[0] == '#' { continue; }
+        String[] kv = l.split("=");
+        if kv.len == 2 { set_option(kv[0].trim(), kv[1].trim()); }
+    }
+}
+void load_bindings() {
+    Result<String, Error> r = Fs::read_text(config_dir() + "/bindings");
+    if !r.is_ok() { return; }
+    String[] ls = r.take().split("\n");
+    for i in 0..ls.len {
+        String l = ls[i].trim();
+        if l.len == 0 || l[0] == '#' { continue; }
+        String[] kv = l.split("=");
+        if kv.len == 2 { bind_keys.push(kv[0].trim()); bind_acts.push(kv[1].trim()); }
+    }
+}
+// the command  set NAME VALUE  is kept in the file settings (this is the only time coderin writes in ~/.config/coderin)
+void save_setting(String name, String val) {
+    Dir::make_all(config_dir());
+    String file = config_dir() + "/settings";
+    String out = "";
+    bool done = false;
+    Result<String, Error> r = Fs::read_text(file);
+    if r.is_ok() {
+        String[] ls = r.take().split("\n");
+        for i in 0..ls.len {
+            if ls[i].len == 0 { continue; }
+            String[] kv = ls[i].split("=");
+            bool same = false;
+            if kv.len == 2 {
+                String key = kv[0].trim();
+                same = key == name;
+            }
+            if same { out = out + name + " = " + val + "\n"; done = true; }
+            else { out = out + ls[i] + "\n"; }
+        }
+    }
+    if !done { out = out + name + " = " + val + "\n"; }
+    Fs::write_text(file, out);
+}
+
+void command_bar() {
+    String c = ask("> ").trim();
+    if c.len == 0 { return; }
+    String[] w = c.split(" ");
+    String cmd = w[0];
+    if cmd == "save" { save(); }
+    else if cmd == "quit" { if dirty { msg = "unsaved changes: use Ctrl-Q twice, or  q!"; } else { quit_asked = 2; } }
+    else if cmd == "q!" { quit_asked = 2; }
+    else if cmd == "goto" && w.len > 1 { int n = w[1].to_int(); if n < 1 { n = 1; } if n > lines.len { n = lines.len; } move_to(n - 1, 0, false); }
+    else if cmd == "find" && w.len > 1 { find_next(c.slice(5, c.len), cy, cx + 1); }
+    else if cmd == "replace" && w.len == 3 {
+        int n = 0;
+        for y in 0..lines.len {
+            String l = lines[y];
+            String nl = l.replace(w[1], w[2]);
+            if nl != l { lines[y] = nl; n += 1; dirty = true; }
+        }
+        msg = "replaced in " + str(n) + " lines";
+    }
+    else if cmd == "set" && w.len == 3 { set_option(w[1], w[2]); save_setting(w[1], w[2]); if msg.len == 0 { msg = w[1] + " = " + w[2]; } }
+    else if cmd == "bind" && w.len == 3 { bind_keys.push(w[1]); bind_acts.push(w[2]); msg = w[1] + " does " + w[2] + " (put it in ~/.config/coderin/bindings to keep it)"; }
+    else if cmd == "help" { msg = "save quit goto N find TEXT replace A B set NAME VALUE bind Ctrl-x ACTION; settings: tabsize tabstospaces ruler autoindent autopair helpbar mouse colorscheme"; }
+    else { msg = "unknown command: " + cmd + " (help)"; }
+}
+
+// ---------------------------------------------------------------- the mouse
+void mouse_pos(int^ yy, int^ xx) {
+    int y = top + m_y - 1;
+    if y >= lines.len { y = lines.len - 1; }
+    if y < 0 { y = 0; }
+    int col = m_x - 1 - gutter() + left;
+    if col < 0 { col = 0; }
+    yy[0] = y;
+    xx[0] = byte_at_col(lines[y], col);
+}
+
+void on_mouse() {
+    if !mouse_on { return; }
+    if m_btn >= 64 {                                              // the wheel scrolls (the cursor stays)
+        if m_btn == 64 { top -= 3; } else { top += 3; }
+        if top < 0 { top = 0; }
+        if top > lines.len - 1 { top = lines.len - 1; }
+        free_scroll = true;
+        return;
+    }
+    if m_y > text_rows_count() { return; }                        // the lines of keys and of status
+    int y = 0;
+    int x = 0;
+    mouse_pos(@y, @x);
+    if m_btn == 0 && m_press {
+        int now = Time::now_ms();
+        if now - click_time < 400 && y == click_y && x == click_x {   // a double click takes the word
+            String l = lines[y];
+            int a = x;
+            int b = x;
+            while a > 0 && is_word(l[a - 1] & 255) { a -= 1; }
+            while b < l.len && is_word(l[b] & 255) { b += 1; }
+            if b > a { sel = true; ay = y; ax = a; cy = y; cx = b; }
+        } else {
+            move_to(y, x, false);
+        }
+        click_time = now;
+        click_y = y;
+        click_x = x;
+    } else if m_btn == 32 && m_press {                           // a drag with the button held selects from the place of the click
+        if !sel { sel = true; ay = click_y; ax = click_x; }
+        cy = y;
+        cx = x;
+    }
+}
+
+// ( ) [ ] { } " ' : typing the first one closes it; typing the closing one when it is the next character only steps over it.
+// Returns true when the key was taken here.
+bool type_pair(int c) {
+    String line = lines[cy];
+    int next = 0;
+    if cx < line.len { next = line[cx] & 255; }
+    int prev = 0;
+    if cx > 0 { prev = line[cx - 1] & 255; }
+    if !sel && (c == ')' || c == ']' || c == '}' || c == '"' || c == 39) && next == c {
+        cx += 1;
+        return true;
+    }
+    String closer = "";
+    if c == '(' { closer = ")"; }
+    else if c == '[' { closer = "]"; }
+    else if c == '{' { closer = "}"; }
+    else if (c == '"' || c == 39) && !is_word(prev) && !is_word(next) {
+        closer = "";
+        closer.push((char)c);
+    }
+    if closer.len == 0 { return false; }
+    if sel { return false; }
+    String open = "";
+    open.push((char)c);
+    insert_text(open + closer);
+    cx -= 1;
+    return true;
+}
+
 void handle(int k) {
-    if k != 17 { quit_asked = 0; }
-    if k == K_TEXT { insert_text(key_text); msg = ""; return; }
+    String act = "";
+    if k >= 1 && k <= 26 { act = binding("Ctrl-" + letter_of(k)); }
+    if act != "quit" { quit_asked = 0; }
+    if k != K_MOUSE { free_scroll = false; }
+    if k == K_MOUSE { on_mouse(); return; }
+    if k == K_TEXT {
+        if autopair && key_text.len == 1 && type_pair(key_text[0] & 255) { msg = ""; return; }
+        insert_text(key_text);
+        msg = "";
+        return;
+    }
     if k == K_ENTER { newline(); msg = ""; return; }
-    if k == K_TAB { insert_text("    "); return; }
+    if k == K_TAB {
+        if use_spaces { insert_text(" ".repeat(tabsize)); } else { insert_text("\t"); }
+        return;
+    }
     if k == K_BS {
         if sel { delete_selection(); return; }
+        if autopair && cx > 0 && cx < lines[cy].len {
+            int pc = lines[cy][cx - 1] & 255;
+            int nc = lines[cy][cx] & 255;
+            bool pair = (pc == '(' && nc == ')') || (pc == '[' && nc == ']') || (pc == '{' && nc == '}') || (pc == '"' && nc == '"') || (pc == 39 && nc == 39);
+            if pair {                                              // delete the pair
+                lines[cy] = lines[cy].slice(0, cx - 1) + lines[cy].slice(cx + 1, lines[cy].len);
+                cx -= 1;
+                dirty = true;
+                return;
+            }
+        }
         if cx > 0 {
             int p = prev_char(lines[cy], cx);
             lines[cy] = lines[cy].slice(0, p) + lines[cy].slice(cx, lines[cy].len);
@@ -580,49 +925,50 @@ void handle(int k) {
         move_to(cy, lines[cy].len, shift);
         return;
     }
-    if k == 19 { save(); return; }                                // Ctrl-S
-    if k == 17 {                                                  // Ctrl-Q
+    if act == "save" { save(); return; }                                // Ctrl-S
+    if act == "quit" {                                              // Ctrl-Q
         if dirty && quit_asked == 0 { msg = "unsaved changes: Ctrl-Q again quits without saving"; quit_asked = 1; return; }
         quit_asked = 2;
         return;
     }
-    if k == 1 {                                                   // Ctrl-A: select all
+    if act == "selectall" {                                         // Ctrl-A: select all
         sel = true; ay = 0; ax = 0; cy = lines.len - 1; cx = lines[cy].len;
         return;
     }
-    if k == 3 {                                                   // Ctrl-C: copy (the line when nothing is selected)
+    if act == "copy" {                                              // Ctrl-C: copy (the line when nothing is selected)
         if sel { set_clip(selected_text()); msg = "copied"; }
         else { set_clip(lines[cy] + "\n"); msg = "line copied"; }
         return;
     }
-    if k == 24 {                                                  // Ctrl-X: cut
+    if act == "cut" {                                               // Ctrl-X: cut
         if sel { set_clip(selected_text()); delete_selection(); msg = "cut"; }
         else { set_clip(lines[cy] + "\n"); remove_line(cy); if cy >= lines.len { cy = lines.len - 1; } cx = 0; dirty = true; msg = "line cut"; }
         return;
     }
-    if k == 22 {                                                  // Ctrl-V: paste
+    if act == "paste" {                                             // Ctrl-V: paste
         if clip.len > 0 { insert_text(clip); msg = "pasted"; }
         return;
     }
-    if k == 11 {                                                  // Ctrl-K: delete the line
+    if act == "deleteline" {                                        // Ctrl-K: delete the line
         remove_line(cy);
         if cy >= lines.len { cy = lines.len - 1; }
         cx = 0;
         dirty = true;
         return;
     }
-    if k == 4 {                                                   // Ctrl-D: copy the line below
+    if act == "duplicate" {                                         // Ctrl-D: copy the line below
         insert_line(cy + 1, lines[cy]);
         cy += 1;
         dirty = true;
         return;
     }
-    if k == 6 {                                                   // Ctrl-F: find
+    if act == "find" {                                              // Ctrl-F: find
         String w = ask("find: ");
         if w.len > 0 { find_next(w, cy, cx + 1); }
         return;
     }
-    if k == 7 {                                                   // Ctrl-G: go to a line
+    if act == "command" { command_bar(); return; }
+    if act == "goto" {                                              // Ctrl-G: go to a line
         String g = ask("line: ");
         if g.len > 0 {
             int n = g.to_int();
@@ -636,17 +982,22 @@ void handle(int k) {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && a[1] == "--version" { cout << "coderin 0.1.0\n"; return 0; }
+    if a.len > 1 && a[1] == "--version" { cout << "coderin 0.2.0\n"; return 0; }
     if a.len < 2 { cerr << "usage: coderin FILE\n"; return 2; }
     if Sys::isatty(0) != 0 { cerr << "coderin: it needs a terminal\n"; return 2; }
     path = a[1];
     clip = "";
     msg = "";
+    bind_default();
+    apply_scheme("dark");
+    load_settings();
+    load_bindings();
     load(path);
     raw_mode(true);
     read_size();
     String e = esc();
     cout << e << "[?1049h" << e << "[2J";
+    if mouse_on { cout << e << "[?1000h" << e << "[?1002h" << e << "[?1006h"; }
     while quit_asked != 2 {
         draw();
         int k = read_key(200);
@@ -660,7 +1011,7 @@ int main() {
         if k < 0 { break; }
         handle(k);
     }
-    cout << e << "[?25h" << e << "[?1049l";
+    cout << e << "[?1006l" << e << "[?1002l" << e << "[?1000l" << e << "[?25h" << e << "[?1049l";
     raw_mode(false);
     return 0;
 }
