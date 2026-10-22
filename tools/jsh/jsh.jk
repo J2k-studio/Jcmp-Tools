@@ -477,6 +477,9 @@ bool builtin(String[] a) {
         if Sys::call(49, (int)target.c(), 0, 0, 0, 0, 0) < 0 {
             cerr << "jsh: cd: " << target << ": cannot enter this folder\n";
             bcode = 1;
+            if target == "sdcard" || target.starts_with("sdcard/") {                    // the app makes the link and asks for the files of the phone
+                cout << esc() << "]7777;setup-folder" << (char)7;
+            }
         } else {
             bcode = 0;
             char cwdbuf[512];
