@@ -54,7 +54,7 @@ void add_unique(String[] list, String name) {
 String[] command_names() {
     if cmd_cached { return cmd_cache; }
     cmd_cache = arr(64);
-    String fixed_text = "exit cd pwd echo history help jaric-setup-folder export unset env alias unalias type which source ls cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear true false";
+    String fixed_text = "exit cd pwd echo history help jaric-setup-folder export unset env alias unalias type which source dir ls cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear true false";
     String[] fixed = fixed_text.split(" ");
     for q in 0..fixed.len { cmd_cache.push(fixed[q]); }
     String path = getv("PATH");
@@ -436,7 +436,7 @@ bool is_builtin_name(String n) {
         || n == "env" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
-    return n == "ls" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
+    return n == "dir" || n == "ls" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
         || n == "cp" || n == "mv" || n == "grep" || n == "sort" || n == "uniq" || n == "tee" || n == "seq" || n == "basename"
         || n == "dirname" || n == "sleep" || n == "clear" || n == "true" || n == "false";
 }
@@ -581,7 +581,7 @@ bool builtin(String[] a) {
         return true;
     }
     if name == "help" {
-        cout << "jsh: cd pwd echo history exit help; the commands of jbox (ls cat head tail wc grep sort uniq cp mv rm mkdir rmdir touch tee seq sleep clear env ...); programs with arguments; a | b; a > file; a >> file; a < file; a &\n";
+        cout << "jsh: cd pwd echo history exit help; the commands of jbox (dir ls cat head tail wc grep sort uniq cp mv rm mkdir rmdir touch tee seq sleep clear env ...); programs with arguments; a | b; a > file; a >> file; a < file; a &\n";
         cout << "keys: arrows (history, move), Home End, Delete, Ctrl-A Ctrl-E Ctrl-U, Ctrl-D (exit), Ctrl-C (cancel the line)\n";
         bcode = 0;
         return true;

@@ -381,8 +381,8 @@ int do_env() {
 }
 
 int do_help() {
-    cout << "jbox commands: ls cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env true false\n";
-    cout << "flags: ls -a -l   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
+    cout << "jbox commands: dir (also ls) cat head tail wc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env true false\n";
+    cout << "flags: dir/ls -a -l   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
     return 0;
 }
 
@@ -396,7 +396,7 @@ int main() {
         a = arr(args.len);
         for i in 1..args.len { a.push(args[i]); }
     }
-    if app == "ls" { return do_ls(a); }
+    if app == "ls" || app == "dir" { return do_ls(a); }
     if app == "cat" { return do_cat(a); }
     if app == "head" { return do_head_tail(a, true); }
     if app == "tail" { return do_head_tail(a, false); }
