@@ -30,7 +30,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.7.0"; }
+String jget_version() { return "0.7.1"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -659,9 +659,21 @@ int cmd_tool(String[] av, int at) {
         if av.len <= at { cout << "jget tool NAME installs one (more than one: jget tool jsh jbox coderin)" << nl; }
         return 0;
     }
-    int rc = 0;
+    // `all` is every tool but jget itself
+    String[] wanted = arr(8);
     for k in at..av.len {
-        String name = av[k];
+        if av[k] == "all" {
+            String[] tl = text.split("\n");
+            for i in 0..tl.len {
+                if tl[i].len == 0 || tl[i][0] == '#' { continue; }
+                String[] parts = tl[i].split("|");
+                if parts.len >= 2 && parts[0] != "jget" { wanted.push(parts[0]); }
+            }
+        } else { wanted.push(av[k]); }
+    }
+    int rc = 0;
+    for k in 0..wanted.len {
+        String name = wanted[k];
         bool known = false;
         String[] ls = text.split("\n");
         for i in 0..ls.len { if ls[i].starts_with(name + "|") { known = true; } }

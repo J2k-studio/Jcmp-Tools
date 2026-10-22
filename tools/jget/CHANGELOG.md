@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.1
+* `jget tool all` installs every tool (but jget itself).
+
 ## 0.7.0
 * `jget tool NAME` also puts the files of a tool next to it (NAME-files.tar of the release, checked with SHA-256, unpacked by jget itself): `jget tool jcmp` installs the compiler and its Library.
 

@@ -500,6 +500,20 @@ int status_of(int raw) {
 
 // ---------------------------------------------------------------- built-ins
 int bcode;                                                    // the exit code of a built-in
+// is there a program of this name in the PATH (or is it a file named like that in the folder of jsh)
+bool have_program(String name) {
+    String path = getv("PATH");
+    int start = 0;
+    for k in 0..path.len + 1 {
+        if k == path.len || path[k] == ':' {
+            String cand = path.slice(start, k) + "/" + name;
+            if k > start && Fs::exists(cand) { return true; }
+            start = k + 1;
+        }
+    }
+    return false;
+}
+
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
         || n == "env" || n == "install" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
@@ -576,6 +590,35 @@ bool builtin(String[] a) {
     if name == "jaric-setup-folder" {                          // a request to the Jaric app (other terminals ignore the sequence)
         cout << esc() << "]7777;setup-folder" << (char)7;
         bcode = 0;
+        return true;
+    }
+    bool no_clear = !have_program("clear");
+    if name == "clear" && no_clear {            // a few commands that a fresh install needs before jbox is installed
+        cout << esc() << "[2J" << esc() << "[H";
+        bcode = 0;
+        return true;
+    }
+    bool no_dir = !have_program("dir");
+    if name == "dir" && no_dir {                // dir [-a] [FOLDER]: the names, a folder with a / (install jbox for more: dir -l, cat, cp, mv ...)
+        bool all = false;
+        String where = ".";
+        for i in 1..a.len {
+            if a[i] == "-a" { all = true; } else { where = a[i]; }
+        }
+        bcode = 0;
+        if !Dir::exists(where) {
+            if Fs::exists(where) { cout << where << "\n"; } else { cerr << "dir: " << where << ": no such file or folder\n"; bcode = 1; }
+            return true;
+        }
+        Result<String[], Error> lr = Dir::list(where);
+        if lr.is_ok() {
+            String[] names = lr.take();
+            for i in 0..names.len {
+                String n = names[i];
+                if !all && n.len > 0 && n[0] == '.' { continue; }
+                if Dir::exists(Path::join(where, n)) { cout << n << "/\n"; } else { cout << n << "\n"; }
+            }
+        } else { cerr << "dir: cannot read " << where << "\n"; bcode = 1; }
         return true;
     }
     if name == "install" {                                    // install NAME ...: the tools of Jcmp-Tools (jget does the work)
@@ -1113,7 +1156,7 @@ void run_words(String[] raw0) {
             out_pipe_write = fds[0] >> 32;
         }
         bool redirected = out_file.len > 0 || in_file.len > 0;
-        bool printing = argv[0] == "echo" || argv[0] == "pwd" || argv[0] == "history" || argv[0] == "help" || argv[0] == "env"
+        bool printing = argv[0] == "dir" || argv[0] == "echo" || argv[0] == "pwd" || argv[0] == "history" || argv[0] == "help" || argv[0] == "env"
             || argv[0] == "alias" || argv[0] == "type" || argv[0] == "which";
         if npid == 0 && !more && redirected && printing {
             // a built-in whose output goes to a file: it runs in a process of its own with the file as its output
@@ -1247,7 +1290,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.4.0\n"; return 0; }
+    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.4.1\n"; return 0; }
     if cmdline.len > 1 && cmdline[1] == "install" {                              // jsh install NAME ...
         running = 1;
         String[] jw = arr(cmdline.len + 2);

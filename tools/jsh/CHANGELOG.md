@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.1
+* `clear` and `dir [-a] [FOLDER]` are built in when jbox is not installed (a fresh install can list its files); jaric-core.
+
 ## 0.4.0
 * `install NAME ...` (also `jsh install NAME`): puts tools of Jcmp-Tools next to jget (it runs `jget tool NAME`); `install` alone lists them.
 
