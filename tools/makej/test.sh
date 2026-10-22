@@ -19,7 +19,9 @@ if "$OLDPWD/dist/makej" nosuch 2>/dev/null; then echo "bad target"; exit 1; fi
 MK="$ROOT/dist/makej"
 mkdir "$T/ai" && cd "$T/ai"
 "$MK" init -ai >/dev/null || { echo "init -ai"; exit 1; }
-"$MK" train | grep -q "data:" || { echo "ai train"; exit 1; }
+mkdir -p "$ROOT/_neuron" ; cp "$ROOT/../../../Jcmp/build/libs/neuron.j" "$ROOT/_neuron/" 2>/dev/null || cp "$HOME/Jcmp/build/libs/neuron.j" "$ROOT/_neuron/"
+J2K_PATH="$ROOT/_neuron" "$MK" train | grep -q "trained on 4 rows" || { echo "ai train"; exit 1; }
+rm -rf "$ROOT/_neuron"
 echo "makej tests: ok"
 # list, clean, -n, install
 T2=$(mktemp -d); cp -r "$ROOT/example/." "$T2/"; cd "$T2"

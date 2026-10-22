@@ -112,7 +112,7 @@ jget --update                             # replace jget by the latest release
 In the Jaric app no `curl` is needed: `install coderin` in `jsh` does `jget tool coderin`.
 
 ## 5. makej: build projects
-`makej init` writes a file `makej`; `makej init -ai` writes an AI project (steps `train` and `ask`). Then:
+`makej init` writes a file `makej`; `makej init -ai` writes an AI project that uses the library `neuron` (`jget -li install neuron`; steps `train` on `data/data.csv` and `ask`). Then:
 ```
 makej                 # build everything          makej -j 4   # 4 jobs at once
 makej NAME            # one target and what it needs      makej -v   # show the commands

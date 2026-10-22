@@ -15,3 +15,6 @@
 
 ## 0.3.0
 * list, clean, -n (dry run), install FOLDER, the time of a build, targets named in the error of a wrong name, init -ai.
+
+## 0.3.1
+* init -ai makes a small project with the library neuron (train on data/data.csv, ask the model).

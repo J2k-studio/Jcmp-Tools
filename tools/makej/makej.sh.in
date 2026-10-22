@@ -19,8 +19,8 @@ if [ "${1:-}" = "init" ] && [ "${2:-}" = "-ai" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
     mkdir -p src data
 cat > makej <<'MAKEJ_AI_EOF'
-# an AI project (makej init -ai). makej builds the program; makej train trains the model on data/data.json; makej ask asks it.
-# The model is the file NAME.jw (the weights); the library is  #import <neuron>  (in work: see the spec, section 93).
+# an AI project (makej init -ai). Needs the library neuron:  jget -li install neuron
+# makej train learns from data/data.csv (rows x1,x2,answer) and writes model.jw; makej ask asks the model.
 [makej]
 out = "_out"
 
@@ -29,41 +29,61 @@ main = "src/chat.jk"
 flags = ""
 
 [step.train]
-run = "_out/chat train data/data.json chat.jw"
+run = "_out/chat train data/data.csv model.jw"
 needs = "chat"
 
 [step.ask]
-run = "_out/chat ask chat.jw"
+run = "_out/chat ask model.jw 1 0"
 needs = "chat"
 MAKEJ_AI_EOF
 cat > src/chat.jk <<'MAKEJ_AI_SRC_EOF'
-// The program of the AI: chat train DATA.json OUT.jw   |   chat ask MODEL.jw
-// Planned (the library neuron is not finished): the model is declared like this and trained with one line:
-//     model Chat { embed(256, 64); dense(64, 128); relu; dense(128, 256); }
-//     train Chat on data epochs 10 rate 0.01;
+// A small model with the library neuron (jget -li install neuron).
+//   chat train data/data.csv model.jw      learns from rows  x1,x2,answer
+//   chat ask model.jw 1 0                  asks the model
 #import <stdlib>
+#import <math>
+#import <neuron>
 
 int main() {
     String[] a = Env::args();
-    if a.len < 3 { cerr << "usage: chat train DATA.json OUT.jw | chat ask MODEL.jw\n"; return 2; }
+    if a.len < 3 { cerr << "usage: chat train DATA.csv OUT.jw | chat ask MODEL.jw X1 X2\n"; return 2; }
     if a[1] == "train" && a.len >= 4 {
-        switch Fs::read_text(a[2]) {
-            Result::Ok(t): { cout << "data: " << t.len << " bytes (training comes with the library neuron)\n"; }
-            Result::Err(e): { cerr << "cannot read " << a[2] << "\n"; return 1; }
+        String[] rows = Fs::read_lines(a[2]).take();
+        int n = rows.len;
+        Tensor x = Tensor::zeros(n, 2);
+        Tensor y = Tensor::zeros(n, 1);
+        for i in 0..n {
+            String[] f = rows[i].split(",");
+            x.set(i, 0, f[0].to_double());
+            x.set(i, 1, f[1].to_double());
+            y.set(i, 0, f[2].to_double());
         }
+        Network net = Network::make();
+        net.add(2, 8);
+        net.add(8, 1);
+        double loss = net.fit(x, y, 4000, 0.1);
+        net.save(a[3]);
+        cout << "trained on " << n << " rows, loss " << loss << ", saved " << a[3] << "\n";
         return 0;
     }
-    if a[1] == "ask" { cout << "no model yet: " << a[2] << "\n"; return 0; }
+    if a[1] == "ask" && a.len >= 5 {
+        Network net = Network::load(a[2]);
+        Tensor q = Tensor::zeros(1, 2);
+        q.set(0, 0, a[3].to_double());
+        q.set(0, 1, a[4].to_double());
+        cout << net.predict(q).get(0, 0) << "\n";
+        return 0;
+    }
     return 2;
 }
 MAKEJ_AI_SRC_EOF
-cat > data/data.json <<'MAKEJ_AI_DATA_EOF'
-[
-  {"in": "hello", "out": "hi, how can I help?"},
-  {"in": "what is J2K", "out": "a language and its compiler jcmp"}
-]
+cat > data/data.csv <<'MAKEJ_AI_DATA_EOF'
+0,0,0
+0,1,1
+1,0,1
+1,1,0
 MAKEJ_AI_DATA_EOF
-    echo "makej: wrote makej, src/chat.jk, data/data.json (makej train, makej ask)"; exit 0
+    echo "makej: wrote makej, src/chat.jk, data/data.csv (jget -li install neuron; then makej train, makej ask)"; exit 0
 fi
 if [ "${1:-}" = "init" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
