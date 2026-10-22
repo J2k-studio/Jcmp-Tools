@@ -1,0 +1,666 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// coderin: a text editor for the terminal, written in J2K (for the Jaric app and any ANSI terminal). Version 0.1.
+//   coderin FILE          Ctrl-S save   Ctrl-Q quit   Ctrl-F find   Ctrl-G go to a line   Ctrl-C copy   Ctrl-X cut   Ctrl-V paste
+//   Shift + arrows select   Ctrl-A select all   Ctrl-D copy the line below   Ctrl-K delete the line   Home End PageUp PageDown Tab
+#import <stdlib>
+
+String[] lines;
+int cy;                       // the cursor: the line, and the byte in the line (always at the start of a character)
+int cx;
+int top;                      // the first line shown
+int left;                     // the first column shown
+int ay;                       // the other end of the selection (when sel is true)
+int ax;
+bool sel;
+String clip;
+bool dirty;
+String path;
+String msg;
+int rows;
+int cols;
+int quit_asked;
+String key_text;              // the characters of the last K_TEXT key
+
+int K_TEXT = 1000;
+int K_UP = 1001;
+int K_DOWN = 1002;
+int K_RIGHT = 1003;
+int K_LEFT = 1004;
+int K_HOME = 1005;
+int K_END = 1006;
+int K_PGUP = 1007;
+int K_PGDN = 1008;
+int K_DEL = 1009;
+int K_ENTER = 1010;
+int K_BS = 1011;
+int K_TAB = 1012;
+int K_ESC = 1013;
+int K_SHIFT = 100;            // + K_UP .. K_END : the arrow with Shift
+int K_CTRL = 200;             // + K_UP .. K_END : the arrow with Ctrl
+
+String esc() {
+    String e = "";
+    e.push((char)27);
+    return e;
+}
+
+// ---------------------------------------------------------------- the terminal
+void raw_mode(bool on) {
+    char t[64];
+    Sys::call(29, 0, 21505, (int)@t, 0, 0, 0);                    // TCGETS
+    if on {
+        t[0] = t[0] & 0xFA;                                       // iflag: no ICRNL (0x100 is in byte 1), no IXON (0x400 in byte 1)
+        t[1] = t[1] & 0xFA;                                       // 0x100 and 0x400 -> bits 0 and 2 of byte 1
+        t[12] = t[12] & 0xF4;                                     // lflag: no ISIG (1), no ICANON (2), no ECHO (8)
+        t[23] = 1;                                                // VMIN
+        t[22] = 0;                                                // VTIME
+    } else {
+        t[1] = t[1] | 5;
+        t[12] = t[12] | 11;
+    }
+    Sys::call(29, 0, 21506, (int)@t, 0, 0, 0);                    // TCSETS
+}
+
+void read_size() {
+    char w[8];
+    for i in 0..8 { w[i] = 0; }
+    Sys::call(29, 1, 21523, (int)@w, 0, 0, 0);                    // TIOCGWINSZ
+    rows = (w[0] & 255) | ((w[1] & 255) << 8);
+    cols = (w[2] & 255) | ((w[3] & 255) << 8);
+    if rows < 5 { rows = 24; }
+    if cols < 20 { cols = 80; }
+}
+
+int rd() {
+    char b[4];
+    int n = Sys::read(0, @b, 1);
+    if n <= 0 { return 0 - 1; }
+    return b[0] & 255;
+}
+
+// one key: a code from the list above, a control letter (1 .. 26), or K_TEXT with the characters in key_text; -2 when nothing came in ms
+int read_key(int ms) {
+    if !Input::ready(ms) { return 0 - 2; }
+    int c = rd();
+    if c < 0 { return 0 - 1; }
+    if c == 27 {
+        if !Input::ready(30) { return K_ESC; }
+        int c2 = rd();
+        if c2 == 79 {                                             // ESC O H / F
+            int c3 = rd();
+            if c3 == 72 { return K_HOME; }
+            if c3 == 70 { return K_END; }
+            return K_ESC;
+        }
+        if c2 != 91 { return K_ESC; }
+        int p1 = 0;
+        int p2 = 0;
+        int field = 1;
+        int last = rd();
+        while (last >= 48 && last <= 59) || last == 63 {
+            if last == 59 { field = 2; }
+            else if field == 1 { p1 = p1 * 10 + (last - 48); }
+            else { p2 = p2 * 10 + (last - 48); }
+            last = rd();
+        }
+        int mod = 0;
+        if p2 == 2 { mod = K_SHIFT; }
+        else if p2 == 5 { mod = K_CTRL; }
+        if last == 65 { return K_UP + mod; }
+        if last == 66 { return K_DOWN + mod; }
+        if last == 67 { return K_RIGHT + mod; }
+        if last == 68 { return K_LEFT + mod; }
+        if last == 72 { return K_HOME + mod; }
+        if last == 70 { return K_END + mod; }
+        if last == 126 {
+            if p1 == 1 || p1 == 7 { return K_HOME + mod; }
+            if p1 == 4 || p1 == 8 { return K_END + mod; }
+            if p1 == 3 { return K_DEL; }
+            if p1 == 5 { return K_PGUP; }
+            if p1 == 6 { return K_PGDN; }
+        }
+        return K_ESC;
+    }
+    if c == 13 || c == 10 { return K_ENTER; }
+    if c == 127 || c == 8 { return K_BS; }
+    if c == 9 { return K_TAB; }
+    if c < 32 { return c; }
+    key_text = "";
+    key_text.push((char)c);
+    if c >= 192 {                                                 // the bytes that follow in a character of UTF-8
+        int more = 1;
+        if c >= 224 { more = 2; }
+        if c >= 240 { more = 3; }
+        for i in 0..more {
+            int cb = rd();
+            if cb >= 0 { key_text.push((char)cb); }
+        }
+    }
+    return K_TEXT;
+}
+
+// ---------------------------------------------------------------- characters and columns
+bool is_cont(String s, int i) { return i >= 0 && i < s.len && (s[i] & 192) == 128; }
+int prev_char(String s, int at) {
+    if at <= 0 { return 0; }
+    at -= 1;
+    while at > 0 && is_cont(s, at) { at -= 1; }
+    return at;
+}
+int next_char(String s, int at) {
+    if at >= s.len { return s.len; }
+    at += 1;
+    while at < s.len && is_cont(s, at) { at += 1; }
+    return at;
+}
+// a Thai vowel above or below a letter, or a tone mark, takes no column of its own
+bool zero_width(String s, int i) {
+    if i + 2 >= s.len + 0 { if i + 2 > s.len - 1 { return false; } }
+    int b0 = s[i] & 255;
+    int b1 = s[i + 1] & 255;
+    int b2 = s[i + 2] & 255;
+    if b0 != 224 { return false; }
+    if b1 == 184 { return b2 == 177 || (b2 >= 180 && b2 <= 186); }
+    if b1 == 185 { return b2 >= 135 && b2 <= 142; }
+    return false;
+}
+// the column on the screen of the byte at upto (a tab goes to the next multiple of 4)
+int col_of(String s, int upto) {
+    int col = 0;
+    int i = 0;
+    while i < upto && i < s.len {
+        int c = s[i] & 255;
+        if c == 9 { col = (col / 4 + 1) * 4; }
+        else if !is_cont(s, i) && !zero_width(s, i) { col += 1; }
+        i += 1;
+    }
+    return col;
+}
+// the byte of the line that is at the column (the nearest character start)
+int byte_at_col(String s, int want) {
+    int i = 0;
+    while i < s.len {
+        int n = next_char(s, i);
+        if col_of(s, n) > want { return i; }
+        i = n;
+    }
+    return s.len;
+}
+
+// ---------------------------------------------------------------- the text
+void insert_line(int at, String s) {
+    String[] n = arr(lines.len + 16);
+    for i in 0..lines.len {
+        if i == at { n.push(s); }
+        n.push(lines[i]);
+    }
+    if at >= lines.len { n.push(s); }
+    lines = n;
+}
+void remove_line(int at) {
+    String[] n = arr(lines.len + 16);
+    for i in 0..lines.len { if i != at { n.push(lines[i]); } }
+    if n.len == 0 { n.push(""); }
+    lines = n;
+}
+
+void load(String p) {
+    lines = arr(64);
+    Result<String, Error> r = Fs::read_text(p);
+    String text = "";
+    if r.is_ok() { text = r.take(); msg = "opened " + p; }
+    else { msg = "new file " + p; }
+    if text.len > 0 {
+        String[] parts = text.split("\n");
+        int n = parts.len;
+        if n > 0 && parts[n - 1].len == 0 { n -= 1; }
+        for i in 0..n {
+            String l = parts[i];
+            if l.len > 0 && l[l.len - 1] == 13 { l = l.slice(0, l.len - 1); }
+            lines.push(l);
+        }
+    }
+    if lines.len == 0 { lines.push(""); }
+}
+
+void save() {
+    String text = "";
+    for i in 0..lines.len { text = text + lines[i] + "\n"; }
+    Result<int, Error> r = Fs::write_text(path, text);
+    if r.is_ok() { dirty = false; msg = "saved " + path + " (" + str(lines.len) + " lines)"; }
+    else { msg = "cannot save " + path; }
+}
+
+// ---------------------------------------------------------------- selection and clipboard
+void order_sel(int^ y1, int^ x1, int^ y2, int^ x2) {
+    bool swap = ay < cy || (ay == cy && ax < cx);
+    if swap { y1[0] = ay; x1[0] = ax; y2[0] = cy; x2[0] = cx; }
+    else { y1[0] = cy; x1[0] = cx; y2[0] = ay; x2[0] = ax; }
+}
+bool selected(int y, int x) {
+    if !sel { return false; }
+    int y1 = 0; int x1 = 0; int y2 = 0; int x2 = 0;
+    order_sel(@y1, @x1, @y2, @x2);
+    if y < y1 || y > y2 { return false; }
+    if y == y1 && x < x1 { return false; }
+    if y == y2 && x >= x2 { return false; }
+    return true;
+}
+String selected_text() {
+    int y1 = 0; int x1 = 0; int y2 = 0; int x2 = 0;
+    order_sel(@y1, @x1, @y2, @x2);
+    if y1 == y2 { return lines[y1].slice(x1, x2); }
+    String t = lines[y1].slice(x1, lines[y1].len);
+    for y in y1 + 1..y2 { t = t + "\n" + lines[y]; }
+    t = t + "\n" + lines[y2].slice(0, x2);
+    return t;
+}
+void delete_selection() {
+    int y1 = 0; int x1 = 0; int y2 = 0; int x2 = 0;
+    order_sel(@y1, @x1, @y2, @x2);
+    String head = lines[y1].slice(0, x1);
+    String tail = lines[y2].slice(x2, lines[y2].len);
+    for k in 0..y2 - y1 { remove_line(y1 + 1); }
+    lines[y1] = head + tail;
+    cy = y1;
+    cx = x1;
+    sel = false;
+    dirty = true;
+}
+// the text also goes to the clipboard of the terminal (OSC 52) when the terminal knows it
+void set_clip(String t) {
+    clip = t;
+    cout << esc() << "]52;c;" << Base64::encode(t) << (char)7;
+}
+void insert_text(String t) {
+    if sel { delete_selection(); }
+    if t == "}" && cx >= 4 {                                      // a closing brace at the start of a line steps back one level
+        String before = lines[cy].slice(0, cx);
+        if before.trim().len == 0 { lines[cy] = lines[cy].slice(4, lines[cy].len); cx -= 4; }
+    }
+    String[] parts = t.split("\n");
+    String tail = lines[cy].slice(cx, lines[cy].len);
+    String head = lines[cy].slice(0, cx);
+    if parts.len == 1 {
+        lines[cy] = head + t + tail;
+        cx = head.len + t.len;
+    } else {
+        lines[cy] = head + parts[0];
+        for i in 1..parts.len - 1 { insert_line(cy + i, parts[i]); }
+        int last = cy + parts.len - 1;
+        insert_line(last, parts[parts.len - 1] + tail);
+        cy = last;
+        cx = parts[parts.len - 1].len;
+    }
+    dirty = true;
+}
+
+// ---------------------------------------------------------------- the colours of J2K
+bool is_word(int c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'; }
+bool in_list(String list, String w) {
+    String[] ws = list.split(" ");
+    for i in 0..ws.len { if ws[i] == w { return true; } }
+    return false;
+}
+// kinds: 0 text, 1 keyword, 2 text in quotes, 3 number, 4 comment, 5 type
+int[] kinds_of(String s) {
+    int[] k = arr(s.len + 1);
+    for i in 0..s.len { k.push(0); }
+    int i = 0;
+    while i < s.len {
+        int c = s[i] & 255;
+        if c == '/' && i + 1 < s.len && s[i + 1] == '/' {
+            for j in i..s.len { k[j] = 4; }
+            return k;
+        }
+        if c == '"' || c == 39 {
+            int j = i + 1;
+            while j < s.len && (s[j] & 255) != c {
+                if s[j] == '\\' { j += 1; }
+                j += 1;
+            }
+            if j >= s.len { j = s.len - 1; }
+            for q in i..j + 1 { k[q] = 2; }
+            i = j + 1;
+        } else if c >= '0' && c <= '9' {
+            int j = i;
+            while j < s.len && (is_word(s[j] & 255) || s[j] == '.') { k[j] = 3; j += 1; }
+            i = j;
+        } else if is_word(c) {
+            int j = i;
+            while j < s.len && is_word(s[j] & 255) { j += 1; }
+            String w = s.slice(i, j);
+            int kind = 0;
+            if in_list("if else while for in return break continue switch case default struct enum using module import defer try catch throw new delete true false null sizeof asm reg export operator naked loop", w) { kind = 1; }
+            else if in_list("int uint double float bool char void String u8 u16 u32 u64 i8 i16 i32 i64 Result Option Error", w) { kind = 5; }
+            if kind != 0 { for q in i..j { k[q] = kind; } }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    return k;
+}
+String color_of(int kind) {
+    String e = esc();
+    if kind == 1 { return e + "[38;2;255;123;114m"; }
+    if kind == 2 { return e + "[38;2;165;214;255m"; }
+    if kind == 3 { return e + "[38;2;210;168;255m"; }
+    if kind == 4 { return e + "[38;2;125;133;144m"; }
+    if kind == 5 { return e + "[38;2;121;192;255m"; }
+    return e + "[38;2;242;242;242m";
+}
+
+// ---------------------------------------------------------------- drawing
+int gutter() {
+    String nstr = str(lines.len);
+    return nstr.len + 2;
+}
+
+void scroll_to_cursor() {
+    int g = gutter();
+    int text_rows = rows - 1;
+    if cy < top { top = cy; }
+    if cy >= top + text_rows { top = cy - text_rows + 1; }
+    int cc = col_of(lines[cy], cx);
+    int text_cols = cols - g;
+    if cc < left { left = cc; }
+    if cc >= left + text_cols { left = cc - text_cols + 1; }
+}
+
+String draw_line(int y) {
+    String s = lines[y];
+    int[] k = kinds_of(s);
+    String e = esc();
+    String out = "";
+    int g = gutter();
+    String num = str(y + 1);
+    String pad = " ".repeat(g - 1 - num.len);
+    out = out + e + "[38;2;125;133;144m" + pad + num + " " + e + "[0m";
+    int col = 0;
+    int i = 0;
+    int last = 0 - 1;
+    bool rev = false;
+    int text_cols = cols - g;
+    while i < s.len {
+        int n = next_char(s, i);
+        int c = s[i] & 255;
+        int w = 1;
+        if c == 9 { w = (col / 4 + 1) * 4 - col; }
+        else if zero_width(s, i) { w = 0; }
+        bool s_on = selected(y, i);
+        if col + w > left && col < left + text_cols {
+            if k[i] != last || s_on != rev {
+                out = out + e + "[0m";
+                if s_on { out = out + e + "[48;2;60;70;90m"; }
+                out = out + color_of(k[i]);
+                last = k[i];
+                rev = s_on;
+            }
+            if c == 9 { out = out + " ".repeat(w); }
+            else { out = out + s.slice(i, n); }
+        }
+        col += w;
+        i = n;
+    }
+    out = out + e + "[0m" + e + "[K";
+    return out;
+}
+
+void draw() {
+    scroll_to_cursor();
+    String e = esc();
+    String f = e + "[?25l";
+    for r in 0..rows - 1 {
+        int y = top + r;
+        f = f + e + "[" + str(r + 1) + ";1H";
+        if y < lines.len { f = f + draw_line(y); }
+        else { f = f + e + "[38;2;125;133;144m~" + e + "[0m" + e + "[K"; }
+    }
+    String name = path;
+    if dirty { name = name + " *"; }
+    String right = "  " + str(cy + 1) + ":" + str(col_of(lines[cy], cx) + 1) + " ";
+    String left_text = " " + name + "  " + msg;
+    int room = cols - right.len;
+    if left_text.len > room { left_text = left_text.slice(0, room); }
+    String bar = left_text + " ".repeat(room - left_text.len) + right;
+    f = f + e + "[" + str(rows) + ";1H" + e + "[7m" + bar + e + "[0m";
+    int g = gutter();
+    int sr = cy - top + 1;
+    int sc = col_of(lines[cy], cx) - left + g + 1;
+    f = f + e + "[" + str(sr) + ";" + str(sc) + "H" + e + "[?25h";
+    cout << f;
+}
+
+// ---------------------------------------------------------------- the commands
+void move_to(int y, int x, bool extend) {
+    if extend { if !sel { sel = true; ay = cy; ax = cx; } }
+    else { sel = false; }
+    cy = y;
+    cx = x;
+}
+
+String ask(String prompt) {
+    String e = esc();
+    String text = "";
+    while true {
+        String line = prompt + text;
+        cout << e << "[" << str(rows) << ";1H" << e << "[7m" << line << " ".repeat(cols - line.len) << e << "[0m" << e << "[" << str(rows) << ";" << str(line.len + 1) << "H";
+        int k = read_key(0 - 1);
+        if k == K_ENTER { return text; }
+        if k == K_ESC { return ""; }
+        if k == K_BS { if text.len > 0 { text = text.slice(0, prev_char(text, text.len)); } }
+        else if k == K_TEXT { text = text + key_text; }
+    }
+    return text;
+}
+
+void find_next(String what, int from_y, int from_x) {
+    if what.len == 0 { return; }
+    for step in 0..lines.len + 1 {
+        int y = (from_y + step) % lines.len;
+        int start = 0;
+        if step == 0 { start = from_x; }
+        String l = lines[y];
+        for x in start..l.len + 1 {
+            bool fits = x + what.len <= l.len;
+            bool same = false;
+            if fits {
+                String piece = l.slice(x, x + what.len);
+                same = piece == what;
+            }
+            if same && !is_cont(l, x) {
+                move_to(y, x, false);
+                msg = "found: " + what;
+                return;
+            }
+        }
+    }
+    msg = "not found: " + what;
+}
+
+void newline() {
+    if sel { delete_selection(); }
+    String l = lines[cy];
+    int ind = 0;
+    while ind < l.len && l[ind] == ' ' && ind < cx { ind += 1; }
+    String head = l.slice(0, cx);
+    String tail = l.slice(cx, l.len);
+    if head.trim().len > 0 && head[head.len - 1] == '{' { ind += 4; }
+    lines[cy] = head;
+    insert_line(cy + 1, " ".repeat(ind) + tail);
+    cy += 1;
+    cx = ind;
+    dirty = true;
+}
+
+void handle(int k) {
+    if k != 17 { quit_asked = 0; }
+    if k == K_TEXT { insert_text(key_text); msg = ""; return; }
+    if k == K_ENTER { newline(); msg = ""; return; }
+    if k == K_TAB { insert_text("    "); return; }
+    if k == K_BS {
+        if sel { delete_selection(); return; }
+        if cx > 0 {
+            int p = prev_char(lines[cy], cx);
+            lines[cy] = lines[cy].slice(0, p) + lines[cy].slice(cx, lines[cy].len);
+            cx = p;
+            dirty = true;
+        } else if cy > 0 {
+            int len = lines[cy - 1].len;
+            lines[cy - 1] = lines[cy - 1] + lines[cy];
+            remove_line(cy);
+            cy -= 1;
+            cx = len;
+            dirty = true;
+        }
+        return;
+    }
+    if k == K_DEL {
+        if sel { delete_selection(); return; }
+        if cx < lines[cy].len {
+            lines[cy] = lines[cy].slice(0, cx) + lines[cy].slice(next_char(lines[cy], cx), lines[cy].len);
+            dirty = true;
+        } else if cy + 1 < lines.len {
+            lines[cy] = lines[cy] + lines[cy + 1];
+            remove_line(cy + 1);
+            dirty = true;
+        }
+        return;
+    }
+    bool shift = k >= K_UP + K_SHIFT && k <= K_END + K_SHIFT;
+    bool ctrl = k >= K_UP + K_CTRL && k <= K_END + K_CTRL;
+    int base = k;
+    if shift { base = k - K_SHIFT; }
+    if ctrl { base = k - K_CTRL; }
+    if base == K_LEFT {
+        if ctrl {
+            int x = cx;
+            while x > 0 && lines[cy][x - 1] == ' ' { x -= 1; }
+            while x > 0 && lines[cy][x - 1] != ' ' { x -= 1; }
+            move_to(cy, x, shift);
+        } else if cx > 0 { move_to(cy, prev_char(lines[cy], cx), shift); }
+        else if cy > 0 { move_to(cy - 1, lines[cy - 1].len, shift); }
+        else { move_to(cy, cx, shift); }
+        return;
+    }
+    if base == K_RIGHT {
+        if ctrl {
+            int x = cx;
+            while x < lines[cy].len && lines[cy][x] != ' ' { x += 1; }
+            while x < lines[cy].len && lines[cy][x] == ' ' { x += 1; }
+            move_to(cy, x, shift);
+        } else if cx < lines[cy].len { move_to(cy, next_char(lines[cy], cx), shift); }
+        else if cy + 1 < lines.len { move_to(cy + 1, 0, shift); }
+        else { move_to(cy, cx, shift); }
+        return;
+    }
+    if base == K_UP || base == K_DOWN || k == K_PGUP || k == K_PGDN {
+        int step = 1;
+        if k == K_PGUP || k == K_PGDN { step = rows - 2; }
+        int ny = cy + step;
+        if base == K_UP || k == K_PGUP { ny = cy - step; }
+        if ny < 0 { ny = 0; }
+        if ny >= lines.len { ny = lines.len - 1; }
+        int want = col_of(lines[cy], cx);
+        move_to(ny, byte_at_col(lines[ny], want), shift);
+        return;
+    }
+    if base == K_HOME {
+        if ctrl { move_to(0, 0, shift); return; }
+        int ind = 0;
+        while ind < lines[cy].len && lines[cy][ind] == ' ' { ind += 1; }
+        if cx == ind { ind = 0; }
+        move_to(cy, ind, shift);
+        return;
+    }
+    if base == K_END {
+        if ctrl { move_to(lines.len - 1, lines[lines.len - 1].len, shift); return; }
+        move_to(cy, lines[cy].len, shift);
+        return;
+    }
+    if k == 19 { save(); return; }                                // Ctrl-S
+    if k == 17 {                                                  // Ctrl-Q
+        if dirty && quit_asked == 0 { msg = "unsaved changes: Ctrl-Q again quits without saving"; quit_asked = 1; return; }
+        quit_asked = 2;
+        return;
+    }
+    if k == 1 {                                                   // Ctrl-A: select all
+        sel = true; ay = 0; ax = 0; cy = lines.len - 1; cx = lines[cy].len;
+        return;
+    }
+    if k == 3 {                                                   // Ctrl-C: copy (the line when nothing is selected)
+        if sel { set_clip(selected_text()); msg = "copied"; }
+        else { set_clip(lines[cy] + "\n"); msg = "line copied"; }
+        return;
+    }
+    if k == 24 {                                                  // Ctrl-X: cut
+        if sel { set_clip(selected_text()); delete_selection(); msg = "cut"; }
+        else { set_clip(lines[cy] + "\n"); remove_line(cy); if cy >= lines.len { cy = lines.len - 1; } cx = 0; dirty = true; msg = "line cut"; }
+        return;
+    }
+    if k == 22 {                                                  // Ctrl-V: paste
+        if clip.len > 0 { insert_text(clip); msg = "pasted"; }
+        return;
+    }
+    if k == 11 {                                                  // Ctrl-K: delete the line
+        remove_line(cy);
+        if cy >= lines.len { cy = lines.len - 1; }
+        cx = 0;
+        dirty = true;
+        return;
+    }
+    if k == 4 {                                                   // Ctrl-D: copy the line below
+        insert_line(cy + 1, lines[cy]);
+        cy += 1;
+        dirty = true;
+        return;
+    }
+    if k == 6 {                                                   // Ctrl-F: find
+        String w = ask("find: ");
+        if w.len > 0 { find_next(w, cy, cx + 1); }
+        return;
+    }
+    if k == 7 {                                                   // Ctrl-G: go to a line
+        String g = ask("line: ");
+        if g.len > 0 {
+            int n = g.to_int();
+            if n < 1 { n = 1; }
+            if n > lines.len { n = lines.len; }
+            move_to(n - 1, 0, false);
+        }
+        return;
+    }
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && a[1] == "--version" { cout << "coderin 0.1.0\n"; return 0; }
+    if a.len < 2 { cerr << "usage: coderin FILE\n"; return 2; }
+    if Sys::isatty(0) != 0 { cerr << "coderin: it needs a terminal\n"; return 2; }
+    path = a[1];
+    clip = "";
+    msg = "";
+    load(path);
+    raw_mode(true);
+    read_size();
+    String e = esc();
+    cout << e << "[?1049h" << e << "[2J";
+    while quit_asked != 2 {
+        draw();
+        int k = read_key(200);
+        if k == 0 - 2 {
+            int orows = rows;
+            int ocols = cols;
+            read_size();
+            if orows != rows || ocols != cols { cout << e << "[2J"; }
+            continue;
+        }
+        if k < 0 { break; }
+        handle(k);
+    }
+    cout << e << "[?25h" << e << "[?1049l";
+    raw_mode(false);
+    return 0;
+}
