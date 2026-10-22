@@ -1,3 +1,7 @@
-# the command bar (Ctrl-E):  run NAME
+# the command bar (Ctrl-E):  run NAME     (%f is the file)
 build = jcmp %f -o %f.out 2>&1 | head -1
 exec = jcmp %f -o %f.out 2>&1 | head -1 && ./%f.out 2>&1 | tail -1
+debug = jcmp %f -d -o %f.out 2>&1 | head -1 && ./%f.out 2>&1 | tail -1
+arm32 = jcmp %f -target arm32 -o %f.arm32 2>&1 | head -1
+lib = jcmp %f -l -o %f.so 2>&1 | head -1
+show = jcmp %f -show main 2>&1 | tail -3

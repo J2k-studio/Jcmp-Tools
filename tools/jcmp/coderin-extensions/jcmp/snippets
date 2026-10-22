@@ -1,14 +1,35 @@
-# J2K snippets: type the prefix at the start of a line, then Tab
+# J2K snippets: type the prefix at the start of a line, then Tab (| is where the cursor goes)
+main = void main() {\n    |\n}
+mainr = int main() {\n    |\n    return 0;\n}
 imp = #import <|>
-impl = #import <stdlib>\n\nvoid main() {\n    |\n}
+impstd = #import <stdlib>\n\nvoid main() {\n    |\n}
 forr = for i in 0..n {\n    |\n}
 fore = for x in list {\n    |\n}
 forv = for i in 0..v.len {\n    |\n}
 wh = while cond {\n    |\n}
-defer = defer |;
-tc = try {\n    |\n} catch (e) {\n    cerr << e.message << "\\n";\n}
-cerr = cerr << |"\\n";
-pr = cout << |" " << "\\n";
-exp = export int name(int a) {\n    |\n}
-str = String s = "|";
+if = if cond {\n    |\n}
+ife = if cond {\n    |\n} else {\n    \n}
+sw = switch value {\n    case 1: { | }\n    default: { }\n}
 mat = switch r {\n    Result::Ok(v): { | }\n    Result::Err(e): { }\n}
+st = struct Name {\n    int a;\n    |\n}
+stm = struct Name {\n    int a;\n\n    int get(self) {\n        return self.a;\n    }\n    static Name make(int a) {\n        Name n;\n        n.a = a;\n        return n;\n    }\n}
+en = enum class Name { First, Second, | };
+op = operator Name add(self, Name o) {\n    |\n}
+fn = int name(int a) {\n    |\n}
+fnr = Result<int, Error> name(int a) {\n    |\n}
+exp = export int name(int a) {\n    |\n}
+try = try {\n    |\n} catch (e) {\n    cerr << e << "\\n";\n}
+thr = throw "|";
+defer = defer |;
+cout = cout << |"\\n";
+cerr = cerr << |"\\n";
+arr = String[] list = arr(8);
+str = String s = "|";
+rd = switch Fs::read_text(path) {\n    Result::Ok(t): { | }\n    Result::Err(e): { cerr << "cannot read\\n"; }\n}
+wr = Fs::write_text(path, |);
+args = String[] a = Env::args();
+rx = Regex::matches("|", text)
+reg = reg<int x19> |= 0;
+req = #require cpu "|"
+exp1 = #expect instructions <= |
+doc = // |: what it does, in one line
