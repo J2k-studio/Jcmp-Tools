@@ -18,7 +18,12 @@ coderin FILE
 
 * **Extensions** (switch them with  `extensions = undo j2k`  in the settings; both are on): **undo** (Ctrl-Z) and **redo** (Ctrl-Y), typing and deleting in one go are one step; **j2k**: Tab after `main`, `for`, `while`, `if`, `ife`, `struct`, `enum`, `switch`, `try`, `cout`, `fn` or `exp` at the start of a line writes the snippet and puts the cursor in it, and Tab after the start of a word (2 letters or more) completes it with the words of J2K and of the text (the common start; again to see the choices).
 
-Not yet: several files, extensions that you write yourself.
+**Your own extensions**: a folder `~/.config/coderin/extensions/NAME/` (or `DIR/coderin-extensions/NAME/` for a `DIR` on the PATH: a tool can bring one, the `jcmp` tool does) with up to three text files:
+* `snippets`: lines `prefix = body` (`\n` is a new line, `|` is where the cursor goes). Tab after the prefix at the start of a line.
+* `words`: words for the Tab completion.
+* `commands`: lines `name = shell command` (`%f` is the file). Ctrl-E then `run name`; the last line of the output shows in the status line. `extensions` lists what is loaded.
+
+Not yet: several files.
 
 ```
 sh build.sh      # needs jcmp 1.0.0.0 or newer (JCMP=path chooses the compiler)

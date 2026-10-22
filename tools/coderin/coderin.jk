@@ -386,7 +386,86 @@ void undo_step(bool redo) {
 }
 
 // ---------------------------------------------------------------- the extension j2k: snippets and word completion with Tab
+// ---------------------------------------------------------------- extensions that you write: ~/.config/coderin/extensions/NAME/
+// NAME/snippets   lines  prefix = body   (\n is a new line, | is where the cursor goes)
+// NAME/words      words for the Tab completion (any spaces and lines)
+// NAME/commands   lines  name = shell command   (%f is the file; the command bar runs it:  run name )
+String[] xs_pre;
+String[] xs_body;
+String[] xs_words;
+String[] xc_name;
+String[] xc_cmd;
+String[] xs_loaded;
+void load_extensions() {
+    xs_pre = arr(8); xs_body = arr(8); xs_words = arr(8); xc_name = arr(8); xc_cmd = arr(8); xs_loaded = arr(4);
+    load_ext_root(config_dir() + "/extensions");
+    Option<String> pe = Env::get("PATH");                                     // a tool brings its own: DIR/coderin-extensions/NAME (DIR is on the PATH)
+    if pe.is_some() {
+        String[] pd = pe.unwrap().split(":");
+        for k in 0..pd.len { if pd[k].len > 0 { load_ext_root(pd[k] + "/coderin-extensions"); } }
+    }
+}
+void load_ext_root(String root) {
+    if !Dir::exists(root) { return; }
+    Result<String[], Error> r = Dir::list(root);
+    if !r.is_ok() { return; }
+    String[] names = r.take();
+    for n in 0..names.len {
+        String d = root + "/" + names[n];
+        if !Dir::exists(d) { continue; }
+        xs_loaded.push(names[n] + "");
+        Result<String, Error> a = Fs::read_text(d + "/snippets");
+        if a.is_ok() {
+            String[] ls = a.take().split("\n");
+            for i in 0..ls.len {
+                String l = ls[i].trim();
+                int eq = 0;
+                while eq < l.len && l[eq] != '=' { eq += 1; }
+                if l.len == 0 || l[0] == '#' || eq >= l.len { continue; }
+                xs_pre.push(l.slice(0, eq).trim());
+                xs_body.push(l.slice(eq + 1, l.len).trim().replace("\\n", "\n"));
+            }
+        }
+        Result<String, Error> b = Fs::read_text(d + "/words");
+        if b.is_ok() {
+            String[] ws = b.take().replace("\n", " ").split(" ");
+            for i in 0..ws.len { if ws[i].len > 0 { xs_words.push(ws[i] + ""); } }
+        }
+        Result<String, Error> c = Fs::read_text(d + "/commands");
+        if c.is_ok() {
+            String[] ls = c.take().split("\n");
+            for i in 0..ls.len {
+                String l = ls[i].trim();
+                int eq = 0;
+                while eq < l.len && l[eq] != '=' { eq += 1; }
+                if l.len == 0 || l[0] == '#' || eq >= l.len { continue; }
+                xc_name.push(l.slice(0, eq).trim());
+                xc_cmd.push(l.slice(eq + 1, l.len).trim());
+            }
+        }
+    }
+}
+void run_ext_command(String name) {
+    for i in 0..xc_name.len {
+        if xc_name[i] == name {
+            if dirty { save(); }
+            String[] args = arr(4);
+            args.push("-c");
+            args.push(xc_cmd[i].replace("%f", path));
+            Result<String, Error> r = Proc::output("sh", args);
+            if !r.is_ok() { msg = name + ": failed"; return; }
+            String out = r.take().trim();
+            String[] ol = out.split("\n");
+            if ol.len == 0 || out.len == 0 { msg = name + ": done"; }
+            else { msg = ol[ol.len - 1] + ""; }
+            return;
+        }
+    }
+    msg = "no command " + name + " (extensions: " + str(xc_name.len) + " commands)";
+}
+
 String snippet_for(String w) {
+    for i in 0..xs_pre.len { if xs_pre[i] == w { return xs_body[i] + ""; } }
     if w == "main" { return "void main() {\n    |\n}"; }
     if w == "for" { return "for i in 0..n {\n    |\n}"; }
     if w == "while" { return "while cond {\n    |\n}"; }
@@ -402,7 +481,7 @@ String snippet_for(String w) {
     return "";
 }
 bool tab_help() {
-    if !ext_j2k { return false; }
+    if !ext_j2k && xs_loaded.len == 0 { return false; }
     String l = lines[cy];
     int st = cx;
     while st > 0 && is_word(l[st - 1] & 255) { st -= 1; }
@@ -435,6 +514,7 @@ bool tab_help() {
     String[] cands = arr(16);
     String[] kw = kws.split(" ");
     for i in 0..kw.len { if kw[i].starts_with(w) && kw[i].len > w.len { add_cand(cands, kw[i]); } }
+    for i in 0..xs_words.len { if xs_words[i].starts_with(w) && xs_words[i].len > w.len { add_cand(cands, xs_words[i]); } }
     for y in 0..lines.len {
         String t = lines[y];
         int i = 0;
@@ -899,7 +979,9 @@ void command_bar() {
     }
     else if cmd == "set" && w.len == 3 { set_option(w[1], w[2]); save_setting(w[1], w[2]); if msg.len == 0 { msg = w[1] + " = " + w[2]; } }
     else if cmd == "bind" && w.len == 3 { bind_keys.push(w[1]); bind_acts.push(w[2]); msg = w[1] + " does " + w[2] + " (put it in ~/.config/coderin/bindings to keep it)"; }
-    else if cmd == "help" { msg = "save quit goto N find TEXT replace A B set NAME VALUE bind Ctrl-x ACTION; settings: tabsize tabstospaces ruler autoindent autopair helpbar mouse colorscheme"; }
+    else if cmd == "run" && w.len > 1 { run_ext_command(w[1]); }
+    else if cmd == "extensions" { msg = "loaded: "; for i in 0..xs_loaded.len { msg = msg + xs_loaded[i] + " "; } if xs_loaded.len == 0 { msg = "none in ~/.config/coderin/extensions/"; } }
+    else if cmd == "help" { msg = "run NAME (extension command) extensions save quit goto N find TEXT replace A B set NAME VALUE bind Ctrl-x ACTION; settings: tabsize tabstospaces ruler autoindent autopair helpbar mouse colorscheme"; }
     else { msg = "unknown command: " + cmd + " (help)"; }
 }
 
@@ -1164,6 +1246,7 @@ int main() {
     redo_text = arr(8); redo_cy = arr(8); redo_cx = arr(8);
     bind_default();
     apply_scheme("dark");
+    load_extensions();
     load_settings();
     load_bindings();
     load(path);

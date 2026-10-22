@@ -48,4 +48,14 @@ rm -f u.txt r.txt s.jk w.jk
 }' ] || { echo "coderin test: a snippet"; cat -A s.jk; exit 1; }
 ( sleep 0.3; printf 'String\r'; sleep 0.2; printf 'Str\t'; sleep 0.3; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 80 -h 24 "$ED" w.jk > /dev/null
 [ "$(sed -n 2p w.jk)" = 'String' ] || { echo "coderin test: the completion of a word"; cat -A w.jk; exit 1; }
+# an extension that you write: a snippet, a word, a command
+mkdir -p .config/coderin/extensions/mine
+printf 'hi = hello |!\n' > .config/coderin/extensions/mine/snippets
+printf 'zebrafish\n' > .config/coderin/extensions/mine/words
+printf 'mark = echo marked > %%f.mark\n' > .config/coderin/extensions/mine/commands
+rm -f e.txt e.txt.mark
+( sleep 0.3; printf 'hi\t'; sleep 0.3; printf 'Z'; sleep 0.2; printf '\r'; sleep 0.2; printf 'zeb\t'; sleep 0.3; printf '\023'; sleep 0.3; printf '\005'; sleep 0.2; printf 'run mark\r'; sleep 0.5; printf '\021' ) | HOME="$T" $PTY -w 80 -h 24 "$ED" e.txt > /dev/null
+[ "$(cat e.txt)" = 'hello Z
+zebrafish!' ] || { echo "coderin test: extension snippet and word"; cat -A e.txt; exit 1; }
+[ "$(cat e.txt.mark 2>/dev/null)" = 'marked' ] || { echo "coderin test: extension command"; exit 1; }
 echo "coderin test: ok"
