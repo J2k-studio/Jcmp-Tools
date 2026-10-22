@@ -50,11 +50,15 @@ struct Build {
     static Build from_file(String path) {
         Build b = Build::make();
         Result<String[], Error> r = Fs::read_lines(path);
-        if r.is_err() {
-            cerr << "makej: cannot read " << path << "\n";
-            return b;
+        switch r {
+            Result::Ok(ls): b.parse(ls);
+            Result::Err(e): cerr << "makej: cannot read " << path << "\n";
         }
-        String[] lines = r.unwrap();
+        return b;
+    }
+    // the lines of the build file (the lines are only looked at here: they stay with the Result)
+    void parse(self, String[] lines) {
+        Build^ b = self;
         String kind = "";
         String name = "";
         String main = "";
@@ -66,8 +70,8 @@ struct Build {
             bool header = t.len > 1 && t[0] == '[';
             if header || i == lines.len {
                 if kind.len > 0 && name.len > 0 {
-                    b.add(name, kind, main, flags);
-                    if needs.len > 0 { String[] ns = needs.split(" "); for k in 0..ns.len { if ns[k].len > 0 { b.needs(name, ns[k]); } } }
+                    b^.add(name, kind, main, flags);
+                    if needs.len > 0 { String[] ns = needs.split(" "); for k in 0..ns.len { if ns[k].len > 0 { b^.needs(name, ns[k]); } } }
                 }
                 kind = ""; name = ""; main = ""; flags = ""; needs = "";
                 if header {
@@ -89,15 +93,14 @@ struct Build {
                 val = val.slice(1, endq);
             }
             if kind == "makej" {
-                if key == "out" { b.outdir = val; }
-                if key == "jcmp" { b.jcmp = val; }
+                if key == "out" { b^.outdir = val; }
+                if key == "jcmp" { b^.jcmp = val; }
             } else {
                 if key == "main" || key == "run" { main = val; }
                 if key == "flags" { flags = val; }
                 if key == "needs" { needs = val; }
             }
         }
-        return b;
     }
     void add(self, String name, String kind, String main, String flags) {
         self.names.push(name);
