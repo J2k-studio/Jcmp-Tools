@@ -8,3 +8,9 @@
 
 ## 0.1.0
 * First release.
+
+## 0.5.0
+* date, du, stat, xargs, sed (s///), less.
+
+## 0.4.0
+* find, ln -s, chmod, cut, tr, diff, tree.

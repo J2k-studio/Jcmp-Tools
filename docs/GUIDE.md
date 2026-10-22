@@ -66,6 +66,11 @@ Run as `ls`, or `jbox ls`. A file name `-` (or none) means the input from a pipe
 |---|---|---|
 | `dir` (`ls`) | list a folder; `-a` also hidden, `-l` long | `dir -a ~` |
 | `tree` | the tree of a folder; `-a`, `-L N` depth | `tree -L 2 src` |
+| `date` | the time now (UTC); `date +%s` the seconds since 1970 | `date` |
+| `du` `stat` | the bytes under a folder (`-h` readable); size of a file | `du -h ~/src` |
+| `xargs` | the words of the input become more arguments | `find . -name '*.tmp' \| xargs rm` |
+| `sed` | replace in every line: `sed 's/old/new/g'` (plain text, not a pattern) | `sed 's/foo/bar/' f.txt` |
+| `less` | one page at a time: space next, `b` back, Enter a line, `q` quit | `less long.txt` |
 | `find` | `find [FOLDER] [-name PATTERN] [-type f\|d] [-maxdepth N]` | `find . -name '*.jk'` |
 | `cat` | show files | `cat a.txt b.txt` |
 | `head` `tail` | first / last lines, `-n N` | `tail -n 20 log.txt` |

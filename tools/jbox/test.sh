@@ -31,3 +31,16 @@ check "$(echo hi | "$J" tee out.txt; "$J" cat out.txt)" "hi
 hi" tee
 "$J" false && { echo "jbox test: false must fail"; exit 1; } || true
 echo "jbox test: ok"
+check "$(echo 'a b a' | "$J" sed 's/a/X/g')" "X b X" sed-g
+check "$(echo 'a b a' | "$J" sed 's/a/X/')" "X b a" sed-first
+check "$(printf 'x y\n' | "$J" xargs echo got)" "got x y" xargs
+check "$("$J" stat f.txt)" "f.txt: file, 19 bytes" stat
+check "$("$J" du f.txt)" "19	f.txt" du
+check "$("$J" date +%s | wc -c | tr -d ' ')" "11" date
+check "$(seq 1 5 | "$J" less | wc -l | tr -d ' ')" "5" less-pipe
+check "$("$J" find . -name 'f.*')" "./f.txt" find
+check "$(printf 'a:b\n' | "$J" cut -d : -f 2)" "b" cut
+check "$(echo hello | "$J" tr l L)" "heLLo" tr
+printf 'one\nTWO\n' > g.txt; printf 'one\ntwo\n' > h.txt
+check "$("$J" diff g.txt h.txt)" "< TWO
+> two" diff
