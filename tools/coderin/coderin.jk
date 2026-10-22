@@ -1234,10 +1234,57 @@ void handle(int k) {
     }
 }
 
+// ---------------------------------------------------------------- coderin -ex : extensions from the repository of the tools (downloaded with jget)
+String ex_base() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/extensions"; }
+int jget_to(String url, String file) {
+    String[] ja = arr(4);
+    ja.push("-q"); ja.push(url); ja.push("-o"); ja.push(file);
+    switch Proc::run("jget", ja) {
+        Result::Ok(code): return code;
+        Result::Err(e): return 127;
+    }
+    return 127;
+}
+int ex_mode(String[] a) {
+    if a.len < 3 {                                                   // coderin -ex : the list
+        String idx = config_dir() + "/.index";
+        Dir::make_all(config_dir());
+        if jget_to(ex_base() + "/index.txt", idx) != 0 { cerr << "coderin: cannot get the list (is jget installed and the network on?)\n"; return 1; }
+        switch Fs::read_text(idx) {
+            Result::Ok(t): { cout << "extensions (coderin -ex NAME installs one, coderin -ex -r NAME removes it):\n" << t; }
+            Result::Err(e): { }
+        }
+        Fs::remove(idx);
+        return 0;
+    }
+    bool remove = a[2] == "-r";
+    if remove && a.len < 4 { cerr << "usage: coderin -ex -r NAME\n"; return 2; }
+    String name = a[a.len - 1];
+    for i in 0..name.len { if !is_word(name[i] & 255) && name[i] != '-' { cerr << "coderin: bad name\n"; return 2; } }
+    String dir = config_dir() + "/extensions/" + name;
+    if remove {
+        String[] fs = "snippets words commands".split(" ");
+        for i in 0..fs.len { Fs::remove(dir + "/" + fs[i]); }
+        Dir::remove(dir);
+        cout << "removed " << name << "\n";
+        return 0;
+    }
+    Dir::make_all(dir);
+    String[] fs = "snippets words commands".split(" ");
+    int got = 0;
+    for i in 0..fs.len {
+        if jget_to(ex_base() + "/" + name + "/" + fs[i], dir + "/" + fs[i]) == 0 { got += 1; } else { Fs::remove(dir + "/" + fs[i]); }
+    }
+    if got == 0 { Dir::remove(dir); cerr << "coderin: no extension " << name << " (coderin -ex shows the list)\n"; return 1; }
+    cout << "installed " << name << " (" << str(got) << " files in " << dir << ")\n";
+    return 0;
+}
+
 int main() {
     String[] a = Env::args();
     if a.len > 1 && a[1] == "--version" { cout << "coderin 0.3.0\n"; return 0; }
-    if a.len < 2 { cerr << "usage: coderin FILE\n"; return 2; }
+    if a.len > 1 && a[1] == "-ex" { return ex_mode(a); }
+    if a.len < 2 { cerr << "usage: coderin FILE   |   coderin -ex [NAME]\n"; return 2; }
     if Sys::isatty(0) != 0 { cerr << "coderin: it needs a terminal\n"; return 2; }
     path = a[1];
     clip = "";

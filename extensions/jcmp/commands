@@ -1,0 +1,3 @@
+# the command bar (Ctrl-E):  run NAME
+build = jcmp %f -o %f.out 2>&1 | head -1
+exec = jcmp %f -o %f.out 2>&1 | head -1 && ./%f.out 2>&1 | tail -1

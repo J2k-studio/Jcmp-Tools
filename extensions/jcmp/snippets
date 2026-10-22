@@ -1,0 +1,14 @@
+# J2K snippets: type the prefix at the start of a line, then Tab
+imp = #import <|>
+impl = #import <stdlib>\n\nvoid main() {\n    |\n}
+forr = for i in 0..n {\n    |\n}
+fore = for x in list {\n    |\n}
+forv = for i in 0..v.len {\n    |\n}
+wh = while cond {\n    |\n}
+defer = defer |;
+tc = try {\n    |\n} catch (e) {\n    cerr << e.message << "\\n";\n}
+cerr = cerr << |"\\n";
+pr = cout << |" " << "\\n";
+exp = export int name(int a) {\n    |\n}
+str = String s = "|";
+mat = switch r {\n    Result::Ok(v): { | }\n    Result::Err(e): { }\n}
