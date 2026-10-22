@@ -678,12 +678,33 @@ void run_words(String[] raw0) {
     }
 }
 
+// a long path is shortened like fish does: every folder but the last two keeps its first character (~/p/jaric/app -> ~/p/j/app)
+String short_path(String d) {
+    String[] parts = d.split("/");
+    if parts.len <= 3 { return d; }
+    String r = "";
+    for i in 0..parts.len {
+        String c = parts[i];
+        if i < parts.len - 2 && c.len > 1 && c != "~" && c != "$PREFIX" {
+            int e = 1;
+            while e < c.len && is_cont(c, e) { e += 1; }              // one whole character, also for Thai
+            c = c.slice(0, e);
+        }
+        if i > 0 { r = r + "/"; }
+        r = r + c;
+    }
+    return r;
+}
+
 String prompt_text() {
     char buf[512];
     String dir = "?";
     if Sys::getcwd(@buf, 512) > 0 { dir = (char^)@buf; }
     String home = getv("HOME");
+    String pre = getv("PREFIX");
     if home.len > 0 && dir.starts_with(home) { dir = "~" + dir.slice(home.len, dir.len); }
+    else if pre.len > 0 && dir.starts_with(pre) { dir = "$PREFIX" + dir.slice(pre.len, dir.len); }
+    dir = short_path(dir);
     // the prompt is only shown on a terminal: 24-bit colours (the folder blue, the mark green, red after a failure)
     String e = esc();
     String reset = e + "[0m";
