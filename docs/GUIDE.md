@@ -60,6 +60,9 @@ read ANSWER                # reads a line from the keyboard
 `test` / `[ ]`: `-f -d -e -z -n`, `= !=`, `-eq -ne -lt -gt -le -ge`, `!`. Other built-ins: `cd pwd echo history export unset env type which source exit help install`.
 `install` alone lists the tools; `install jcmp coderin` fetches them (with `jget`). In the Jaric app also: `jaric theme NAME`, `jaric font SIZE`, `jaric core`.
 
+### Prompt colours
+In `~/.jshrc`:  `export JSH_COLOR_MARK=sky`  (and `JSH_COLOR_NAME`, `JSH_COLOR_PATH`, `JSH_COLOR_ERROR`). A value: white grey black red green blue sky cyan yellow orange magenta, `#ff8800` or `255,136,0`. The prompt is `jc :/home>`; the mark is white, red after a failed command.
+
 ## 2. jbox: the small commands
 Run as `ls`, or `jbox ls`. A file name `-` (or none) means the input from a pipe.
 | Command | Does | Examples |

@@ -1357,18 +1357,53 @@ String prompt_mark() {
     return m;
 }
 
+// a colour as "R;G;B" from a name (white blue sky red green yellow cyan magenta orange grey black), #rrggbb or r,g,b; the fallback when it is not understood
+String colour_rgb(String spec, String fallback) {
+    String s = spec.lower().trim();
+    if s.len == 0 { return fallback; }
+    if s == "white" { return "255;255;255"; }
+    if s == "grey" || s == "gray" { return "176;176;176"; }
+    if s == "black" { return "20;20;20"; }
+    if s == "red" { return "255;95;95"; }
+    if s == "green" { return "120;220;130"; }
+    if s == "blue" { return "90;150;255"; }
+    if s == "sky" || s == "lightblue" { return "90;190;255"; }
+    if s == "cyan" { return "80;220;220"; }
+    if s == "yellow" { return "250;220;90"; }
+    if s == "orange" { return "255;165;70"; }
+    if s == "magenta" || s == "pink" { return "240;120;220"; }
+    if s.starts_with("#") && s.len == 7 {
+        int v = 0;
+        for i in 1..7 {
+            int c = s[i] & 255;
+            int d = -1;
+            if c >= '0' && c <= '9' { d = c - '0'; } else if c >= 'a' && c <= 'f' { d = c - 'a' + 10; }
+            if d < 0 { return fallback; }
+            v = v * 16 + d;
+        }
+        return str((v >> 16) & 255) + ";" + str((v >> 8) & 255) + ";" + str(v & 255);
+    }
+    String[] p = s.split(",");
+    if p.len == 3 { return str(p[0].to_int() & 255) + ";" + str(p[1].to_int() & 255) + ";" + str(p[2].to_int() & 255); }
+    return fallback;
+}
+
+// the colours of the prompt can be set in ~/.jshrc:  export JSH_COLOR_MARK=white   (JSH_COLOR_NAME, JSH_COLOR_PATH, JSH_COLOR_MARK, JSH_COLOR_ERROR)
 String prompt_text() {
     char buf[512];
     String dir = "?";
     if Sys::getcwd(@buf, 512) > 0 { dir = (char^)@buf; }
     // the path is the real one; ":" in front of it says which drive (":/" is the root), the long ones are cut:  jc :/../files/home>
     dir = short_path(dir);
-    // the prompt is only shown on a terminal: 24-bit colours (the folder blue, the mark green, red after a failure)
     String e = esc();
     String reset = e + "[0m";
-    String mark = e + "[1;38;2;90;190;255m>" + reset;                                                   // jc ~/ >   the mark is sky blue
-    if last_status != 0 { mark = e + "[1;38;2;255;95;95m>" + reset; }                                    // red after a failure (echo $? shows the code)
-    return e + "[1;38;2;110;170;255mjc" + reset + " " + e + "[38;2;200;200;200m:" + dir + reset + mark + " " + prompt_mark();
+    String c_name = colour_rgb(getv("JSH_COLOR_NAME"), "110;170;255");
+    String c_path = colour_rgb(getv("JSH_COLOR_PATH"), "200;200;200");
+    String c_mark = colour_rgb(getv("JSH_COLOR_MARK"), "255;255;255");               // the mark is white
+    String c_err = colour_rgb(getv("JSH_COLOR_ERROR"), "255;95;95");                  // red after a failure (echo $? shows the code)
+    String mark = e + "[1;38;2;" + c_mark + "m>" + reset;
+    if last_status != 0 { mark = e + "[1;38;2;" + c_err + "m>" + reset; }
+    return e + "[1;38;2;" + c_name + "mjc" + reset + " " + e + "[38;2;" + c_path + "m:" + dir + reset + mark + " " + prompt_mark();
 }
 
 // commands joined by && and || (the words are already split)

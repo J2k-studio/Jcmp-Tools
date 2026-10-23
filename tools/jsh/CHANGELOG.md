@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.4
+* The mark `>` is white (red after a failure). The colours of the prompt are settings: in ~/.jshrc `export JSH_COLOR_NAME=sky`, `JSH_COLOR_PATH`, `JSH_COLOR_MARK`, `JSH_COLOR_ERROR`; a value is a name (white grey black red green blue sky cyan yellow orange magenta), `#rrggbb` or `r,g,b`.
+
 ## 0.5.3
 * The mark `>` of the prompt is sky blue.
 
