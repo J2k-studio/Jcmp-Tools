@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.3
+* The mark `>` of the prompt is sky blue.
+
 ## 0.5.2
 * The prompt is `jc :/home>`: the real path, `:` in front says the drive (`:/` is the root), long paths are cut (`:/../files/home`).
 

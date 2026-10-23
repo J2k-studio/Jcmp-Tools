@@ -1366,7 +1366,7 @@ String prompt_text() {
     // the prompt is only shown on a terminal: 24-bit colours (the folder blue, the mark green, red after a failure)
     String e = esc();
     String reset = e + "[0m";
-    String mark = e + "[1;38;2;120;220;130m>" + reset;                                                   // jc ~/ >   the mark is green
+    String mark = e + "[1;38;2;90;190;255m>" + reset;                                                   // jc ~/ >   the mark is sky blue
     if last_status != 0 { mark = e + "[1;38;2;255;95;95m>" + reset; }                                    // red after a failure (echo $? shows the code)
     return e + "[1;38;2;110;170;255mjc" + reset + " " + e + "[38;2;200;200;200m:" + dir + reset + mark + " " + prompt_mark();
 }
