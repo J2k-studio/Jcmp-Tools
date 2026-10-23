@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; export J2K_PATH="${J2K_PATH:-$HOME/Jcmp/build/libs}"; sh b
 J="$PWD/_out/jgit"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export JGIT_NAME="Tester" JGIT_EMAIL="t@example.org" HOME="$T/home"; mkdir -p "$HOME"
-[ "$("$J" --version)" = "jgit 0.1.0" ] || { echo "jgit test: version"; exit 1; }
+[ "$("$J" --version)" = "jgit 0.2.0" ] || { echo "jgit test: version"; exit 1; }
 cd "$T"; "$J" init r1 > /dev/null; cd r1
 "$J" status > /dev/null 2>&1 && true
 mkdir -p src/deep; echo hello > a.txt; echo world > src/b.txt; printf '#!/bin/sh\necho x\n' > src/run.sh; chmod 755 src/run.sh; head -c 3000 /dev/urandom > bin.dat; echo deep > src/deep/c.txt
@@ -36,8 +36,34 @@ if command -v git > /dev/null 2>&1; then
     git checkout -q -- sub/b.txt; rm -f n.txt
     "$J" switch feature > /dev/null || { echo "jgit test: switch"; exit 1; }
     [ -f feat.txt ] && [ "$(git rev-parse --abbrev-ref HEAD)" = feature ] && [ -z "$(git status --short)" ] || { echo "jgit test: after switch git says: $(git status --short)"; exit 1; }
-    # packed objects (git gc): said clearly
-    git gc -q 2> /dev/null; out=$("$J" log 2>&1 || true)
-    echo "$out" | grep -q "packed" || { echo "jgit test: a packed repository must be said clearly: $out"; exit 1; }
+    # packed objects (git gc --aggressive makes deltas) and a clone (a pack): every object is read byte for byte, like git reads it
+    python3 - <<'PY'
+import random
+random.seed(5)
+open('big.txt', 'w').write('\n'.join(f"line {i} " + "x" * random.randint(5, 60) for i in range(300)) + '\n')
+PY
+    git add big.txt; git commit -qm "big"
+    for n in 1 2 3 4; do python3 -c "
+n=$n
+ls=open('big.txt').read().split('\n')
+ls[n*20]='CHANGED $n '+ls[n*20]
+ls.insert(n*50,'inserted $n')
+open('big.txt','w').write('\n'.join(ls))
+"; git commit -qam "change $n"; done
+    git gc -q --aggressive 2> /dev/null
+    [ -z "$(ls objects 2>/dev/null)" ] || true
+    bad=0; n=0
+    for h in $(git rev-list --objects --all | cut -d' ' -f1); do
+        k=$(git cat-file -t "$h"); git cat-file "$k" "$h" > "$T/exp.bin"; "$J" cat -r "$h" > "$T/got.bin" 2> /dev/null
+        cmp -s "$T/exp.bin" "$T/got.bin" || { bad=$((bad+1)); echo "jgit test: object $h ($k) differs from git"; }
+        n=$((n+1))
+    done
+    [ "$bad" = 0 ] && [ "$n" -gt 10 ] || { echo "jgit test: packed objects ($bad of $n differ)"; exit 1; }
+    "$J" log -n 2 | grep -q "change 4" || { echo "jgit test: log of a packed repository"; exit 1; }
+    cd "$T"; git clone -q --no-local r2 r3; cd r3
+    "$J" log | grep -q "git first" || { echo "jgit test: log of a clone"; exit 1; }
+    "$J" status | grep -q "clean" || { echo "jgit test: status of a clone"; exit 1; }
+    git branch -q old HEAD~2; "$J" switch old > /dev/null || { echo "jgit test: switch in a clone"; exit 1; }
+    [ "$(git rev-parse --abbrev-ref HEAD)" = old ] && [ -z "$(git status --short)" ] || { echo "jgit test: after switch in a clone"; exit 1; }
 fi
 echo "jgit tests: ok"

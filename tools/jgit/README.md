@@ -9,13 +9,15 @@ jgit commit -m "text"    save what was added
 jgit status              what changed:  A added, M changed, D removed, ?? not tracked (the first column: in the next commit, the second: not added yet)
 jgit log [-n N]          the history
 jgit diff                the lines that changed since the last add (+ and -)
-jgit cat HASH|HEAD|NAME  the text of an object (a commit, a file)
+jgit cat [-r] HASH|HEAD|NAME  an object: a commit or a file as text, a tree as a list; -r the raw bytes
 jgit branch [NAME]       the branches / make one at the last commit
 jgit switch NAME         go to a branch (it refuses while a file has changes that are not saved)
 ```
 Who you are: `export JGIT_NAME="Your Name" JGIT_EMAIL="you@example.org"` or `[user]` in `.git/config` / `~/.gitconfig`. Times are written as UTC (+0000).
 
-**Not yet (said clearly, not guessed):** objects that git packed (after `git gc` or a clone) cannot be read yet, the commands say so; no network (clone, fetch, push), no merge or rebase, no `.gitignore`, only index version 2. For those, use `git` if you have it.
+Packed repositories (after `git gc` or a `git clone`) are read: the idx and pack files and the deltas, checked byte for byte against git.
+
+**Not yet (said clearly, not guessed):** no network (clone, fetch, push), no merge or rebase, no `.gitignore`, only index version 2. For those, use `git` if you have it.
 
 ## Install
 ```

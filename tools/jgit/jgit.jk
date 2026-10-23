@@ -1,7 +1,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
 // distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // jgit: git in J2K. It reads and writes the repository folder of git (.git) in its own format, so the repositories of jgit and of git
-// are the same repositories. Version 0.1: the local work; objects that git packed (git gc, a clone) and the network come later.
+// are the same repositories. Version 0.2: the local work and packs (git gc, a clone); the network comes later.
 //   jgit init [DIR]          make a repository          jgit add PATH...      put files in the next commit (jgit add . : all, also the removed)
 //   jgit commit -m "text"    save what was added        jgit status           what changed        jgit log [-n N]   the history
 //   jgit diff                the lines that changed since the last add          jgit cat HASH|REF   an object   jgit branch [NAME]   jgit switch NAME
@@ -9,7 +9,7 @@
 #import <stdlib>
 #import <deflate>
 
-String jgit_version() { return "0.1.0"; }
+String jgit_version() { return "0.2.0"; }
 
 int fail(String msg) {
     cerr << "jgit: " << msg << "\n";
@@ -146,13 +146,140 @@ String write_object(String kind, String body) {
     return hex;
 }
 
-// the object: kind and body ("" kind when it is missing or packed)
+// ---------------------------------------------------------------- packs: objects/pack/*.idx (version 2) and *.pack
+String[] pk_idx;
+String[] pk_data;
+int pk_loaded;
+
+void packs_load() {
+    if pk_loaded == 1 { return; }
+    pk_loaded = 1;
+    pk_idx = arr(4);
+    pk_data = arr(4);
+    String dir = g_git + "/objects/pack";
+    if !Dir::exists(dir) { return; }
+    Result<String[], Error> r = Dir::list(dir);
+    if !r.is_ok() { return; }
+    String[] names = r.take();
+    names.sort();
+    for i in 0..names.len {
+        if !names[i].ends_with(".idx") { continue; }
+        String base = dir + "/" + names[i].slice(0, names[i].len - 4);
+        Result<String, Error> ri = Fs::read_bytes(base + ".idx");
+        Result<String, Error> rp = Fs::read_bytes(base + ".pack");
+        if !ri.is_ok() || !rp.is_ok() { continue; }
+        String idx = ri.take();
+        if idx.len < 1072 || be32(idx, 0) != 4285812579 || be32(idx, 4) != 2 { continue; }       // ff 74 4f 63, version 2
+        pk_idx.push(idx);
+        pk_data.push(rp.take());
+    }
+}
+
+// the place of an object in a pack: sets g_pack to the pack and returns the offset, or -1
+int g_pack;
+int pack_find(String hex) {
+    packs_load();
+    String raw = from_hex(hex);
+    int first = raw[0] & 255;
+    for pk in 0..pk_idx.len {
+        String idx = pk_idx[pk];
+        int total = be32(idx, 8 + 255 * 4);
+        int lo = 0;
+        if first > 0 { lo = be32(idx, 8 + (first - 1) * 4); }
+        int hi = be32(idx, 8 + first * 4);              // the objects that start with this byte are lo .. hi-1
+        int shas = 8 + 256 * 4;
+        while lo < hi {
+            int mid = (lo + hi) / 2;
+            String here = idx.slice(shas + mid * 20, shas + mid * 20 + 20);
+            if here == raw {
+                int offs = shas + total * 20 + total * 4;
+                int off = be32(idx, offs + mid * 4);
+                if off >= 2147483648 {                   // the high bit: the number of a 64 bit offset
+                    int big = offs + total * 4 + (off & 2147483647) * 8;
+                    off = (be32(idx, big) << 32) | be32(idx, big + 4);
+                }
+                g_pack = pk;
+                return off;
+            }
+            if here < raw { lo = mid + 1; } else { hi = mid; }
+        }
+    }
+    return 0 - 1;
+}
+
+// the result of a delta: base + instructions (copy from the base, insert new bytes)
+String apply_delta(String base, String d) {
+    int p = 0;
+    int shift = 0;
+    int c = 0;
+    while true { c = d[p] & 255; p += 1; if (c & 128) == 0 { break; } }                  // the size of the base
+    while true { c = d[p] & 255; p += 1; if (c & 128) == 0 { break; } }                  // the size of the result
+    String out = "";
+    while p < d.len {
+        int op = d[p] & 255;
+        p += 1;
+        if (op & 128) != 0 {
+            int off = 0;
+            int size = 0;
+            for k in 0..4 { if (op & (1 << k)) != 0 { off = off | ((d[p] & 255) << (8 * k)); p += 1; } }
+            for k in 0..3 { if (op & (16 << k)) != 0 { size = size | ((d[p] & 255) << (8 * k)); p += 1; } }
+            if size == 0 { size = 65536; }
+            out.append(base.slice(off, off + size));
+        } else if op > 0 {
+            out.append(d.slice(p, p + op));
+            p += op;
+        } else { return ""; }
+    }
+    return out;
+}
+
 String g_kind;
+// the object at an offset of a pack; sets g_kind
+String pack_object(int pk, int offset) {
+    String data = pk_data[pk];
+    int p = offset;
+    int c = data[p] & 255;
+    p += 1;
+    int type = (c >> 4) & 7;
+    while (c & 128) != 0 { c = data[p] & 255; p += 1; }
+    if type >= 1 && type <= 4 {
+        bool ok = false;
+        String body = dfl_inflate_raw(data, p + 2, data.len, @ok);
+        if !ok { g_kind = ""; return ""; }
+        if type == 1 { g_kind = "commit"; } else if type == 2 { g_kind = "tree"; } else if type == 3 { g_kind = "blob"; } else { g_kind = "tag"; }
+        return body;
+    }
+    String base = "";
+    String kind = "";
+    if type == 6 {                                           // a delta against an object earlier in the same pack, by distance
+        int c2 = data[p] & 255;
+        p += 1;
+        int ofs = c2 & 127;
+        while (c2 & 128) != 0 { c2 = data[p] & 255; p += 1; ofs = ((ofs + 1) << 7) | (c2 & 127); }
+        base = pack_object(pk, offset - ofs);
+        kind = g_kind;
+    } else if type == 7 {                                    // a delta against an object by its name
+        String bh = to_hex(data.slice(p, p + 20));
+        p += 20;
+        base = read_object(bh);
+        kind = g_kind;
+    } else { g_kind = ""; return ""; }
+    if kind.len == 0 { g_kind = ""; return ""; }
+    bool ok = false;
+    String delta = dfl_inflate_raw(data, p + 2, data.len, @ok);
+    if !ok { g_kind = ""; return ""; }
+    String out = apply_delta(base, delta);
+    g_kind = kind;
+    return out;
+}
+
+// the object: kind and body ("" kind when it is missing)
 String read_object(String hex) {
     g_kind = "";
     String p = obj_path(hex);
     if !Fs::exists(p) {
-        if Dir::exists(g_git + "/objects/pack") { cerr << "jgit: the object " << hex << " is not a loose file: this repository has packed objects (git gc or a clone), which jgit 0.1 cannot read yet\n"; }
+        int off = pack_find(hex);                           // not a loose file: it may be in a pack (git gc, a clone)
+        if off >= 0 { return pack_object(g_pack, off); }
         return "";
     }
     Result<String, Error> r = Fs::read_bytes(p);
@@ -654,13 +781,43 @@ int do_log(String[] a) {
     return 0;
 }
 
+// jgit cat HASH: a commit or a file as text; a tree as a list (mode kind hash name, like git cat-file -p); -r: the raw bytes
 int do_cat(String[] a) {
-    if a.len < 3 { return fail("usage: jgit cat HASH|HEAD|BRANCH"); }
-    String h = resolve(a[2]);
-    if h.len != 40 { return fail("no such object or name: " + a[2]); }
+    bool raw = false;
+    String name = "";
+    for i in 2..a.len { if a[i] == "-r" { raw = true; } else { name = a[i] + ""; } }
+    if name.len == 0 { return fail("usage: jgit cat [-r] HASH|HEAD|BRANCH"); }
+    String h = resolve(name);
+    if h.len != 40 { return fail("no such object or name: " + name); }
     String body = read_object(h);
     if g_kind.len == 0 { return fail("cannot read the object " + h); }
-    cout << body;
+    if g_kind == "tree" && !raw {
+        int p = 0;
+        while p < body.len {
+            int sp = body.slice(p, body.len).find(" ");
+            String mode = body.slice(p, p + sp);
+            int q = p + sp + 1;
+            int z = q;
+            while z < body.len && body[z] != 0 { z += 1; }
+            String entry = body.slice(q, z);
+            String sha = to_hex(body.slice(z + 1, z + 21));
+            p = z + 21;
+            String kind = "blob";
+            if mode == "40000" { kind = "tree"; mode = "040000"; }
+            cout << mode << " " << kind << " " << sha << "\t" << entry << "\n";
+        }
+        return 0;
+    }
+    // the bytes as they are (the text printer stops at a zero byte)
+    char blk[4096];
+    int at = 0;
+    while at < body.len {
+        int n = body.len - at;
+        if n > 4096 { n = 4096; }
+        for k in 0..n { blk[k] = body[at + k]; }
+        Sys::write(1, @blk, n);
+        at += n;
+    }
     return 0;
 }
 

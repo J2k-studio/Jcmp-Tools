@@ -14,7 +14,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [tarj](tools/tarj/README.md) | `tarj` makes and opens tar / tar.gz, `gzj` packs one file with gzip |
 | [jc](tools/jc/README.md) | install and run the programs of Jaric (`.jc` packages made by `makej pack`): `jc install`, `run`, `list`, `perm` (permissions asked once), `remove` (MPL-2.0) |
 | [jstore](tools/jstore/README.md) | the store of the programs of Jaric: `jstore list / install / update / remove`, an index file with a checksum for every package (see [store/](store/README.md)) (MPL-2.0) |
-| [jgit](tools/jgit/README.md) | git in J2K: `jgit init / add / commit / status / log / diff / branch / switch`; the format of the repository is the one of git, both read each other (no packs or network yet) (MPL-2.0) |
+| [jgit](tools/jgit/README.md) | git in J2K: `jgit init / add / commit / status / log / diff / branch / switch`; the format of the repository is the one of git, both read each other (packs are read; no network yet) (MPL-2.0) |
 | [jamanager](tools/jamanager/README.md) | the task manager: `ps`, `top`, `mem`, `kill`, `drives`, `cache` (reads /proc) (MPL-2.0) |
 | [jash](tools/jash/README.md) | the settings of your programs in one file `~/.jash` and the command `jash list / get / set / unset / edit / import / reset` (MPL-2.0) |
 | [neuron](tools/neuron/README.md) | small AI models on the phone, all in J2K: `neuron train / run / chat / install`; the assistant **xaiorin** (`xr`) runs in the background, answers `xr "question"` and can learn from the shell (off by default) |
