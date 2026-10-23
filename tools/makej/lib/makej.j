@@ -264,12 +264,20 @@ struct Build {
                         if w.len >= 3 { pct = w[0].to_int(); stage = w[1] + ""; cores = w[2] + ""; }
                     }
                 }
-                f = f + "\e[K  " + Build::bar(pct, 24) + "  " + self.names[i] + "  " + stage + "\n";
+                int scr = Term::cols();                        // the bars follow the width of the screen (also when it changes)
+                if scr < 20 { scr = 80; }
+                int bw = scr - self.names[i].len - stage.len - 8;
+                if bw > 24 { bw = 24; }
+                if bw < 6 { bw = 6; }
+                f = f + "\e[K  " + Build::bar(pct, bw) + "  " + self.names[i] + "  " + stage + "\n";
                 lines += 1;
                 if cores.len > 1 {
                     String[] cs = cores.split(",");
                     String row = "";
-                    for k in 0..cs.len { row = row + "core " + str(k + 1) + " " + Build::bar(cs[k].to_int(), 10) + "  "; }
+                    int cw = (scr - 8) / cs.len - 9;               // one bar per core, all in one line of the screen
+                    if cw > 10 { cw = 10; }
+                    if cw < 3 { cw = 3; }
+                    for k in 0..cs.len { row = row + str(k + 1) + " " + Build::bar(cs[k].to_int(), cw) + " "; }
                     f = f + "\e[K      " + row + "\n";
                     lines += 1;
                 }
