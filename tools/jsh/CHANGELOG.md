@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.1
+* The prompt keeps the name of the folder you are in whole and shortens only the one above: `jc :/f/home>`, `jc :/h/Jaric>` (short paths stay whole: `jc :/home>`).
+
 ## 0.7.0
 * `jaric video FILE|URL` plays a video over the terminal in the Jaric app (message `7777;video`), `jaric video stop`.
 

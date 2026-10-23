@@ -1592,10 +1592,9 @@ String short_path(String d) {
     String[] parts = d.split("/");
     int n = parts.len;
     if n <= 3 { return d; }                                       // /home, /usr/bin: as they are
-    // a long path: the last two folders by their first letter  (/data/data/com.termux/files/home  ->  /f/h)
+    // a long path: the folder above by its first letter, the last name whole (it is the name of the folder you are in):  /f/home
     String a = parts[n - 2].slice(0, 1);
-    String b = parts[n - 1].slice(0, 1);
-    return "/" + a + "/" + b;
+    return "/" + a + "/" + parts[n - 1];
 }
 
 // where the typing starts: a private sequence after the prompt (a terminal that does not know it ignores it); the Jaric app lets a tap
@@ -1714,7 +1713,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.7.0\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.7.1\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
