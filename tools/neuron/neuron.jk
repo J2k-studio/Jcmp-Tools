@@ -1,0 +1,399 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// neuron: train and run small AI models on the phone, all in J2K.
+//   neuron train DATA.txt -o MODEL.jw [-k 8] [-d 12] [-h 96] [-e 5] [-r 0.05]   learn to continue a text (a small language model)
+//   neuron run MODEL.jw "start of a text" [-n 200] [-t 0.8]                     write on from the start
+//   neuron chat [MODEL.jw] [-n 200] [-t 0.8]                                    talk with the model: a line in, a text out (no file: the assistant)
+//   neuron install MODEL.jw                                                      make a model the assistant of this phone (~/.neuron/assistant.jw)
+//   neuron info MODEL.jw                                                         what is in a model file
+//   neuron ask MODEL.jw X1 X2 ...                                                a numeric model (library neuron, neuron-jw 1)
+// The model: every byte of the text has a vector of d numbers; the last k bytes are put side by side, one layer of h neurons with
+// relu, then one number for each byte of the vocabulary; the biggest (or a draw with temperature t) is the next byte.
+// The file .jw (neuron-jw 2) is a text file: a few header lines and the numbers.   #import <neuron> is used by "ask".
+#import <stdlib>
+#import <math>
+#import <neuron>
+
+String neuron_version() { return "0.1.0"; }
+
+int fail(String msg) {
+    cerr << "neuron: " << msg << "\n";
+    return 1;
+}
+
+// ---- a small generator of random numbers (the same every run for the same seed)
+int g_seed;
+double rnd() {
+    g_seed = (g_seed * 6364136223846793005 + 1442695040888963407) & 0x7FFFFFFFFFFFFFFF;
+    return (double)((g_seed >> 20) & 0xFFFFFF) / 16777216.0;
+}
+
+// ---- the model
+struct CharLm {
+    int k;                          // bytes of context
+    int d;                          // numbers per byte
+    int h;                          // neurons
+    int v;                          // size of the vocabulary
+    int[] bytes;                    // the byte of every word of the vocabulary
+    int[] index;                    // 256 entries: the word of a byte, or -1
+    double[] emb;                   // v * d
+    double[] w1;                    // (k * d) * h
+    double[] b1;                    // h
+    double[] w2;                    // h * v
+    double[] b2;                    // v
+    double[] x;                     // k * d  (the input of the last step)
+    double[] hid;                   // h
+    double[] p;                     // v  (the probabilities of the last step)
+}
+
+CharLm lm_alloc(int k, int d, int h, int v) {
+    CharLm m;
+    m.k = k; m.d = d; m.h = h; m.v = v;
+    m.bytes = arr(v + 1);
+    m.index = arr(257);
+    for i in 0..256 { m.index.push(0 - 1); }
+    m.emb = arr(v * d + 1); m.w1 = arr(k * d * h + 1); m.b1 = arr(h + 1);
+    m.w2 = arr(h * v + 1); m.b2 = arr(v + 1);
+    m.x = arr(k * d + 1); m.hid = arr(h + 1); m.p = arr(v + 1);
+    for i in 0..v * d { m.emb.push(0.0); }
+    for i in 0..k * d * h { m.w1.push(0.0); }
+    for i in 0..h { m.b1.push(0.0); m.hid.push(0.0); }
+    for i in 0..h * v { m.w2.push(0.0); }
+    for i in 0..v { m.b2.push(0.0); m.p.push(0.0); }
+    for i in 0..k * d { m.x.push(0.0); }
+    return m;
+}
+
+void lm_init_weights(CharLm m) {
+    double s1 = 1.0 / Math::sqrt((double)(m.k * m.d));
+    double s2 = 1.0 / Math::sqrt((double)m.h);
+    for i in 0..m.v * m.d { m.emb[i] = (rnd() - 0.5) * 0.5; }
+    for i in 0..m.k * m.d * m.h { m.w1[i] = (rnd() - 0.5) * 2.0 * s1; }
+    for i in 0..m.h * m.v { m.w2[i] = (rnd() - 0.5) * 2.0 * s2; }
+}
+
+// the probabilities of the next byte after the context ctx[0..k-1] (words of the vocabulary), in m.p
+void lm_forward(CharLm m, int[] ctx) {
+    int kd = m.k * m.d;
+    for j in 0..m.k {
+        int base = ctx[j] * m.d;
+        for t in 0..m.d { m.x[j * m.d + t] = m.emb[base + t]; }
+    }
+    for i in 0..m.h {
+        double a = m.b1[i];
+        for t in 0..kd { a += m.x[t] * m.w1[t * m.h + i]; }
+        if a < 0.0 { a = 0.0; }
+        m.hid[i] = a;
+    }
+    double top = 0.0 - 1.0e30;
+    for o in 0..m.v {
+        double a = m.b2[o];
+        for i in 0..m.h { a += m.hid[i] * m.w2[i * m.v + o]; }
+        m.p[o] = a;
+        if a > top { top = a; }
+    }
+    double sum = 0.0;
+    for o in 0..m.v { double e = Math::exp(m.p[o] - top); m.p[o] = e; sum += e; }
+    for o in 0..m.v { m.p[o] = m.p[o] / sum; }
+}
+
+// one step of learning for one place of the text: returns -ln(p of the right byte)
+double lm_learn(CharLm m, int[] ctx, int target, double rate) {
+    lm_forward(m, ctx);
+    double loss = 0.0 - Math::log(m.p[target] + 1.0e-12);
+    int kd = m.k * m.d;
+    double[] dh = arr(m.h + 1);
+    for i in 0..m.h { dh.push(0.0); }
+    for o in 0..m.v {
+        double g = m.p[o];
+        if o == target { g -= 1.0; }
+        for i in 0..m.h {
+            dh[i] += g * m.w2[i * m.v + o];
+            m.w2[i * m.v + o] -= rate * g * m.hid[i];
+        }
+        m.b2[o] -= rate * g;
+    }
+    for i in 0..m.h { if m.hid[i] <= 0.0 { dh[i] = 0.0; } }
+    double[] dx = arr(kd + 1);
+    for t in 0..kd { dx.push(0.0); }
+    for i in 0..m.h {
+        double g = dh[i];
+        if g == 0.0 { continue; }
+        for t in 0..kd {
+            dx[t] += g * m.w1[t * m.h + i];
+            m.w1[t * m.h + i] -= rate * g * m.x[t];
+        }
+        m.b1[i] -= rate * g;
+    }
+    for j in 0..m.k {
+        int base = ctx[j] * m.d;
+        for t in 0..m.d { m.emb[base + t] -= rate * dx[j * m.d + t]; }
+    }
+    return loss;
+}
+
+// ---- the file .jw (neuron-jw 2): lines of text; the numbers are written with spaces between
+String numbers(double[] a, int n) {
+    String t = "";
+    for i in 0..n { t = t + str(a[i]) + " "; }
+    return t + "\n";
+}
+
+bool lm_save(CharLm m, String path) {
+    String t = "neuron-jw 2\nkind charlm\ncontext " + str(m.k) + "\ndim " + str(m.d) + "\nhidden " + str(m.h) + "\nvocab " + str(m.v) + "\n";
+    for i in 0..m.v { t = t + str(m.bytes[i]) + " "; }
+    t = t + "\n" + numbers(m.emb, m.v * m.d) + numbers(m.w1, m.k * m.d * m.h) + numbers(m.b1, m.h) + numbers(m.w2, m.h * m.v) + numbers(m.b2, m.v);
+    return Fs::write_text(path, t).is_ok();
+}
+
+int header_value(String line, String key) {
+    return line.slice(key.len + 1, line.len).trim().to_int();
+}
+
+void fill(double[] dst, String line, int n) {
+    String[] w = line.trim().split(" ");
+    for i in 0..n { if i < w.len { dst[i] = w[i].to_double(); } }
+}
+
+// loads a model; ok = false when the file is not a model of this kind
+CharLm lm_load(String path, bool^ ok) {
+    ok[0] = false;
+    CharLm none = lm_alloc(1, 1, 1, 1);
+    Result<String, Error> r = Fs::read_text(path);
+    if !r.is_ok() { return none; }
+    String[] ls = r.take().split("\n");
+    if ls.len < 12 || ls[0] != "neuron-jw 2" || ls[1] != "kind charlm" { return none; }
+    int k = header_value(ls[2], "context");
+    int d = header_value(ls[3], "dim");
+    int h = header_value(ls[4], "hidden");
+    int v = header_value(ls[5], "vocab");
+    if k < 1 || d < 1 || h < 1 || v < 2 { return none; }
+    CharLm m = lm_alloc(k, d, h, v);
+    String[] vb = ls[6].trim().split(" ");
+    for i in 0..v { m.bytes.push(vb[i].to_int()); m.index[m.bytes[i]] = i; }
+    fill(m.emb, ls[7], v * d);
+    fill(m.w1, ls[8], k * d * h);
+    fill(m.b1, ls[9], h);
+    fill(m.w2, ls[10], h * v);
+    fill(m.b2, ls[11], v);
+    ok[0] = true;
+    return m;
+}
+
+// ---- the vocabulary of a text: the bytes that are in it
+CharLm lm_for_text(String text, int k, int d, int h) {
+    int[] seen = arr(257);
+    for i in 0..256 { seen.push(0); }
+    for i in 0..text.len { seen[text[i] & 255] = 1; }
+    int v = 0;
+    for i in 0..256 { if seen[i] == 1 { v += 1; } }
+    CharLm m = lm_alloc(k, d, h, v);
+    int at = 0;
+    for b in 0..256 { if seen[b] == 1 { m.bytes.push(b); m.index[b] = at; at += 1; } }
+    lm_init_weights(m);
+    return m;
+}
+
+int word_of(CharLm m, int byte) {
+    int w = m.index[byte & 255];
+    if w < 0 { return 0; }
+    return w;
+}
+
+// the next byte after the text so far (the last k bytes); t = temperature (0: always the most probable)
+int lm_next(CharLm m, String text, double t) {
+    int[] ctx = arr(m.k + 1);
+    int space = word_of(m, 32);
+    for j in 0..m.k {
+        int at = text.len - m.k + j;
+        if at >= 0 { ctx.push(word_of(m, text[at])); } else { ctx.push(space); }
+    }
+    lm_forward(m, ctx);
+    int best = 0;
+    for o in 1..m.v { if m.p[o] > m.p[best] { best = o; } }
+    if t <= 0.0 { return m.bytes[best]; }
+    double sum = 0.0;
+    double[] q = arr(m.v + 1);
+    for o in 0..m.v { double e = Math::exp(Math::log(m.p[o] + 1.0e-12) / t); q.push(e); sum += e; }
+    double r = rnd() * sum;
+    for o in 0..m.v { r -= q[o]; if r <= 0.0 { return m.bytes[o]; } }
+    return m.bytes[best];
+}
+
+// writes on from text: n bytes at most; stop_line = stop at the first line end
+String lm_write(CharLm m, String start, int n, double t, bool stop_line) {
+    String text = start + "";
+    String made = "";
+    for i in 0..n {
+        int b = lm_next(m, text, t);
+        if stop_line && b == 10 { break; }
+        text.push((char)b);
+        made.push((char)b);
+    }
+    return made;
+}
+
+String option(String[] a, String name, String fallback) {
+    for i in 2..a.len - 1 { if a[i] == name { return a[i + 1] + ""; } }
+    return fallback;
+}
+
+int do_train(String[] a) {
+    if a.len < 3 { return fail("usage: neuron train DATA.txt -o MODEL.jw [-k 8] [-d 12] [-h 96] [-e 5] [-r 0.05]"); }
+    Result<String, Error> rd = Fs::read_bytes(a[2]);
+    if !rd.is_ok() { return fail("cannot read " + a[2]); }
+    String text = rd.take();
+    if text.len < 20 { return fail("the text is too short to learn from (" + str(text.len) + " bytes)"); }
+    String out = option(a, "-o", "model.jw");
+    int k = option(a, "-k", "8").to_int();
+    int d = option(a, "-d", "12").to_int();
+    int h = option(a, "-h", "96").to_int();
+    int epochs = option(a, "-e", "5").to_int();
+    double rate = option(a, "-r", "0.05").to_double();
+    g_seed = option(a, "-s", "12345").to_int();
+    CharLm m = lm_for_text(text, k, d, h);
+    cout << "text " << text.len << " bytes, vocabulary " << m.v << ", model: context " << k << ", dim " << d << ", hidden " << h << ", " << epochs << " rounds\n";
+    int[] ctx = arr(k + 1);
+    for j in 0..k { ctx.push(0); }
+    int space = word_of(m, 32);
+    int started = Time::now_ms();
+    for e in 0..epochs {
+        double total = 0.0;
+        int n = 0;
+        for at in 0..text.len {
+            for j in 0..k {
+                int src = at - k + j;
+                if src >= 0 { ctx[j] = word_of(m, text[src]); } else { ctx[j] = space; }
+            }
+            total += lm_learn(m, ctx, word_of(m, text[at]), rate);
+            n += 1;
+            if at % 5000 == 4999 {
+                cout << "\r  round " << e + 1 << "  " << at * 100 / text.len << " %   loss " << total / (double)n << "   " << (Time::now_ms() - started) / 1000 << " s   ";
+            }
+        }
+        cout << "\rround " << e + 1 << " of " << epochs << ": loss " << total / (double)n << "   (" << (Time::now_ms() - started) / 1000 << " s)                    \n";
+        if !lm_save(m, out) { return fail("cannot write " + out); }
+        rate = rate * 0.9;                                    // a little slower every round
+    }
+    cout << "saved " << out << "\n";
+    String sample = lm_write(m, text.slice(0, k), 120, 0.8, false);
+    cout << "a sample: " << text.slice(0, k) << sample << "\n";
+    return 0;
+}
+
+CharLm open_model(String path, bool^ ok) {
+    CharLm m = lm_load(path, ok);
+    if !ok[0] { fail(path + " is not a model of neuron (neuron-jw 2, kind charlm); for a numeric model use: neuron ask"); }
+    return m;
+}
+
+int do_run(String[] a) {
+    if a.len < 4 { return fail("usage: neuron run MODEL.jw \"start of a text\" [-n 200] [-t 0.8]"); }
+    bool ok = false;
+    CharLm m = open_model(a[2], @ok);
+    if !ok { return 1; }
+    g_seed = Time::now_ms();
+    int n = option(a, "-n", "200").to_int();
+    double t = option(a, "-t", "0.8").to_double();
+    cout << a[3] << lm_write(m, a[3], n, t, false) << "\n";
+    return 0;
+}
+
+// the assistant of this phone: ~/.neuron/assistant.jw (neuron install FILE.jw puts a model there); neuron chat without a file uses it
+String assistant_path() {
+    String home = ".";
+    switch Env::get("HOME") {
+        Option::Some(h): { if h.len > 0 { home = h; } }
+        Option::None: { }
+    }
+    return home + "/.neuron/assistant.jw";
+}
+
+int do_install(String[] a) {
+    if a.len < 3 { return fail("usage: neuron install MODEL.jw   (it becomes the assistant: neuron chat)"); }
+    bool ok = false;
+    CharLm m = lm_load(a[2], @ok);
+    if !ok { return fail(a[2] + " is not a model of neuron (neuron-jw 2, kind charlm)"); }
+    String target = assistant_path();
+    Dir::make_all(Path::parent(target));
+    Result<String, Error> r = Fs::read_bytes(a[2]);
+    if !r.is_ok() { return fail("cannot read " + a[2]); }
+    if !Fs::write_bytes(target, r.take()).is_ok() { return fail("cannot write " + target); }
+    cout << "installed " << a[2] << " as the assistant: " << target << "  (neuron chat talks with it)\n";
+    return 0;
+}
+
+int do_chat(String[] a) {
+    String model = assistant_path();
+    if a.len >= 3 && a[2].len > 0 && a[2][0] != '-' { model = a[2]; }
+    if !Fs::exists(model) { return fail("no model: neuron chat MODEL.jw, or install one: neuron install MODEL.jw"); }
+    bool ok = false;
+    CharLm m = open_model(model, @ok);
+    if !ok { return 1; }
+    g_seed = Time::now_ms();
+    int n = option(a, "-n", "200").to_int();
+    double t = option(a, "-t", "0.8").to_double();
+    String talk = "";
+    cout << "neuron chat: type a line, an empty line leaves. (the model was taught with lines like  You: ...  Bot: ...)\n";
+    while true {
+        cout << "You: ";
+        String line = Input::line().trim();
+        if line.len == 0 { break; }
+        talk = talk + "You: " + line + "\nBot: ";
+        String reply = lm_write(m, talk, n, t, true);
+        talk = talk + reply + "\n";
+        cout << "Bot: " << reply << "\n";
+        if talk.len > 4000 { talk = talk.slice(talk.len - 2000, talk.len); }
+    }
+    return 0;
+}
+
+int do_info(String[] a) {
+    if a.len < 3 { return fail("usage: neuron info MODEL.jw"); }
+    Result<String, Error> r = Fs::read_text(a[2]);
+    if !r.is_ok() { return fail("cannot read " + a[2]); }
+    String[] ls = r.take().split("\n");
+    if ls.len > 0 && ls[0] == "neuron-jw 1" { cout << a[2] << ": a numeric network (neuron-jw 1), " << ls[1] << "\n"; return 0; }
+    bool ok = false;
+    CharLm m = lm_load(a[2], @ok);
+    if !ok { return fail(a[2] + " is not a model of neuron"); }
+    int numbers_n = m.v * m.d + m.k * m.d * m.h + m.h + m.h * m.v + m.v;
+    cout << a[2] << ": a language model (neuron-jw 2): context " << m.k << " bytes, dim " << m.d << ", hidden " << m.h << ", vocabulary " << m.v << ", " << numbers_n << " numbers\n";
+    return 0;
+}
+
+int do_ask(String[] a) {
+    if a.len < 4 { return fail("usage: neuron ask MODEL.jw X1 X2 ..."); }
+    Network net = Network::load(a[2]);
+    if net.count == 0 { return fail(a[2] + " is not a numeric model (neuron-jw 1)"); }
+    int n = a.len - 3;
+    Tensor q = Tensor::zeros(1, n);
+    for i in 0..n { q.set(0, i, a[3 + i].to_double()); }
+    Tensor out = net.predict(q);
+    String line = "";
+    for i in 0..out.cols { line = line + str(out.get(0, i)) + " "; }
+    cout << line.trim() << "\n";
+    return 0;
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "neuron " << neuron_version() << "\n"; return 0; }
+    if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
+        cout << "neuron: small AI models, trained and run on the phone, all in J2K\n";
+        cout << "  neuron train DATA.txt -o MODEL.jw [-k 8] [-d 12] [-h 96] [-e 5] [-r 0.05]   learn a text\n";
+        cout << "  neuron run MODEL.jw \"start\" [-n 200] [-t 0.8]       write on from a start\n";
+        cout << "  neuron chat [MODEL.jw]                              talk with the model (no file: the assistant)\n";
+        cout << "  neuron install MODEL.jw                             make it the assistant of this phone\n";
+        cout << "  neuron info MODEL.jw      neuron ask MODEL.jw X1 X2 ...   (a numeric model)\n";
+        return 0;
+    }
+    if a[1] == "train" { return do_train(a); }
+    if a[1] == "run" { return do_run(a); }
+    if a[1] == "chat" { return do_chat(a); }
+    if a[1] == "info" { return do_info(a); }
+    if a[1] == "install" { return do_install(a); }
+    if a[1] == "ask" { return do_ask(a); }
+    cerr << "neuron: unknown command '" << a[1] << "' (neuron help)\n";
+    return 2;
+}

@@ -1,0 +1,120 @@
+You: what is your name
+Bot: I am Neuron, a small model.
+You: bye
+Bot: Goodbye! See you.
+You: hello
+Bot: Hi! I am your helper.
+You: how are you
+Bot: I am fine, thank you.
+You: hello
+Bot: Hi! I am your helper.
+You: what can you do
+Bot: I can chat in a small way.
+You: what can you do
+Bot: I can chat in a small way.
+You: what can you do
+Bot: I can chat in a small way.
+You: thank you
+Bot: You are welcome.
+You: what can you do
+Bot: I can chat in a small way.
+You: what is your name
+Bot: I am Neuron, a small model.
+You: hello
+Bot: Hi! I am your helper.
+You: what can you do
+Bot: I can chat in a small way.
+You: hello
+Bot: Hi! I am your helper.
+You: what can you do
+Bot: I can chat in a small way.
+You: what can you do
+Bot: I can chat in a small way.
+You: bye
+Bot: Goodbye! See you.
+You: hello
+Bot: Hi! I am your helper.
+You: thank you
+Bot: You are welcome.
+You: what can you do
+Bot: I can chat in a small way.
+You: how are you
+Bot: I am fine, thank you.
+You: thank you
+Bot: You are welcome.
+You: what is your name
+Bot: I am Neuron, a small model.
+You: bye
+Bot: Goodbye! See you.
+You: hello
+Bot: Hi! I am your helper.
+You: how are you
+Bot: I am fine, thank you.
+You: hello
+Bot: Hi! I am your helper.
+You: hello
+Bot: Hi! I am your helper.
+You: hello
+Bot: Hi! I am your helper.
+You: thank you
+Bot: You are welcome.
+You: bye
+Bot: Goodbye! See you.
+You: hello
+Bot: Hi! I am your helper.
+You: what can you do
+Bot: I can chat in a small way.
+You: thank you
+Bot: You are welcome.
+You: what is your name
+Bot: I am Neuron, a small model.
+You: what can you do
+Bot: I can chat in a small way.
+You: thank you
+Bot: You are welcome.
+You: hello
+Bot: Hi! I am your helper.
+You: bye
+Bot: Goodbye! See you.
+You: what is your name
+Bot: I am Neuron, a small model.
+You: what can you do
+Bot: I can chat in a small way.
+You: what can you do
+Bot: I can chat in a small way.
+You: bye
+Bot: Goodbye! See you.
+You: what is your name
+Bot: I am Neuron, a small model.
+You: how are you
+Bot: I am fine, thank you.
+You: what is your name
+Bot: I am Neuron, a small model.
+You: thank you
+Bot: You are welcome.
+You: what is your name
+Bot: I am Neuron, a small model.
+You: what can you do
+Bot: I can chat in a small way.
+You: how are you
+Bot: I am fine, thank you.
+You: hello
+Bot: Hi! I am your helper.
+You: what can you do
+Bot: I can chat in a small way.
+You: bye
+Bot: Goodbye! See you.
+You: thank you
+Bot: You are welcome.
+You: hello
+Bot: Hi! I am your helper.
+You: what is your name
+Bot: I am Neuron, a small model.
+You: thank you
+Bot: You are welcome.
+You: thank you
+Bot: You are welcome.
+You: how are you
+Bot: I am fine, thank you.
+You: hello
+Bot: Hi! I am your helper.
