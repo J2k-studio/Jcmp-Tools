@@ -724,7 +724,7 @@ String setting_label(int i) {
     t.push("cursor shape"); t.push("screen rotation"); t.push("full screen"); t.push("keep the screen lit");
     t.push("volume keys = Ctrl / Esc");
     t.push("scrollback lines (later)"); t.push("bell (later)"); t.push("key vibration (later)");
-    t.push("start command (later)"); t.push("run scripts from the net (later)");
+    t.push("start command (later)"); t.push("run scripts from the net");
     t.push("xr learns from the shell"); t.push("xr runs in the background");
     return t[i];
 }
@@ -1266,6 +1266,13 @@ bool builtin(String[] a) {
             }
         } else if a.len >= 3 && a[1] == "font" {
             cout << esc() << "]7777;font;" << a[2] << (char)7;
+        } else if a.len >= 2 && a[1] == "assistant" {
+            // jaric assistant [question]: talk to the assistant xaiorin (the program xr of the tool neuron)
+            String[] xa = arr(2);
+            xa.push("xr");
+            for i in 2..a.len { xa.push(a[i]); }
+            if !have_program("xr") { cout << "the assistant is not installed:  jget tool neuron   then  neuron install MODEL.jw  (jget -li or makej init -ai make a model)\n"; }
+            else { run_words(xa); bcode = last_status; }
         } else if a.len >= 2 && a[1] == "sessions" {
             cout << "jaric sessions: the tabs are at the top (+ new, # tile, x close); jsh start PROGRAM opens a program in a new tab\n";
         } else if a.len >= 2 && (a[1] == "-restart" || a[1] == "restart") {
@@ -1948,7 +1955,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.8.0\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.8.1\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
