@@ -17,6 +17,6 @@ cp "$CERT" _work/python-android/etc/cert.pem
 P=_work/python-android/lib/python3.14
 rm -rf "$P/test" "$P/idlelib" "$P/tkinter" "$P/turtledemo" "$P/turtle.py" "$P/config-3.14-aarch64-linux-android" _work/python-android/lib/pkgconfig
 find _work/python-android -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
-tar czf dist/python-files.tar -C _work python-android      # gzip inside: tar xf (and tarj x) find it by themselves
+tar cf dist/python-files.tar -C _work python-android      # plain tar: jget unpacks tars itself and does not read gzip yet
 rm -rf _work
 ( cd dist && sha256sum python python-files.tar > SHA256SUMS && ls -l )

@@ -4,6 +4,7 @@
 //   jvp4 info FILE      what is in a video file: the container (mp4 / mov), the tracks, the codecs, the size, the length
 //   jvp4 play FILE      (next steps) decode and show; today it plays through the app (jaric video) while the own decoders are made
 #import <stdlib>
+#import <native>
 
 int fail(String msg) {
     cerr << "jvp4: " << msg << "\n";
@@ -233,15 +234,71 @@ int do_info(String path) {
     return 0;
 }
 
+// ---- sound: a WAV file (PCM, 8 or 16 bits) through AAudio (libaaudio.so of Android, called with <native>; a program built with -dyn)
+int le16(String d, int at) { return (d[at] & 255) | ((d[at + 1] & 255) << 8); }
+int le32(String d, int at) { return le16(d, at) | (le16(d, at + 2) << 16); }
+
+int play_wav(String path) {
+    Result<String, Error> r = Fs::read_bytes(path);
+    if !r.is_ok() { return fail("cannot read " + path); }
+    String d = r.take();
+    String riff = "";
+    String wave = "";
+    if d.len >= 12 { riff = d.slice(0, 4); wave = d.slice(8, 12); }
+    if d.len < 44 || riff != "RIFF" || wave != "WAVE" { return fail(path + " is not a WAV file"); }
+    int pos = 12;
+    int channels = 0; int rate = 0; int bits = 0; int fmt = 0;
+    int data_at = 0; int data_len = 0;
+    while pos + 8 <= d.len {
+        String id = d.slice(pos, pos + 4);
+        int size = le32(d, pos + 4);
+        if id == "fmt " { fmt = le16(d, pos + 8); channels = le16(d, pos + 10); rate = le32(d, pos + 12); bits = le16(d, pos + 22); }
+        if id == "data" { data_at = pos + 8; data_len = size; if data_at + data_len > d.len { data_len = d.len - data_at; } break; }
+        pos = pos + 8 + size + (size & 1);
+    }
+    if fmt != 1 || data_len == 0 { return fail("only PCM WAV files for now (format " + str(fmt) + ")"); }
+    if bits != 16 { return fail("only 16 bit WAV files for now (this one has " + str(bits) + " bits)"); }
+    int lib = Native::open("libaaudio.so");
+    if lib == 0 { return fail("no libaaudio.so: this needs Android (build with jcmp -dyn)"); }
+    int builder = 0;
+    if Native::call1(Native::sym(lib, "AAudio_createStreamBuilder"), (int)@builder) != 0 { return fail("AAudio: no stream builder"); }
+    Native::call2(Native::sym(lib, "AAudioStreamBuilder_setSampleRate"), builder, rate);
+    Native::call2(Native::sym(lib, "AAudioStreamBuilder_setChannelCount"), builder, channels);
+    Native::call2(Native::sym(lib, "AAudioStreamBuilder_setFormat"), builder, 1);        // AAUDIO_FORMAT_PCM_I16
+    int stream = 0;
+    if Native::call2(Native::sym(lib, "AAudioStreamBuilder_openStream"), builder, (int)@stream) != 0 { return fail("AAudio: cannot open the sound output"); }
+    Native::call1(Native::sym(lib, "AAudioStream_requestStart"), stream);
+    int write = Native::sym(lib, "AAudioStream_write");
+    int frame = channels * 2;
+    char buf[16384];
+    int done = 0;
+    int total = data_len / frame;
+    cout << path << ": " << rate << " Hz, " << channels << " channels, " << total / rate << " s\n";
+    while done < total {
+        int n = 4096;
+        if done + n > total { n = total - done; }
+        for k in 0..n * frame { buf[k] = d[data_at + done * frame + k]; }
+        int w = Native::call4(write, stream, (int)@buf, n, 2000000000);
+        if w <= 0 { break; }
+        done += w;
+    }
+    Native::call1(Native::sym(lib, "AAudioStream_requestStop"), stream);
+    Native::call1(Native::sym(lib, "AAudioStream_close"), stream);
+    return 0;
+}
+
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jvp4 0.1.0\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jvp4 0.2.0\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" {
-        cout << "jvp4: a video player made only of J2K.   jvp4 info FILE   what is in a video file (mp4 / mov)\n";
+        cout << "jvp4: a video player made only of J2K.   jvp4 info FILE   what is in a video file (mp4 / mov);   jvp4 play FILE.wav   a sound file\n";
         cout << "  next: jvp4 play FILE (own decoders: H.264, AAC), see the plan docs/jvp4-plan.md\n";
         return 0;
     }
     if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
+    String low = "";
+    if a.len >= 3 { low = a[2].lower(); }
+    if a[1] == "play" && a.len >= 3 && low.ends_with(".wav") { return play_wav(a[2]); }
     if a[1] == "play" && a.len >= 3 { return fail("the own decoders are not made yet; until then:  jaric video " + a[2]); }
     cerr << "usage: jvp4 info FILE\n";
     return 2;
