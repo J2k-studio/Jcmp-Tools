@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.1
+* `makej -pro`, `makej -game`, `makej -ai` work as `makej init -pro` and so on (the files did not appear when `init` was left out).
+
 ## 0.6.0
 * `makej init -pro [NAME]`: the structure of a real project (src/ with src/lib/, tests/ with a runner, docs/, assets/, scripts/release.sh, manifest.toml, VERSION, CHANGELOG.md, README.md, .gitignore) with `makej test`, `makej run`, `makej release`.
 * Systems: `makej targets`, `makej init -game -os android|jaric|linux|all`, `makej dist` (builds for the systems named in manifest.toml: android = apk, jaric = .jec of Jaric OS, linux = a folder), `makej linux`.

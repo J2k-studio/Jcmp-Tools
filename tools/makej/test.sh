@@ -52,6 +52,8 @@ out=$("$MK" test 2>&1); echo "$out" | grep "all tests passed" >/dev/null || { ec
 out=$("$MK" run 2>&1); echo "$out" | grep "welcome to project" >/dev/null || { echo "pro run: $out"; exit 1; }
 [ -f VERSION ] && [ -f manifest.toml ] && [ -d docs ] && [ -d tests ] && [ -d scripts ] || { echo "pro layout"; exit 1; }
 "$MK" targets | grep "android" >/dev/null || { echo "targets"; exit 1; }
+mkdir "$T/alias" && cd "$T/alias" && "$MK" -pro >/dev/null && [ -d src ] && [ -f manifest.toml ] || { echo "makej -pro (the same as makej init -pro)"; exit 1; }
+cd "$T/pro/demo"
 if command -v zipj >/dev/null 2>&1 && [ -f "$HOME/Jcmp/build/libs/gamej.j" ]; then
     cd "$T" && mkdir jg && cd jg
     "$MK" init -game -os jaric >/dev/null || { echo "init -game -os"; exit 1; }

@@ -4,6 +4,7 @@
 # This file is the whole tool: the library of makej is inside it and is written to a cache folder at the first run.
 MAKEJ_VERSION=@VERSION@
 case "${1:-}" in --version|-version) echo "makej $MAKEJ_VERSION"; exit 0 ;; esac
+case "${1:-}" in -pro|-game|-ai) first=$1; shift; set -- init "$first" "$@" ;; esac
 home="${MAKEJ_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/makej/$MAKEJ_VERSION}"
 if [ ! -f "$home/makej_file.jk" ]; then
     mkdir -p "$home"
