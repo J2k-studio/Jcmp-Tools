@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.2
+* A long line (longer than the screen) is redrawn in the right place: the arrows, Home, End and editing no longer start new lines again and again (the cursor goes up to the first row of the line before the line is printed, and the width of colour codes, Thai marks and wide letters is counted).
+
 ## 0.7.1
 * The prompt keeps the name of the folder you are in whole and shortens only the one above: `jc :/f/home>`, `jc :/h/Jaric>` (short paths stay whole: `jc :/home>`).
 
