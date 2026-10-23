@@ -16,6 +16,14 @@ How it learns: for every place of the text the model sees the last `-k` bytes an
 
 The program `neuron.jk` is the trainer: it is short, and it is yours to change (another model shape, another way to learn). Build: `JCMP=path sh build.sh` (jcmp 1.2.0.0; the library neuron is in `build/libs` of Jcmp or `jget -li install neuron`).
 
+## xaiorin (xr): the assistant that runs in the background
+`neuron install MODEL.jw` makes a model the assistant. It is called **xaiorin**, short **xr** (both names come with the tool: they are the same program):
+```
+xr start | stop | status | reset      the background program: keeps the model in memory and remembers the talk
+xr "what is your name"                one answer;   xr  alone = a chat
+```
+Settings (`jash set xr.port 7791`): `port` (7790), `temperature` (0.7), `max` (bytes of an answer, 200), `autostart` (on / off: the Jaric app starts `xr start` when it opens; `jaric setting`, section "assistant").
+
 ## Install
 ```
 jget tool neuron                                                     # with jget

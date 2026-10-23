@@ -14,7 +14,7 @@
 #import <math>
 #import <neuron>
 
-String neuron_version() { return "0.1.0"; }
+String neuron_version() { return "0.2.0"; }
 
 int fail(String msg) {
     cerr << "neuron: " << msg << "\n";
@@ -376,8 +376,215 @@ int do_ask(String[] a) {
     return 0;
 }
 
+// ---- xaiorin (xr): the assistant of the phone. A small server on this machine (127.0.0.1) keeps the model in memory and answers;
+//      xr start puts it in the background, xr ask / xr chat talk to it (or load the model themselves when it does not run).
+String jash_get(String section, String key, String fallback) {
+    String home = ".";
+    switch Env::get("HOME") {
+        Option::Some(h): { if h.len > 0 { home = h; } }
+        Option::None: { }
+    }
+    Result<String, Error> r = Fs::read_text(home + "/.jash");
+    if !r.is_ok() { return fallback; }
+    String[] ls = r.take().split("\n");
+    String cur = "";
+    for i in 0..ls.len {
+        String ln = ls[i].trim();
+        if ln.len == 0 || ln[0] == '#' { continue; }
+        if ln[0] == '[' { if ln != "[#jash]" { cur = ln.slice(1, ln.len - 1).trim(); } continue; }
+        int eq = ln.find("=");
+        if eq <= 0 || cur != section { continue; }
+        if ln.slice(0, eq).trim() == key { return ln.slice(eq + 1, ln.len).trim().replace("\"", ""); }
+    }
+    return fallback;
+}
+
+String xr_dir() {
+    String home = ".";
+    switch Env::get("HOME") {
+        Option::Some(h): { if h.len > 0 { home = h; } }
+        Option::None: { }
+    }
+    return home + "/.neuron";
+}
+
+int xr_port() { return jash_get("xr", "port", "7790").to_int(); }
+
+String read_line_from(Connection c) {
+    String got = "";
+    while got.find("\n") < 0 && got.len < 8000 {
+        String piece = c.receive_max(2000);
+        if piece.len == 0 { break; }
+        got = got + piece;
+    }
+    int nl = got.find("\n");
+    if nl >= 0 { got = got.slice(0, nl); }
+    return got.trim();
+}
+
+// the server: one request line in, one answer out.   ask TEXT | reset | ping | stop
+int xr_serve(String model, int port) {
+    bool ok = false;
+    CharLm m = lm_load(model, @ok);
+    if !ok { return fail("no model to serve: " + model + "  (neuron install MODEL.jw)"); }
+    Listener l;
+    try { l = Listener::on(port); } catch (e) { return fail("cannot listen on port " + str(port) + ": " + e); }
+    if l.fd < 0 { return fail("cannot listen on port " + str(port)); }
+    g_seed = Time::now_ms();
+    double t = jash_get("xr", "temperature", "0.7").to_double();
+    int n = jash_get("xr", "max", "200").to_int();
+    String talk = "";
+    while true {
+        Connection c = l.accept();
+        if c.fd < 0 { continue; }
+        String req = read_line_from(c);
+        String answer = "";
+        if req == "ping" { answer = "pong"; }
+        else if req == "reset" { talk = ""; answer = "ok"; }
+        else if req == "stop" { c.send("bye\n"); c.close(); l.close(); return 0; }
+        else if req.starts_with("ask ") {
+            talk = talk + "You: " + req.slice(4, req.len) + "\nBot: ";
+            answer = lm_write(m, talk, n, t, true);
+            talk = talk + answer + "\n";
+            if talk.len > 4000 { talk = talk.slice(talk.len - 2000, talk.len); }
+        } else { answer = "?"; }
+        c.send(answer + "\n");
+        c.close();
+    }
+    return 0;
+}
+
+// asks the server; ok = false when none answers
+String xr_call(String request, bool^ ok) {
+    ok[0] = false;
+    Connection c;
+    try { c = Connection::to("127.0.0.1", xr_port()); } catch (e) { return ""; }          // nobody listens: the program does not run
+    if c.fd < 0 { return ""; }
+    c.send(request + "\n");
+    String got = "";
+    while true {
+        String piece = c.receive_max(2000);
+        if piece.len == 0 { break; }
+        got = got + piece;
+        if got.len > 20000 { break; }
+    }
+    c.close();
+    ok[0] = true;
+    return got.trim();
+}
+
+bool xr_running() {
+    bool ok = false;
+    String r = xr_call("ping", @ok);
+    return ok && r == "pong";
+}
+
+int xr_start() {
+    if xr_running() { cout << "xaiorin runs already (port " << xr_port() << ")\n"; return 0; }
+    String model = assistant_path();
+    if !Fs::exists(model) { return fail("no assistant yet: neuron install MODEL.jw  (or: makej init -ai, makej train, makej install)"); }
+    int pid = Sys::fork();
+    if pid < 0 { return fail("cannot start the background program"); }
+    if pid > 0 { Time::sleep_ms(400); cout << "xaiorin runs in the background (port " << xr_port() << ", stop it with: xr stop)\n"; return 0; }
+    Sys::call(157, 0, 0, 0, 0, 0, 0);                              // setsid: no terminal any more
+    int nul_in = Sys::open_read("/dev/null".c());
+    int nul_out = Sys::open_write("/dev/null".c());
+    Sys::call(24, nul_in, 0, 0, 0, 0, 0);                          // dup3 onto 0, 1, 2
+    Sys::call(24, nul_out, 1, 0, 0, 0, 0);
+    Sys::call(24, nul_out, 2, 0, 0, 0, 0);
+    int rc = xr_serve(model, xr_port());
+    Sys::exit(rc);
+    return rc;
+}
+
+int xr_stop() {
+    bool ok = false;
+    xr_call("stop", @ok);
+    if ok { cout << "xaiorin stopped\n"; } else { cout << "xaiorin was not running\n"; }
+    return 0;
+}
+
+// one question: through the server when it runs, else the model is loaded here
+String xr_answer(String question, CharLm^ own, bool^ have_own) {
+    bool ok = false;
+    String r = xr_call("ask " + question, @ok);
+    if ok { return r; }
+    return "";
+}
+
+int xr_main(String[] a) {
+    String cmd = "";
+    if a.len > 1 { cmd = a[1]; }
+    if cmd == "--version" || cmd == "-V" { cout << "xaiorin (xr) " << neuron_version() << " (the tool neuron)\n"; return 0; }
+    if cmd == "start" { return xr_start(); }
+    if cmd == "stop" { return xr_stop(); }
+    if cmd == "status" { if xr_running() { cout << "xaiorin runs (port " << xr_port() << ")\n"; } else { cout << "xaiorin is not running (xr start)\n"; } return 0; }
+    if cmd == "reset" { bool ok = false; xr_call("reset", @ok); if ok { cout << "forgot the talk\n"; } else { cout << "xaiorin is not running\n"; } return 0; }
+    if cmd == "serve" { return xr_serve(assistant_path(), xr_port()); }
+    if cmd == "help" || cmd == "--help" || cmd == "-h" {
+        cout << "xaiorin (xr): the AI assistant of this phone\n";
+        cout << "  xr                      talk (lines in, answers out; an empty line leaves)\n";
+        cout << "  xr \"question\"          one answer\n";
+        cout << "  xr start | stop | status | reset    the background program (it keeps the model in memory)\n";
+        cout << "Settings in ~/.jash, section [xr]: port (7790), temperature (0.7), max (200 bytes of an answer), autostart (on / off, used by the Jaric app)\n";
+        cout << "The model: neuron install MODEL.jw  (train it with neuron train, or makej -ai)\n";
+        return 0;
+    }
+    bool server = xr_running();
+    String model = assistant_path();
+    CharLm own = lm_alloc(1, 1, 1, 1);
+    bool have = false;
+    if !server {
+        if !Fs::exists(model) { return fail("no assistant yet: neuron install MODEL.jw"); }
+        own = lm_load(model, @have);
+        if !have { return fail(model + " is not a model of neuron"); }
+        g_seed = Time::now_ms();
+    }
+    double t = jash_get("xr", "temperature", "0.7").to_double();
+    int n = jash_get("xr", "max", "200").to_int();
+    if cmd.len > 0 {                                                     // xr "question words"
+        String q = cmd;
+        for i in 2..a.len { q = q + " " + a[i]; }
+        if server { bool ok = false; cout << xr_call("ask " + q, @ok) << "\n"; }
+        else { cout << lm_write(own, "You: " + q + "\nBot: ", n, t, true) << "\n"; }
+        return 0;
+    }
+    String talk = "";
+    cout << "xaiorin: type a line, an empty line leaves.";
+    if server { cout << "  (the background program answers)"; }
+    cout << "\n";
+    while true {
+        cout << "you> ";
+        String line = Input::line().trim();
+        if line.len == 0 { break; }
+        String reply = "";
+        if server { bool ok = false; reply = xr_call("ask " + line, @ok); }
+        else {
+            talk = talk + "You: " + line + "\nBot: ";
+            reply = lm_write(own, talk, n, t, true);
+            talk = talk + reply + "\n";
+            if talk.len > 4000 { talk = talk.slice(talk.len - 2000, talk.len); }
+        }
+        cout << "xr> " << reply << "\n";
+    }
+    return 0;
+}
+
+// the name this program was started with (neuron, xr or xaiorin)
+String program_name() {
+    char buf[600];
+    int n = Sys::readlink("/proc/self/exe", @buf, 590);
+    String path = "";
+    for i in 0..n { path.push(buf[i]); }
+    int cut = -1;
+    for i in 0..path.len { if path[i] == '/' { cut = i; } }
+    return path.slice(cut + 1, path.len);
+}
+
 int main() {
     String[] a = Env::args();
+    String me = program_name();
+    if me == "xr" || me == "xaiorin" { return xr_main(a); }
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "neuron " << neuron_version() << "\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
         cout << "neuron: small AI models, trained and run on the phone, all in J2K\n";
@@ -393,6 +600,7 @@ int main() {
     if a[1] == "chat" { return do_chat(a); }
     if a[1] == "info" { return do_info(a); }
     if a[1] == "install" { return do_install(a); }
+    if a[1] == "xr" { String[] b = arr(a.len); for i in 1..a.len { b.push(a[i]); } return xr_main(b); }
     if a[1] == "ask" { return do_ask(a); }
     cerr << "neuron: unknown command '" << a[1] << "' (neuron help)\n";
     return 2;
