@@ -406,6 +406,56 @@ int download_to(String url, String name) {
     return 0;
 }
 
+// addresses that only a program such as yt-dlp can turn into a sound file
+bool is_video_site(String u) {
+    String l = u.lower();
+    return l.contains("youtube.com/") || l.contains("youtu.be/") || l.contains("tiktok.com/") || l.contains("soundcloud.com/") || l.contains("music.youtube.com/");
+}
+
+// yt-dlp is the owner's own program (pip install yt-dlp); use it only for what you may download
+int ytdlp_get(String url, String name) {
+    String[] v = arr(1);
+    v.push("--version");
+    if !Proc::run("yt-dlp", v).is_ok() { return fail("yt-dlp is not installed  (pip install yt-dlp);  use it only for songs you may download"); }
+    Dir::make_all(music_dir());
+    String out = Path::join(music_dir(), "%(title)s.%(ext)s");
+    if name.len > 0 { out = Path::join(music_dir(), name + ".%(ext)s"); }
+    String[] a = arr(8);
+    a.push("-f"); a.push("bestaudio[ext=m4a]/bestaudio");
+    a.push("--no-playlist"); a.push("-o"); a.push(out); a.push(url);
+    Result<int, Error> r = Proc::run("yt-dlp", a);
+    if !r.is_ok() { return fail("yt-dlp could not run"); }
+    if r.take() != 0 { return 1; }
+    return 0;
+}
+
+// /import PATH: copy a song, or the songs of a folder, into the music folder
+int do_import(String path) {
+    Dir::make_all(music_dir());
+    if Dir::exists(path) {
+        Result<String[], Error> r = Dir::list(path);
+        if !r.is_ok() { return fail("cannot read " + path); }
+        String[] names = r.take();
+        int n = 0;
+        for i in 0..names.len {
+            if is_audio(names[i]) {
+                String[] a = arr(3);
+                a.push(Path::join(path, names[i])); a.push(music_dir() + "/");
+                Proc::run("cp", a);
+                n += 1;
+            }
+        }
+        cout << "mujic: " << n << " songs copied to " << music_dir() << "\n";
+        return 0;
+    }
+    if !Fs::exists(path) || !is_audio(path) { return fail("not a song or a folder: " + path); }
+    String[] a = arr(3);
+    a.push(path); a.push(music_dir() + "/");
+    Proc::run("cp", a);
+    cout << "mujic: copied " << Path::name(path) << " to " << music_dir() << "\n";
+    return 0;
+}
+
 int do_get(String[] a) {
     String what = "";
     String name = "";
@@ -447,6 +497,7 @@ int do_get(String[] a) {
         }
         return fail("the item has no mp3 or ogg file");
     }
+    if is_video_site(what) { return ytdlp_get(what, name); }
     if what.starts_with("http://") || what.starts_with("https://") {
         String last = what;
         int q = -1;
@@ -755,8 +806,8 @@ bool cmd_ready;
 void cmd_init() {
     if cmd_ready { return; }
     cmd_ready = true;
-    cmd_name = arr(32);
-    cmd_help = arr(32);
+    cmd_name = arr(40);
+    cmd_help = arr(40);
     cmd_name.push("play"); cmd_help.push("choose a song and play it  (/play NAME)");
     cmd_name.push("pause"); cmd_help.push("pause or go on");
     cmd_name.push("next"); cmd_help.push("the next song");
@@ -764,8 +815,9 @@ void cmd_init() {
     cmd_name.push("stop"); cmd_help.push("stop the sound");
     cmd_name.push("queue"); cmd_help.push("show the songs");
     cmd_name.push("lyrics"); cmd_help.push("show the lyrics  (/lyrics get fetches them from the web)");
-    cmd_name.push("get"); cmd_help.push("fetch a song: choose from the catalog, or give a name, an address, archive:ID");
+    cmd_name.push("get"); cmd_help.push("fetch a song: choose from the catalog, or give a name, an address, archive:ID (a YouTube / TikTok address needs yt-dlp)");
     cmd_name.push("find"); cmd_help.push("search the Internet Archive  (/find words)");
+    cmd_name.push("import"); cmd_help.push("copy a song or a folder into the music folder  (/import PATH)");
     cmd_name.push("mv"); cmd_help.push("move a song into a folder  (/mv NAME FOLDER;  FOLDER . brings it back)");
     cmd_name.push("shuffle"); cmd_help.push("shuffle on / off");
     cmd_name.push("repeat"); cmd_help.push("repeat: off, all, one");
@@ -959,6 +1011,19 @@ void run_command(String line) {
     }
     else if cmd == "find" {
         if arg.len == 0 { g_note = "/find words  (for example /find piano)"; } else { g_note = "searching ..."; archive_picker(arg); }
+    }
+    else if cmd == "import" {
+        if arg.len == 0 { g_note = "/import PATH   (a song or a folder of songs, copied into " + music_dir() + ")"; }
+        else {
+            raw_off();
+            cout << "\e[?1049l\e[0m\e[?25h";
+            int rc = do_import(arg);
+            Time::sleep_ms(1200);
+            cout << "\e[?1049h\e[2J";
+            raw_on();
+            load_files();
+            if rc == 0 { g_note = "imported: " + arg; } else { g_note = "could not import " + arg; }
+        }
     }
     else if cmd == "mv" {
         int sp = -1;
@@ -1293,7 +1358,7 @@ int do_lyrics(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.3.1";
+    String VERSION = "0.3.2";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     if args.len > 1 {

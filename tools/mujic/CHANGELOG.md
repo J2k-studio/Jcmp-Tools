@@ -1,5 +1,9 @@
 # mujic changelog
 
+## 0.3.2
+* `/import PATH` copies a song, or the songs of a folder, into the music folder.
+* `/get ADDRESS` of YouTube, YouTube Music, TikTok or SoundCloud runs `yt-dlp` when it is installed (`pip install yt-dlp`; mujic does not include it). Use it only for songs you may download.
+
 ## 0.3.1
 * `/mv NAME FOLDER` moves a song (and its `.lrc` / `.txt`) into a folder of the music folder; the folder is made when it is not there; `/mv NAME .` brings it back. The songs in the folders one level down are listed as `folder/song`.
 
