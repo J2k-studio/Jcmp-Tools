@@ -12,6 +12,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [mujic](tools/mujic/README.md) | a music player: your songs, free songs to fetch, search the Internet Archive, synced lyrics |
 | [zipj](tools/zipj/README.md) | `zipj` makes zip files, `unj` opens them (a password, `-f`, `-o`) (MPL-2.0) |
 | [tarj](tools/tarj/README.md) | `tarj` makes and opens tar / tar.gz, `gzj` packs one file with gzip |
+| [jvp4](tools/jvp4/README.md) | a video player made only of J2K (own container reader and decoders; today `jvp4 info FILE`) |
 | [jpty](tools/jpty/README.md) | run a program on a pseudo terminal (for apps and tests) (MPL-2.0) |
 | jcmp | the compiler and its library, as a tool: `jget tool jcmp` |
 

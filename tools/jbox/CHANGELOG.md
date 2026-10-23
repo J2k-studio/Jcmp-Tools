@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.2
+* tree: -d (folders only), -s (sizes), and a folder that cannot be read is shown as [cannot read this folder].
+
 ## 0.6.1
 * less: Esc leaves (the arrows still move).
 

@@ -806,21 +806,35 @@ bool is_digits(String s) {
 
 int do_help() {
     cout << "jbox commands: dir tree find date du stat xargs sed less ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
-    cout << "flags: dir -a -l   tree -a -L N   find -name P -type f|d -maxdepth N   ln -s   cut -d X -f N   tr -d   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
+    cout << "flags: dir -a -l   tree -a -d -s -L N   find -name P -type f|d -maxdepth N   ln -s   cut -d X -f N   tr -d   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
     return 0;
 }
 
 // jbox --install [DIR]: a link in DIR for every command (DIR = the folder of jbox), so that any program or shell finds them in the PATH
 // tree [-a] [-L N] [FOLDER]: the folders and files under a folder, drawn as a tree (the root first); -a also the names that start with a dot
+bool tree_dirs_only;        // -d : folders only
+bool tree_sizes;            // -s : the size of each file
+bool tree_denied;           // a folder could not be read
+
+String size_text(int n) {
+    if n < 1024 { return str(n) + " B"; }
+    if n < 1024 * 1024 { return str(n / 1024) + " KB"; }
+    return str(n / (1024 * 1024)) + " MB";
+}
+
 int tree_walk(String dir, String prefix, bool all, int depth, int maxd, int^ nd, int^ nf) {
     if depth >= maxd { return 0; }
     Result<String[], Error> r = Dir::list(dir);
-    if !r.is_ok() { return 1; }
+    if !r.is_ok() { cout << prefix << "`-- [cannot read this folder]\n"; tree_denied = true; return 1; }
     String[] names = r.take();
     names.sort();
     String[] shown = arr(names.len + 1);
     for i in 0..names.len {
         if !all && names[i].len > 0 && names[i][0] == '.' { continue; }
+        if tree_dirs_only {
+            String pth = Path::join(dir, names[i]);
+            if !Dir::exists(pth) { continue; }
+        }
         shown.push(names[i] + "");
     }
     for i in 0..shown.len {
@@ -830,7 +844,12 @@ int tree_walk(String dir, String prefix, bool all, int depth, int maxd, int^ nd,
         String mark = "|-- ";
         if last { mark = "`-- "; }
         if isdir { cout << prefix << mark << shown[i] << "/\n"; nd[0] += 1; }
-        else { cout << prefix << mark << shown[i] << "\n"; nf[0] += 1; }
+        else {
+            String extra = "";
+            if tree_sizes { Result<int, Error> sz = Fs::size(full); if sz.is_ok() { extra = "  (" + size_text(sz.take()) + ")"; } }
+            cout << prefix << mark << shown[i] << extra << "\n";
+            nf[0] += 1;
+        }
         if isdir {
             String next = prefix + "|   ";
             if last { next = prefix + "    "; }
@@ -841,6 +860,9 @@ int tree_walk(String dir, String prefix, bool all, int depth, int maxd, int^ nd,
 }
 int do_tree(String[] a) {
     bool all = has_flag(a, 'a');
+    tree_dirs_only = has_flag(a, 'd');
+    tree_sizes = has_flag(a, 's');
+    tree_denied = false;
     int maxd = 64;
     String root = ".";
     int i = 1;
@@ -855,6 +877,7 @@ int do_tree(String[] a) {
     int nf = 0;
     int rc = tree_walk(root, "", all, 0, maxd, @nd, @nf);
     cout << "\n" << nd << " folders, " << nf << " files\n";
+    if tree_denied && nd == 0 && nf == 0 { cerr << "tree: " << root << " cannot be listed here (Android hides it); try a folder under $HOME or $PREFIX\n"; }
     return rc;
 }
 
@@ -1186,7 +1209,7 @@ int do_install(String[] args) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.6.1\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.6.2\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }

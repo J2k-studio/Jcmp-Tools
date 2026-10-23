@@ -1,0 +1,248 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// jvp4: a video player made of J2K only (no codec of Android, no library of C). Plan: docs/jvp4-plan.md of the Jaric documents.
+//   jvp4 info FILE      what is in a video file: the container (mp4 / mov), the tracks, the codecs, the size, the length
+//   jvp4 play FILE      (next steps) decode and show; today it plays through the app (jaric video) while the own decoders are made
+#import <stdlib>
+
+int fail(String msg) {
+    cerr << "jvp4: " << msg << "\n";
+    return 1;
+}
+
+int g_fd;
+int g_size;
+
+// n bytes at the offset off of the file (pread); "" when they are not there
+String read_at(int off, int n) {
+    if n <= 0 || off < 0 || off + n > g_size { return ""; }
+    String r = "";
+    char buf[4096];
+    int done = 0;
+    while done < n {
+        int want = n - done;
+        if want > 4096 { want = 4096; }
+        int got = Sys::call(67, g_fd, (int)@buf, want, off + done, 0, 0);       // pread64
+        if got <= 0 { return ""; }
+        for i in 0..got { r.push(buf[i]); }
+        done += got;
+    }
+    return r;
+}
+
+int be16(String s, int at) { return ((s[at] & 255) << 8) | (s[at + 1] & 255); }
+int be32(String s, int at) { return (be16(s, at) << 16) | be16(s, at + 2); }
+int be64(String s, int at) { return (be32(s, at) << 32) | be32(s, at + 4); }
+String four(String s, int at) { return s.slice(at, at + 4); }
+
+// ---------------------------------------------------------------- the boxes of mp4 / mov: size(4) type(4) [large size(8)] payload
+int b_start;     // the start of the payload
+int b_end;       // the end of the box
+String b_type;
+
+// the box that starts at off (inside the limit); false at the end
+bool box_at(int off, int limit) {
+    if off + 8 > limit { return false; }
+    String h = read_at(off, 8);
+    if h.len < 8 { return false; }
+    int size = be32(h, 0);
+    b_type = four(h, 4);
+    b_start = off + 8;
+    if size == 1 {
+        String x = read_at(off + 8, 8);
+        if x.len < 8 { return false; }
+        size = be64(x, 0);
+        b_start = off + 16;
+    } else if size == 0 {
+        size = limit - off;
+    }
+    if size < 8 || off + size > limit { return false; }
+    b_end = off + size;
+    return true;
+}
+
+// the first child box of this type inside [from, to): start and end of its payload in found_s / found_e; false when none
+int found_s;
+int found_e;
+bool find_box(int from, int to, String type) {
+    int off = from;
+    while box_at(off, to) {
+        if b_type == type { found_s = b_start; found_e = b_end; return true; }
+        off = b_end;
+    }
+    return false;
+}
+
+String codec_name(String fourcc) {
+    if fourcc == "avc1" || fourcc == "avc3" { return "H.264 (AVC)"; }
+    if fourcc == "hev1" || fourcc == "hvc1" { return "H.265 (HEVC)"; }
+    if fourcc == "vp09" { return "VP9"; }
+    if fourcc == "av01" { return "AV1"; }
+    if fourcc == "mp4v" { return "MPEG-4 part 2"; }
+    if fourcc == "jpeg" || fourcc == "mjpa" { return "Motion JPEG"; }
+    if fourcc == "mp4a" { return "AAC / MPEG-4 audio"; }
+    if fourcc == "ac-3" { return "AC-3"; }
+    if fourcc == "Opus" { return "Opus"; }
+    if fourcc == "fLaC" { return "FLAC"; }
+    if fourcc == ".mp3" { return "MP3"; }
+    if fourcc == "sowt" || fourcc == "twos" || fourcc == "lpcm" { return "PCM"; }
+    return "unknown";
+}
+
+String avc_profile(int p) {
+    if p == 66 { return "Baseline"; }
+    if p == 77 { return "Main"; }
+    if p == 88 { return "Extended"; }
+    if p == 100 { return "High"; }
+    if p == 110 { return "High 10"; }
+    if p == 122 { return "High 4:2:2"; }
+    if p == 244 { return "High 4:4:4"; }
+    return "profile " + str(p);
+}
+
+String clock_text(int ms) {
+    int s = ms / 1000;
+    String m = str(s / 60);
+    String sec = str(s % 60);
+    if sec.len < 2 { sec = "0" + sec; }
+    return m + ":" + sec + "." + str((ms % 1000) / 100);
+}
+
+// one track: trak payload in [s, e)
+void show_track(int s, int e, int n) {
+    int width = 0;
+    int height = 0;
+    if find_box(s, e, "tkhd") {
+        String t = read_at(found_s, found_e - found_s);
+        int ver = t[0] & 255;
+        int at = 76;                                                      // version 0: the width is the 16.16 number 76 bytes in
+        if ver == 1 { at = 88; }
+        if t.len >= at + 8 { width = be32(t, at) >> 16; height = be32(t, at + 4) >> 16; }
+    }
+    int timescale = 1;
+    int duration = 0;
+    String kind = "";
+    int samples = 0;
+    String fourcc = "";
+    String extra = "";
+    if find_box(s, e, "mdia") {
+        int ms = found_s;
+        int me = found_e;
+        if find_box(ms, me, "mdhd") {
+            String h = read_at(found_s, found_e - found_s);
+            if (h[0] & 255) == 1 { timescale = be32(h, 20); duration = be64(h, 24); } else { timescale = be32(h, 12); duration = be32(h, 16); }
+        }
+        if find_box(ms, me, "hdlr") {
+            String h = read_at(found_s, found_e - found_s);
+            if h.len >= 12 { kind = four(h, 8); }
+        }
+        if find_box(ms, me, "minf") {
+            int fs = found_s;
+            int fe = found_e;
+            if find_box(fs, fe, "stbl") {
+                int ss = found_s;
+                int se = found_e;
+                if find_box(ss, se, "stsz") {
+                    String z = read_at(found_s, 12);
+                    if z.len >= 12 {
+                        samples = be32(z, 8);
+                        if be32(z, 4) == 0 && samples == 0 { samples = 0; }
+                    }
+                }
+                if find_box(ss, se, "stsd") {
+                    String d = read_at(found_s, found_e - found_s);
+                    if d.len >= 16 {
+                        fourcc = four(d, 12);
+                        if kind == "vide" && d.len >= 8 + 8 + 78 {
+                            // the sample entry: 8 header, 6 reserved, 2 index, 16 pre-defined, width(2) height(2) ...; the boxes follow after 78 bytes
+                            int w2 = be16(d, 8 + 8 + 24);
+                            int h2 = be16(d, 8 + 8 + 26);
+                            if width == 0 { width = w2; height = h2; }
+                            int entry = found_s + 8 + 8 + 78;
+                            if find_box(entry, found_e, "avcC") {
+                                String c = read_at(found_s, found_e - found_s);
+                                if c.len >= 4 { extra = avc_profile(c[1] & 255) + ", level " + str((c[3] & 255) / 10) + "." + str((c[3] & 255) % 10); }
+                            }
+                        }
+                        if kind == "soun" && d.len >= 8 + 8 + 20 {
+                            int ch = be16(d, 8 + 8 + 16);
+                            int rate = be16(d, 8 + 8 + 24);
+                            extra = str(rate) + " Hz, " + str(ch) + " channels";
+                        }
+                    }
+                }
+            }
+        }
+    }
+    String line = "track " + str(n) + ": ";
+    if kind == "vide" { line = line + "video  " + fourcc + " " + codec_name(fourcc) + "  " + str(width) + "x" + str(height); }
+    else if kind == "soun" { line = line + "audio  " + fourcc + " " + codec_name(fourcc); }
+    else { line = line + kind + "  " + fourcc; }
+    if extra.len > 0 { line = line + "  " + extra; }
+    if duration > 0 && timescale > 0 {
+        int ms = duration * 1000 / timescale;
+        line = line + "  " + clock_text(ms);
+        if kind == "vide" && samples > 0 && ms > 0 { line = line + "  " + str(samples) + " frames, " + str(samples * 10000 / ms / 10) + "." + str((samples * 10000 / ms) % 10) + " fps"; }
+    }
+    cout << line << "\n";
+}
+
+int do_info(String path) {
+    g_fd = Sys::open_read(path.c());
+    if g_fd < 0 { return fail("cannot read " + path); }
+    Result<int, Error> sz = Fs::size(path);
+    if !sz.is_ok() { return fail("cannot read " + path); }
+    g_size = sz.take();
+    String head = read_at(0, 12);
+    if head.len < 12 { return fail("too small to be a video"); }
+    String t4 = four(head, 4);
+    String t0 = four(head, 0);
+    String t8 = four(head, 8);
+    cout << path << " (" << g_size / 1024 << " KB)\n";
+    if t4 == "ftyp" {
+        cout << "container: mp4 / mov, brand " << four(head, 8) << "\n";
+    } else if (head[0] & 255) == 26 && (head[1] & 255) == 69 && (head[2] & 255) == 223 && (head[3] & 255) == 163 {
+        cout << "container: Matroska / WebM (the reader is the next step)\n";
+        return 0;
+    } else if t0 == "RIFF" && t8 == "AVI " {
+        cout << "container: AVI (the reader is a later step)\n";
+        return 0;
+    } else if t4 == "moov" || t4 == "mdat" || t4 == "free" || t4 == "wide" {
+        cout << "container: mov / mp4 without ftyp\n";
+    } else {
+        return fail(path + ": not a video file that jvp4 knows (mp4, mov; mkv, webm, avi are coming)");
+    }
+    if !find_box(0, g_size, "moov") { return fail("no moov box: a fragmented or damaged mp4 (not supported yet)"); }
+    int ms = found_s;
+    int me = found_e;
+    if find_box(ms, me, "mvhd") {
+        String h = read_at(found_s, found_e - found_s);
+        int timescale = 1;
+        int duration = 0;
+        if (h[0] & 255) == 1 { timescale = be32(h, 20); duration = be64(h, 24); } else { timescale = be32(h, 12); duration = be32(h, 16); }
+        if timescale > 0 { cout << "length: " << clock_text(duration * 1000 / timescale) << "\n"; }
+    }
+    int n = 0;
+    int off = ms;
+    while box_at(off, me) {
+        if b_type == "trak" { n += 1; show_track(b_start, b_end, n); }
+        off = b_end;
+    }
+    if n == 0 { cout << "no tracks\n"; }
+    Sys::close(g_fd);
+    return 0;
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jvp4 0.1.0\n"; return 0; }
+    if a.len < 2 || a[1] == "--help" || a[1] == "-h" {
+        cout << "jvp4: a video player made only of J2K.   jvp4 info FILE   what is in a video file (mp4 / mov)\n";
+        cout << "  next: jvp4 play FILE (own decoders: H.264, AAC), see the plan docs/jvp4-plan.md\n";
+        return 0;
+    }
+    if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
+    if a[1] == "play" && a.len >= 3 { return fail("the own decoders are not made yet; until then:  jaric video " + a[2]); }
+    cerr << "usage: jvp4 info FILE\n";
+    return 2;
+}
