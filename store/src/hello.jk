@@ -1,0 +1,12 @@
+// hello.jc: the sample program of the store. It shows what jc gives a program: its permissions, its folder and its assets.
+#import <stdlib>
+int main() {
+    String perms = "";
+    switch Env::get("JC_PERMS") { Option::Some(p): { perms = p; } Option::None: { perms = "(not started by jc: everything)"; } }
+    String home = "";
+    switch Env::get("JC_HOME") { Option::Some(h): { home = h; } Option::None: { home = "(not started by jc)"; } }
+    cout << "Hello from a program of the Jaric store!\n";
+    cout << "  permissions: " << perms << "\n";
+    cout << "  my folder:   " << home << "\n";
+    return 0;
+}

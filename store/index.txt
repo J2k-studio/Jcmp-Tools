@@ -1,0 +1,3 @@
+# The store of the programs of Jaric (jstore). A line: ID VERSION URL SHA256 PERMISSIONS NAME...  (- = no permissions)
+# Every package is a .jc (a zip); the SHA-256 is checked before anything is installed. Add a program: store/add.sh
+store.hello 1.0.0 https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/store/apps/hello-1.0.0.jc d8e08c71569cd471b75d7d6f362270dd9f1dc44efaebd761eba21c20c11da766 - Hello (a sample program)

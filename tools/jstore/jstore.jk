@@ -1,0 +1,230 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// jstore: the store of the programs of Jaric (.jc packages). The index is a text file; every download is checked with its SHA-256.
+//   jstore list [WORD]        the programs of the store (with the version, the permissions they ask for), a mark for the ones you have
+//   jstore info ID            one program
+//   jstore install ID [-y]    download, check the SHA-256, then  jc install  (it shows the permissions and asks once)
+//   jstore update [-y]        the installed programs that have a newer version in the store (-y: install them)
+//   jstore remove ID          jc remove
+// The index: JSTORE_INDEX (an address or a file; several, separated by spaces) or the index of Jcmp-Tools. A line:
+//   ID VERSION URL SHA256 PERMISSIONS NAME...        (PERMISSIONS: files,audio  or  -  for none; # starts a comment line)
+// Needs the tools jget (download) and jc (install). Design: docs/security.md of the Jaric project.
+#import <stdlib>
+
+String jstore_version() { return "0.1.0"; }
+
+int fail(String msg) {
+    cerr << "jstore: " << msg << "\n";
+    return 1;
+}
+
+String env_or(String name, String fallback) {
+    switch Env::get(name) {
+        Option::Some(v): { if v.len > 0 { return v; } }
+        Option::None: { }
+    }
+    return fallback;
+}
+
+String tmp_dir() { return env_or("TMPDIR", "/tmp"); }
+
+// a file or an address -> the bytes in a local file; the local name, "" when it failed
+String fetch(String where, String name) {
+    String dest = tmp_dir() + "/.jstore_" + str(Sys::getpid()) + "_" + name;
+    if !where.contains("://") {                                           // a file on this machine
+        Result<String, Error> r = Fs::read_bytes(where);
+        if !r.is_ok() { return ""; }
+        Fs::write_bytes(dest, r.take());
+        return dest;
+    }
+    String[] args = arr(6);
+    args.push("-q"); args.push(where); args.push("-o"); args.push(dest);
+    Result<int, Error> p = Proc::run("jget", args);
+    if !p.is_ok() { fail("cannot start jget (jget tool jget)"); return ""; }
+    if p.take() != 0 || !Fs::exists(dest) { return ""; }
+    return dest;
+}
+
+// the lines of the index (all the indexes together)
+String[] g_id;
+String[] g_ver;
+String[] g_url;
+String[] g_sum;
+String[] g_perm;
+String[] g_name;
+
+bool load_index() {
+    g_id = arr(16); g_ver = arr(16); g_url = arr(16); g_sum = arr(16); g_perm = arr(16); g_name = arr(16);
+    String where = env_or("JSTORE_INDEX", "https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/store/index.txt");
+    String[] places = where.split(" ");
+    int got = 0;
+    for p in 0..places.len {
+        if places[p].len == 0 { continue; }
+        String f = fetch(places[p], "index" + str(p));
+        if f.len == 0 { cerr << "jstore: cannot read the index " << places[p] << "\n"; continue; }
+        Result<String, Error> r = Fs::read_text(f);
+        Fs::remove(f);
+        if !r.is_ok() { continue; }
+        String[] ls = r.take().split("\n");
+        for i in 0..ls.len {
+            String ln = ls[i].trim();
+            if ln.len == 0 || ln[0] == '#' { continue; }
+            String[] w = ln.split(" ");
+            if w.len < 5 || w[3].len != 64 { continue; }
+            String nm = "";
+            for k in 5..w.len { if nm.len > 0 { nm = nm + " "; } nm = nm + w[k]; }
+            g_id.push(w[0] + ""); g_ver.push(w[1] + ""); g_url.push(w[2] + ""); g_sum.push(w[3] + ""); g_perm.push(w[4] + ""); g_name.push(nm);
+        }
+        got += 1;
+    }
+    return got > 0;
+}
+
+int find_id(String id) {
+    int best = 0 - 1;
+    for i in 0..g_id.len { if g_id[i] == id { if best < 0 || ver_newer(g_ver[i], g_ver[best]) { best = i; } } }
+    return best;
+}
+
+// is version a newer than version b (numbers with dots)
+bool ver_newer(String a, String b) {
+    String[] x = a.split(".");
+    String[] y = b.split(".");
+    int n = x.len;
+    if y.len > n { n = y.len; }
+    for i in 0..n {
+        int p = 0;
+        int q = 0;
+        if i < x.len { p = x[i].to_int(); }
+        if i < y.len { q = y[i].to_int(); }
+        if p > q { return true; }
+        if p < q { return false; }
+    }
+    return false;
+}
+
+// the installed programs: id -> version, from  jc list  (id  version  name  permissions: ...)
+String[] g_have_id;
+String[] g_have_ver;
+void load_installed() {
+    g_have_id = arr(8); g_have_ver = arr(8);
+    String[] none = arr(1);
+    none.push("list");
+    Result<String, Error> r = Proc::output("jc", none);
+    if !r.is_ok() { return; }
+    String[] ls = r.take().split("\n");
+    for i in 0..ls.len {
+        String[] w = ls[i].split("  ");
+        if w.len >= 2 && w[0].contains(".") { g_have_id.push(w[0].trim() + ""); g_have_ver.push(w[1].trim() + ""); }
+    }
+}
+
+String have_version(String id) {
+    for i in 0..g_have_id.len { if g_have_id[i] == id { return g_have_ver[i]; } }
+    return "";
+}
+
+int do_list(String[] a) {
+    if !load_index() { return fail("no index could be read (JSTORE_INDEX)"); }
+    load_installed();
+    String word = "";
+    if a.len > 2 { word = a[2].lower(); }
+    int n = 0;
+    for i in 0..g_id.len {
+        String line = (g_id[i] + " " + g_name[i]).lower();
+        bool hit = line.contains(word);
+        if word.len > 0 && !hit { continue; }
+        String mark = " ";
+        String h = have_version(g_id[i]);
+        if h.len > 0 { mark = "*"; }
+        String perms = g_perm[i];
+        if perms == "-" { perms = "no permissions"; }
+        cout << mark << " " << g_id[i] << "  " << g_ver[i] << "  " << g_name[i] << "   [" << perms << "]\n";
+        n += 1;
+    }
+    if n == 0 { cout << "nothing found\n"; } else { cout << "(* = installed)\n"; }
+    return 0;
+}
+
+int do_info(String id) {
+    if !load_index() { return fail("no index could be read"); }
+    int i = find_id(id);
+    if i < 0 { return fail("no program '" + id + "' in the store (jstore list)"); }
+    cout << g_name[i] << " (" << g_id[i] << ") " << g_ver[i] << "\n  permissions: " << g_perm[i] << "\n  from: " << g_url[i] << "\n  sha256: " << g_sum[i] << "\n";
+    return 0;
+}
+
+int install_one(int i, bool yes) {
+    String pkg = fetch(g_url[i], g_id[i] + ".jc");
+    if pkg.len == 0 { return fail("cannot download " + g_url[i]); }
+    String have = "";
+    switch Sha256::file(pkg) {
+        Result::Ok(h): { have = h; }
+        Result::Err(e): { have = ""; }
+    }
+    if have != g_sum[i] {
+        Fs::remove(pkg);
+        return fail("the checksum of " + g_id[i] + " does not match the index (" + have + "): nothing installed");
+    }
+    String[] args = arr(4);
+    args.push("install"); args.push(pkg);
+    if yes { args.push("-y"); }
+    Result<int, Error> r = Proc::run("jc", args);
+    Fs::remove(pkg);
+    if !r.is_ok() { return fail("cannot start jc (jget tool jc)"); }
+    return r.take();
+}
+
+int do_install(String[] a) {
+    if a.len < 3 { return fail("usage: jstore install ID [-y]"); }
+    bool yes = false;
+    for i in 3..a.len { if a[i] == "-y" { yes = true; } }
+    if !load_index() { return fail("no index could be read"); }
+    int i = find_id(a[2]);
+    if i < 0 { return fail("no program '" + a[2] + "' in the store (jstore list)"); }
+    return install_one(i, yes);
+}
+
+int do_update(String[] a) {
+    bool yes = false;
+    for i in 2..a.len { if a[i] == "-y" { yes = true; } }
+    if !load_index() { return fail("no index could be read"); }
+    load_installed();
+    int n = 0;
+    int rc = 0;
+    for k in 0..g_have_id.len {
+        int i = find_id(g_have_id[k]);
+        if i < 0 || !ver_newer(g_ver[i], g_have_ver[k]) { continue; }
+        n += 1;
+        cout << g_id[i] << ": " << g_have_ver[k] << " -> " << g_ver[i] << "\n";
+        if yes { if install_one(i, true) != 0 { rc = 1; } }
+    }
+    if n == 0 { cout << "everything is up to date\n"; }
+    else if !yes { cout << "(jstore update -y installs them; more permissions than before are asked again by jc)\n"; }
+    return rc;
+}
+
+int do_remove(String id) {
+    String[] args = arr(2);
+    args.push("remove"); args.push(id);
+    Result<int, Error> r = Proc::run("jc", args);
+    if !r.is_ok() { return fail("cannot start jc"); }
+    return r.take();
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jstore " << jstore_version() << "\n"; return 0; }
+    if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
+        cout << "jstore: the store of the programs of Jaric (.jc)\n";
+        cout << "  jstore list [WORD] | info ID | install ID [-y] | update [-y] | remove ID\n";
+        return 0;
+    }
+    if a[1] == "list" { return do_list(a); }
+    if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
+    if a[1] == "install" { return do_install(a); }
+    if a[1] == "update" { return do_update(a); }
+    if a[1] == "remove" && a.len >= 3 { return do_remove(a[2]); }
+    cerr << "jstore: unknown command '" << a[1] << "' (jstore help)\n";
+    return 2;
+}
