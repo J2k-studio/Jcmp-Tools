@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.2
+* The prompt is `jc :/home>`: the real path, `:` in front says the drive (`:/` is the root), long paths are cut (`:/../files/home`).
+
 ## 0.5.1
 * The prompt is `jc ~/ >` (the mark is red after a failure); while typing the first word is green when it is a command and red when it is not.
 

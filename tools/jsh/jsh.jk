@@ -1345,7 +1345,7 @@ String short_path(String d) {
     String[] parts = d.split("/");
     int n = parts.len;
     if n <= 3 { return d; }
-    return "../" + parts[n - 2] + "/" + parts[n - 1];
+    return "/../" + parts[n - 2] + "/" + parts[n - 1];
 }
 
 // where the typing starts: a private sequence after the prompt (a terminal that does not know it ignores it); the Jaric app lets a tap
@@ -1361,18 +1361,14 @@ String prompt_text() {
     char buf[512];
     String dir = "?";
     if Sys::getcwd(@buf, 512) > 0 { dir = (char^)@buf; }
-    String home = getv("HOME");
-    String pre = getv("PREFIX");
-    if home.len > 0 && dir.starts_with(home) { dir = "~" + dir.slice(home.len, dir.len); }
-    else if pre.len > 0 && dir.starts_with(pre) { dir = "$PREFIX" + dir.slice(pre.len, dir.len); }
+    // the path is the real one; ":" in front of it says which drive (":/" is the root), the long ones are cut:  jc :/../files/home>
     dir = short_path(dir);
     // the prompt is only shown on a terminal: 24-bit colours (the folder blue, the mark green, red after a failure)
     String e = esc();
     String reset = e + "[0m";
     String mark = e + "[1;38;2;120;220;130m>" + reset;                                                   // jc ~/ >   the mark is green
     if last_status != 0 { mark = e + "[1;38;2;255;95;95m>" + reset; }                                    // red after a failure (echo $? shows the code)
-    if !dir.ends_with("/") { dir = dir + "/"; }
-    return e + "[1;38;2;110;170;255mjc" + reset + " " + e + "[38;2;200;200;200m" + dir + reset + " " + mark + " " + prompt_mark();
+    return e + "[1;38;2;110;170;255mjc" + reset + " " + e + "[38;2;200;200;200m:" + dir + reset + mark + " " + prompt_mark();
 }
 
 // commands joined by && and || (the words are already split)
@@ -1433,7 +1429,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.5.1\n"; return 0; }
+    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.5.0\n"; return 0; }
     if cmdline.len > 1 && cmdline[1] == "install" {                              // jsh install NAME ...
         running = 1;
         String[] jw = arr(cmdline.len + 2);
