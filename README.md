@@ -5,7 +5,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | tool | what it does |
 |---|---|
 | [jget](tools/jget/README.md) | download files (https, progress bar), songs (`-m`), the libraries of J2K (`-li`), and the other tools (`jget tool NAME`) |
-| [makej](tools/makej/README.md) | the build tool: `makej`, `-j N` (many cores), `init`, `init -pro`, `init -game`, `init -ai`, `apk`, `pack` (.jec), `dist`, `targets` |
+| [makej](tools/makej/README.md) | the build tool: `makej`, `-j N` (many cores), `init`, `init -pro`, `init -game`, `init -ai`, `apk`, `pack` (.jc), `dist`, `targets` |
 | [jsh](tools/jsh/README.md) | the shell: line editing, ghost text, pipes, redirects, scripts, aliases, `jaric setting`, `jaric video` (MPL-2.0) |
 | [jbox](tools/jbox/README.md) | about 60 small commands in one program: `dir cat grep sort sed find tree rev paste printf base64 sha256sum ...` (MPL-2.0) |
 | [coderin](tools/coderin/README.md) | a text editor for the terminal with J2K colours, extensions and the compiler's errors (MPL-2.0) |
@@ -36,7 +36,7 @@ Libraries of J2K (`#import <name>`): `jget -li list`, `jget -li install gamej` (
                  +------------- the Jaric app (Android) ---- screen, speakers, touch, clipboard
 ```
 * **Everything is a program** that reads the keyboard and writes text; the Jaric app draws that text, and also understands small messages (`7777;gfx`, `7777;audio`, `7777;video`, `7777;theme`, ...) so a program can show a picture or play a sound. Elsewhere (any terminal) the messages are ignored and the program falls back to text. The full list: `docs/app-protocol.md` in the Jaric documents.
-* **Packages:** a tool is one file; a program with data is a **`.jec`** (a zip: `manifest.toml`, the program, `assets/`) made by `makej pack`; an Android app is an **`.apk`** made by `makej apk`.
+* **Packages:** a tool is one file; a program with data is a **`.jc`** (a zip: `manifest.toml`, the program, `assets/`) made by `makej pack`; an Android app is an **`.apk`** made by `makej apk`.
 * **Settings** are plain text files you can edit (`usr/etc/config.local`, `theme.toml`, `~/.jshrc`); `jaric setting` is a screen over them.
 * **Standard:** every tool answers `--version` and `--help`, prints errors as `name: message`, exits 0 / 1 / 2, and is tested before a release ([docs/STANDARD.md](docs/STANDARD.md)).
 
@@ -48,7 +48,7 @@ jcmp hello.jk -o hello && ./hello
 makej init -pro mytool            # a project with the right structure (src/, tests/, docs/, manifest.toml ...)
 cd mytool && makej test && makej run
 makej init -game                  # a game with Jaric Engine (library <gamej>) and 5 lessons: makej play1 ... play5
-makej apk                         # the game as an Android app;  makej pack = a .jec;  makej dist = every system in manifest.toml
+makej apk                         # the game as an Android app;  makej pack = a .jc;  makej dist = every system in manifest.toml
 makej init -ai                    # a small neural network (library <neuron>)
 ```
 * The language: [github.com/J2k-studio/Jcmp](https://github.com/J2k-studio/Jcmp) (`docs/LANGUAGE.md`; every example compiles). Libraries are used with `#import <name>`; your own files with `#import "name"`.

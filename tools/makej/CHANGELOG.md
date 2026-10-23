@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.0
+* **`makej pack` makes `NAME.jc`** (was `.jec`; the owner: `.jc` is the program of Jaric, short for jaric). The package is the same zip. A game gets its files through `JC_ASSETS` (`JEC_ASSETS` is still set for one more release).
+
 ## 0.7.1
 * The bars of the live view follow the width of the screen (the bar of a job and one bar per core fit in a line, also on a narrow screen).
 
@@ -13,13 +16,13 @@
 
 ## 0.6.0
 * `makej init -pro [NAME]`: the structure of a real project (src/ with src/lib/, tests/ with a runner, docs/, assets/, scripts/release.sh, manifest.toml, VERSION, CHANGELOG.md, README.md, .gitignore) with `makej test`, `makej run`, `makej release`.
-* Systems: `makej targets`, `makej init -game -os android|jaric|linux|all`, `makej dist` (builds for the systems named in manifest.toml: android = apk, jaric = .jec of Jaric OS, linux = a folder), `makej linux`.
+* Systems: `makej targets`, `makej init -game -os android|jaric|linux|all`, `makej dist` (builds for the systems named in manifest.toml: android = apk, jaric = .jc of Jaric OS, linux = a folder), `makej linux`.
 
 ## 0.5.0
 * `makej apk`: an Android app from a game project: the runner (GameActivity, Java) + your program + jpty + assets/ in a signed .apk (needs aapt2 ecj d8 zipalign apksigner and android.jar). `manifest.toml` gets orientation and controls (arrows and two buttons on the screen). The game library is Jaric Engine (`<gamej>`).
 
 ## 0.4.0
-* `makej init -game`: a game project with the library gamej: src/main.jk (a small game), five lessons (makej play1 .. play5), manifest.toml and `makej pack` (NAME.jec, the package of a game: a zip with the manifest, the program and assets/).
+* `makej init -game`: a game project with the library gamej: src/main.jk (a small game), five lessons (makej play1 .. play5), manifest.toml and `makej pack` (NAME.jc, the package of a game: a zip with the manifest, the program and assets/).
 
 ## 0.2.0
 * **Several cores:** `makej -j N` (default: the number of cores that are on) builds N targets at the same time, each as soon as what it needs is done; a failed target stops new ones from starting, the others finish, the exit code is 1.

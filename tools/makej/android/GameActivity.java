@@ -153,7 +153,8 @@ public class GameActivity extends Activity {
             env.put("TERM", "xterm-256color");
             env.put("LANG", "en_US.UTF-8");
             env.put("JARIC", "1");
-            env.put("JEC_ASSETS", new File(files, "data").getPath());
+            env.put("JC_ASSETS", new File(files, "data").getPath());
+            env.put("JEC_ASSETS", new File(files, "data").getPath());      // the old name, one more release
             proc = pb.start();
             toGame = proc.getOutputStream();
             InputStreamReader r = new InputStreamReader(proc.getInputStream(), "UTF-8");

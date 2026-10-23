@@ -58,7 +58,7 @@ if command -v zipj >/dev/null 2>&1 && [ -f "$HOME/Jcmp/build/libs/gamej.j" ]; th
     cd "$T" && mkdir jg && cd jg
     "$MK" init -game -os jaric >/dev/null || { echo "init -game -os"; exit 1; }
     J2K_PATH="$HOME/Jcmp/build/libs" "$MK" dist >/dev/null 2>&1 || { echo "dist jaric"; exit 1; }
-    [ -f _out/game.jec ] && [ ! -f _out/My_Game.apk ] || { echo "dist makes only the jec"; exit 1; }
+    [ -f _out/game.jc ] && [ ! -f _out/My_Game.apk ] || { echo "dist makes only the jc package"; exit 1; }
 fi
 cd "$ROOT"
 echo "makej tests (game): ok"

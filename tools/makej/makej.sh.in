@@ -136,7 +136,7 @@ cat > docs/usage.md <<'MAKEJ_PRO_USE_EOF'
 
 How to use the program, with examples that work.
 MAKEJ_PRO_USE_EOF
-printf '_out/\n*.apk\n*.jec\n.makej_*\n' > .gitignore
+printf '_out/\n*.apk\n*.jc\n.makej_*\n' > .gitignore
     echo "makej: wrote the structure of $nm (makej, src/, tests/, docs/, assets/, scripts/, manifest.toml, VERSION, CHANGELOG.md, README.md). Try: makej test, makej run"
     exit 0
 fi
@@ -214,7 +214,7 @@ if [ "${1:-}" = "targets" ]; then
     cat <<'MAKEJ_TARGETS_EOF'
 makej builds a game or program for these systems (set  os = "android jaric linux"  in manifest.toml, or  makej init -game -os android):
   android   makej apk     an Android app, _out/NAME.apk (the runner + your program + jpty + assets)
-  jaric     makej pack    a .jec, the package of Jaric OS (a zip: manifest.toml, the program, assets/); the program is ARM64 today and
+  jaric     makej pack    a .jc, the package of Jaric OS (a zip: manifest.toml, the program, assets/); the program is ARM64 today and
                           becomes the code for the Jaric OS / the Jaric CPU when the compiler has that target
   linux     makej linux   the program and assets/ in _out/NAME-linux/ (any ARM64 Linux, also Termux)
   makej dist  builds all the systems named in manifest.toml
@@ -229,7 +229,7 @@ if [ "${1:-}" = "linux" ]; then
     rm -rf "_out/$safe-linux"; mkdir -p "_out/$safe-linux"
     cp "_out/$prog" "_out/$safe-linux/$prog"
     [ -d assets ] && cp -r assets "_out/$safe-linux/assets"
-    echo "makej: built _out/$safe-linux/ (run $prog there; JEC_ASSETS=assets finds the data)"
+    echo "makej: built _out/$safe-linux/ (run $prog there; JC_ASSETS=assets finds the data)"
     exit 0
 fi
 if [ "${1:-}" = "dist" ]; then
@@ -321,7 +321,7 @@ cat > makej <<'MAKEJ_GAME_EOF'
 #   makej lesson1 ..    build lesson 1 to 5     makej play1 ..      play lesson 1 to 5
 #   makej dist          build for every system in manifest.toml (os = ...); makej targets lists them
 #   makej apk           build an Android app _out/NAME.apk (needs aapt2 ecj d8 zipalign apksigner and android.jar)
-#   makej pack          build NAME.jec, the package of the game (a zip with manifest.toml, the program and assets/)
+#   makej pack          build NAME.jc, the package of the game (a zip with manifest.toml, the program and assets/)
 [makej]
 out = "_out"
 
@@ -374,22 +374,22 @@ run = "_out/lesson5"
 needs = "lesson5"
 
 [step.pack]
-run = "zipj -q _out/game.jec manifest.toml _out/game assets"
+run = "zipj -q _out/game.jc manifest.toml _out/game assets"
 needs = "game"
 MAKEJ_GAME_EOF
 cat > manifest.toml <<'MAKEJ_GAME_MANIFEST_EOF'
-# the manifest of a .jec package (like AndroidManifest.xml of an apk): what it is and what to run
+# the manifest of a .jc package (like AndroidManifest.xml of an apk): what it is and what to run
 name = "My Game"
 id = "com.example.mygame"
 version = "0.1.0"
 type = "game"
 entry = "_out/game"
 icon = "assets/icon.txt"
-os = "$gos"                    # the systems makej dist builds for: android (apk), jaric (jec), linux  (makej targets)
+os = "$gos"                    # the systems makej dist builds for: android (apk), jaric (jc), linux  (makej targets)
 orientation = "landscape"      # landscape | portrait | sensorLandscape | unspecified (for makej apk)
 controls = true                # arrows and two buttons on the screen of the Android app
 MAKEJ_GAME_MANIFEST_EOF
-sed -i "s/^os = .*/os = \"$gos\"                    # the systems makej dist builds for: android (apk), jaric (jec), linux  (makej targets)/" manifest.toml
+sed -i "s/^os = .*/os = \"$gos\"                    # the systems makej dist builds for: android (apk), jaric (jc), linux  (makej targets)/" manifest.toml
 printf 'GAME\n' > assets/icon.txt
 cat > lessons/lesson1.jk <<'MAKEJ_L1_EOF'
 // Lesson 1: a window and a loop.   makej play1   (Esc ends the game)
@@ -520,7 +520,7 @@ int main() {
 }
 MAKEJ_L5_EOF
 cat > src/main.jk <<'MAKEJ_GAME_SRC_EOF'
-// Your game. Start from here: makej run (build and play), makej pack (make game.jec). The lessons are in lessons/ (makej play1 .. play5).
+// Your game. Start from here: makej run (build and play), makej pack (make game.jc). The lessons are in lessons/ (makej play1 .. play5).
 //   Dodge the blocks: left/right move, space speeds up the world. Esc ends.
 #import <stdlib>
 #import <gamej>
@@ -566,7 +566,7 @@ MAKEJ_GAME_SRC_EOF
 cat > README.md <<'MAKEJ_GAME_README_EOF'
 # My game (made with makej init -game and Jaric Engine)
 
-* `jget -li install gamej` once; then `makej run` plays the game, `makej apk` makes an Android app (`_out/NAME.apk`: install it on the phone), `makej pack` makes `game.jec` (the package of the game: a zip with `manifest.toml`, the program and `assets/`).
+* `jget -li install gamej` once; then `makej run` plays the game, `makej apk` makes an Android app (`_out/NAME.apk`: install it on the phone), `makej pack` makes `game.jc` (the package of the game: a zip with `manifest.toml`, the program and `assets/`).
 * Learn: `makej play1` ... `makej play5` (the files are in `lessons/`, each short, with comments): 1 window and loop, 2 move, 3 gravity and jump, 4 falling things, hit and score, 5 pictures and sound.
 * Jaric Engine = the library `<gamej>`: see `jcmp -showlib gamej` or the top of `~/.j2k/Library/gamej.j`. Draw: clear pixel rect frame_rect line circle text art. Input: held hit. Time: g.dt. Collision: Game::overlap. Sound: g.sound.
 * ภาษาไทย: ไลบรารีชื่อ `<gamej>` วาดบนเทอร์มินัลทั้งจอ (1 ช่อง = 2 พิกเซล) เกมคือลูป: อ่านปุ่ม -> เปลี่ยนโลก -> วาด; ใช้ `g.dt` เพื่อให้ความเร็วเท่ากันทุกเครื่อง

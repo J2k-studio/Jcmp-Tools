@@ -170,10 +170,10 @@ gzj notes.txt               make notes.txt.gz              gzj -d notes.txt.gz  
 `jget -li install gamej`, then `makej init -game` in an empty folder. You get `src/main.jk` (a small game), `lessons/lesson1..5.jk`, `manifest.toml`, `README.md`.
 ```
 makej run            build and play the game          makej play1 .. play5   the lessons (window, move, gravity, hit and score, pictures and sound)
-makej targets        the systems: android (apk), jaric (.jec of Jaric OS), linux
+makej targets        the systems: android (apk), jaric (.jc of Jaric OS), linux
 makej dist           build for every system named in manifest.toml (os = ...); makej init -game -os android|jaric|linux|all
 makej apk            make an Android app _out/NAME.apk (the runner + the game + jpty + assets/; needs aapt2 ecj d8 zipalign apksigner and android.jar; arrows and two buttons are drawn on the screen)
-makej pack           make _out/game.jec, the package of the game (a zip: manifest.toml, the program, assets/)
+makej pack           make _out/game.jc, the package of the game (a zip: manifest.toml, the program, assets/)
 ```
 The library `<gamej>`: `Game g = Game::open("title"); while g.running() { g.begin(); ...draw...; g.end(); } g.close();` Draw: clear pixel rect frame_rect line circle text art. Input: `g.held(Key::left())`, `g.hit(' ')`. Time: `g.dt`. Collision: `Game::overlap(...)`. Sound (Jaric app): `g.sound("a.mp3")`. Esc ends the game.
 
