@@ -5,7 +5,7 @@
 out = "_out"
 
 [step.train]
-run = "neuron train data/chat.txt -o assistant.jw -k 24 -d 12 -h 128 -e 12 -r 0.06"
+run = "neuron train data/chat.txt -o assistant.jw -k 16 -d 10 -h 96 -e 14 -r 0.02"
 
 [step.chat]
 run = "neuron chat assistant.jw -t 0.2"

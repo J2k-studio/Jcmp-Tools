@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.6
+* **Changed:** the bars look like a real progress meter, `[||||||||      ] 62%`: green while the work goes on, yellow after 60%, and **red when the bar is full (100%)**; colours only at a terminal.
+* **Changed:** `makej -j` alone builds with as many jobs as there are cores (like `make -j$(nproc)`); `makej -j N` still takes a number. (Before, `-j` as the last word was taken as the name of a target.)
+
 ## 0.8.5
 * **Changed:** the steps of an -ai project (`makej train`, `chat`, `install`) install the program `neuron` themselves (`jget tool neuron`) when it is not there, so nothing has to be installed by hand first. (The library `neuron` of `jget -li` is a different thing and is not needed.)
 

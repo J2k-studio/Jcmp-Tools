@@ -51,7 +51,10 @@ struct Build {
         while i < a.len {
             if a[i] == "-v" { b.verbose = 1; }
             else if a[i] == "-n" { b.dry = 1; b.verbose = 1; }
-            else if a[i] == "-j" && i + 1 < a.len { b.jobs = a[i + 1].to_int(); i += 1; }
+            else if a[i] == "-j" {                                  // -j N, or -j alone = as many jobs as there are cores (like make -j$(nproc))
+                if i + 1 < a.len && Build::all_digits(a[i + 1]) { b.jobs = a[i + 1].to_int(); i += 1; }
+                else { b.jobs = Build::cores(); }
+            }
             else if a[i].starts_with("-j") && a[i].len > 2 { b.jobs = a[i].slice(2, a[i].len).to_int(); }
             else if a[i] == "install" && i + 1 < a.len { b.want = "install"; b.install_to = a[i + 1]; i += 1; }
             else { b.want = a[i]; }
@@ -231,17 +234,32 @@ struct Build {
         return "";
     }
 
-    // [||||||||      ] 62%
+    static bool all_digits(String t) {
+        if t.len == 0 { return false; }
+        for k in 0..t.len { if t[k] < '0' || t[k] > '9' { return false; } }
+        return true;
+    }
+
+    // [||||||||      ] 62%   at a terminal: the bars are green while the work goes on and RED when the bar is full (100%)
     static String bar(int pct, int width) {
         if pct < 0 { pct = 0; }
         if pct > 100 { pct = 100; }
+        bool color = Sys::isatty(1) == 0;
         int filled = pct * width / 100;
-        String r = "[";
-        for k in 0..width { if k < filled { r = r + "|"; } else { r = r + " "; } }
-        r = r + "] ";
+        String on = "";
+        String off = "";
+        if color {
+            off = "\e[0m";
+            if pct >= 100 { on = "\e[1;31m"; } else if pct >= 60 { on = "\e[33m"; } else { on = "\e[32m"; }
+        }
+        String r = "[" + on;
+        for k in 0..width { if k < filled { r = r + "|"; } }
+        r = r + off;
+        for k in filled..width { r = r + " "; }
+        r = r + "] " + on;
         if pct < 100 { r = r + " "; }
         if pct < 10 { r = r + " "; }
-        return r + str(pct) + "%";
+        return r + str(pct) + "%" + off;
     }
 
     // the bars of the targets that run now (and of the cores of a compile), made again in place
