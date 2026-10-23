@@ -44,4 +44,19 @@ if command -v aapt2 >/dev/null 2>&1 && command -v ecj >/dev/null 2>&1 && command
     unzip -l _out/My_Game.apk | grep "assets/bin/game" >/dev/null || { echo "apk holds the game"; exit 1; }
     cd "$ROOT"
 fi
+# the structure of a project (init -pro) builds and its tests pass; the systems (targets, dist -os jaric)
+mkdir "$T/pro" && cd "$T/pro"
+"$MK" init -pro demo >/dev/null || { echo "init -pro"; exit 1; }
+cd demo
+out=$("$MK" test 2>&1); echo "$out" | grep "all tests passed" >/dev/null || { echo "pro tests: $out"; exit 1; }
+out=$("$MK" run 2>&1); echo "$out" | grep "welcome to project" >/dev/null || { echo "pro run: $out"; exit 1; }
+[ -f VERSION ] && [ -f manifest.toml ] && [ -d docs ] && [ -d tests ] && [ -d scripts ] || { echo "pro layout"; exit 1; }
+"$MK" targets | grep "android" >/dev/null || { echo "targets"; exit 1; }
+if command -v zipj >/dev/null 2>&1 && [ -f "$HOME/Jcmp/build/libs/gamej.j" ]; then
+    cd "$T" && mkdir jg && cd jg
+    "$MK" init -game -os jaric >/dev/null || { echo "init -game -os"; exit 1; }
+    J2K_PATH="$HOME/Jcmp/build/libs" "$MK" dist >/dev/null 2>&1 || { echo "dist jaric"; exit 1; }
+    [ -f _out/game.jec ] && [ ! -f _out/My_Game.apk ] || { echo "dist makes only the jec"; exit 1; }
+fi
+cd "$ROOT"
 echo "makej tests (game): ok"

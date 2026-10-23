@@ -1,6 +1,6 @@
 #!/bin/sh
 # makej: a build tool for J2K projects. The build file is the file "makej" (a simple TOML, written by hand: nano makej) or "makej.jk" (a J2K program).
-#   makej [init [-ai|-game]] [apk] [target] [-v] [-n] [-j N]   makej list   makej clean   makej install FOLDER   makej --version
+#   makej [init [-ai|-game [-os android|jaric|linux]|-pro [NAME]]] [apk|pack|linux|dist|targets] [target] [-v] [-n] [-j N]   makej list   makej clean   makej install FOLDER   makej --version
 # This file is the whole tool: the library of makej is inside it and is written to a cache folder at the first run.
 MAKEJ_VERSION=@VERSION@
 case "${1:-}" in --version|-version) echo "makej $MAKEJ_VERSION"; exit 0 ;; esac
@@ -15,6 +15,130 @@ cat > "$home/makej_file.jk" <<'MAKEJ_FILE_EOF'
 MAKEJ_FILE_EOF
 fi
 export J2K_PATH="$home${J2K_PATH:+:$J2K_PATH}"
+if [ "${1:-}" = "init" ] && [ "${2:-}" = "-pro" ]; then
+    # makej init -pro [NAME]: the structure of a real project
+    nm=${3:-}
+    if [ -n "$nm" ]; then [ -e "$nm" ] && { echo "makej: $nm exists already" >&2; exit 2; }; mkdir -p "$nm" && cd "$nm"; else nm=$(basename "$PWD"); [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }; fi
+    mkdir -p src/lib tests docs assets scripts
+cat > makej <<MAKEJ_PRO_EOF
+# the build file of $nm (makej init -pro). makej list shows everything.
+#   makej            build the program          makej run     build and run          makej test    build and run the tests
+#   makej release    test, then build the files for the systems in manifest.toml (makej dist)
+[makej]
+out = "_out"
+
+[program.$nm]
+main = "src/main.jk"
+flags = ""
+
+[program.tests]
+main = "tests/run_tests.jk"
+flags = "-I src/lib"
+
+[step.run]
+run = "_out/$nm"
+needs = "$nm"
+
+[step.test]
+run = "_out/tests"
+needs = "tests"
+
+[step.release]
+run = "sh scripts/release.sh"
+needs = "tests"
+MAKEJ_PRO_EOF
+cat > src/main.jk <<'MAKEJ_PRO_MAIN_EOF'
+// The program starts here. Put the parts in src/lib/ (each file one idea) and import them next to this file:  #import "lib/util"
+#import <stdlib>
+#import "lib/util"
+
+int main() {
+    cout << "hello, " << greeting("project") << "\n";
+    return 0;
+}
+MAKEJ_PRO_MAIN_EOF
+cat > src/lib/util.j <<'MAKEJ_PRO_UTIL_EOF'
+// A part of the program. A function here is used from main.jk and from the tests.
+String greeting(String who) {
+    return "welcome to " + who;
+}
+
+int add(int a, int b) {
+    return a + b;
+}
+MAKEJ_PRO_UTIL_EOF
+cat > tests/run_tests.jk <<'MAKEJ_PRO_TEST_EOF'
+// The tests. makej test builds and runs this; every check that fails is printed and the exit code is 1.
+#import <stdlib>
+#import "util"          // found through  flags = "-I src/lib"  in the file makej
+
+int failed;
+
+void check(bool ok, String what) {
+    if !ok { cerr << "FAIL: " << what << "\n"; failed += 1; }
+}
+
+int main() {
+    check(add(2, 3) == 5, "add(2, 3) is 5");
+    check(greeting("x") == "welcome to x", "greeting");
+    if failed == 0 { cout << "all tests passed\n"; return 0; }
+    return 1;
+}
+MAKEJ_PRO_TEST_EOF
+cat > scripts/release.sh <<'MAKEJ_PRO_REL_EOF'
+#!/bin/sh
+# release: the tests first (makej release does that), then the files for the systems of manifest.toml. Raise VERSION and CHANGELOG.md before.
+set -eu
+cd "$(dirname "$0")/.."
+makej dist
+echo "release $(cat VERSION): files are in _out/"
+MAKEJ_PRO_REL_EOF
+cat > manifest.toml <<MAKEJ_PRO_MAN_EOF
+# what this project is (read by makej dist / apk / pack)
+name = "$nm"
+id = "com.example.$(printf '%s' "$nm" | tr -c 'a-z0-9' '_')"
+version = "0.1.0"
+type = "app"
+entry = "_out/$nm"
+os = "linux"
+MAKEJ_PRO_MAN_EOF
+    echo "0.1.0" > VERSION
+cat > CHANGELOG.md <<MAKEJ_PRO_CH_EOF
+# Changelog
+
+## 0.1.0
+* The first version.
+MAKEJ_PRO_CH_EOF
+cat > README.md <<MAKEJ_PRO_RD_EOF
+# $nm
+
+What it is, in two lines.
+
+## Build and run
+\`makej\` builds, \`makej run\` runs, \`makej test\` runs the tests, \`makej release\` tests and builds the files for the systems in \`manifest.toml\`.
+
+## Layout
+* \`src/main.jk\` the program; \`src/lib/*.j\` its parts
+* \`tests/\` the tests (\`makej test\`)
+* \`docs/\` design and usage notes
+* \`assets/\` pictures, sounds, data the program reads
+* \`scripts/\` helper scripts (release)
+* \`manifest.toml\` the name, id, version and the systems; \`VERSION\`, \`CHANGELOG.md\`
+MAKEJ_PRO_RD_EOF
+cat > docs/design.md <<'MAKEJ_PRO_DOC_EOF'
+# Design
+
+Why the program is made this way: the parts, the decisions, what is left. Keep it short and true.
+MAKEJ_PRO_DOC_EOF
+cat > docs/usage.md <<'MAKEJ_PRO_USE_EOF'
+# Usage
+
+How to use the program, with examples that work.
+MAKEJ_PRO_USE_EOF
+printf '_out/\n*.apk\n*.jec\n.makej_*\n' > .gitignore
+    echo "makej: wrote the structure of $nm (makej, src/, tests/, docs/, assets/, scripts/, manifest.toml, VERSION, CHANGELOG.md, README.md). Try: makej test, makej run"
+    exit 0
+fi
 if [ "${1:-}" = "init" ] && [ "${2:-}" = "-ai" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
     mkdir -p src data
@@ -85,12 +209,48 @@ cat > data/data.csv <<'MAKEJ_AI_DATA_EOF'
 MAKEJ_AI_DATA_EOF
     echo "makej: wrote makej, src/chat.jk, data/data.csv (jget -li install neuron; then makej train, makej ask)"; exit 0
 fi
+if [ "${1:-}" = "targets" ]; then
+    cat <<'MAKEJ_TARGETS_EOF'
+makej builds a game or program for these systems (set  os = "android jaric linux"  in manifest.toml, or  makej init -game -os android):
+  android   makej apk     an Android app, _out/NAME.apk (the runner + your program + jpty + assets)
+  jaric     makej pack    a .jec, the package of Jaric OS (a zip: manifest.toml, the program, assets/); the program is ARM64 today and
+                          becomes the code for the Jaric OS / the Jaric CPU when the compiler has that target
+  linux     makej linux   the program and assets/ in _out/NAME-linux/ (any ARM64 Linux, also Termux)
+  makej dist  builds all the systems named in manifest.toml
+MAKEJ_TARGETS_EOF
+    exit 0
+fi
+if [ "${1:-}" = "linux" ]; then
+    prog=${2:-game}
+    sh "$0" "$prog" || exit 2
+    nm=$(sed -n 's/^name *= *"\([^"]*\)".*/\1/p' manifest.toml 2>/dev/null | head -1); [ -n "$nm" ] || nm=$prog
+    safe=$(printf '%s' "$nm" | tr -c 'A-Za-z0-9._-' '_')
+    rm -rf "_out/$safe-linux"; mkdir -p "_out/$safe-linux"
+    cp "_out/$prog" "_out/$safe-linux/$prog"
+    [ -d assets ] && cp -r assets "_out/$safe-linux/assets"
+    echo "makej: built _out/$safe-linux/ (run $prog there; JEC_ASSETS=assets finds the data)"
+    exit 0
+fi
+if [ "${1:-}" = "dist" ]; then
+    [ -f manifest.toml ] || { echo "makej: there is no manifest.toml here" >&2; exit 2; }
+    oses=$(sed -n 's/^os *= *"\([^"]*\)".*/\1/p' manifest.toml | head -1)
+    [ -n "$oses" ] || oses="android jaric linux"
+    for o in $oses; do
+        case "$o" in
+            android) sh "$0" apk || exit 2 ;;
+            jaric) sh "$0" pack || exit 2 ;;
+            linux) sh "$0" linux || exit 2 ;;
+            *) echo "makej: unknown system '$o' (makej targets lists them)" >&2; exit 2 ;;
+        esac
+    done
+    exit 0
+fi
 if [ "${1:-}" = "apk" ]; then
     # makej apk [PROGRAM]: an Android app (an .apk) from the game: the runner (GameActivity) + the program + jpty + assets/. Needs aapt2 ecj d8 zipalign apksigner and android.jar.
     prog=${2:-game}
     [ -f manifest.toml ] || { echo "makej: there is no manifest.toml here (makej init -game writes one)" >&2; exit 2; }
-    mk() { sed -n "s/^$1 *= *\"\(.*\)\" *\$/\1/p" manifest.toml | head -1; }
-    mkb() { sed -n "s/^$1 *= *\([a-z]*\) *\$/\1/p" manifest.toml | head -1; }
+    mk() { sed -n "s/^$1 *= *\"\([^\"]*\)\".*/\1/p" manifest.toml | head -1; }
+    mkb() { sed -n "s/^$1 *= *\([a-z]*\).*/\1/p" manifest.toml | head -1; }
     name=$(mk name); id=$(mk id); ver=$(mk version); orient=$(mk orientation); ctrl=$(mkb controls)
     [ -n "$name" ] && [ -n "$id" ] && [ -n "$ver" ] || { echo "makej: manifest.toml needs name, id and version" >&2; exit 2; }
     case "$id" in *.*) ;; *) echo "makej: the id in manifest.toml needs a dot (for example com.you.mygame)" >&2; exit 2 ;; esac
@@ -149,11 +309,16 @@ MAKEJ_AM_EOF
 fi
 if [ "${1:-}" = "init" ] && [ "${2:-}" = "-game" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
+    gos="android jaric linux"
+    if [ "${3:-}" = "-os" ]; then
+        case "${4:-}" in android|jaric|linux) gos=$4 ;; all) ;; *) echo "makej: -os needs android, jaric, linux or all (makej targets)" >&2; exit 2 ;; esac
+    fi
     mkdir -p src lessons assets
 cat > makej <<'MAKEJ_GAME_EOF'
 # a game project (makej init -game): Jaric Engine, the library gamej.  Needs it:  jget -li install gamej
 #   makej game          build the game          makej run           build and play
 #   makej lesson1 ..    build lesson 1 to 5     makej play1 ..      play lesson 1 to 5
+#   makej dist          build for every system in manifest.toml (os = ...); makej targets lists them
 #   makej apk           build an Android app _out/NAME.apk (needs aapt2 ecj d8 zipalign apksigner and android.jar)
 #   makej pack          build NAME.jec, the package of the game (a zip with manifest.toml, the program and assets/)
 [makej]
@@ -219,9 +384,11 @@ version = "0.1.0"
 type = "game"
 entry = "_out/game"
 icon = "assets/icon.txt"
+os = "$gos"                    # the systems makej dist builds for: android (apk), jaric (jec), linux  (makej targets)
 orientation = "landscape"      # landscape | portrait | sensorLandscape | unspecified (for makej apk)
 controls = true                # arrows and two buttons on the screen of the Android app
 MAKEJ_GAME_MANIFEST_EOF
+sed -i "s/^os = .*/os = \"$gos\"                    # the systems makej dist builds for: android (apk), jaric (jec), linux  (makej targets)/" manifest.toml
 printf 'GAME\n' > assets/icon.txt
 cat > lessons/lesson1.jk <<'MAKEJ_L1_EOF'
 // Lesson 1: a window and a loop.   makej play1   (Esc ends the game)

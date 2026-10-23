@@ -160,10 +160,15 @@ tarj x out.tar.gz -o dest   open (a gzip inside is found)  tarj t out.tar   list
 gzj notes.txt               make notes.txt.gz              gzj -d notes.txt.gz   open it
 ```
 
+## 5b. makej init -pro: the structure of a project
+`makej init -pro NAME` makes a folder with `src/` (`main.jk`, `lib/`), `tests/` (a runner), `docs/`, `assets/`, `scripts/release.sh`, `manifest.toml`, `VERSION`, `CHANGELOG.md`, `README.md`, `.gitignore` and a build file with `makej`, `makej run`, `makej test`, `makej release`. Your own parts go in `src/lib/*.j` (found by `#import "name"` through `flags = "-I src/lib"`).
+
 ## 6d. Jaric Engine: games with makej init -game
 `jget -li install gamej`, then `makej init -game` in an empty folder. You get `src/main.jk` (a small game), `lessons/lesson1..5.jk`, `manifest.toml`, `README.md`.
 ```
 makej run            build and play the game          makej play1 .. play5   the lessons (window, move, gravity, hit and score, pictures and sound)
+makej targets        the systems: android (apk), jaric (.jec of Jaric OS), linux
+makej dist           build for every system named in manifest.toml (os = ...); makej init -game -os android|jaric|linux|all
 makej apk            make an Android app _out/NAME.apk (the runner + the game + jpty + assets/; needs aapt2 ecj d8 zipalign apksigner and android.jar; arrows and two buttons are drawn on the screen)
 makej pack           make _out/game.jec, the package of the game (a zip: manifest.toml, the program, assets/)
 ```
