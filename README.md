@@ -1,58 +1,72 @@
 # Jcmp-Tools
 
-Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compiler `jcmp`, written in J2K. Each tool is one program (one file), made for Linux ARM64 (for example Termux).
+Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compiler `jcmp`, written in J2K. Each tool is one program (one file) for Linux ARM64 (Termux, the **Jaric app**, a Linux machine). Together with the app they are **Jaric OS in its console mode**: a shell, packages, an editor, a player, a build tool, and a protocol that lets programs ask the system for pictures, sound and settings.
 
 | tool | what it does |
 |---|---|
-| [jget](tools/jget/README.md) | download files from the web (https, a progress bar) and the libraries of J2K |
-| [makej](tools/makej/README.md) | a build tool for J2K projects: the build file is a plain file (`nano makej`) or a J2K program |
-| [jsh](tools/jsh/README.md) | a small shell: line editing, ghost text, pipes, variables, aliases, scripts with if / while / for / functions (MPL-2.0) |
-| [jbox](tools/jbox/README.md) | `ls cat grep sort cp mv rm ...` in one program (MPL-2.0) |
-| [jpty](tools/jpty/README.md) | run a program on a pseudo terminal, driven through two pipes (MPL-2.0) |
-| [coderin](tools/coderin/README.md) | a text editor for the terminal: colours for J2K, select, copy and paste, find (MPL-2.0) |
-
-(more will come here, for example a build tool.)
+| [jget](tools/jget/README.md) | download files (https, progress bar), songs (`-m`), the libraries of J2K (`-li`), and the other tools (`jget tool NAME`) |
+| [makej](tools/makej/README.md) | the build tool: `makej`, `-j N` (many cores), `init`, `init -pro`, `init -game`, `init -ai`, `apk`, `pack` (.jec), `dist`, `targets` |
+| [jsh](tools/jsh/README.md) | the shell: line editing, ghost text, pipes, redirects, scripts, aliases, `jaric setting`, `jaric video` (MPL-2.0) |
+| [jbox](tools/jbox/README.md) | about 60 small commands in one program: `dir cat grep sort sed find tree rev paste printf base64 sha256sum ...` (MPL-2.0) |
+| [coderin](tools/coderin/README.md) | a text editor for the terminal with J2K colours, extensions and the compiler's errors (MPL-2.0) |
+| [mujic](tools/mujic/README.md) | a music player: your songs, free songs to fetch, search the Internet Archive, synced lyrics |
+| [zipj](tools/zipj/README.md) | `zipj` makes zip files, `unj` opens them (a password, `-f`, `-o`) (MPL-2.0) |
+| [tarj](tools/tarj/README.md) | `tarj` makes and opens tar / tar.gz, `gzj` packs one file with gzip |
+| [jpty](tools/jpty/README.md) | run a program on a pseudo terminal (for apps and tests) (MPL-2.0) |
+| jcmp | the compiler and its library, as a tool: `jget tool jcmp` |
 
 ## Install
 
-Choose what to install:
-
 ```
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh                 # a menu (jget when there is no terminal)
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- jget       # the tools you name
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh                 # a menu
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- jget makej  # the tools you name
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- --all      # every tool
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install-jget.sh | sh             # one tool: install-NAME.sh
 ```
+Options after `sh -s --`: `--dir DIR` (default `$PREFIX/bin` on Termux, else `~/.local/bin`), `--version X.Y.Z`, `--list`, `--yes`. Every file is checked with its SHA-256. With `jget` installed: `jget tool list`, `jget tool NAME`, `jget tool all` (and it links the second names: `unj`, `gzj`, the commands of jbox). In the Jaric app: `install NAME` in the shell.
+Libraries of J2K (`#import <name>`): `jget -li list`, `jget -li install gamej` (the game engine), `neuron` (small neural networks), `deflate` (gzip, CRC-32) and more.
 
-Options (after `sh -s --`): `--dir DIR` (default `$PREFIX/bin` on Termux, else `~/.local/bin`), `--version X.Y.Z` (one tool), `--list`, `--yes` (never ask). Every file is checked with its SHA-256 before it is put in the folder.
-
-## How to use them (a short tour)
+## How it all works (the short picture)
 
 ```
-# a phone or a Linux ARM64 machine with jcmp installed (github.com/J2k-studio/Jcmp)
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- jbox jsh coderin makej
+ you type -> jsh (the shell) -> a program (coderin, makej, mujic, your own ...)
+                 |                      |  text goes to the terminal
+                 |                      |  pictures, sound, video, settings: messages  ESC ] 7777 ; ... BEL
+              jpty (a pseudo terminal)  v
+                 +------------- the Jaric app (Android) ---- screen, speakers, touch, clipboard
+```
+* **Everything is a program** that reads the keyboard and writes text; the Jaric app draws that text, and also understands small messages (`7777;gfx`, `7777;audio`, `7777;video`, `7777;theme`, ...) so a program can show a picture or play a sound. Elsewhere (any terminal) the messages are ignored and the program falls back to text. The full list: `docs/app-protocol.md` in the Jaric documents.
+* **Packages:** a tool is one file; a program with data is a **`.jec`** (a zip: `manifest.toml`, the program, `assets/`) made by `makej pack`; an Android app is an **`.apk`** made by `makej apk`.
+* **Settings** are plain text files you can edit (`usr/etc/config.local`, `theme.toml`, `~/.jshrc`); `jaric setting` is a screen over them.
+* **Standard:** every tool answers `--version` and `--help`, prints errors as `name: message`, exits 0 / 1 / 2, and is tested before a release ([docs/STANDARD.md](docs/STANDARD.md)).
 
-jsh                         # the shell: Tab takes the grey ghost text, Ctrl-J starts another line, Ctrl-D leaves
-coderin hello.jk            # write:  void main() { cout << "hi\n"; }   Ctrl-S saves, Ctrl-Q quits
+## How to write programs (a tour)
+
+```
+coderin hello.jk                  # Esc leaves, Ctrl-S saves.  void main() { cout << "hi\n"; }
 jcmp hello.jk -o hello && ./hello
-makej init                  # a build file for a bigger project; then  makej  and  makej -j 4
+makej init -pro mytool            # a project with the right structure (src/, tests/, docs/, manifest.toml ...)
+cd mytool && makej test && makej run
+makej init -game                  # a game with Jaric Engine (library <gamej>) and 5 lessons: makej play1 ... play5
+makej apk                         # the game as an Android app;  makej pack = a .jec;  makej dist = every system in manifest.toml
+makej init -ai                    # a small neural network (library <neuron>)
 ```
+* The language: [github.com/J2k-studio/Jcmp](https://github.com/J2k-studio/Jcmp) (`docs/LANGUAGE.md`; every example compiles). Libraries are used with `#import <name>`; your own files with `#import "name"`.
+* `jcmp -d prog.jk` finds memory errors; `jcmp -l lib.jk -o lib.so` makes a shared library (`export` marks the entry points); `jcmp -target arm32` builds for 32-bit ARM.
+* A game: `Game g = Game::open("title"); while g.running() { g.begin(); ...draw...; g.end(); } g.close();` (clear, rect, circle, text, art, held, hit, touch, sound). In the app it draws on a surface with the graphics chip; in a terminal with half blocks.
 
-* **jbox** makes the commands `dir cat head tail wc grep sort uniq cp mv rm mkdir rmdir touch tee seq basename dirname sleep clear env kill true false` (it links them next to itself when installed).
-* **jsh** scripts: `if` / `elif` / `else`, `while`, `until`, `for`, functions, `$(command)`, `$((1 + 2))`, `test` / `[ ]`, `break` / `continue`; `jsh file.sh`, `jsh -c "commands"`.
-* **coderin** keys: Shift + arrows select, Ctrl-C / X / V copy, cut, paste, Ctrl-F find, Ctrl-G go to a line.
-* **jpty** runs a program on a pseudo terminal: `jpty -w 100 -h 30 /path/to/program` (for apps and tests).
-* The Jaric app for Android (a terminal with sessions, tiles and these tools inside) is in the releases of this repository (`jaric-v…`).
+## Using many cores
+
+* **Building:** `makej -j 8` builds up to 8 things at once (the default is the number of cores); a target starts as soon as what it needs is done. `makej -j 1` is one by one.
+* **Running:** `#multithread` on the line before a `for i in a..b` loop splits the range over all cores (no `break` / `return` inside); threads and atomics are in the language (`Atomic::`, `Thread`).
+* **The compiler itself** works on one core today (it compiles itself in about 2.4 s). Its `-cache DIR` keeps the code of functions that did not change, so a second build is much faster. A parallel code generator is on the plan.
+* **Speed of the code:** `jcmp` makes native code; loops get their test at the bottom, values stay in registers, SIMD vectors (`vec`, `Simd`) use the NEON units.
 
 ## For the maker of a tool
 
-**Layout:** `tools/` holds only the tools (programs); `extensions/` the extensions of coderin (`coderin -ex NAME`); the scripts `install.sh` and `install-NAME.sh` and the list `tools.txt` stay at the top (their addresses are used by `curl` and by `jget`). The `jcmp` tool brings the extension `extensions/jcmp` with it.
-
-**The guide with every command and examples: [docs/GUIDE.md](docs/GUIDE.md).**
-
-A tool lives in `tools/NAME/` (its source, `VERSION`, `LATEST` = the newest released version, `test.sh`, `release.sh`). A release has the tag `NAME-vX.Y.Z` with the files `NAME` and `SHA256SUMS`. Add a line to `tools.txt` (`NAME|what it is`) and `install-NAME.sh` is the same as `install.sh NAME`.
+**Layout:** `tools/` holds only the tools; `extensions/` the extensions of coderin (`coderin -ex NAME`); `install.sh` and `install-NAME.sh` and the list `tools.txt` stay at the root (they have public addresses). A tool lives in `tools/NAME/` (its source, `README.md`, `CHANGELOG.md`, `VERSION`, `LATEST`, `test.sh`, `release.sh`). A release has the tag `NAME-vX.Y.Z` with the file `NAME` and `SHA256SUMS`.
+**The guide with every command and examples: [docs/GUIDE.md](docs/GUIDE.md). The rules every tool follows: [docs/STANDARD.md](docs/STANDARD.md).**
 
 The old address `github.com/J2k-studio/Jget` leads here.
 
 ## Licences
-The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox, jpty and coderin** are under the Mozilla Public License 2.0: each of their folders has its own `LICENSE`.
+The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox, jpty, coderin, zipj, tarj and mujic** are under the Mozilla Public License 2.0: each of their folders has the text.
