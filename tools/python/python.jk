@@ -1,0 +1,67 @@
+#import <stdlib>
+#import <native>
+// python: starts the CPython of the Android build (libpython3.14.so, python.org) that lies next to this program.
+//   python [arguments of python]          the same program called  yt-dlp  runs  yt-dlp.pyz  (the program of yt-dlp) with its arguments
+// The folder python-android (lib/, etc/cert.pem) comes with  jget tool python .  PYTHONHOME and SSL_CERT_FILE are set here.
+// License: MPL-2.0 (this launcher); Python: PSF license; yt-dlp: Unlicense.
+char g_pool[16384];
+int g_used;
+
+// the C string of a text, kept in g_pool
+int cstr(String s) {
+    int at = g_used;
+    for k in 0..s.len { if g_used < 16380 { g_pool[g_used] = s[k]; g_used += 1; } }
+    g_pool[g_used] = 0;
+    g_used += 1;
+    return (int)@g_pool + at;
+}
+
+String dir_of(String path) {
+    int cut = 0;
+    for i in 0..path.len { if path[i] == '/' { cut = i; } }
+    return path.slice(0, cut);
+}
+
+String name_of(String path) {
+    int cut = -1;
+    for i in 0..path.len { if path[i] == '/' { cut = i; } }
+    return path.slice(cut + 1, path.len);
+}
+
+int main() {
+    char exe[1024];
+    int n = Sys::readlink("/proc/self/exe", @exe, 1000);
+    if n <= 0 { cerr << "python: cannot find where this program is\n"; return 1; }
+    exe[n] = 0;
+    String me = (char^)@exe;
+    String here = dir_of(me);
+    String home = here + "/python-android";
+    if !Dir::exists(home + "/lib/python3.14") { cerr << "python: the folder " << home << " is missing  (jget tool python)\n"; return 1; }
+    // the libraries that the modules ssl and sqlite3 need are loaded first, by full path (the loader then finds them by name)
+    Native::open(home + "/lib/libcrypto_python.so");
+    Native::open(home + "/lib/libssl_python.so");
+    Native::open(home + "/lib/libsqlite3_python.so");
+    int lib = Native::open(home + "/lib/libpython3.14.so");
+    if lib == 0 { cerr << "python: cannot load libpython3.14.so (this program needs: jcmp -dyn, Android ARM64)\n"; return 1; }
+    int fn = Native::sym(lib, "Py_BytesMain");
+    int libc = Native::open("libc.so");
+    int setenv = Native::sym(libc, "setenv");
+    if setenv != 0 {
+        Native::call3(setenv, cstr("PYTHONHOME"), cstr(home), 1);
+        Native::call3(setenv, cstr("PYTHONDONTWRITEBYTECODE"), cstr("1"), 1);
+        bool have_cert = false;
+        switch Env::get("SSL_CERT_FILE") {
+            Option::Some(c): { if c.len > 0 { have_cert = true; } }
+            Option::None: { }
+        }
+        if !have_cert { Native::call3(setenv, cstr("SSL_CERT_FILE"), cstr(home + "/etc/cert.pem"), 1); }
+    }
+    String[] args = Env::args();
+    int argv[96];
+    int c = 0;
+    argv[c] = cstr("python3"); c += 1;
+    if name_of(me) == "yt-dlp" { argv[c] = cstr(here + "/yt-dlp.pyz"); c += 1; }
+    for i in 1..args.len { if c < 94 { argv[c] = cstr(args[i]); c += 1; } }
+    argv[c] = 0;
+    return Native::call2(fn, c, (int)@argv);
+}

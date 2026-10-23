@@ -80,8 +80,10 @@ for N in $NAMES; do
     HAVE="$(sha256sum "$TMP/$N" | cut -d' ' -f1)"
     [ -n "$WANT" ] && [ "$WANT" = "$HAVE" ] || { echo "install: the checksum of $N does not match, nothing installed"; exit 1; }
     cp "$TMP/$N" "$BINDIR/.$N.new"; chmod +x "$BINDIR/.$N.new"; mv -f "$BINDIR/.$N.new" "$BINDIR/$N"
-    echo "installed: $BINDIR/$N  ($("$BINDIR/$N" --version 2>/dev/null | head -1))"
+    if [ "$N" = python ]; then echo "installed: $BINDIR/python  (Python 3.14, $BINDIR/python3 is a link)"; else
+    echo "installed: $BINDIR/$N  ($("$BINDIR/$N" --version 2>/dev/null | head -1))"; fi
     case "$N" in jbox|zipj|tarj) "$BINDIR/$N" --install "$BINDIR" 2>/dev/null || true ;; esac
+    case "$N" in python) ln -sf python "$BINDIR/python3" ;; esac
     # the files that belong to the tool (the library of the compiler): NAME-files.tar, when the release has it
     FW="$(grep " $N-files.tar\$" "$TMP/SHA256SUMS.$N" | cut -d' ' -f1 || true)"
     if [ -n "$FW" ]; then
