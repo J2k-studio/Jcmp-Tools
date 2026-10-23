@@ -45,3 +45,17 @@ int main() {
 * Install: put this folder anywhere and link `makej` into your `PATH`; the library `lib/makej.j` is found next to the script (or in `MAKEJ_LIB`).
 
 Status: a prototype (2026-10-22) written before the usage was designed; the design and its open questions are in [docs/usage-design.md](docs/usage-design.md). Nothing about the commands or the build file is final.
+
+## Install
+```
+jget tool makej                                                        # with jget
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s makej     # with curl (no jget needed)
+```
+In jsh: `install makej`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+
+## A short lesson
+1. In your project folder: `makej init` writes a starting file called `makej` (a plain text file; `makej init -game` or `-pro` for a game or a bigger project).
+2. Edit it with `coderin makej`: the targets, the sources, what each one needs.
+3. `makej` builds everything that changed, `makej list` shows the targets, `makej -n` shows what would run without running it.
+4. Many cores: `makej -j` builds the targets together and draws a bar for each job (`makej -j 4` uses four).
+5. `makej clean` removes the results, `makej install FOLDER` builds and copies them.

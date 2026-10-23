@@ -23,3 +23,17 @@ _out/jsh
 
 ## Colours of the prompt
 Put in `~/.jshrc`: `export JSH_COLOR_MARK=sky` (also `JSH_COLOR_NAME` for `jc`, `JSH_COLOR_PATH`, `JSH_COLOR_ERROR` for the mark after a failure). A value is a name (white grey black red green blue sky cyan yellow orange magenta), `#rrggbb` or `r,g,b`.
+
+## Install
+```
+jget tool jsh                                                        # with jget
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jsh     # with curl (no jget needed)
+```
+In jsh: `install jsh`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+
+## A short lesson
+1. Start it: `jsh`. Type a few letters: the grey ghost text is the newest history line that continues them; Tab takes it.
+2. Pipes and files: `ls | sort > list.txt`, then `cat list.txt`; `a && b` runs b only if a worked.
+3. Variables and aliases: `NAME=world`, `echo hello $NAME`, `alias ll="ls -l"`; put the lines you want every time in `~/.jshrc`.
+4. A script is a text file of commands: write `hello.jc` with the line `if [ -z "$1" ]; then echo hi; else echo hi $1; fi`, then run it with `jsh hello.jc ana` (any file name works).
+5. In the Jaric app: `jaric setting` for the look, `jaric theme NAME`, `jaric font 12`, `jaric -restart` to start the app again.

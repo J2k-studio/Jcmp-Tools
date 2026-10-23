@@ -26,3 +26,17 @@ sh test.sh       # needs python3 and gzip
 ```
 
 **Licence:** Mozilla Public License 2.0 (`LICENSE` in this folder).
+
+## Install
+```
+jget tool zipj                                                        # with jget
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s zipj     # with curl (no jget needed)
+```
+In jsh: `install zipj`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+
+## A short lesson
+1. Pack: `zipj out.zip file1 folder` (folders go in with everything inside).
+2. Look inside first: `unj out.zip -l`.
+3. Open: `unj out.zip` (here), `unj out.zip -f` (into a folder named like the file) or `unj out.zip -o dest`.
+4. A password: `zipj out.zip secret.txt -p` asks for it (nothing is shown while you type); `unj out.zip -p word` or leave `-p` out and it asks. The old ZIP password is not strong.
+5. A `.gz` file opens with `unj file.gz`. A name with `..` or a first `/` is skipped on purpose.

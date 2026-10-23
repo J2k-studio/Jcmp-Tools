@@ -17,3 +17,17 @@ Your own lyrics: put `Song.lrc` (`[01:23.45]words`) or `Song.txt` next to `Song.
 Sound: in the Jaric app the app plays (mp3, ogg, m4a, flac, wav); elsewhere `termux-media-player`, `mpv`, `ffplay` or `mpg123` when one is installed.
 License: MPL-2.0. Build: `JCMP=path sh build.sh` (jcmp 1.1.0.0 or newer). Test: `sh test.sh` (python3).
 The lyrics come from lrclib.net when you ask; they belong to their authors: keep them for your own use.
+
+## Install
+```
+jget tool mujic                                                        # with jget
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s mujic     # with curl (no jget needed)
+```
+In jsh: `install mujic`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+
+## A short lesson
+1. Start: `mujic`. The first time the folder `~/music` is empty: type `/get` and choose a free song from the catalog.
+2. Play: type a few letters of the name and Enter; `/play` opens a list; Space pauses; left / right seek.
+3. Add your own songs: put the files in `~/music`, or `/import PATH` (a file or a folder); `/mv NAME FOLDER` sorts a song into a folder.
+4. Lyrics: `/lyrics get` fetches them; `/lyrics` shows them with the line that is sung lit.
+5. A site address (YouTube, SoundCloud, ...): `/get ADDRESS` runs `yt-dlp` when you have installed it (`pip install yt-dlp`); use it only for what you may download.

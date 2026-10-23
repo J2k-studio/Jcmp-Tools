@@ -35,3 +35,17 @@ sh test.sh
 ```
 
 **Licence:** Mozilla Public License 2.0 (`LICENSE` in this folder).
+
+## Install
+```
+jget tool coderin                                                        # with jget
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s coderin     # with curl (no jget needed)
+```
+In jsh: `install coderin`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+
+## A short lesson
+1. Open or make a file: `coderin hello.jk`. Type: brackets close for you; Tab after `main` writes a program skeleton.
+2. Save with Ctrl-S. Errors of the compiler show as red `!` numbers after a save (when `jcmp` is installed).
+3. Move and select: arrows; Shift + arrows select; a click puts the cursor, a drag selects. Copy Ctrl-C, cut Ctrl-X, paste Ctrl-V, undo Ctrl-Z.
+4. Find Ctrl-F, go to a line Ctrl-G; the command bar Ctrl-E: `replace old new`, `set tabsize 4`, `colorscheme light`.
+5. Quit with Ctrl-Q (twice to leave without saving).
