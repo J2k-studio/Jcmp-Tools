@@ -21,7 +21,15 @@ MK="$ROOT/dist/makej"
 mkdir "$T/ai" && cd "$T/ai"
 "$MK" init -ai >/dev/null || { echo "init -ai"; exit 1; }
 mkdir -p "$ROOT/_neuron" ; cp "$ROOT/../../../Jcmp/build/libs/neuron.j" "$ROOT/_neuron/" 2>/dev/null || cp "$HOME/Jcmp/build/libs/neuron.j" "$ROOT/_neuron/"
-J2K_PATH="$ROOT/_neuron" "$MK" train | grep "trained on 4 rows" >/dev/null || { echo "ai train"; exit 1; }
+J2K_PATH="$ROOT/_neuron" "$MK" numeric_train | grep "trained on 4 rows" >/dev/null || { echo "ai numeric train"; exit 1; }
+# the language model step needs the tool neuron: build it here and put it on the PATH
+NB="$ROOT/../neuron"
+if [ -f "$NB/neuron.jk" ]; then
+    mkdir -p "$ROOT/_neuronbin"; ( cd "$NB" && J2K_PATH="$ROOT/_neuron" "${JCMP:-jcmp}" neuron.jk -o "$ROOT/_neuronbin/neuron" ) >/dev/null 2>&1 || { echo "ai: neuron does not build"; exit 1; }
+    PATH="$ROOT/_neuronbin:$PATH" "$MK" train | grep "saved assistant.jw" >/dev/null || { echo "ai train (neuron)"; exit 1; }
+    [ -f assistant.jw ] || { echo "ai: assistant.jw is missing"; exit 1; }
+    rm -rf "$ROOT/_neuronbin"
+fi
 rm -rf "$ROOT/_neuron"
 echo "makej tests: ok"
 # list, clean, -n, install

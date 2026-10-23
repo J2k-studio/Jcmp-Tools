@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.1
+* **Changed:** `makej init -ai` (also `makej -ai`) now writes a project for the tool neuron: `data/chat.txt` (a talk to learn), and the steps `makej train` (writes `assistant.jw`, the whole AI in one file), `makej chat`, `makej install` (makes it the assistant of the phone); the small numeric example stays as `makej numeric_train` / `numeric_ask`.
+
 ## 0.8.0
 * **`makej pack` makes `NAME.jc`** (was `.jec`; the owner: `.jc` is the program of Jaric, short for jaric). The package is the same zip. A game gets its files through `JC_ASSETS` (`JEC_ASSETS` is still set for one more release).
 
