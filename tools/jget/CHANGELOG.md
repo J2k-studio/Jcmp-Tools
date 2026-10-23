@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.4
+* `jget untar FILE [DIR]` opens a `.tar` or a gzip-packed tar (`.tar.gz`, `.tgz`); the files of a tool may now be packed with gzip. jget imports the library `deflate` (build: `jget -li install deflate`, or J2K_PATH to the library folder).
+
 ## 0.7.3
 * `jget -m URL ...` puts songs from links in the music folder (~/music, or $MUJIC_DIR) for mujic; `-O` decodes %20 and other escapes in the file name.
 

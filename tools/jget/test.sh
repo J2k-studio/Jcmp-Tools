@@ -10,8 +10,15 @@ FAILS=0
 ok()  { echo "PASS  $1"; }
 bad() { echo "FAIL  $1"; FAILS=$((FAILS+1)); }
 t()   { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
+# jget imports the library deflate (jget -li install deflate, or the folder of the Jcmp sources: build/libs)
+[ -z "${J2K_PATH:-}" ] && [ -d "$HOME/Jcmp/build/libs" ] && export J2K_PATH="$HOME/Jcmp/build/libs"
 $JCMP jget.jk -o "$W/jget" >"$W/build.txt" 2>&1 || { cat "$W/build.txt"; echo "FAIL  jget does not build"; exit 1; }
 J="$W/jget"
+mkdir -p "$W/tz/src/sub"; echo hello > "$W/tz/src/a.txt"; echo deep > "$W/tz/src/sub/b.txt"
+( cd "$W/tz" && tar czf t.tar.gz src && tar cf t.tar src )
+mkdir "$W/tz/o1" "$W/tz/o2"
+"$J" untar "$W/tz/t.tar" "$W/tz/o1" && "$J" untar "$W/tz/t.tar.gz" "$W/tz/o2"
+t "untar: a tar and a gzip-packed tar" '[ "$(cat "$W/tz/o1/src/sub/b.txt")" = deep ] && [ "$(cat "$W/tz/o2/src/a.txt")" = hello ]'
 head -c 300000 /dev/urandom > "$W/www/big.bin"
 printf 'hello jget\n' > "$W/www/page.txt"
 printf '#!/bin/sh\necho "ran with $1"\n' > "$W/www/hello.sh"

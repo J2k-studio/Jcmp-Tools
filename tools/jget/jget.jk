@@ -29,9 +29,10 @@
 //   JGET_LIB    the library folder - default: ~/.j2k/Library, where `#import <name>` looks for libraries
 // A library is one J2K source file NAME.j. Nothing from a library is run when it is installed.
 #import <stdlib>
+#import <deflate>
 using stdlib;
 
-String jget_version() { return "0.7.3"; }
+String jget_version() { return "0.7.4"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -421,6 +422,7 @@ int usage() {
        jget -li list | installed        libraries (the index / the installed ones)\n");
     err("       jget -li install NAME            install a library\n");
     err("       jget -li unstall NAME            remove a library\n");
+    err("       jget untar FILE [DIR]            open a .tar or a .tar.gz (.tgz) here or in DIR\n");
     err("       jget --version\n");
     return 1;
 }
@@ -637,7 +639,30 @@ int tar_number(char^ p, int len) {
     return v;
 }
 // puts the files of the tar into the folder dir; a name with .. or a name that starts with / is refused
+// a tar that is packed with gzip (the files of a tool, a .tar.gz): unpacked next to itself first, then read as a tar
 bool untar(String path, String dir) {
+    int g = Sys::open_read(path.c());
+    if g < 0 { err("jget: cannot read " + path + "\n"); return false; }
+    char magic[2];
+    int got = Sys::read(g, @magic, 2);
+    Sys::close(g);
+    if got == 2 && (magic[0] & 255) == 31 && (magic[1] & 255) == 139 {
+        Result<String, Error> rz = Fs::read_bytes(path);
+        if !rz.is_ok() { err("jget: cannot read " + path + "\n"); return false; }
+        bool zok = false;
+        String plain = Gzip::unpack(rz.take(), @zok);
+        if !zok { err("jget: the gzip file " + path + " is damaged\n"); return false; }
+        String tmp = path + ".plain";
+        if !Fs::write_bytes(tmp, plain).is_ok() { err("jget: cannot write " + tmp + "\n"); return false; }
+        plain = "";
+        bool good = untar_plain(tmp, dir);
+        Fs::remove(tmp);
+        return good;
+    }
+    return untar_plain(path, dir);
+}
+
+bool untar_plain(String path, String dir) {
     int fd = Sys::open_read(path.c());
     if fd < 0 { err("jget: cannot read " + path + "\n"); return false; }
     char h[512];
@@ -838,6 +863,14 @@ int main() {
     if first == "-li" { return cmd_library(av, 2); }
     if first == "-sh" { return cmd_run_script(av, 2); }
     if first == "tool" { return cmd_tool(av, 2); }
+    if first == "untar" {                                  // jget untar FILE [DIR] : a .tar or a gzip-packed tar (.tar.gz, .tgz)
+        if av.len < 3 { return usage(); }
+        String into = ".";
+        if av.len >= 4 { into = av[3]; }
+        make_dir(into);
+        if untar(av[2], into) { return 0; }
+        return 1;
+    }
     if first == "-m" { return cmd_music(av, 2); }
     if first == "--install" { return cmd_install_self(av, 2); }
     if first == "--update" { return cmd_update_self(); }
