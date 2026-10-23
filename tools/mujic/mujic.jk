@@ -1358,9 +1358,27 @@ int do_lyrics(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.3.2";
+    String VERSION = "0.3.3";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
+    // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
+    if args.len > 1 && args[1] == "-session" {
+        bool in_app = false;
+        switch Env::get("JARIC") {
+            Option::Some(j): { if j.len > 0 { in_app = true; } }
+            Option::None: { }
+        }
+        if in_app {
+            String rest = "mujic";
+            for i in 2..args.len { rest = rest + " " + args[i]; }
+            cout << "\e]7777;session;new;" << rest << "\a";
+            return 0;
+        }
+        String[] shifted = arr(args.len);
+        shifted.push(args[0]);
+        for i in 2..args.len { shifted.push(args[i]); }
+        args = shifted;
+    }
     if args.len > 1 {
         String c = args[1];
         if c == "list" { return do_list(); }

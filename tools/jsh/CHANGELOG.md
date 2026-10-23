@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.5
+* `start PROGRAM [arguments]` runs a program in a new tab (session) of the Jaric app (`7777;session;new;COMMAND`; in other terminals nothing happens). `jaric sessions` says how the tabs work.
+
 ## 0.7.4
 * `jaric setting` is in sections (look, prompt, keyboard and keys, terminal and security, font and cursor, screen, other) with new items: cursor shape, screen rotation, full screen, keep the screen lit, volume keys as Ctrl/Esc (these work in the app 0.0.102); scrollback lines, bell, key vibration, start command and "run scripts from the net" are listed as "(later)": the settings are saved, the app does not use them yet.
 

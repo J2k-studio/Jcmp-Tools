@@ -1,5 +1,8 @@
 # mujic changelog
 
+## 0.3.3
+* `mujic -session [arguments]`: in the Jaric app the player opens in a tab of its own and the shell stays free (elsewhere it runs here as before).
+
 ## 0.3.2
 * `/import PATH` copies a song, or the songs of a folder, into the music folder.
 * `/get ADDRESS` of YouTube, YouTube Music, TikTok or SoundCloud runs `yt-dlp` when it is installed (`pip install yt-dlp`; mujic does not include it). Use it only for songs you may download.
