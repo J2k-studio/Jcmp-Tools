@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.7
+* **Changed:** the progress bar is smooth and in proportion: `hello ▕██████████▌░░░░░░░░░░░▏  62%` — blocks that fill the whole cell with steps of 1/8 of a cell, a dim track, the percent in a column of fixed width, the names of the targets in a column, the bar up to 30 cells wide. Green while working, yellow after 60%, red when full. `MAKEJ_BAR=ascii` brings back the old `[|||   ]` for a font without block letters.
+* The core bars (when jcmp runs on many cores) use the same form.
+
 ## 0.8.6
 * **Changed:** the bars look like a real progress meter, `[||||||||      ] 62%`: green while the work goes on, yellow after 60%, and **red when the bar is full (100%)**; colours only at a terminal.
 * **Changed:** `makej -j` alone builds with as many jobs as there are cores (like `make -j$(nproc)`); `makej -j N` still takes a number. (Before, `-j` as the last word was taken as the name of a target.)

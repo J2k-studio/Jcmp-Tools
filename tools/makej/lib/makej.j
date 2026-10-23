@@ -240,26 +240,49 @@ struct Build {
         return true;
     }
 
-    // [||||||||      ] 62%   at a terminal: the bars are green while the work goes on and RED when the bar is full (100%)
+    // The bar: smooth blocks with steps of 1/8 of a cell, a thin track, and the percent with a fixed width.
+    //   ▕████████▌       ▏ 62%     green while the work goes on, yellow after 60%, RED when it is full (100%); colours only at a terminal.
+    //   MAKEJ_BAR=ascii gives the old form  [||||||||      ] 62%   (for a font that has no block letters)
     static String bar(int pct, int width) {
         if pct < 0 { pct = 0; }
         if pct > 100 { pct = 100; }
         bool color = Sys::isatty(1) == 0;
-        int filled = pct * width / 100;
         String on = "";
         String off = "";
+        String dim = "";
         if color {
             off = "\e[0m";
+            dim = "\e[90m";
             if pct >= 100 { on = "\e[1;31m"; } else if pct >= 60 { on = "\e[33m"; } else { on = "\e[32m"; }
         }
-        String r = "[" + on;
-        for k in 0..width { if k < filled { r = r + "|"; } }
-        r = r + off;
-        for k in filled..width { r = r + " "; }
-        r = r + "] " + on;
-        if pct < 100 { r = r + " "; }
-        if pct < 10 { r = r + " "; }
-        return r + str(pct) + "%" + off;
+        String num = str(pct);
+        while num.len < 3 { num = " " + num; }
+        bool ascii = false;
+        switch Env::get("MAKEJ_BAR") {
+            Option::Some(v): { if v == "ascii" { ascii = true; } }
+            Option::None: { }
+        }
+        if ascii {
+            int filled = pct * width / 100;
+            String r = "[" + on;
+            for k in 0..width { if k < filled { r = r + "|"; } }
+            r = r + off;
+            for k in filled..width { r = r + " "; }
+            return r + "] " + on + num + "%" + off;
+        }
+        int eighths = pct * width * 8 / 100;
+        int full = eighths / 8;
+        int part = eighths % 8;
+        String[] steps = arr(8);
+        steps.push(""); steps.push("▏"); steps.push("▎"); steps.push("▍"); steps.push("▌"); steps.push("▋"); steps.push("▊"); steps.push("▉");
+        String r = dim + "▕" + off + on;
+        for k in 0..full { r = r + "█"; }
+        int used = full;
+        if part > 0 && full < width { r = r + steps[part]; used += 1; }
+        r = r + off + dim;
+        for k in used..width { r = r + "░"; }
+        r = r + "▏" + off + " " + on + num + "%" + off;
+        return r;
     }
 
     // the bars of the targets that run now (and of the cores of a compile), made again in place
@@ -284,16 +307,20 @@ struct Build {
                 }
                 int scr = Term::cols();                        // the bars follow the width of the screen (also when it changes)
                 if scr < 20 { scr = 80; }
-                int bw = scr - self.names[i].len - stage.len - 8;
-                if bw > 24 { bw = 24; }
-                if bw < 6 { bw = 6; }
-                f = f + "\e[K  " + Build::bar(pct, bw) + "  " + self.names[i] + "  " + stage + "\n";
+                int namew = 0;
+                for q in 0..n { if self.names[q].len > namew { namew = self.names[q].len; } }
+                String nm = self.names[i] + "";
+                while nm.len < namew { nm = nm + " "; }
+                int bw = scr - namew - 18;                       // the bar takes what is left after the name, the stage and the percent
+                if bw > 30 { bw = 30; }
+                if bw < 8 { bw = 8; }
+                f = f + "\e[K  " + nm + " " + Build::bar(pct, bw) + "  " + stage + "\n";
                 lines += 1;
                 if cores.len > 1 {
                     String[] cs = cores.split(",");
                     String row = "";
-                    int cw = (scr - 8) / cs.len - 9;               // one bar per core, all in one line of the screen
-                    if cw > 10 { cw = 10; }
+                    int cw = (scr - 8) / cs.len - 13;              // one bar per core, all in one line of the screen
+                    if cw > 8 { cw = 8; }
                     if cw < 3 { cw = 3; }
                     for k in 0..cs.len { row = row + str(k + 1) + " " + Build::bar(cs[k].to_int(), cw) + " "; }
                     f = f + "\e[K      " + row + "\n";
@@ -484,7 +511,7 @@ struct Build {
                                 int ms = Time::now_ms() - t_start[i];
                                 String what = "built";
                                 if self.kinds[i] == "step" { what = "done"; }
-                                cout << "  " << Build::bar(100, 24) << "  " << self.names[i] << "  " << what << " in " << ms / 1000 << "." << (ms % 1000) / 100 << " s\n";
+                                cout << "  " << self.names[i] << " " << Build::bar(100, 30) << "  " << what << " in " << ms / 1000 << "." << (ms % 1000) / 100 << " s\n";
                                 Fs::remove(self.prog_file(i));
                             }
                         } else {
