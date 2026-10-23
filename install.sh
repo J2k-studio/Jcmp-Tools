@@ -6,6 +6,8 @@
 # Options:  --dir DIR   the folder (default: $PREFIX/bin on Termux, else ~/.local/bin)      --version X.Y.Z   a version of the tool(s) named (one tool)
 #           --list      the tools and what they are                                          --yes   never ask (install jget when no tool is named)
 # One tool at a time: install-NAME.sh (install-jget.sh) does the same as  install.sh NAME.
+# yt-dlp runs on the tool python, so asking for yt-dlp installs python too when it is not there. Tools can come with files (NAME-files.tar:
+# the Library of jcmp, python-android, xr and xaiorin of neuron ...) that are unpacked next to them.
 # Environment for tests and mirrors: JCMPTOOLS_RAW=URL (the files of the repository), JCMPTOOLS_DL=URL (the folders NAME-vX.Y.Z of the releases; file:///folder works).
 set -eu
 REPO="J2k-studio/Jcmp-Tools"
@@ -68,6 +70,8 @@ if [ -z "$BINDIR" ]; then if [ -n "${PREFIX:-}" ]; then BINDIR="$PREFIX/bin"; el
 mkdir -p "$BINDIR"; BINDIR="$(cd "$BINDIR" && pwd)"
 COUNT=0; for n in $NAMES; do COUNT=$((COUNT+1)); done
 if [ -n "$VERSION" ] && [ "$COUNT" != 1 ]; then echo "install: --version needs exactly one tool"; exit 1; fi
+# yt-dlp runs on the tool python: it comes along when it is not named and not there yet
+case " $NAMES " in *" yt-dlp "*) case " $NAMES " in *" python "*) ;; *) [ -f "$BINDIR/python" ] || NAMES="python $NAMES" ;; esac ;; esac
 for N in $NAMES; do
     echo "$ALLNAMES" | grep -qx "$N" || { echo "install: there is no tool '$N' (install.sh --list shows them)"; exit 1; }
     V="$VERSION"
@@ -80,7 +84,8 @@ for N in $NAMES; do
     HAVE="$(sha256sum "$TMP/$N" | cut -d' ' -f1)"
     [ -n "$WANT" ] && [ "$WANT" = "$HAVE" ] || { echo "install: the checksum of $N does not match, nothing installed"; exit 1; }
     cp "$TMP/$N" "$BINDIR/.$N.new"; chmod +x "$BINDIR/.$N.new"; mv -f "$BINDIR/.$N.new" "$BINDIR/$N"
-    if [ "$N" = python ]; then echo "installed: $BINDIR/python  (Python 3.14, $BINDIR/python3 is a link)"; else
+    if [ "$N" = python ]; then echo "installed: $BINDIR/python  (Python 3.14; python3, pip and pip3 come with the files)";
+    elif [ "$N" = yt-dlp ]; then echo "installed: $BINDIR/yt-dlp  (yt-dlp $V, runs on the tool python)"; else
     echo "installed: $BINDIR/$N  ($("$BINDIR/$N" --version 2>/dev/null | head -1))"; fi
     case "$N" in jbox|zipj|tarj) "$BINDIR/$N" --install "$BINDIR" 2>/dev/null || true ;; esac
     # python3, pip and pip3 are copies of the launcher that come with the files of the tool python
