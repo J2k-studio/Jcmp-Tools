@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.0
+* `jaric video FILE|URL` plays a video over the terminal in the Jaric app (message `7777;video`), `jaric video stop`.
+
 ## 0.6.2
 * A long path in the prompt is the first letters of the last two folders: `jc :/f/h>` (short ones stay whole: `jc :/home>`).
 
