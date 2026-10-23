@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.0
+* New: rev (Thai marks stay with their letter), yes, uname, hostname, whoami, realpath, base64 (-d), sha256sum, cmp, paste, fold -w, printf, uptime, free, nproc.
+
 ## 0.5.2
 * --help and -V work (the standard of the tools: docs/STANDARD.md)
 

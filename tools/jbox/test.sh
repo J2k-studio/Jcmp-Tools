@@ -47,3 +47,14 @@ check "$(echo hello | "$J" tr l L)" "heLLo" tr
 printf 'one\nTWO\n' > g.txt; printf 'one\ntwo\n' > h.txt
 check "$("$J" diff g.txt h.txt)" "< TWO
 > two" diff
+check "$(printf 'abc\n' | "$J" rev)" "cba" rev
+check "$(printf 'abc' | "$J" sha256sum | cut -d ' ' -f 1)" "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" sha256sum
+check "$(printf 'Man' | "$J" base64)" "TWFu" base64
+check "$(printf 'TWFu\n' | "$J" base64 -d)" "Man" base64-d
+printf 'a\nb\n' > pa.txt; printf '1\n2\n' > pb.txt
+check "$("$J" paste pa.txt pb.txt | tr '\t' ,)" "a,1
+b,2" paste
+check "$(echo abcdefgh | "$J" fold -w 3 | tr '\n' ,)" "abc,def,gh," fold
+check "$("$J" printf '%s=%d %x\n' a 5 255)" "a=5 ff" printf
+check "$("$J" realpath /a/./b/../c)" "/a/c" realpath
+check "$("$J" cmp pa.txt pb.txt | cut -c1-7)" "pa.txt " cmp

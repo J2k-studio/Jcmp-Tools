@@ -215,6 +215,350 @@ int do_tac(String[] a) {
     return rc;
 }
 
+// ---------------------------------------------------------------- 0.6.0: more of the small commands
+String read_all_bin(String path, bool^ ok) {
+    ok[0] = false;
+    if path == "-" { String r0 = ""; char b0[8192]; int n0 = Sys::read(0, @b0, 8192); while n0 > 0 { for i in 0..n0 { r0.push(b0[i]); } n0 = Sys::read(0, @b0, 8192); } ok[0] = true; return r0; }
+    int fd = Sys::open_read(path.c());
+    if fd < 0 { return ""; }
+    String r = "";
+    char buf[8192];
+    int n = Sys::read(fd, @buf, 8192);
+    while n > 0 {
+        for i in 0..n { r.push(buf[i]); }
+        n = Sys::read(fd, @buf, 8192);
+    }
+    Sys::close(fd);
+    ok[0] = n == 0;
+    return r;
+}
+
+String first_line_of(String path, String fallback) {
+    bool ok = false;
+    String t = read_all_bin(path, @ok);
+    if !ok || t.len == 0 { return fallback; }
+    String[] l = t.split("\n");
+    if l.len == 0 || l[0].len == 0 { return fallback; }
+    return l[0];
+}
+
+// rev: every line backwards (by letters, so Thai and others stay whole)
+int do_rev(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len == 0 { ops.push("-"); }
+    int rc = 0;
+    for p in 0..ops.len {
+        String t = load("rev", ops[p], @rc);
+        String[] lines = t.split("\n");
+        int last = lines.len;
+        if last > 0 && lines[last - 1].len == 0 { last -= 1; }
+        for i in 0..last {
+            String[] ch = lines[i].chars();
+            String[] units = arr(ch.len + 1);                          // a letter with the marks above and below it is one unit
+            for q in 0..ch.len {
+                String c = ch[q];
+                bool mark = c.len == 3 && (c[0] & 255) == 224 && (((c[1] & 255) == 184 && ((c[2] & 255) == 177 || ((c[2] & 255) >= 180 && (c[2] & 255) <= 186))) || ((c[1] & 255) == 185 && (c[2] & 255) >= 135 && (c[2] & 255) <= 142));
+                if mark && units.len > 0 { units[units.len - 1] = units[units.len - 1] + c; } else { units.push(c + ""); }
+            }
+            String o = "";
+            int k = units.len - 1;
+            while k >= 0 { o = o + units[k]; k -= 1; }
+            cout << o << "\n";
+        }
+    }
+    return rc;
+}
+
+int do_yes(String[] a) {
+    String w = "y";
+    if a.len > 1 { w = a[1]; for i in 2..a.len { w = w + " " + a[i]; } }
+    String line = w + "\n";
+    while true {
+        if Sys::write(1, line.c(), line.len) <= 0 { break; }          // a closed pipe ends it
+    }
+    return 0;
+}
+
+int do_uname(String[] a) {
+    String os = first_line_of("/proc/sys/kernel/ostype", "Linux");
+    String host = first_line_of("/proc/sys/kernel/hostname", "localhost");
+    String rel = first_line_of("/proc/sys/kernel/osrelease", "");
+    if has_flag(a, 'a') { cout << os << " " << host << " " << rel << " aarch64\n"; }
+    else if has_flag(a, 'r') { cout << rel << "\n"; }
+    else if has_flag(a, 'n') { cout << host << "\n"; }
+    else if has_flag(a, 'm') { cout << "aarch64\n"; }
+    else { cout << os << "\n"; }
+    return 0;
+}
+
+int do_hostname(String[] a) {
+    cout << first_line_of("/proc/sys/kernel/hostname", "localhost") << "\n";
+    return 0;
+}
+
+int do_whoami(String[] a) {
+    switch Env::get("USER") {
+        Option::Some(u): { if u.len > 0 { cout << u << "\n"; return 0; } }
+        Option::None: { }
+    }
+    cout << "uid" << str(Sys::call(174, 0, 0, 0, 0, 0, 0)) << "\n";
+    return 0;
+}
+
+// realpath: the full path with . and .. worked out (the file need not exist)
+int do_realpath(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len == 0 { return fail("realpath", "a path is needed"); }
+    for k in 0..ops.len {
+        String p = ops[k];
+        if !p.starts_with("/") {
+            String cwd = "/";
+            Result<String, Error> c = Dir::current();
+            if c.is_ok() { cwd = c.take(); }
+            p = Path::join(cwd, p);
+        }
+        String[] parts = p.split("/");
+        String[] out = arr(parts.len + 1);
+        for i in 0..parts.len {
+            if parts[i].len == 0 || parts[i] == "." { continue; }
+            if parts[i] == ".." { if out.len > 0 { out.pop(); } continue; }
+            out.push(parts[i] + "");
+        }
+        String r = "";
+        for i in 0..out.len { r = r + "/" + out[i]; }
+        if r.len == 0 { r = "/"; }
+        cout << r << "\n";
+    }
+    return 0;
+}
+
+int do_base64(String[] a) {
+    bool dec = has_flag(a, 'd');
+    String[] ops = operands(a, false);
+    String path = "-";
+    if ops.len > 0 { path = ops[0]; }
+    bool ok = false;
+    String t = read_all_bin(path, @ok);
+    if !ok { return fail("base64", "cannot read " + path); }
+    if dec {
+        Result<String, Error> r = Base64::decode(t.replace("\n", "").trim());
+        if !r.is_ok() { return fail("base64", "not valid base64"); }
+        String d = r.take();
+        for i in 0..d.len { char one[2]; one[0] = d[i]; Sys::write(1, @one, 1); }
+        return 0;
+    }
+    String e = Base64::encode(t);
+    int at = 0;
+    while at < e.len {                                                  // lines of 76 letters, like the others
+        int to = at + 76;
+        if to > e.len { to = e.len; }
+        cout << e.slice(at, to) << "\n";
+        at = to;
+    }
+    return 0;
+}
+
+int do_sha256sum(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len == 0 { ops.push("-"); }
+    int rc = 0;
+    for p in 0..ops.len {
+        bool ok = false;
+        String t = read_all_bin(ops[p], @ok);
+        if !ok { rc = fail("sha256sum", "cannot read " + ops[p]); continue; }
+        cout << Sha256::hex(t) << "  " << ops[p] << "\n";
+    }
+    return rc;
+}
+
+// cmp A B: the first byte that differs
+int do_cmp(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len < 2 { return fail("cmp", "two files are needed"); }
+    bool ok1 = false;
+    bool ok2 = false;
+    String x = read_all_bin(ops[0], @ok1);
+    String y = read_all_bin(ops[1], @ok2);
+    if !ok1 { return fail("cmp", "cannot read " + ops[0]); }
+    if !ok2 { return fail("cmp", "cannot read " + ops[1]); }
+    int n = x.len;
+    if y.len < n { n = y.len; }
+    for i in 0..n {
+        if x[i] != y[i] { cout << ops[0] << " " << ops[1] << " differ: byte " << i + 1 << "\n"; return 1; }
+    }
+    if x.len != y.len {
+        String shorter = ops[1];
+        if x.len < y.len { shorter = ops[0]; }
+        cout << "cmp: EOF on " << shorter << "\n";
+        return 1;
+    }
+    return 0;
+}
+
+// paste A B: the lines side by side with a tab
+int do_paste(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len == 0 { return fail("paste", "files are needed"); }
+    int rc = 0;
+    String[] all = arr(64);
+    int[] starts = arr(ops.len + 1);
+    int[] lens = arr(ops.len + 1);
+    int most = 0;
+    for k in 0..ops.len {
+        String t = load("paste", ops[k], @rc);
+        String[] l = t.split("\n");
+        int n = l.len;
+        if n > 0 && l[n - 1].len == 0 { n -= 1; }
+        starts.push(all.len);
+        lens.push(n);
+        for q in 0..n { all.push(l[q] + ""); }
+        if n > most { most = n; }
+    }
+    for i in 0..most {
+        String line = "";
+        for k in 0..ops.len {
+            if k > 0 { line = line + "\t"; }
+            if i < lens[k] { line = line + all[starts[k] + i]; }
+        }
+        cout << line << "\n";
+    }
+    return rc;
+}
+
+// fold -w N: lines cut at N letters
+int do_fold(String[] a) {
+    int w = 80;
+    String[] ops = arr(a.len + 1);
+    int i = 1;
+    while i < a.len {
+        if a[i] == "-w" && i + 1 < a.len { w = a[i + 1].to_int(); i += 2; }
+        else { ops.push(a[i] + ""); i += 1; }
+    }
+    if w < 1 { w = 80; }
+    if ops.len == 0 { ops.push("-"); }
+    int rc = 0;
+    for p in 0..ops.len {
+        String t = load("fold", ops[p], @rc);
+        String[] lines = t.split("\n");
+        int last = lines.len;
+        if last > 0 && lines[last - 1].len == 0 { last -= 1; }
+        for k in 0..last {
+            String[] ch = lines[k].chars();
+            int n = 0;
+            String cur = "";
+            for q in 0..ch.len {
+                if n == w { cout << cur << "\n"; cur = ""; n = 0; }
+                cur = cur + ch[q];
+                n += 1;
+            }
+            cout << cur << "\n";
+        }
+    }
+    return rc;
+}
+
+// printf FORMAT args...: %s %d %x %c %% and \n \t \\ ; the format is used again while arguments are left
+int do_printf(String[] a) {
+    if a.len < 2 { return fail("printf", "a format is needed"); }
+    String f = a[1];
+    int arg = 2;
+    bool again = true;
+    while again {
+        again = false;
+        int used = 0;
+        int i = 0;
+        while i < f.len {
+            char c = f[i];
+            if c == '\\' && i + 1 < f.len {
+                char d = f[i + 1];
+                if d == 'n' { cout << "\n"; } else if d == 't' { cout << "\t"; } else if d == '\\' { cout << "\\"; } else if d == 'e' { cout << "\e"; } else if d == 'r' { cout << "\r"; } else { cout << "\\" << d; }
+                i += 2;
+            } else if c == '%' && i + 1 < f.len {
+                char d = f[i + 1];
+                String v = "";
+                if d != '%' && arg < a.len { v = a[arg]; arg += 1; used += 1; }
+                if d == 's' { cout << v; }
+                else if d == 'd' { cout << str(v.to_int()); }
+                else if d == 'x' {
+                    int hv = v.to_int();
+                    String hs = "";
+                    String hd = "0123456789abcdef";
+                    if hv == 0 { hs = "0"; }
+                    while hv > 0 { hs = hd.slice(hv & 15, (hv & 15) + 1) + hs; hv = hv >> 4; }
+                    cout << hs;
+                }
+                else if d == 'c' { if v.len > 0 { cout << v.slice(0, 1); } }
+                else if d == '%' { cout << "%"; }
+                else { cout << "%" << d; }
+                i += 2;
+            } else { cout << c; i += 1; }
+        }
+        if used > 0 && arg < a.len { again = true; }
+    }
+    return 0;
+}
+
+int do_uptime(String[] a) {
+    String u = first_line_of("/proc/uptime", "0 0");
+    String[] p = u.split(" ");
+    String[] whole = p[0].split(".");
+    int secs = whole[0].to_int();
+    cout << "up " << secs / 86400 << " days, " << (secs % 86400) / 3600 << ":" << two_digits((secs % 3600) / 60) << "\n";
+    return 0;
+}
+
+String two_digits(int n) {
+    String r = str(n);
+    if r.len < 2 { r = "0" + r; }
+    return r;
+}
+
+// the words of a line (any number of blanks between them)
+String[] words_of(String line) {
+    String[] r = arr(8);
+    String cur = "";
+    for i in 0..line.len {
+        if line[i] == ' ' || line[i] == 9 { if cur.len > 0 { r.push(cur + ""); cur = ""; } }
+        else { cur.push(line[i]); }
+    }
+    if cur.len > 0 { r.push(cur + ""); }
+    return r;
+}
+
+// free: the memory of the phone in MB (from /proc/meminfo)
+int do_free(String[] a) {
+    bool mok = false;
+    String mt = read_all_bin("/proc/meminfo", @mok);
+    if !mok { return fail("free", "cannot read /proc/meminfo"); }
+    String[] lines = mt.split("\n");
+    int total = 0;
+    int avail = 0;
+    int swap = 0;
+    for i in 0..lines.len {
+        String l = lines[i];
+        String[] p = words_of(l);
+        if p.len < 2 { continue; }
+        if p[0] == "MemTotal:" { total = p[1].to_int(); }
+        if p[0] == "MemAvailable:" { avail = p[1].to_int(); }
+        if p[0] == "SwapTotal:" { swap = p[1].to_int(); }
+    }
+    cout << "memory  total " << total / 1024 << " MB   available " << avail / 1024 << " MB   used " << (total - avail) / 1024 << " MB   swap " << swap / 1024 << " MB\n";
+    return 0;
+}
+
+int do_nproc(String[] a) {
+    bool cok = false;
+    String ct = read_all_bin("/proc/cpuinfo", @cok);
+    int n = 0;
+    if cok {
+        String[] lines = ct.split("\n");
+        for i in 0..lines.len { if lines[i].starts_with("processor") { n += 1; } }
+    }
+    if n == 0 { n = 1; }
+    cout << n << "\n";
+    return 0;
+}
+
 int do_mkdir(String[] a) {
     bool deep = has_flag(a, 'p');
     String[] ops = operands(a, false);
@@ -461,7 +805,7 @@ bool is_digits(String s) {
 }
 
 int do_help() {
-    cout << "jbox commands: dir tree find date du stat xargs sed less ln chmod cut tr diff cat head tail wc nl tac mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
+    cout << "jbox commands: dir tree find date du stat xargs sed less ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
     cout << "flags: dir -a -l   tree -a -L N   find -name P -type f|d -maxdepth N   ln -s   cut -d X -f N   tr -d   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
     return 0;
 }
@@ -813,7 +1157,7 @@ int do_less(String[] a) {
 }
 
 int do_install(String[] args) {
-    String names_text = "dir tree find date du stat xargs sed less ln chmod cut tr diff cat head tail wc nl tac mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false";
+    String names_text = "dir tree find date du stat xargs sed less ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false";
     String[] names = names_text.split(" ");
     String dir = ".";
     if args.len > 2 { dir = args[2]; }
@@ -835,7 +1179,7 @@ int do_install(String[] args) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.5.2\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.6.0\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
@@ -864,6 +1208,21 @@ int main() {
     if app == "diff" { return do_diff(a); }
     if app == "head" { return do_head_tail(a, true); }
     if app == "tail" { return do_head_tail(a, false); }
+    if app == "rev" { return do_rev(a); }
+    if app == "yes" { return do_yes(a); }
+    if app == "uname" { return do_uname(a); }
+    if app == "hostname" { return do_hostname(a); }
+    if app == "whoami" { return do_whoami(a); }
+    if app == "realpath" { return do_realpath(a); }
+    if app == "base64" { return do_base64(a); }
+    if app == "sha256sum" { return do_sha256sum(a); }
+    if app == "cmp" { return do_cmp(a); }
+    if app == "paste" { return do_paste(a); }
+    if app == "fold" { return do_fold(a); }
+    if app == "printf" { return do_printf(a); }
+    if app == "uptime" { return do_uptime(a); }
+    if app == "free" { return do_free(a); }
+    if app == "nproc" { return do_nproc(a); }
     if app == "wc" { return do_wc(a); }
     if app == "nl" { return do_nl(a); }
     if app == "tac" { return do_tac(a); }

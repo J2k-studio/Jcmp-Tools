@@ -98,6 +98,8 @@ Run as `ls`, or `jbox ls`. A file name `-` (or none) means the input from a pipe
 | `seq` | numbers: `seq 5`, `seq 2 6` | `for i in $(seq 3); do echo $i; done` |
 | `sleep` `clear` `env` `kill` `true` `false` | wait seconds; clear the screen; show the environment; `kill [-9] PID`; always 0 / 1 | |
 
+More (jbox 0.6.0): `rev` (lines backwards), `paste a b`, `fold -w 40`, `printf '%s=%d\n' a 5`, `realpath x/../y`, `base64 file` / `base64 -d`, `sha256sum file`, `cmp a b`, `uname -a`, `hostname`, `whoami`, `uptime`, `free`, `nproc`, `yes text | head`.
+
 ## 3. coderin: the editor
 `coderin FILE` (a new name makes a new file). Quit: **Ctrl-Q** (twice, or `q!`, when there are unsaved changes). Save: **Ctrl-S**.
 * **Move and select**: arrows; Home / End; PageUp / PageDown; **Shift + arrows** select; the mouse (a tap is a click, drag selects, double click takes a word, the wheel / a swipe scrolls).
