@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.0
+* `jaric setting`: one screen (arrows, Enter, q) for the theme, the font size, the background / text / accent colours, the top bar, the animation and the four colours of the prompt. It writes the plain files (config.local, theme.toml, ~/.jshrc) and the app reads them again when the screen is left (message `reload`).
+
 ## 0.5.4
 * The mark `>` is white (red after a failure). The colours of the prompt are settings: in ~/.jshrc `export JSH_COLOR_NAME=sky`, `JSH_COLOR_PATH`, `JSH_COLOR_MARK`, `JSH_COLOR_ERROR`; a value is a name (white grey black red green blue sky cyan yellow orange magenta), `#rrggbb` or `r,g,b`.
 

@@ -561,6 +561,238 @@ int status_of(int raw) {
     return 128 + (raw & 127);
 }
 
+// ---------------------------------------------------------------- jaric setting: one screen for the look of the app and the prompt
+// The settings are plain files (change them by hand too): $PREFIX/etc/config.local (theme, font, topbar, animation ...), $PREFIX/etc/theme.toml
+// (background, text, accent ... as #RRGGBB) and ~/.jshrc (JSH_COLOR_* of the prompt). The app reads them again when this screen is left.
+String cfg_dir() {
+    String p = getv("PREFIX");
+    if p.len == 0 { p = "."; }
+    return p + "/etc";
+}
+
+// the value of  key = value  in a file ("" when none); quotes are taken away
+String kv_get(String file, String key, bool export_form) {
+    if !Fs::exists(file) { return ""; }
+    Result<String, Error> r = Fs::read_text(file);
+    if !r.is_ok() { return ""; }
+    String[] lines = r.take().split("\n");
+    String want = key;
+    for i in 0..lines.len {
+        String ln = lines[i].trim();
+        if export_form {
+            if !ln.starts_with("export " + key + "=") { continue; }
+            return ln.slice(8 + key.len, ln.len).replace("\"", "");
+        }
+        int eq = ln.find("=");
+        if eq <= 0 || ln[0] == '#' { continue; }
+        if ln.slice(0, eq).trim() == want { return ln.slice(eq + 1, ln.len).trim().replace("\"", ""); }
+    }
+    return "";
+}
+
+// sets (value.len > 0) or removes (value "") the line of a key; the other lines stay
+void kv_set(String file, String key, String value, bool export_form) {
+    String text = "";
+    if Fs::exists(file) {
+        Result<String, Error> r = Fs::read_text(file);
+        if r.is_ok() { text = r.take(); }
+    }
+    String[] lines = text.split("\n");
+    String out = "";
+    bool done = false;
+    String newline = key + " = " + value;
+    if export_form { newline = "export " + key + "=" + value; }
+    for i in 0..lines.len {
+        String ln = lines[i].trim();
+        bool mine = false;
+        if export_form { mine = ln.starts_with("export " + key + "="); }
+        else {
+            int eq = ln.find("=");
+            if eq > 0 && ln[0] != '#' {
+                String k0 = ln.slice(0, eq).trim();
+                if k0 == key { mine = true; }
+            }
+        }
+        if mine {
+            if value.len > 0 && !done { out = out + newline + "\n"; done = true; }
+        } else if !(i == lines.len - 1 && ln.len == 0) {
+            out = out + lines[i] + "\n";
+        }
+    }
+    if value.len > 0 && !done { out = out + newline + "\n"; }
+    String dir = Path::parent(file);
+    if dir.len > 0 && !Dir::exists(dir) { Dir::make_all(dir); }
+    Fs::write_text(file, out);
+}
+
+String rgb_to_hex(String rgb) {
+    String[] p = rgb.split(";");
+    String hex = "0123456789abcdef";
+    String r = "#";
+    for i in 0..3 {
+        int v = 0;
+        if i < p.len { v = p[i].to_int() & 255; }
+        r.push(hex[v >> 4]);
+        r.push(hex[v & 15]);
+    }
+    return r;
+}
+
+String swatch(String spec, String fallback_rgb) {
+    String rgb = colour_rgb(spec, fallback_rgb);
+    return esc() + "[48;2;" + rgb + "m    " + esc() + "[0m";
+}
+
+String setting_label(int i) {
+    String[] t = arr(16);
+    t.push("theme"); t.push("font size"); t.push("background"); t.push("text colour"); t.push("accent colour");
+    t.push("top bar (tabs)"); t.push("animation"); t.push("animation ms");
+    t.push("prompt: jc"); t.push("prompt: path"); t.push("prompt: mark >"); t.push("prompt: mark after an error");
+    t.push("reset everything");
+    return t[i];
+}
+
+String setting_cfg() { return cfg_dir() + "/config.local"; }
+String setting_theme() { return cfg_dir() + "/theme.toml"; }
+
+// the value as shown
+String setting_value(int i) {
+    if i == 0 { String v = kv_get(setting_cfg(), "theme", false); if v.len == 0 { v = "black"; } return v; }
+    if i == 1 { String v = kv_get(setting_cfg(), "font", false); if v.len == 0 { v = "11"; } return v; }
+    if i == 2 { String v = kv_get(setting_theme(), "background", false); if v.len == 0 { v = "(theme)"; } return v; }
+    if i == 3 { String v = kv_get(setting_theme(), "text", false); if v.len == 0 { v = "(theme)"; } return v; }
+    if i == 4 { String v = kv_get(setting_theme(), "accent", false); if v.len == 0 { v = "(theme)"; } return v; }
+    if i == 5 { String v = kv_get(setting_cfg(), "topbar", false); if v.len == 0 { v = "hidden"; } return v; }
+    if i == 6 { String v = kv_get(setting_cfg(), "animation", false); if v.len == 0 { v = "on"; } return v; }
+    if i == 7 { String v = kv_get(setting_cfg(), "animation_ms", false); if v.len == 0 { v = "220"; } return v; }
+    String home_rc = getv("HOME") + "/.jshrc";
+    String key = "JSH_COLOR_NAME";
+    if i == 9 { key = "JSH_COLOR_PATH"; } else if i == 10 { key = "JSH_COLOR_MARK"; } else if i == 11 { key = "JSH_COLOR_ERROR"; }
+    if i >= 8 && i <= 11 {
+        String v = kv_get(home_rc, key, true);
+        if v.len == 0 { v = "(default)"; }
+        return v;
+    }
+    return "";
+}
+
+String[] colour_names() {
+    String[] c = arr(16);
+    c.push("white"); c.push("grey"); c.push("black"); c.push("red"); c.push("green"); c.push("blue"); c.push("sky");
+    c.push("cyan"); c.push("yellow"); c.push("orange"); c.push("magenta");
+    return c;
+}
+
+// the new value of an item: dir = +1 / -1 (the arrows) or 0 (Enter: type it); "" removes the setting
+void setting_change(int i, int dir) {
+    String cfg = setting_cfg();
+    String th = setting_theme();
+    String home_rc = getv("HOME") + "/.jshrc";
+    String cur = setting_value(i);
+    if i == 0 {
+        String[] n = arr(8);
+        n.push("black"); n.push("soft"); n.push("amber"); n.push("green"); n.push("ice");
+        int at = 0;
+        for k in 0..n.len { if n[k] == cur { at = k; } }
+        if dir == 0 { cout << "\ntheme (black soft amber green ice): "; String t = Input::line().trim(); if t.len > 0 { kv_set(cfg, "theme", t, false); } return; }
+        kv_set(cfg, "theme", n[(at + dir + n.len) % n.len], false);
+        return;
+    }
+    if i == 1 {
+        int f = cur.to_int();
+        if dir == 0 { cout << "\nfont size (6 .. 40): "; f = Input::line().trim().to_int(); } else { f += dir; }
+        if f < 6 { f = 6; }
+        if f > 40 { f = 40; }
+        kv_set(cfg, "font", str(f), false);
+        return;
+    }
+    if i == 5 { if cur == "shown" { kv_set(cfg, "topbar", "hidden", false); } else { kv_set(cfg, "topbar", "shown", false); } return; }
+    if i == 6 { if cur == "on" { kv_set(cfg, "animation", "off", false); } else { kv_set(cfg, "animation", "on", false); } return; }
+    if i == 7 {
+        int ms = cur.to_int();
+        if dir == 0 { cout << "\nanimation time in ms (0 = none): "; ms = Input::line().trim().to_int(); } else { ms += dir * 40; }
+        if ms < 0 { ms = 0; }
+        if ms > 2000 { ms = 2000; }
+        kv_set(cfg, "animation_ms", str(ms), false);
+        return;
+    }
+    if i == 12 {
+        cout << "\nreset the theme, the font, the colours and the prompt colours? [y/n] ";
+        String a = Input::line().trim();
+        if a == "y" || a == "Y" {
+            if Fs::exists(cfg) { Fs::remove(cfg); }
+            if Fs::exists(th) { Fs::remove(th); }
+            kv_set(home_rc, "JSH_COLOR_NAME", "", true); kv_set(home_rc, "JSH_COLOR_PATH", "", true);
+            kv_set(home_rc, "JSH_COLOR_MARK", "", true); kv_set(home_rc, "JSH_COLOR_ERROR", "", true);
+            setv("JSH_COLOR_NAME", ""); setv("JSH_COLOR_PATH", ""); setv("JSH_COLOR_MARK", ""); setv("JSH_COLOR_ERROR", "");
+        }
+        return;
+    }
+    // the colours: a name from the list, "(theme)" / "(default)" (nothing set), or typed (#rrggbb, r,g,b, a name)
+    String[] names = colour_names();
+    String chosen = cur;
+    if dir == 0 {
+        cout << "\ncolour (a name: white grey black red green blue sky cyan yellow orange magenta, #rrggbb, r,g,b; empty = the default): ";
+        chosen = Input::line().trim();
+    } else {
+        int at = -1;
+        for k in 0..names.len { if names[k] == cur { at = k; } }
+        if cur == "(theme)" || cur == "(default)" { at = -1; if dir > 0 { chosen = names[0]; } else { chosen = names[names.len - 1]; } }
+        else if at >= 0 {
+            int nx = at + dir;
+            if nx < 0 || nx >= names.len { chosen = ""; } else { chosen = names[nx]; }
+        }
+    }
+    if i >= 2 && i <= 4 {                                                  // the colours of the app: theme.toml wants #RRGGBB
+        String key = "background";
+        if i == 3 { key = "text"; } else if i == 4 { key = "accent"; }
+        if chosen.len == 0 || chosen == "(theme)" { kv_set(th, key, "", false); }
+        else { kv_set(th, key, "\"" + rgb_to_hex(colour_rgb(chosen, "0;0;0")) + "\"", false); }
+        return;
+    }
+    String key = "JSH_COLOR_NAME";
+    if i == 9 { key = "JSH_COLOR_PATH"; } else if i == 10 { key = "JSH_COLOR_MARK"; } else if i == 11 { key = "JSH_COLOR_ERROR"; }
+    if chosen == "(default)" { chosen = ""; }
+    kv_set(home_rc, key, chosen, true);
+    setv(key, chosen);                                                      // the next prompt uses it
+}
+
+void setting_draw(int sel) {
+    String e = esc();
+    String out = e + "[2J" + e + "[H" + e + "[1mjaric setting" + e + "[0m   (the files: " + cfg_dir() + "/config.local, theme.toml, ~/.jshrc)\n\n";
+    for i in 0..13 {
+        String val = setting_value(i);
+        String line = "  " + setting_label(i);
+        while line.len < 34 { line = line + " "; }
+        line = line + val;
+        String sw = "";
+        if i >= 2 && i <= 4 && val != "(theme)" { sw = " " + swatch(val, "0;0;0"); }
+        if i >= 8 && i <= 11 && val != "(default)" { sw = " " + swatch(val, "255;255;255"); }
+        if i == sel { out = out + e + "[7m> " + line.slice(2, line.len) + e + "[0m" + sw + "\n"; }
+        else { out = out + line + sw + "\n"; }
+    }
+    out = out + "\n  up/down choose    left/right change    Enter type a value    q leave (the app reads the files again)\n";
+    cout << out;
+}
+
+void setting_screen() {
+    if Sys::isatty(0) != 0 { cout << "jaric setting needs a terminal\n"; return; }
+    int sel = 0;
+    bool run = true;
+    while run {
+        setting_draw(sel);
+        int k = Input::key();
+        if k == 'q' || k == 'Q' || k == 27 || k < 0 { run = false; }
+        else if k == 257 { if sel > 0 { sel -= 1; } }
+        else if k == 258 { if sel < 12 { sel += 1; } }
+        else if k == 259 { setting_change(sel, 1); }
+        else if k == 260 { setting_change(sel, 0 - 1); }
+        else if k == 13 || k == 10 { setting_change(sel, 0); }
+    }
+    cout << esc() << "[2J" << esc() << "[H";
+    cout << esc() << "]7777;reload" << (char)7;                             // the app reads config.local and theme.toml again
+}
+
 // ---------------------------------------------------------------- built-ins
 int bcode;                                                    // the exit code of a built-in
 // is there a program of this name in the PATH (or is it a file named like that in the folder of jsh)
@@ -819,7 +1051,9 @@ bool builtin(String[] a) {
     }
     if name == "jaric" {                                         // settings of the Jaric app (other terminals ignore the sequences)
         bcode = 0;
-        if a.len >= 2 && a[1] == "theme" {
+        if a.len >= 2 && (a[1] == "setting" || a[1] == "settings") {
+            setting_screen();
+        } else if a.len >= 2 && a[1] == "theme" {
             if a.len == 2 { cout << "themes: black soft amber green ice   (jaric theme NAME)\n"; }
             else { cout << esc() << "]7777;theme;" << a[2] << (char)7; }
         } else if a.len >= 3 && a[1] == "font" {
@@ -827,6 +1061,7 @@ bool builtin(String[] a) {
         } else if a.len >= 2 && a[1] == "core" {
             cout << esc() << "]7777;core" << (char)7;
         } else {
+            cout << "jaric setting       one screen for everything: theme, font, colours, top bar, animation, the prompt\n";
             cout << "jaric theme [NAME]   the colours (black soft amber green ice)\n";
             cout << "jaric font SIZE      the size of the letters (8 .. 28; a pinch on the screen does it too)\n";
             cout << "jaric core           call the library of the app (J2K through JNI)\n";

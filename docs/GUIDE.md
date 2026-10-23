@@ -60,6 +60,9 @@ read ANSWER                # reads a line from the keyboard
 `test` / `[ ]`: `-f -d -e -z -n`, `= !=`, `-eq -ne -lt -gt -le -ge`, `!`. Other built-ins: `cd pwd echo history export unset env type which source exit help install`.
 `install` alone lists the tools; `install jcmp coderin` fetches them (with `jget`). In the Jaric app also: `jaric theme NAME`, `jaric font SIZE`, `jaric core`.
 
+### jaric setting
+`jaric setting` opens one screen for everything: theme, font size, background / text / accent colours, the top bar, the animation, and the colours of the prompt. Up/down choose, left/right change, Enter types a value, `q` leaves (the app then reads the files again). It only edits plain files, so you can too: `usr/etc/config.local`, `usr/etc/theme.toml`, `~/.jshrc`.
+
 ### Prompt colours
 In `~/.jshrc`:  `export JSH_COLOR_MARK=sky`  (and `JSH_COLOR_NAME`, `JSH_COLOR_PATH`, `JSH_COLOR_ERROR`). A value: white grey black red green blue sky cyan yellow orange magenta, `#ff8800` or `255,136,0`. The prompt is `jc :/home>`; the mark is white, red after a failed command.
 

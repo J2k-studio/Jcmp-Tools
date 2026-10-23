@@ -1,7 +1,7 @@
 #!/bin/sh
 # the shell reads commands from a pipe (no terminal) and its output is compared with the expected text
 set -eu
-cd "$(dirname "$0")"; sh build.sh >/dev/null
+cd "$(dirname "$0")"; sh build.sh >/dev/null; ROOT=$(pwd)
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
@@ -82,3 +82,5 @@ check6 'cat <<<"from a string"' 'from a string'
 printf 'cat <<EOT\nline one\nline two\nEOT\necho after\n' > h8.jsh
 got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" h8.jsh 2>&1 | tr '\n' '|'); [ "$got" = "line one|line two|after|" ] || { echo "shell test (step 8): here-document: $got"; exit 1; }
 echo "shell test (step 8): ok"
+python3 "$ROOT/setting_test.py" "$SH" 2>/dev/null || { echo "shell test (step 9): jaric setting"; exit 1; }
+echo "shell test (step 9): ok"
