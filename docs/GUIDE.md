@@ -149,6 +149,15 @@ tarj x out.tar.gz -o dest   open (a gzip inside is found)  tarj t out.tar   list
 gzj notes.txt               make notes.txt.gz              gzj -d notes.txt.gz   open it
 ```
 
+## 6c. mujic: music
+Install: `jget tool mujic`. Songs are in `~/music`.
+```
+mujic                       the player: up/down, Enter play, Space pause, n/p, left/right jump, l lyrics, g fetch, q quit
+mujic catalog               free songs;   mujic get sneaky-snitch   fetch one
+mujic get https://site/song.mp3 -n "My Song"      mujic find piano      mujic get archive:ID
+mujic lyrics "My Song" -q "artist title"          lyrics with times, kept next to the song (My Song.lrc)
+```
+
 ## 7. jpty
 `jpty [-w COLS] [-h ROWS] PROGRAM args` runs a program on a pseudo terminal (so a shell or an editor sees a real terminal). It is what the Jaric app uses to start `jsh`.
 

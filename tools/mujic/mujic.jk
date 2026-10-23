@@ -1,0 +1,878 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// mujic: a music player for the terminal. Songs in a folder (~/music), songs fetched from the web, lyrics (synced .lrc) shown while it plays.
+//   mujic                the player (a list, the lyrics, the time)       mujic list        the songs
+//   mujic catalog        free songs that can be fetched                  mujic get NAME|URL|archive:ID [-n NAME]
+//   mujic find WORDS     search the Internet Archive                     mujic lyrics NAME [-q WORDS]   fetch the lyrics (lrclib.net)
+// Sound: inside the Jaric app the app plays it; else termux-media-player, mpv, ffplay or mpg123 when one is installed.
+#import <stdlib>
+
+
+int fail(String msg) {
+    cerr << "mujic: " << msg << "\n";
+    return 1;
+}
+
+// ---------------------------------------------------------------- the folder and the songs
+String music_dir() {
+    switch Env::get("MUJIC_DIR") {
+        Option::Some(d): { if d.len > 0 { return d; } }
+        Option::None: { }
+    }
+    String home = "";
+    switch Env::get("HOME") {
+        Option::Some(h): { home = h; }
+        Option::None: { home = "."; }
+    }
+    return Path::join(home, "music");
+}
+
+bool is_audio(String name) {
+    String l = name.lower();
+    return l.ends_with(".mp3") || l.ends_with(".ogg") || l.ends_with(".m4a") || l.ends_with(".flac") || l.ends_with(".wav") || l.ends_with(".opus") || l.ends_with(".aac");
+}
+
+String strip_ext(String name) {
+    int dot = -1;
+    for i in 0..name.len { if name[i] == '.' { dot = i; } }
+    if dot <= 0 { return name; }
+    return name.slice(0, dot);
+}
+
+String[] g_files;                       // the file names in the folder
+bool g_files_ready;
+
+void load_files() {
+    g_files = arr(16);
+    g_files_ready = true;
+    String dir = music_dir();
+    if !Dir::exists(dir) { return; }
+    Result<String[], Error> r = Dir::list(dir);
+    if !r.is_ok() { return; }
+    String[] names = r.take();
+    names.sort();
+    for i in 0..names.len { if is_audio(names[i]) { g_files.push(names[i] + ""); } }
+}
+
+// the song for a number, a name or a part of a name; -1 when none
+int find_song(String what) {
+    if !g_files_ready { load_files(); }
+    bool digits = what.len > 0;
+    for i in 0..what.len { if what[i] < '0' || what[i] > '9' { digits = false; } }
+    if digits {
+        int n = what.to_int() - 1;
+        if n >= 0 && n < g_files.len { return n; }
+    }
+    String w = what.lower();
+    for i in 0..g_files.len { if strip_ext(g_files[i]).lower() == w { return i; } }
+    for i in 0..g_files.len { if g_files[i].lower().contains(w) { return i; } }
+    return -1;
+}
+
+// ---------------------------------------------------------------- text helpers
+String url_encode(String s) {
+    String r = "";
+    String hex = "0123456789ABCDEF";
+    for i in 0..s.len {
+        int c = s[i] & 255;
+        bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~';
+        if plain { r.push((char)c); }
+        else { r.push('%'); r.push(hex[c >> 4]); r.push(hex[c & 15]); }
+    }
+    return r;
+}
+
+int hexv(int c) {
+    if c >= '0' && c <= '9' { return c - '0'; }
+    if c >= 'a' && c <= 'f' { return c - 'a' + 10; }
+    if c >= 'A' && c <= 'F' { return c - 'A' + 10; }
+    return -1;
+}
+
+String url_decode(String s) {
+    String r = "";
+    int i = 0;
+    while i < s.len {
+        if s[i] == '%' && i + 2 < s.len + 0 && hexv(s[i + 1] & 255) >= 0 && hexv(s[i + 2] & 255) >= 0 {
+            r.push((char)(hexv(s[i + 1] & 255) * 16 + hexv(s[i + 2] & 255)));
+            i += 3;
+        } else { r.push(s[i]); i += 1; }
+    }
+    return r;
+}
+
+// a name that is safe as a file name
+String safe_file(String s) {
+    String r = "";
+    for i in 0..s.len {
+        int c = s[i] & 255;
+        if c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|' || c < 32 { r.push('_'); } else { r.push((char)c); }
+    }
+    return r.trim();
+}
+
+// the width of a letter on the screen: 0 for the marks of Thai that sit on a letter, 2 for the wide ones
+int cp_width(int cp) {
+    if cp == 3633 || (cp >= 3636 && cp <= 3642) || (cp >= 3655 && cp <= 3662) { return 0; }
+    if (cp >= 4352 && cp <= 4447) || (cp >= 11904 && cp <= 42191) || (cp >= 44032 && cp <= 55203) || (cp >= 65280 && cp <= 65376) || cp >= 127744 { return 2; }
+    return 1;
+}
+
+// the text cut so that it takes at most w places on the screen (UTF-8 is not cut in the middle of a letter)
+String fit(String s, int w) {
+    String r = "";
+    int i = 0;
+    int used = 0;
+    while i < s.len {
+        int b = s[i] & 255;
+        int n = 1;
+        int cp = b;
+        if b >= 240 { n = 4; cp = ((b & 7) << 18) | ((s[i + 1] & 63) << 12) | ((s[i + 2] & 63) << 6) | (s[i + 3] & 63); }
+        else if b >= 224 { n = 3; cp = ((b & 15) << 12) | ((s[i + 1] & 63) << 6) | (s[i + 2] & 63); }
+        else if b >= 192 { n = 2; cp = ((b & 31) << 6) | (s[i + 1] & 63); }
+        if i + n > s.len { break; }
+        int cw = cp_width(cp);
+        if used + cw > w { break; }
+        for k in 0..n { r.push(s[i + k]); }
+        used += cw;
+        i += n;
+    }
+    return r;
+}
+
+int shown_width(String s) {
+    int used = 0;
+    int i = 0;
+    while i < s.len {
+        int b = s[i] & 255;
+        int n = 1;
+        int cp = b;
+        if b >= 240 { n = 4; cp = ((b & 7) << 18) | ((s[i + 1] & 63) << 12) | ((s[i + 2] & 63) << 6) | (s[i + 3] & 63); }
+        else if b >= 224 { n = 3; cp = ((b & 15) << 12) | ((s[i + 1] & 63) << 6) | (s[i + 2] & 63); }
+        else if b >= 192 { n = 2; cp = ((b & 31) << 6) | (s[i + 1] & 63); }
+        used += cp_width(cp);
+        i += n;
+    }
+    return used;
+}
+
+String pad(String s, int w) {
+    String r = fit(s, w);
+    int used = shown_width(r);
+    while used < w { r.push(' '); used += 1; }
+    return r;
+}
+
+String two(int n) {
+    String r = str(n);
+    if r.len < 2 { r = "0" + r; }
+    return r;
+}
+
+String clock(int ms) {
+    if ms < 0 { ms = 0; }
+    int s = ms / 1000;
+    return two(s / 60) + ":" + two(s % 60);
+}
+
+// the document of a JSON text; an empty array when the text is not JSON
+JsonDoc json_open(String text) {
+    switch Json::parse(text) {
+        Result::Ok(d): { return d; }
+        Result::Err(e): { }
+    }
+    return Json::parse("[]").take();
+}
+
+// ---------------------------------------------------------------- lyrics
+int[] lt;                                // the time of a line (ms), -1 when the lyrics have no times
+String[] ltx;
+int lcount;
+bool lsynced;
+String ltitle;                           // the song the lyrics belong to
+
+void lyrics_clear() {
+    lt = arr(64);
+    ltx = arr(64);
+    lcount = 0;
+    lsynced = false;
+}
+
+void lyrics_add(int t, String text) {
+    lt.push(t);
+    ltx.push(text);
+    lcount += 1;
+}
+
+// the text of a .lrc ([01:23.45]line, several times in front of one line are fine; tags like [ar:..] are skipped) or of a plain text
+void lyrics_parse(String text) {
+    lyrics_clear();
+    String[] lines = text.replace("\r", "").split("\n");
+    for i in 0..lines.len {
+        String ln = lines[i];
+        int p = 0;
+        int[] stamps = arr(4);
+        while p < ln.len && ln[p] == '[' {
+            int close = -1;
+            for k in p..ln.len { if ln[k] == ']' { close = k; break; } }
+            if close < 0 { break; }
+            String tag = ln.slice(p + 1, close);
+            int colon = -1;
+            for k in 0..tag.len { if tag[k] == ':' { colon = k; break; } }
+            bool numeric = colon > 0;
+            for k in 0..colon { if tag[k] < '0' || tag[k] > '9' { numeric = false; } }
+            if !numeric {
+                if stamps.len == 0 { p = close + 1; continue; }        // [ar:Name] and the like at the start
+                break;
+            }
+            int mm = tag.slice(0, colon).to_int();
+            String rest = tag.slice(colon + 1, tag.len);
+            int dot = -1;
+            for k in 0..rest.len { if rest[k] == '.' || rest[k] == ':' { dot = k; break; } }
+            int ss = 0;
+            int ms = 0;
+            if dot < 0 { ss = rest.to_int(); }
+            else {
+                ss = rest.slice(0, dot).to_int();
+                String frac = rest.slice(dot + 1, rest.len);
+                if frac.len == 1 { ms = frac.to_int() * 100; }
+                else if frac.len == 2 { ms = frac.to_int() * 10; }
+                else if frac.len >= 3 { ms = frac.slice(0, 3).to_int(); }
+            }
+            stamps.push((mm * 60 + ss) * 1000 + ms);
+            p = close + 1;
+        }
+        String body = ln.slice(p, ln.len).trim();
+        if stamps.len > 0 {
+            lsynced = true;
+            for k in 0..stamps.len { lyrics_add(stamps[k], body + ""); }
+        } else if p == 0 || body.len > 0 {
+            lyrics_add(-1, ln + "");
+        }
+    }
+    if lsynced {                                                   // in the order of time (a line with two stamps)
+        for a in 1..lcount {
+            int t = lt[a];
+            String x = ltx[a];
+            int b = a - 1;
+            while b >= 0 && lt[b] > t { lt[b + 1] = lt[b]; ltx[b + 1] = ltx[b]; b -= 1; }
+            lt[b + 1] = t;
+            ltx[b + 1] = x;
+        }
+    }
+}
+
+bool lyrics_load_for(String file) {
+    lyrics_clear();
+    String base = Path::join(music_dir(), strip_ext(file));
+    for i in 0..2 {
+        String path = base + ".lrc";
+        if i == 1 { path = base + ".txt"; }
+        if Fs::exists(path) {
+            Result<String, Error> r = Fs::read_text(path);
+            if r.is_ok() { lyrics_parse(r.take()); return true; }
+        }
+    }
+    return false;
+}
+
+// the line to show at the time t: the last one that has started; -1 before the first
+int lyrics_at(int t) {
+    if !lsynced { return -1; }
+    int cur = -1;
+    for i in 0..lcount { if lt[i] >= 0 && lt[i] <= t { cur = i; } }
+    return cur;
+}
+
+// fetch the lyrics of a song from lrclib.net and keep them next to the song; the text of the answer is searched for the best one
+int fetch_lyrics(String file, String query) {
+    String q = query;
+    if q.len == 0 { q = strip_ext(file).replace(" - ", " ").replace("_", " "); }
+    cout << "searching lyrics for: " << q << "\n";
+    String body = "";
+    switch Net::http.try_get("https://lrclib.net/api/search?q=" + url_encode(q)) {
+        Result::Ok(b): { body = b; }
+        Result::Err(e): { return fail("lrclib.net: " + e.message); }
+    }
+    JsonDoc doc = json_open(body);
+    int root = doc.root();
+    int n = doc.len(root);
+    int best = -1;
+    int plain = -1;
+    for i in 0..n {
+        int item = doc.at(root, i);
+        int sy = doc.get(item, "syncedLyrics");
+        int pl = doc.get(item, "plainLyrics");
+        if best < 0 && sy >= 0 && !doc.is_null(sy) {
+            String st = doc.text(sy);
+            if st.len > 0 { best = i; }
+        }
+        if plain < 0 && pl >= 0 && !doc.is_null(pl) {
+            String pt = doc.text(pl);
+            if pt.len > 0 { plain = i; }
+        }
+    }
+    String base = Path::join(music_dir(), strip_ext(file));
+    if best >= 0 {
+        int item = doc.at(root, best);
+        Fs::write_text(base + ".lrc", doc.text(doc.get(item, "syncedLyrics")));
+        cout << "saved " << strip_ext(file) << ".lrc  (" << doc.text(doc.get(item, "artistName")) << " - " << doc.text(doc.get(item, "trackName")) << ", with times)\n";
+        return 0;
+    }
+    if plain >= 0 {
+        int item = doc.at(root, plain);
+        Fs::write_text(base + ".txt", doc.text(doc.get(item, "plainLyrics")));
+        cout << "saved " << strip_ext(file) << ".txt  (" << doc.text(doc.get(item, "artistName")) << " - " << doc.text(doc.get(item, "trackName")) << ", without times)\n";
+        return 0;
+    }
+    return fail("no lyrics found; try  mujic lyrics NAME -q \"artist title\"");
+}
+
+// ---------------------------------------------------------------- fetching songs
+// free songs (Kevin MacLeod, incompetech.com, CC BY 4.0: say "Music by Kevin MacLeod (incompetech.com), CC BY 4.0")
+String[] cat_id;
+String[] cat_title;
+bool cat_ready;
+void catalog_init() {
+    if cat_ready { return; }
+    cat_ready = true;
+    cat_id = arr(8);
+    cat_title = arr(8);
+    String[] t = arr(8);
+    t.push("Sneaky Snitch"); t.push("Monkeys Spinning Monkeys"); t.push("Carefree"); t.push("Fluffing a Duck");
+    t.push("Wallpaper"); t.push("Pixelland"); t.push("Local Forecast - Elevator"); t.push("Scheming Weasel faster");
+    for i in 0..t.len {
+        cat_title.push(t[i] + "");
+        cat_id.push(t[i].lower().replace(" - ", "-").replace(" ", "-"));
+    }
+}
+
+int do_catalog() {
+    catalog_init();
+    cout << "Free songs (Kevin MacLeod, CC BY 4.0). Fetch one:  mujic get NAME\n";
+    for i in 0..cat_id.len { cout << "  " << cat_id[i] << "   (" << cat_title[i] << ")\n"; }
+    cout << "Credit when you share: Music by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0.\n";
+    return 0;
+}
+
+int download_to(String url, String name) {
+    String dir = music_dir();
+    if !Dir::exists(dir) { Dir::make_all(dir); }
+    String to = Path::join(dir, name);
+    cout << "fetching " << name << " ...\n";
+    switch Net::http.try_download(url, to, 1) {
+        Result::Ok(n): { }
+        Result::Err(e): { Fs::remove(to); return fail(e.message); }
+    }
+    cout << "saved " << to << "\n";
+    return 0;
+}
+
+int do_get(String[] a) {
+    String what = "";
+    String name = "";
+    int i = 2;
+    while i < a.len {
+        if a[i] == "-n" && i + 1 < a.len { name = a[i + 1] + ""; i += 2; }
+        else { what = a[i] + ""; i += 1; }
+    }
+    if what.len == 0 { return fail("usage: mujic get NAME|URL|archive:ID [-n NAME]   (mujic catalog lists names)"); }
+    catalog_init();
+    for k in 0..cat_id.len {
+        if cat_id[k] == what.lower() {
+            String file = name;
+            if name.len == 0 { file = "Kevin MacLeod - " + cat_title[k]; }
+            if !is_audio(file) { file = file + ".mp3"; }
+            return download_to("https://incompetech.com/music/royalty-free/mp3-royaltyfree/" + url_encode(cat_title[k]) + ".mp3", safe_file(file));
+        }
+    }
+    if what.starts_with("archive:") {
+        String id = what.slice(8, what.len);
+        String body = "";
+        switch Net::http.try_get("https://archive.org/metadata/" + url_encode(id)) {
+            Result::Ok(b): { body = b; }
+            Result::Err(e): { return fail(e.message); }
+        }
+        JsonDoc doc = json_open(body);
+        int files = doc.get(doc.root(), "files");
+        if files < 0 { return fail("no such item: " + id); }
+        for k in 0..doc.len(files) {
+            int f = doc.at(files, k);
+            String fname = doc.text(doc.get(f, "name"));
+            String lname = fname.lower();
+            if lname.ends_with(".mp3") || lname.ends_with(".ogg") {
+                String to = name;
+                if name.len == 0 { to = fname; }
+                if !is_audio(to) { to = to + fname.slice(fname.len - 4, fname.len); }
+                return download_to("https://archive.org/download/" + url_encode(id) + "/" + url_encode(fname), safe_file(to));
+            }
+        }
+        return fail("the item has no mp3 or ogg file");
+    }
+    if what.starts_with("http://") || what.starts_with("https://") {
+        String last = what;
+        int q = -1;
+        for k in 0..last.len { if last[k] == '?' { q = k; break; } }
+        if q >= 0 { last = last.slice(0, q); }
+        String file = name;
+        if name.len == 0 { file = url_decode(Path::name(last)); }
+        if file.len == 0 { file = "song.mp3"; }
+        if !is_audio(file) { file = file + ".mp3"; }
+        return download_to(what, safe_file(file));
+    }
+    return fail("'" + what + "' is not in the catalog, an address, or archive:ID");
+}
+
+int do_find(String[] a) {
+    String words = "";
+    for i in 2..a.len { if words.len > 0 { words = words + " "; } words = words + a[i]; }
+    if words.len == 0 { return fail("usage: mujic find WORDS"); }
+    String q = "(" + words + ") AND mediatype:audio";
+    String body = "";
+    switch Net::http.try_get("https://archive.org/advancedsearch.php?q=" + url_encode(q) + "&fl%5B%5D=identifier&fl%5B%5D=title&rows=15&output=json") {
+        Result::Ok(b): { body = b; }
+        Result::Err(e): { return fail(e.message); }
+    }
+    JsonDoc doc = json_open(body);
+    int docs = doc.get(doc.get(doc.root(), "response"), "docs");
+    if docs < 0 || doc.len(docs) == 0 { cout << "nothing found\n"; return 0; }
+    for k in 0..doc.len(docs) {
+        int d = doc.at(docs, k);
+        cout << "  archive:" << doc.text(doc.get(d, "identifier")) << "   " << doc.text(doc.get(d, "title")) << "\n";
+    }
+    cout << "Fetch:  mujic get archive:ID   (check the licence of the item on archive.org first)\n";
+    return 0;
+}
+
+// ---------------------------------------------------------------- the sound
+int g_backend;                          // 0 none, 1 the Jaric app, 2 termux-media-player, 3 a program started here
+int g_pid;
+String g_player;
+bool g_state_known;
+int g_state;                            // 0 stopped, 1 playing, 2 paused
+int g_pos;                              // ms at g_pos_at
+int g_pos_at;
+int g_len;                              // ms, 0 when unknown
+String g_msg;
+
+bool have_program(String name) {
+    String path = "";
+    switch Env::get("PATH") {
+        Option::Some(p): { path = p; }
+        Option::None: { path = "/usr/bin:/bin"; }
+    }
+    String[] dirs = path.split(":");
+    for i in 0..dirs.len { if Fs::exists(Path::join(dirs[i], name)) { return true; } }
+    return false;
+}
+
+void choose_backend() {
+    g_backend = 0;
+    switch Env::get("JARIC") {
+        Option::Some(v): { g_backend = 1; return; }
+        Option::None: { }
+    }
+    if have_program("termux-media-player") { g_backend = 2; return; }
+    String[] progs = arr(4);
+    progs.push("mpv"); progs.push("ffplay"); progs.push("mpg123");
+    for i in 0..progs.len { if have_program(progs[i]) { g_backend = 3; g_player = progs[i] + ""; return; } }
+}
+
+void osc_audio(String cmd) {
+    cout << "\e]7777;audio;" << cmd << "\a";
+}
+
+int now() { return Time::now_ms(); }
+
+void stop_child() {
+    if g_pid > 0 {
+        Sys::kill(g_pid, 9);
+        int st = 0;
+        Sys::wait(g_pid, @st);
+        g_pid = 0;
+    }
+}
+
+void snd_play(String path) {
+    g_state = 1; g_pos = 0; g_pos_at = now(); g_len = 0; g_msg = "";
+    if g_backend == 1 { osc_audio("play;" + path); osc_audio("pos"); }
+    else if g_backend == 2 {
+        String[] a = arr(2);
+        a.push("play"); a.push(path);
+        Proc::run("termux-media-player", a);
+    } else if g_backend == 3 {
+        stop_child();
+        String[] a = arr(8);
+        if g_player == "mpv" { a.push("--no-video"); a.push("--really-quiet"); a.push("--no-input-default-bindings"); a.push("--input-terminal=no"); }
+        else if g_player == "ffplay" { a.push("-nodisp"); a.push("-autoexit"); a.push("-nostdin"); a.push("-loglevel"); a.push("quiet"); }
+        else { a.push("-q"); }
+        a.push(path);
+        g_pid = Proc::launch(g_player, a, -1);
+        if g_pid < 0 { g_pid = 0; g_state = 0; g_msg = "cannot start " + g_player; }
+    } else { g_state = 0; g_msg = "no way to play sound here (install mpv, ffplay or mpg123; the Jaric app plays by itself)"; }
+}
+
+void snd_pause() {
+    if g_state == 1 {
+        g_pos = g_pos + (now() - g_pos_at); g_pos_at = now(); g_state = 2;
+        if g_backend == 1 { osc_audio("pause"); }
+        else if g_backend == 2 { String[] a = arr(1); a.push("pause"); Proc::run("termux-media-player", a); }
+        else if g_backend == 3 && g_pid > 0 { Sys::kill(g_pid, 19); }
+    } else if g_state == 2 {
+        g_pos_at = now(); g_state = 1;
+        if g_backend == 1 { osc_audio("resume"); }
+        else if g_backend == 2 { String[] a = arr(1); a.push("play"); Proc::run("termux-media-player", a); }
+        else if g_backend == 3 && g_pid > 0 { Sys::kill(g_pid, 18); }
+    }
+}
+
+void snd_stop() {
+    g_state = 0;
+    if g_backend == 1 { osc_audio("stop"); }
+    else if g_backend == 2 { String[] a = arr(1); a.push("stop"); Proc::run("termux-media-player", a); }
+    else if g_backend == 3 { stop_child(); }
+}
+
+void snd_seek(int delta) {
+    if g_backend != 1 || g_state == 0 { return; }          // only the app can jump (the other players are started with a fixed way)
+    int p = g_pos + delta;
+    if g_state == 1 { p += now() - g_pos_at; }
+    if p < 0 { p = 0; }
+    if g_len > 0 && p > g_len - 500 { p = g_len - 500; }
+    g_pos = p; g_pos_at = now();
+    osc_audio("seek;" + str(p));
+}
+
+int cur_pos() {
+    if g_state == 1 { return g_pos + (now() - g_pos_at); }
+    return g_pos;
+}
+
+// asks the player where it is (the app answers on the input; termux-media-player on its output)
+void snd_poll() {
+    if g_backend == 1 { osc_audio("pos"); }
+    else if g_backend == 2 && g_state != 0 {
+        String[] a = arr(1);
+        a.push("info");
+        Result<String, Error> r = Proc::output("termux-media-player", a);
+        if r.is_ok() {
+            String t = r.take();
+            if t.contains("Stopped") || t.contains("No track") { if g_pos > 0 || now() - g_pos_at > 3000 { g_state = 0; } }
+            int at = -1;
+            String key = "Current Position: ";
+            for i in 0..t.len { if t.slice(i, i + key.len) == key { at = i + key.len; break; } }
+            if at >= 0 {
+                String[] tl = t.slice(at, t.len).split("\n");
+                String[] two_parts = tl[0].split(" / ");
+                if two_parts.len == 2 {
+                    String[] c = two_parts[0].split(":");
+                    String[] d = two_parts[1].split(":");
+                    if c.len == 2 && d.len == 2 {
+                        g_pos = (c[0].to_int() * 60 + c[1].to_int()) * 1000; g_pos_at = now();
+                        g_len = (d[0].to_int() * 60 + d[1].to_int()) * 1000;
+                    }
+                }
+            }
+        }
+    } else if g_backend == 3 && g_pid > 0 && g_state == 1 {
+        int st = 0;
+        int done = Sys::call(260, g_pid, (int)@st, 1, 0, 0, 0);        // wait4 with WNOHANG: the program has ended
+        if done == g_pid { g_pid = 0; g_state = 0; }
+    }
+}
+
+// ---------------------------------------------------------------- the terminal
+char g_tio[64];
+bool g_raw;
+
+void raw_on() {
+    if g_raw || Sys::isatty(0) != 0 { return; }
+    Sys::call(29, 0, 21505, (int)@g_tio, 0, 0, 0);
+    char r[64];
+    for i in 0..64 { r[i] = g_tio[i]; }
+    r[12] = r[12] & 244;                                          // no signals, no line editing, no echo
+    Sys::call(29, 0, 21506, (int)@r, 0, 0, 0);
+    g_raw = true;
+}
+
+void raw_off() {
+    if !g_raw { return; }
+    Sys::call(29, 0, 21506, (int)@g_tio, 0, 0, 0);
+    g_raw = false;
+}
+
+int read_byte(int wait_ms) {
+    if !Input::ready(wait_ms) { return -1; }
+    char b[2];
+    int n = Sys::read(0, @b, 1);
+    if n <= 0 { return -9; }
+    return b[0] & 255;
+}
+
+// one event: a key code (a letter is its code, 13 Enter, 27 Esc, 257 up 258 down 259 right 260 left, 3 Ctrl-C), -1 nothing came, -9 the input ended.
+// A message of the app (ESC ] 7777 ; pos ; ms ; state ; length BEL) is taken here and gives -1.
+int next_event(int wait_ms) {
+    int c = read_byte(wait_ms);
+    if c != 27 { return c; }
+    int d = read_byte(30);
+    if d < 0 { return 27; }
+    if d == '[' || d == 'O' {
+        int e = read_byte(30);
+        if e == 'A' { return 257; }
+        if e == 'B' { return 258; }
+        if e == 'C' { return 259; }
+        if e == 'D' { return 260; }
+        while e >= '0' && e <= '9' || e == ';' { e = read_byte(30); }
+        return -1;
+    }
+    if d == ']' {
+        String m = "";
+        int e = read_byte(60);
+        while e >= 0 && e != 7 && e != 27 { m.push((char)e); e = read_byte(60); }
+        if e == 27 { read_byte(30); }
+        String[] p = m.split(";");
+        if p.len >= 5 && p[0] == "7777" && p[1] == "pos" {
+            int st = p[3].to_int();
+            int len = p[4].to_int();
+            g_pos = p[2].to_int(); g_pos_at = now(); g_len = len;
+            if st == 0 && g_state == 1 && now() - g_pos_at >= 0 { g_state = 0; } else if st == 1 { g_state = 1; } else if st == 2 { g_state = 2; }
+        } else if p.len >= 3 && p[0] == "7777" && p[1] == "audio-error" { g_msg = p[2] + ""; g_state = 0; }
+        return -1;
+    }
+    return -1;
+}
+
+// ---------------------------------------------------------------- the player screen
+int g_sel;                              // the song under the cursor
+int g_play = -1;                        // the song that plays
+bool g_show_lyrics = true;
+
+void play_index(int n) {
+    if n < 0 || n >= g_files.len { return; }
+    g_play = n;
+    g_sel = n;
+    lyrics_load_for(g_files[n]);
+    ltitle = strip_ext(g_files[n]);
+    snd_play(Path::join(music_dir(), g_files[n]));
+}
+
+String sgr(String code, String text) { return "\e[" + code + "m" + text + "\e[0m"; }
+
+void draw() {
+    int cols = Term::cols();
+    int rows = Term::rows();
+    if cols < 20 { cols = 20; }
+    if rows < 8 { rows = 8; }
+    String f = "\e[H";
+    String head = " mujic  " + str(g_files.len) + " songs";
+    if g_backend == 0 { head = head + "  (no sound here)"; }
+    f = f + sgr("1;30;47", pad(head, cols)) + "\n";
+    int list_h = g_files.len;
+    int max_list = (rows - 4) / 3;
+    if max_list < 3 { max_list = 3; }
+    if list_h > max_list { list_h = max_list; }
+    if list_h < 1 { list_h = 1; }
+    int first = 0;
+    if g_sel >= list_h { first = g_sel - list_h + 1; }
+    for r in 0..list_h {
+        int i = first + r;
+        String line = "";
+        if i < g_files.len {
+            String mark = "  ";
+            if i == g_play { mark = "> "; if g_state == 2 { mark = "|| "; } }
+            line = pad(mark + str(i + 1) + ". " + strip_ext(g_files[i]), cols);
+            if i == g_sel { line = sgr("7", line); } else if i == g_play { line = sgr("1;32", line); }
+        } else { line = pad("", cols); }
+        f = f + line + "\n";
+    }
+    if g_files.len == 0 { f = f + pad("  no songs in " + music_dir() + ".  Try: mujic catalog", cols) + "\n"; }
+    f = f + sgr("2", pad("", cols).replace(" ", "-")) + "\n";
+    int ly_h = rows - 1 - list_h - 1 - 2;
+    if g_files.len == 0 { ly_h -= 1; }
+    int pos = cur_pos();
+    int cur = lyrics_at(pos + 200);
+    int start = 0;
+    if lcount > 0 {
+        int mid = 0;
+        if cur >= 0 { mid = cur; }
+        if !lsynced { mid = 0; }
+        start = mid - ly_h / 2;
+        if start < 0 { start = 0; }
+        if start + ly_h > lcount { start = lcount - ly_h; }
+        if start < 0 { start = 0; }
+    }
+    for r in 0..ly_h {
+        int i = start + r;
+        String line = "";
+        if g_show_lyrics && i < lcount {
+            String text = ltx[i];
+            if text.len == 0 { text = " "; }
+            int w = shown_width(text);
+            int lead = (cols - w) / 2;
+            if lead < 0 { lead = 0; }
+            String padded = pad(" ".repeat(lead) + text, cols);
+            if i == cur { line = sgr("1;93", padded); } else { line = sgr("2", padded); }
+        } else if g_show_lyrics && lcount == 0 && r == ly_h / 2 {
+            line = sgr("2", pad("  no lyrics.  l = fetch them", cols));
+        } else { line = pad("", cols); }
+        f = f + line + "\n";
+    }
+    // the time bar
+    String t = clock(pos);
+    if g_len > 0 { t = t + " / " + clock(g_len); }
+    int barw = cols - shown_width(t) - 3;
+    if barw < 4 { barw = 4; }
+    int filled = 0;
+    if g_len > 0 { filled = pos * barw / g_len; }
+    if filled > barw { filled = barw; }
+    String bar = "#".repeat(filled) + "-".repeat(barw - filled);
+    f = f + " " + sgr("36", bar) + " " + t + "\n";
+    String help = " up/down  enter play  space pause  n/p  </> seek  l lyrics  g get  q quit";
+    if g_msg.len > 0 { help = " " + g_msg; }
+    f = f + sgr("2;7", pad(help, cols));
+    cout << f << "\e[J";
+}
+
+String prompt_line(String question) {
+    raw_off();
+    cout << "\e[?25h\e[" << Term::rows() << ";1H\e[K" << question;
+    String s = Input::line();
+    cout << "\e[?25l";
+    raw_on();
+    return s;
+}
+
+int do_player(String start) {
+    lyrics_clear();
+    g_msg = "";
+    g_player = "";
+    ltitle = "";
+    load_files();
+    choose_backend();
+    if start.len > 0 {
+        int s = find_song(start);
+        if s < 0 { return fail("no song like '" + start + "' in " + music_dir()); }
+        g_sel = s;
+    }
+    raw_on();
+    cout << "\e[?1049h\e[?25l\e[2J";
+    if start.len > 0 { play_index(g_sel); }
+    int last_poll = now();
+    bool run = true;
+    while run {
+        draw();
+        int ev = next_event(250);
+        if ev == -9 || ev == 'q' || ev == 'Q' || ev == 3 { run = false; }
+        else if ev == 257 { if g_sel > 0 { g_sel -= 1; } }
+        else if ev == 258 { if g_sel < g_files.len - 1 { g_sel += 1; } }
+        else if ev == 13 || ev == 10 { play_index(g_sel); }
+        else if ev == ' ' { if g_state == 0 && g_play < 0 { play_index(g_sel); } else { snd_pause(); } }
+        else if ev == 'n' { if g_files.len > 0 { play_index((g_play + 1) % g_files.len); } }
+        else if ev == 'p' { if g_files.len > 0 { play_index((g_play - 1 + g_files.len) % g_files.len); } }
+        else if ev == 259 { snd_seek(10000); }
+        else if ev == 260 { snd_seek(0 - 10000); }
+        else if ev == 's' { snd_stop(); }
+        else if ev == 'v' { g_show_lyrics = !g_show_lyrics; }
+        else if ev == 'l' && g_files.len > 0 {
+            int which = g_sel;
+            if g_play >= 0 { which = g_play; }
+            g_msg = "fetching lyrics ...";
+            draw();
+            String saved = ltitle;
+            raw_off();
+            cout << "\e[?1049l";
+            int rc = fetch_lyrics(g_files[which], "");
+            if rc != 0 { Time::sleep_ms(2000); }
+            Time::sleep_ms(600);
+            cout << "\e[?1049h\e[2J";
+            raw_on();
+            g_msg = "";
+            if which == g_play || g_play < 0 { lyrics_load_for(g_files[which]); }
+            ltitle = saved;
+        }
+        else if ev == 'g' {
+            String url = prompt_line(" address or catalog name: ");
+            if url.len > 0 {
+                String[] a = arr(4);
+                a.push("mujic"); a.push("get"); a.push(url);
+                raw_off();
+                cout << "\e[?1049l";
+                do_get(a);
+                Time::sleep_ms(1200);
+                cout << "\e[?1049h\e[2J";
+                raw_on();
+                String keep = "";
+                if g_play >= 0 { keep = g_files[g_play] + ""; }
+                load_files();
+                g_play = -1;
+                if keep.len > 0 { g_play = find_song(keep); }
+            }
+        }
+        int t = now();
+        if t - last_poll >= 700 { snd_poll(); last_poll = t; }
+        // the song ended: the next one
+        bool ended = g_state == 0 && g_play >= 0 && g_msg.len == 0 && (g_len > 0 || g_backend != 1);
+        if g_backend == 1 && g_state == 1 && g_len > 0 && cur_pos() >= g_len + 1500 { ended = true; }
+        if ended && g_files.len > 0 && g_pos_at > 0 && now() - g_pos_at > 1500 { play_index((g_play + 1) % g_files.len); }
+    }
+    snd_stop();
+    cout << "\e[?25h\e[?1049l";
+    raw_off();
+    return 0;
+}
+
+int do_list() {
+    load_files();
+    if g_files.len == 0 { cout << "no songs in " << music_dir() << ".  mujic catalog shows free ones, mujic get NAME fetches.\n"; return 0; }
+    for i in 0..g_files.len {
+        String base = Path::join(music_dir(), strip_ext(g_files[i]));
+        String mark = "";
+        if Fs::exists(base + ".lrc") { mark = "  [lyrics, synced]"; } else if Fs::exists(base + ".txt") { mark = "  [lyrics]"; }
+        cout << "  " << i + 1 << ". " << strip_ext(g_files[i]) << mark << "\n";
+    }
+    return 0;
+}
+
+int do_lyrics(String[] a) {
+    String what = "";
+    String q = "";
+    int i = 2;
+    while i < a.len {
+        if a[i] == "-q" && i + 1 < a.len { q = a[i + 1] + ""; i += 2; }
+        else { what = a[i] + ""; i += 1; }
+    }
+    if what.len == 0 { return fail("usage: mujic lyrics NAME [-q \"artist title\"]"); }
+    int s = find_song(what);
+    if s < 0 { return fail("no song like '" + what + "'"); }
+    return fetch_lyrics(g_files[s], q);
+}
+
+int main() {
+    String VERSION = "0.1.0";
+    String[] args = Env::args();
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
+    if args.len > 1 {
+        String c = args[1];
+        if c == "list" { return do_list(); }
+        if c == "catalog" { return do_catalog(); }
+        if c == "get" { return do_get(args); }
+        if c == "find" { return do_find(args); }
+        if c == "lyrics" { return do_lyrics(args); }
+        if c == "play" {
+            String w = "";
+            if args.len > 2 { w = args[2] + ""; }
+            return do_player(w);
+        }
+        if c == "help" || c == "-h" || c == "--help" {
+            cout << "mujic: a music player for the terminal (songs in " << music_dir() << ")\n";
+            cout << "  mujic                 the player      mujic play NAME   start with a song\n";
+            cout << "  mujic list            the songs       mujic catalog     free songs to fetch\n";
+            cout << "  mujic get NAME|URL|archive:ID [-n NAME]   fetch a song      mujic find WORDS   search archive.org\n";
+            cout << "  mujic lyrics NAME [-q WORDS]              fetch the lyrics (kept as NAME.lrc)\n";
+            cout << "  keys in the player: up/down enter space n p < > l g v s q;  put your own .lrc/.txt next to a song\n";
+            return 0;
+        }
+        return do_player(c);
+    }
+    return do_player("");
+}

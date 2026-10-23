@@ -8,3 +8,4 @@ coderin|A text editor for the terminal (colours for J2K, select, copy and paste,
 jcmp|The J2K compiler and its library (the language): jget tool jcmp
 zipj|Make and open zip files (zipj, unj): folders, a password, deflate, also .gz
 tarj|Make and open tar archives (.tar, .tar.gz, .tgz) and gzip files (tarj, gzj)
+mujic|A music player for the terminal: your songs, free songs to fetch, synced lyrics (mujic)
