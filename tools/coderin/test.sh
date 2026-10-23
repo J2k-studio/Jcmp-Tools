@@ -3,6 +3,7 @@
 set -eu
 cd "$(dirname "$0")"
 sh build.sh >/dev/null
+[ "$(./_out/coderin --version)" = "coderin $(cat VERSION)" ] || { echo "coderin test: --version differs from VERSION"; exit 1; }
 sh ../jpty/build.sh >/dev/null
 PTY="$PWD/../jpty/_out/jpty"
 ED="$PWD/_out/coderin"

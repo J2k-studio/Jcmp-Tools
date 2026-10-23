@@ -3,6 +3,7 @@
 set -eu
 cd "$(dirname "$0")"
 sh build.sh >/dev/null
+[ "$(./_out/jpty --version)" = "jpty $(cat VERSION)" ] || { echo "jpty test: --version differs from VERSION"; exit 1; }
 SHELL_BIN=$(command -v sh)
 OUT=$( (printf 'stty size\nexit 3\n') | _out/jpty -w 100 -h 30 "$SHELL_BIN" | tr -d '\r' || true)
 echo "$OUT" | grep -q '30 100' || { echo "jpty test: the size 30 100 was not seen"; exit 1; }

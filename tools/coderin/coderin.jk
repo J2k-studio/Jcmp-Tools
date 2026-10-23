@@ -1403,7 +1403,12 @@ int ex_mode(String[] a) {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && a[1] == "--version" { cout << "coderin 0.4.0\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "coderin 0.4.1\n"; return 0; }
+    if a.len > 1 && (a[1] == "--help" || a[1] == "-h") {
+        cout << "coderin: a text editor for the terminal.   coderin FILE   open (or make) a file;   coderin -ex [NAME]   list / install extensions\n";
+        cout << "  keys: Ctrl-S save, Ctrl-Q leave, Ctrl-F find, Ctrl-Z undo, Ctrl-C/X/V copy cut paste (the full list: jget docs GUIDE.md, section coderin)\n";
+        return 0;
+    }
     if a.len > 1 && a[1] == "-ex" { return ex_mode(a); }
     if a.len < 2 { cerr << "usage: coderin FILE   |   coderin -ex [NAME]\n"; return 2; }
     if Sys::isatty(0) != 0 { cerr << "coderin: it needs a terminal\n"; return 2; }

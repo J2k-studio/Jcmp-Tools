@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.1
+* --help and -V work (the standard of the tools: docs/STANDARD.md); the version text was wrong (0.5.0) in 0.5.1 to 0.6.0
+
 ## 0.6.0
 * `jaric setting`: one screen (arrows, Enter, q) for the theme, the font size, the background / text / accent colours, the top bar, the animation and the four colours of the prompt. It writes the plain files (config.local, theme.toml, ~/.jshrc) and the app reads them again when the screen is left (message `reload`).
 

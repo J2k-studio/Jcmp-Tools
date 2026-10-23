@@ -2,6 +2,7 @@
 # tarj and gzj: archives made here are read by tar, archives made by tar are read here; gzip both ways
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
+[ "$(./_out/tarj --version)" = "tarj $(cat VERSION)" ] || { echo "tarj test: --version differs from VERSION"; exit 1; }
 Z="$PWD/_out/tarj"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"

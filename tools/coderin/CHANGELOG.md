@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.1
+* --help and -V work (the standard of the tools: docs/STANDARD.md)
+
 ## 0.3.0
 * Extensions: undo / redo (Ctrl-Z, Ctrl-Y) and j2k (snippets and the completion of a word with Tab); `extensions = undo j2k` in the settings.
 

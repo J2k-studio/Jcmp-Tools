@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.2
+* --help and -V work (the standard of the tools: docs/STANDARD.md)
+
 ## 0.5.1
 * nl (numbered lines) and tac (lines in reverse).
 

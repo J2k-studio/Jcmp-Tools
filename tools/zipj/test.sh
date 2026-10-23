@@ -2,6 +2,7 @@
 # zipj and unj: zips made here are read by Python and by unj, zips made by Python are read by unj, passwords, -f, -o
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
+[ "$(./_out/zipj --version)" = "zipj $(cat VERSION)" ] || { echo "zipj test: --version differs from VERSION"; exit 1; }
 Z="$PWD/_out/zipj"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"

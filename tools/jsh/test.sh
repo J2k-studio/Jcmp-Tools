@@ -2,6 +2,7 @@
 # the shell reads commands from a pipe (no terminal) and its output is compared with the expected text
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null; ROOT=$(pwd)
+[ "$(./_out/jsh --version)" = "jsh $(cat VERSION)" ] || { echo "jsh test: --version differs from VERSION"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"

@@ -19,7 +19,8 @@ int wr(int fd, char^ buf, int n) {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && a[1] == "--version" { cout << "jpty 0.1.0\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jpty 0.1.1\n"; return 0; }
+    if a.len > 1 && a[1] == "--help" { cout << "jpty: run a program on a pseudo terminal.   jpty [-w COLUMNS] [-h ROWS] PROGRAM [arguments]\n"; return 0; }
     int cols = 80;
     int rows = 24;
     int i = 1;

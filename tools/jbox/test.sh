@@ -2,6 +2,7 @@
 # the small commands of Jaric: each result is compared with the expected text
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
+[ "$(./_out/jbox --version)" = "jbox $(cat VERSION)" ] || { echo "jbox test: --version differs from VERSION"; exit 1; }
 J="$PWD/_out/jbox"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
