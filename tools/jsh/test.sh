@@ -114,3 +114,9 @@ for c in [b'gti status\r', b'echo hello\r', b'echo my password is x\r', b'exit\r
 PY
 [ "$(grep -c "" "$T12/.neuron/events.txt")" = 3 ] && grep -q "gti status.127.command not found" "$T12/.neuron/events.txt" && ! grep -q password "$T12/.neuron/events.txt" || { echo "shell test (step 12): events"; cat "$T12/.neuron/events.txt"; exit 1; }
 echo "shell test (step 12): ok"
+# step 13: the drives: a word that starts with :/X is the folder of the drive (not a URL, not an unknown letter)
+T13=$(mktemp -d); mkdir -p "$T13/files/home"
+printf 'echo :/h :/f/home :/ :/x/y http://a:/b\n' > "$T13/d.jsh"
+got=$(HOME="$T13/files/home" PREFIX="$T13/usr" "$SH" "$T13/d.jsh" 2>&1)
+[ "$got" = "$T13/files/home $T13/files/home / :/x/y http://a:/b" ] || { echo "shell test (step 13): drives: $got"; exit 1; }
+echo "shell test (step 13): ok"

@@ -58,3 +58,37 @@ check "$(echo abcdefgh | "$J" fold -w 3 | tr '\n' ,)" "abc,def,gh," fold
 check "$("$J" printf '%s=%d %x\n' a 5 255)" "a=5 ff" printf
 check "$("$J" realpath /a/./b/../c)" "/a/c" realpath
 check "$("$J" cmp pa.txt pb.txt | cut -c1-7)" "pa.txt " cmp
+# dir: one name on a line into a pipe, sorted without regard to capitals, folders with a /, -a shows the dot names, -l the rights and the size
+mkdir -p dirt/Sub dirt/.hid; : > dirt/b.txt; : > dirt/A.txt; printf 'x' > dirt/c.sh; chmod 755 dirt/c.sh
+check "$("$J" dir dirt | tr '\n' ,)" "A.txt,b.txt,c.sh,Sub/," dir-sorted
+check "$("$J" dir -a dirt | tr '\n' ,)" ".hid/,A.txt,b.txt,c.sh,Sub/," dir-all
+check "$("$J" dir -l dirt | grep c.sh | cut -c1-10)" "-rwxr-xr-x" dir-rights
+# dir in columns at a terminal (a pseudo terminal of 40 columns): more than one name on a line
+cols=$(python3 - "$J" <<'PY'
+import pty, os, sys, time, select, struct, fcntl, termios
+j = sys.argv[1]
+pid, fd = pty.fork()
+if pid == 0:
+    os.chdir('dirt'); os.environ['TERM'] = 'xterm'
+    os.execv(j, ['jbox', 'dir'])
+fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 40, 0, 0))
+out = b''; end = time.time() + 3
+while time.time() < end:
+    r, _, _ = select.select([fd], [], [], 0.2)
+    if r:
+        try: d = os.read(fd, 65536)
+        except OSError: break
+        if not d: break
+        out += d
+import re
+txt = re.sub(r'\x1b\[[0-9;]*m', '', out.decode(errors='ignore'))
+print(len([l for l in txt.replace('\r', '').split('\n') if l.strip()]))
+PY
+)
+check "$cols" "1" dir-columns
+# cp copies a file byte for byte (also a zero byte), into a folder, and keeps the right to run
+head -c 3000 /dev/urandom > cpb.bin; printf 'a\0b' > cpz.bin
+"$J" cp cpb.bin cpb2.bin; "$J" cp cpz.bin dirt; "$J" cp dirt/c.sh cpx.sh
+check "$(cmp cpb.bin cpb2.bin && echo same)" "same" cp-bytes
+check "$(cmp cpz.bin dirt/cpz.bin && echo same)" "same" cp-zero-byte-into-folder
+check "$(test -x cpx.sh && echo exec)" "exec" cp-mode

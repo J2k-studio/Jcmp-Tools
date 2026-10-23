@@ -80,43 +80,175 @@ int count_of(String[] a, int dflt) {
 }
 
 // ---------------------------------------------------------------- the commands
+// ---- dir (ls): at a terminal the names stand in columns that fit the width of the screen (like ls), folders in blue and programs in green;
+//      -l one line for each with the rights and the size (-h: 1.5 KB), -1 one name on a line, -a also the names that start with a dot.
+//      Into a pipe or a file: one name on a line (a folder has a / after it).
+int name_cells(String n) {
+    // the width on the screen: a letter is one cell, a combining mark of Thai (a vowel above or below, a tone mark) is none
+    int w = 0;
+    int i = 0;
+    while i < n.len {
+        int c = n[i] & 255;
+        if c < 128 { w += 1; i += 1; }
+        else if c >= 224 && i + 2 < n.len {
+            int cp = ((c & 15) << 12) | ((n[i + 1] & 63) << 6) | (n[i + 2] & 63);
+            bool mark = cp == 3633 || (cp >= 3636 && cp <= 3642) || (cp >= 3655 && cp <= 3662);
+            if !mark { w += 1; }
+            i += 3;
+        } else if c >= 192 { w += 1; i += 2; }
+        else if c >= 240 { w += 2; i += 4; }
+        else { i += 1; }
+    }
+    return w;
+}
+
+String rights_of(int mode) {
+    String t = "-";
+    int kind = mode & 61440;
+    if kind == 16384 { t = "d"; } else if kind == 40960 { t = "l"; }
+    String r = t;
+    String bits = "rwxrwxrwx";
+    for k in 0..9 { if (mode & (256 >> k)) != 0 { r.push(bits[k]); } else { r.push('-'); } }
+    return r;
+}
+
+String ls_size(int sz, bool human) {
+    if !human { return str(sz); }
+    if sz < 1024 { return str(sz); }
+    if sz < 1048576 { return str(sz / 1024) + "." + str((sz % 1024) * 10 / 1024) + "K"; }
+    if sz < 1073741824 { return str(sz / 1048576) + "." + str((sz % 1048576) * 10 / 1048576) + "M"; }
+    return str(sz / 1073741824) + "." + str((sz % 1073741824) * 10 / 1073741824) + "G";
+}
+
 int do_ls(String[] a) {
     bool all = has_flag(a, 'a');
     bool lng = has_flag(a, 'l');
+    bool human = has_flag(a, 'h');
+    bool one = has_flag(a, '1');
+    bool tty = Sys::isatty(1) == 0;
     String[] ops = operands(a, false);
     if ops.len == 0 { ops.push("."); }
     int rc = 0;
     for p in 0..ops.len {
-        String[] names = arr(4);
+        String[] raw = arr(4);
         String base = ops[p];
         if Dir::exists(base) {
             Result<String[], Error> r = Dir::list(base);
-            if r.is_ok() { names = r.take(); }
+            if r.is_ok() { raw = r.take(); }
             else { rc = fail("dir", base + ": cannot read the folder"); }
-            if ops.len > 1 { cout << base << ":\n"; }
+            if ops.len > 1 { if p > 0 { cout << "\n"; } cout << base << ":\n"; }
         } else if Fs::exists(base) {
-            names.push(base);
+            raw.push(base);
             base = "";
         } else { rc = fail("dir", base + ": no such file or folder"); }
-        for i in 0..names.len {
-            String n = names[i];
+        // the names to show, sorted without regard to small or capital letters
+        String[] names = arr(raw.len + 1);
+        for i in 0..raw.len {
+            String n = raw[i];
             if !all && n.len > 0 && n[0] == 46 { continue; }
+            names.push(n + "");
+        }
+        int cnt = names.len;
+        int[] order = arr(cnt + 1);
+        for i in 0..cnt { order.push(i); }
+        for i in 1..cnt {
+            int cur = order[i];
+            String key = names[cur].lower();
+            int k = i - 1;
+            while k >= 0 {
+                String before = names[order[k]].lower();
+                if !(before > key) { break; }
+                order[k + 1] = order[k];
+                k -= 1;
+            }
+            order[k + 1] = cur;
+        }
+        // what each one is: folder?, program?, size, rights
+        bool[] isdir = arr(cnt + 1);
+        bool[] isexe = arr(cnt + 1);
+        int[] sizes = arr(cnt + 1);
+        int[] modes = arr(cnt + 1);
+        String[] shown = arr(cnt + 1);
+        int[] cells = arr(cnt + 1);
+        for q in 0..cnt {
+            String n = names[order[q]];
             String full = n;
             if base.len > 0 { full = Path::join(base, n); }
-            if lng {
-                if Dir::exists(full) { cout << "d        - " << n << "/\n"; }
-                else {
-                    int sz = 0;
-                    Result<int, Error> s = Fs::size(full);
-                    switch s {
-                        Result::Ok(v): sz = v;
-                        Result::Err(e): sz = 0;
-                    }
-                    String num = str(sz);
-                    cout << "- " << " ".repeat(8 - num.len) << num << " " << n << "\n";
+            char st[128];
+            int mode = 0;
+            int sz = 0;
+            if Sys::stat(full.c(), @st) == 0 {
+                mode = (st[16] & 255) | ((st[17] & 255) << 8) | ((st[18] & 255) << 16);
+                for z in 0..8 { sz = sz | ((st[48 + z] & 255) << (8 * z)); }
+            }
+            bool d = (mode & 61440) == 16384;
+            isdir.push(d);
+            isexe.push(!d && (mode & 73) != 0 && (mode & 61440) == 32768);
+            sizes.push(sz);
+            modes.push(mode);
+            String label = n;
+            if d { label = n + "/"; }
+            shown.push(label + "");
+            cells.push(name_cells(label));
+        }
+        // colour only at a terminal
+        String blue = "";
+        String green = "";
+        String off = "";
+        if tty { blue = "\e[1;34m"; green = "\e[1;32m"; off = "\e[0m"; }
+        if lng {
+            int sw = 0;
+            for q in 0..cnt { int l = ls_size(sizes[q], human).len; if l > sw { sw = l; } }
+            for q in 0..cnt {
+                String sz = ls_size(sizes[q], human);
+                String col = "";
+                if isdir[q] { col = blue; } else if isexe[q] { col = green; }
+                String endc = "";
+                if col.len > 0 { endc = off; }
+                cout << rights_of(modes[q]) << " " << " ".repeat(sw - sz.len) << sz << " " << col << shown[q] << endc << "\n";
+            }
+        } else if !tty || one || cnt < 2 {
+            for q in 0..cnt {
+                String col = "";
+                if isdir[q] { col = blue; } else if isexe[q] { col = green; }
+                String endc = "";
+                if col.len > 0 { endc = off; }
+                cout << col << shown[q] << endc << "\n";
+            }
+        } else {
+            int width = Term::cols();
+            if width < 20 { width = 80; }
+            // as many columns as fit: the names go down the first column, then the next (like ls)
+            int ncols = cnt;
+            int rows = 1;
+            int[] colw = arr(cnt + 1);
+            while ncols >= 1 {
+                rows = (cnt + ncols - 1) / ncols;
+                int total = 0;
+                colw = arr(ncols + 1);
+                for c in 0..ncols {
+                    int m = 0;
+                    for r in 0..rows { int idx = c * rows + r; if idx < cnt && cells[idx] > m { m = cells[idx]; } }
+                    colw.push(m + 2);
+                    total += m + 2;
                 }
-            } else {
-                if Dir::exists(full) { cout << n << "/\n"; } else { cout << n << "\n"; }
+                if total - 2 <= width || ncols == 1 { break; }
+                ncols -= 1;
+            }
+            for r in 0..rows {
+                String line = "";
+                for c in 0..ncols {
+                    int idx = c * rows + r;
+                    if idx >= cnt { continue; }
+                    String col = "";
+                    if isdir[idx] { col = blue; } else if isexe[idx] { col = green; }
+                    String endc = "";
+                    if col.len > 0 { endc = off; }
+                    line = line + col + shown[idx] + endc;
+                    bool last = c == ncols - 1 || (c + 1) * rows + r >= cnt;
+                    if !last { line = line + " ".repeat(colw[c] - cells[idx]); }
+                }
+                cout << line << "\n";
             }
         }
     }
@@ -623,18 +755,32 @@ int do_touch(String[] a) {
 
 int do_cp(String[] a) {
     String[] ops = operands(a, false);
-    if ops.len != 2 { return fail("cp", "usage: cp FROM TO"); }
-    int rc = 0;
-    String t = load("cp", ops[0], @rc);
-    if rc != 0 { return rc; }
+    if ops.len != 2 { return fail("cp", "usage: cp FROM TO   (TO may be a folder; a file is copied byte for byte, also a song or a picture)"); }
+    String from = ops[0];
     String to = ops[1];
-    if Dir::exists(to) { to = Path::join(to, Path::name(ops[0])); }
-    Result<int, Error> r = Fs::write_text(to, t);
-    switch r {
-        Result::Ok(v): rc = rc;
-        Result::Err(e): rc = fail("cp", to + ": " + e.message);
+    if Dir::exists(from) { return fail("cp", from + ": is a folder (copy the files in it: cp FOLDER/* TO)"); }
+    if Dir::exists(to) { to = Path::join(to, Path::name(from)); }
+    String data = "";
+    if from == "-" { data = stdin_all(); }
+    else {
+        Result<String, Error> r = Fs::read_bytes(from);
+        switch r {
+            Result::Ok(v): data = v;
+            Result::Err(e): return fail("cp", from + ": " + e.message);
+        }
     }
-    return rc;
+    Result<int, Error> w = Fs::write_bytes(to, data);
+    switch w {
+        Result::Ok(v): data = data;
+        Result::Err(e): return fail("cp", to + ": " + e.message);
+    }
+    // an executable stays executable
+    char st[128];
+    if from != "-" && Sys::stat(from.c(), @st) == 0 {
+        int mode = (st[16] & 255) | ((st[17] & 255) << 8);
+        Sys::chmod(to.c(), mode & 511);
+    }
+    return 0;
 }
 
 int do_mv(String[] a) {
@@ -1209,7 +1355,7 @@ int do_install(String[] args) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.6.2\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.7.0\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
