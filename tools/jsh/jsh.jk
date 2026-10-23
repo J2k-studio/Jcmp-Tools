@@ -716,11 +716,15 @@ String swatch(String spec, String fallback_rgb) {
 }
 
 String setting_label(int i) {
-    String[] t = arr(16);
+    String[] t = arr(32);
     t.push("theme"); t.push("font size"); t.push("background"); t.push("text colour"); t.push("accent colour");
     t.push("top bar (tabs)"); t.push("animation"); t.push("animation ms");
     t.push("prompt: jc"); t.push("prompt: path"); t.push("prompt: mark >"); t.push("prompt: mark after an error");
     t.push("reset everything");
+    t.push("cursor shape"); t.push("screen rotation"); t.push("full screen"); t.push("keep the screen lit");
+    t.push("volume keys = Ctrl / Esc");
+    t.push("scrollback lines (later)"); t.push("bell (later)"); t.push("key vibration (later)");
+    t.push("start command (later)"); t.push("run scripts from the net (later)");
     return t[i];
 }
 
@@ -737,6 +741,16 @@ String setting_value(int i) {
     if i == 5 { String v = kv_get(setting_cfg(), "topbar", false); if v.len == 0 { v = "hidden"; } return v; }
     if i == 6 { String v = kv_get(setting_cfg(), "animation", false); if v.len == 0 { v = "on"; } return v; }
     if i == 7 { String v = kv_get(setting_cfg(), "animation_ms", false); if v.len == 0 { v = "220"; } return v; }
+    if i == 13 { String v = kv_get(setting_cfg(), "cursor", false); if v.len == 0 { v = "block"; } return v; }
+    if i == 14 { String v = kv_get(setting_cfg(), "rotation", false); if v.len == 0 { v = "auto"; } return v; }
+    if i == 15 { String v = kv_get(setting_cfg(), "fullscreen", false); if v.len == 0 { v = "off"; } return v; }
+    if i == 16 { String v = kv_get(setting_cfg(), "keepawake", false); if v.len == 0 { v = "off"; } return v; }
+    if i == 17 { String v = kv_get(setting_cfg(), "volkeys", false); if v.len == 0 { v = "off"; } return v; }
+    if i == 18 { String v = kv_get(setting_cfg(), "scrollback", false); if v.len == 0 { v = "3000"; } return v; }
+    if i == 19 { String v = kv_get(setting_cfg(), "bell", false); if v.len == 0 { v = "on"; } return v; }
+    if i == 20 { String v = kv_get(setting_cfg(), "vibrate", false); if v.len == 0 { v = "off"; } return v; }
+    if i == 21 { String v = kv_get(setting_cfg(), "startup", false); if v.len == 0 { v = "(none)"; } return v; }
+    if i == 22 { String v = kv_get(setting_cfg(), "run_net", false); if v.len == 0 { v = "ask"; } return v; }
     String home_rc = getv("HOME") + "/.jshrc";
     String key = "JSH_COLOR_NAME";
     if i == 9 { key = "JSH_COLOR_PATH"; } else if i == 10 { key = "JSH_COLOR_MARK"; } else if i == 11 { key = "JSH_COLOR_ERROR"; }
@@ -776,6 +790,41 @@ void setting_change(int i, int dir) {
         if f < 6 { f = 6; }
         if f > 40 { f = 40; }
         kv_set(cfg, "font", str(f), false);
+        return;
+    }
+    if i >= 13 {                                           // the newer items: a list of choices (the arrows), a number, or text (Enter)
+        String key = "cursor";
+        String[] ch = arr(4);
+        if i == 13 { ch.push("block"); ch.push("bar"); ch.push("underline"); }
+        else if i == 14 { key = "rotation"; ch.push("auto"); ch.push("portrait"); ch.push("landscape"); }
+        else if i == 15 { key = "fullscreen"; ch.push("off"); ch.push("on"); }
+        else if i == 16 { key = "keepawake"; ch.push("off"); ch.push("on"); }
+        else if i == 17 { key = "volkeys"; ch.push("off"); ch.push("on"); }
+        else if i == 19 { key = "bell"; ch.push("on"); ch.push("off"); }
+        else if i == 20 { key = "vibrate"; ch.push("off"); ch.push("on"); }
+        else if i == 22 { key = "run_net"; ch.push("ask"); ch.push("never"); ch.push("allow"); }
+        else if i == 18 {
+            key = "scrollback";
+            int n = cur.to_int();
+            if dir == 0 { cout << "\nlines of history (100 .. 100000): "; n = Input::line().trim().to_int(); } else { n += dir * 500; }
+            if n < 100 { n = 100; }
+            if n > 100000 { n = 100000; }
+            kv_set(cfg, key, str(n), false);
+            return;
+        } else if i == 21 {
+            key = "startup";
+            cout << "\ncommand to run when the app starts (empty = none): ";
+            String c = Input::line().trim();
+            kv_set(cfg, key, c, false);
+            return;
+        }
+        int at = 0;
+        for k in 0..ch.len { if ch[k] == cur { at = k; } }
+        int step = dir;
+        if step == 0 { step = 1; }
+        int nx = (at + step + ch.len) % ch.len;
+        kv_set(cfg, key, ch[nx], false);
+        if i == 17 { cout << esc() << "]7777;volkeys;" << ch[nx] << (char)7; }          // the app keeps this one in its own preferences
         return;
     }
     if i == 5 { if cur == "shown" { kv_set(cfg, "topbar", "hidden", false); } else { kv_set(cfg, "topbar", "shown", false); } return; }
@@ -829,19 +878,59 @@ void setting_change(int i, int dir) {
     setv(key, chosen);                                                      // the next prompt uses it
 }
 
+// the order and the sections of the screen: item numbers; a negative number is the title of a section
+int[] setting_order() {
+    int[] o = arr(40);
+    o.push(0 - 1); o.push(0); o.push(1); o.push(2); o.push(3); o.push(4); o.push(5); o.push(6); o.push(7);
+    o.push(0 - 2); o.push(8); o.push(9); o.push(10); o.push(11);
+    o.push(0 - 3); o.push(17);
+    o.push(0 - 4); o.push(18); o.push(19); o.push(20); o.push(21); o.push(22);
+    o.push(0 - 5); o.push(13);
+    o.push(0 - 6); o.push(14); o.push(15); o.push(16);
+    o.push(0 - 7); o.push(12);
+    return o;
+}
+
+String section_title(int n) {
+    if n == 1 { return "look"; }
+    if n == 2 { return "prompt"; }
+    if n == 3 { return "keyboard and keys"; }
+    if n == 4 { return "terminal and security"; }
+    if n == 5 { return "font and cursor"; }
+    if n == 6 { return "screen"; }
+    return "other";
+}
+
+// the items that can be chosen (the titles are skipped)
+int[] setting_items() {
+    int[] o = setting_order();
+    int[] r = arr(40);
+    for k in 0..o.len { if o[k] >= 0 { r.push(o[k]); } }
+    return r;
+}
+
 void setting_draw(int sel) {
     String e = esc();
-    String out = e + "[2J" + e + "[H" + e + "[1mjaric setting" + e + "[0m   (the files: " + cfg_dir() + "/config.local, theme.toml, ~/.jshrc)\n\n";
-    for i in 0..13 {
+    int rows = Term::rows();
+    int cols = Term::cols();
+    if cols < 30 { cols = 80; }
+    String out = e + "[2J" + e + "[H" + e + "[1mjaric setting" + e + "[0m   (jash import takes these files in: " + cfg_dir() + "/config.local, theme.toml, ~/.jshrc)\n";
+    int[] o = setting_order();
+    int[] items = setting_items();
+    int lines_used = 3;
+    for k in 0..o.len {
+        if o[k] < 0 { out = out + "\n " + e + "[36m" + section_title(0 - o[k]) + e + "[0m\n"; lines_used += 2; continue; }
+        int i = o[k];
         String val = setting_value(i);
         String line = "  " + setting_label(i);
-        while line.len < 34 { line = line + " "; }
+        while line.len < 40 { line = line + " "; }
         line = line + val;
         String sw = "";
         if i >= 2 && i <= 4 && val != "(theme)" { sw = " " + swatch(val, "0;0;0"); }
         if i >= 8 && i <= 11 && val != "(default)" { sw = " " + swatch(val, "255;255;255"); }
-        if i == sel { out = out + e + "[7m> " + line.slice(2, line.len) + e + "[0m" + sw + "\n"; }
+        if i == items[sel] { out = out + e + "[7m> " + line.slice(2, line.len) + e + "[0m" + sw + "\n"; }
         else { out = out + line + sw + "\n"; }
+        lines_used += 1;
     }
     out = out + "\n  up/down choose    left/right change    Enter type a value    q leave (the app reads the files again)\n";
     cout << out;
@@ -851,15 +940,16 @@ void setting_screen() {
     if Sys::isatty(0) != 0 { cout << "jaric setting needs a terminal\n"; return; }
     int sel = 0;
     bool run = true;
+    int[] its = setting_items();
     while run {
         setting_draw(sel);
         int k = Input::key();
         if k == 'q' || k == 'Q' || k == 27 || k < 0 { run = false; }
         else if k == 257 { if sel > 0 { sel -= 1; } }
-        else if k == 258 { if sel < 12 { sel += 1; } }
-        else if k == 259 { setting_change(sel, 1); }
-        else if k == 260 { setting_change(sel, 0 - 1); }
-        else if k == 13 || k == 10 { setting_change(sel, 0); }
+        else if k == 258 { if sel < its.len - 1 { sel += 1; } }
+        else if k == 259 { setting_change(its[sel], 1); }
+        else if k == 260 { setting_change(its[sel], 0 - 1); }
+        else if k == 13 || k == 10 { setting_change(its[sel], 0); }
     }
     cout << esc() << "[2J" << esc() << "[H";
     cout << esc() << "]7777;reload" << (char)7;                             // the app reads config.local and theme.toml again
@@ -1796,7 +1886,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.7.3\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.7.4\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
