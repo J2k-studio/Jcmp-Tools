@@ -166,20 +166,20 @@ if [ "${1:-}" = "init" ] && [ "${2:-}" = "-ai" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
     mkdir -p data
 cat > makej <<'MAKEJ_AI_EOF'
-# an AI project (makej init -ai). Needs the tool neuron:  jget tool neuron   (the commands below are steps: they run only when you name them)
+# an AI project (makej init -ai). The steps below run only when you name them; each one installs the tool neuron (jget tool neuron) when it is missing.
 #   makej train     learns the talk in data/chat.txt and writes the model assistant.jw   (all the AI in one .jw file)
 #   makej chat      talks with the model;   makej install   makes it the assistant of this phone (xr, neuron chat)
 [makej]
 out = "_out"
 
 [step.train]
-run = "neuron train data/chat.txt -o assistant.jw -k 12 -d 8 -h 64 -e 6 -r 0.08"
+run = "command -v neuron >/dev/null 2>&1 || jget tool neuron; neuron train data/chat.txt -o assistant.jw -k 12 -d 8 -h 64 -e 6 -r 0.08"
 
 [step.chat]
-run = "neuron chat assistant.jw"
+run = "command -v neuron >/dev/null 2>&1 || jget tool neuron; neuron chat assistant.jw"
 
 [step.install]
-run = "neuron install assistant.jw"
+run = "command -v neuron >/dev/null 2>&1 || jget tool neuron; neuron install assistant.jw"
 MAKEJ_AI_EOF
 cat > data/chat.txt <<'MAKEJ_AI_CHAT_EOF'
 You: hello

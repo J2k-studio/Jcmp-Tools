@@ -24,6 +24,9 @@ xr "what is your name"                one answer;   xr  alone = a chat
 ```
 Settings (`jash set xr.port 7791`): `port` (7790), `temperature` (0.7), `max` (bytes of an answer, 200), `autostart` (on / off: the Jaric app starts `xr start` when it opens; `jaric setting`, section "assistant").
 
+## The tool and the library are two things
+`jget tool neuron` installs this **program** (train, run, chat, xr). `jget -li install neuron` installs the **library** `<neuron>` (a J2K source file with `Tensor` and `Network`, for your own programs). The project of `makej init -ai` needs only the program, and its steps install it by themselves.
+
 ## Install
 ```
 jget tool neuron                                                     # with jget

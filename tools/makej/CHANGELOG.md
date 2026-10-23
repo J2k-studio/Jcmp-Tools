@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.5
+* **Changed:** the steps of an -ai project (`makej train`, `chat`, `install`) install the program `neuron` themselves (`jget tool neuron`) when it is not there, so nothing has to be installed by hand first. (The library `neuron` of `jget -li` is a different thing and is not needed.)
+
 ## 0.8.4
 * **Fixed:** `makej init -ai` wrote a numeric example program (`src/chat.jk`, `data/data.csv`) that a bare `makej` built, and it failed with "library not found 'neuron'" when the library was not installed. The project now has only `makej` and `data/chat.txt`; the steps `train`, `chat`, `install` run when named. Older -ai projects: delete the `[program.numeric]` and `[step.numeric_*]` parts of the file `makej`, or run `makej train` directly.
 
