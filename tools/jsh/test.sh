@@ -15,7 +15,7 @@ two
 status 1
 y
 jsh: nosuchprog: command not found
-/'
+r:/'
 [ "$OUT" = "$WANT" ] || { echo "shell test: the output differs"; echo "$OUT"; exit 1; }
 [ "$rc" = 7 ] || { echo "shell test: exit code $rc, wanted 7"; exit 1; }
 echo "shell test: ok"
@@ -152,4 +152,7 @@ for c in [b'\r', b'cd jaric\r', b'cd :/\r', ('cd ' + os.environ['T13'] + '\r').e
 if got[:3] != ['f:/', 'f:/jaric', 'f:/'] or not got[3].startswith('r:/'):
     print(got); sys.exit(1)
 PY
+printf 'pwd\ncd f:/jaric\npwd\npwd -P\ncd :/\npwd\n' > "$T13/p.jsh"
+got=$(HOME="$H" PREFIX="$T13/usr" "$SH" "$T13/p.jsh" 2>&1 | tr '\n' '|')
+case "$got" in *"f:/jaric|$H/jaric|f:/|") ;; *) echo "shell test (step 13): pwd: $got"; exit 1 ;; esac
 echo "shell test (step 13): ok"

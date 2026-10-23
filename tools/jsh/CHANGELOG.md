@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.1
+* **Changed:** `pwd` prints the drive and the path (`f:/jaric`), like the prompt, in full; `pwd -P` prints the real path (`/data/data/.../home/jaric`).
+
 ## 0.9.0
 * **Changed (the drives, the owner's design of 2026-10-23; replaces the `:/X` letters of 0.8.2):** a path may start with a drive written before the colon: `f:/jaric`, `0:/Download`. **The drive `f` is home** and `:/` with no letter is home too (the same as `~/`): `cp song.mp3 :/Music`, `cd f:/jaric`. `0:` is the phone storage, `r:` the root `/`; `drive new NAME PATH` makes more drives (kept in `~/.jsh_drives`), `drive remove NAME`, `drive` and `jaric drives` list them. A URL (`http://...`) and a name that is not a drive are left alone.
 * **Changed (the prompt):** it shows the drive and the folder in it: `jc f:/>` at home, `jc f:/jaric>` in `~/jaric`, `jc 0:/Download>` in the storage, `jc r:/data>` elsewhere; a deep path is cut (`f:/../er/est`).
