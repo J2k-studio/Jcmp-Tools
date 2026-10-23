@@ -32,22 +32,34 @@ if [ "$LIST" = 1 ]; then grep -v '^#' "$TMP/tools.txt" | while IFS='|' read -r n
 if [ "$ALL" = 1 ]; then NAMES="$ALLNAMES"; fi
 if [ -z "${NAMES# }" ]; then
     if [ "$YES" = 0 ] && [ -r /dev/tty ] && [ -w /dev/tty ]; then
-        echo "Tools of Jcmp-Tools:" > /dev/tty
-        i=1
-        grep -v '^#' "$TMP/tools.txt" | while IFS='|' read -r n d; do printf '  %d) %-10s %s\n' "$i" "$n" "$d" > /dev/tty; i=$((i+1)); done
-        printf '  a) all     q) quit\nWhich ones (numbers or names, spaces between; Enter = 1)? ' > /dev/tty
-        read -r ANSWER < /dev/tty || ANSWER=""
-        case "$ANSWER" in
-            q|Q) echo "nothing installed"; exit 0 ;;
-            a|A|all) NAMES="$ALLNAMES" ;;
-            "") NAMES="$(echo "$ALLNAMES" | head -1)" ;;
-            *) for w in $ANSWER; do
-                   case "$w" in
-                       *[!0-9]*) NAMES="$NAMES $w" ;;
-                       *) NAMES="$NAMES $(echo "$ALLNAMES" | sed -n "${w}p")" ;;
-                   esac
-               done ;;
-        esac
+        W="${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}"; [ "$W" -ge 40 ] 2>/dev/null || W=80
+        TRY=0
+        while [ "$TRY" -lt 3 ] && [ -z "${NAMES# }" ]; do
+            TRY=$((TRY+1))
+            echo "Jcmp-Tools:" > /dev/tty
+            i=1
+            # one short line per tool: the name and the text up to the first ':' or '(' , cut to the width of the screen
+            grep -v '^#' "$TMP/tools.txt" | while IFS='|' read -r n d; do
+                d="$(echo "$d" | sed 's/ *[:(].*//' | cut -c1-$((W-16)))"
+                printf '%3d) %-8s %s\n' "$i" "$n" "$d" > /dev/tty; i=$((i+1))
+            done
+            printf '  a) all   q) quit      numbers or names, e.g. 1 3 mujic   [Enter = 1] ? ' > /dev/tty
+            read -r ANSWER < /dev/tty || ANSWER=""
+            case "$ANSWER" in
+                q|Q) echo "nothing installed"; exit 0 ;;
+                a|A|all) NAMES="$ALLNAMES" ;;
+                "") NAMES="$(echo "$ALLNAMES" | head -1)" ;;
+                *) PICK=""; BAD=""
+                   for w in $ANSWER; do
+                       case "$w" in
+                           *[!0-9]*) if echo "$ALLNAMES" | grep -qx "$w"; then PICK="$PICK $w"; else BAD="$BAD $w"; fi ;;
+                           *) T="$(echo "$ALLNAMES" | sed -n "${w}p")"; if [ -n "$T" ]; then PICK="$PICK $T"; else BAD="$BAD $w"; fi ;;
+                       esac
+                   done
+                   if [ -n "$BAD" ]; then echo "not a tool:$BAD  (type the number or the name from the list)" > /dev/tty; else NAMES="$PICK"; fi ;;
+            esac
+        done
+        [ -n "${NAMES# }" ] || { echo "install: nothing chosen; run again, or  install.sh jget mujic"; exit 1; }
     else
         NAMES="$(echo "$ALLNAMES" | head -1)"
     fi
