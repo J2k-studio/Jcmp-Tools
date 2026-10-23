@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.3
+* **Added:** `jaric store` (also `jaric -store`) opens the store of the programs of Jaric: `jaric store` lists them, `jaric store install ID`, `update`, `remove ID` (the tool `jstore`; says how to install it when it is missing).
+
 ## 0.8.2
 * **Added (drives):** a word that starts with `:/X` is the folder of a drive, so the paths of the prompt can be typed: `:/f` the folder of the app (the parent of home), `:/h` home, `:/0` the phone storage (`/storage/emulated/0`), `:/s` `/sdcard`, `:/p` the prefix, `:/t` temporary files, `:/r` and `:/` the root `/`. `cp song.mp3 :/0/Music`, `cd :/f/home`. A URL or an unknown letter is not touched. `jaric drives` shows the table. (Designed by the assistant, adjustable: docs/os-userland-ideas.md.)
 

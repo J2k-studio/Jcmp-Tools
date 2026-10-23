@@ -1295,6 +1295,14 @@ bool builtin(String[] a) {
             dn.push("the folder of the app"); dn.push("home"); dn.push("the phone storage"); dn.push("/sdcard"); dn.push("the prefix (bin, etc ...)"); dn.push("temporary files"); dn.push("the root of the system");
             cout << ":/    the root /  (a word that starts with :/X is the folder of the drive X: cp song.mp3 :/0/Music)\n";
             for i in 0..dl.len { cout << ":/" << dl[i] << "   " << drive_root(dl[i][0]) << "   (" << dn[i] << ")\n"; }
+        } else if a.len >= 2 && (a[1] == "store" || a[1] == "-store") {
+            // jaric store [list | install ID | update ...]: the store of the programs of Jaric (the tool jstore)
+            String[] sa = arr(4);
+            sa.push("jstore");
+            if a.len == 2 { sa.push("list"); }
+            for i in 2..a.len { sa.push(a[i]); }
+            if !have_program("jstore") { cout << "the store is not installed:  jget tool jc jstore\n"; }
+            else { run_words(sa); bcode = last_status; }
         } else if a.len >= 2 && a[1] == "assistant" {
             // jaric assistant [question]: talk to the assistant xaiorin (the program xr of the tool neuron)
             String[] xa = arr(2);
@@ -1984,7 +1992,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.8.2\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.8.3\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
