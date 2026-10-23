@@ -51,7 +51,45 @@ void load_files() {
     if !r.is_ok() { return; }
     String[] names = r.take();
     names.sort();
-    for i in 0..names.len { if is_audio(names[i]) { g_files.push(names[i] + ""); } }
+    for i in 0..names.len {
+        if is_audio(names[i]) { g_files.push(names[i] + ""); }
+        else if Dir::exists(Path::join(dir, names[i])) {
+            // one level of folders: the songs in them are named  folder/song.mp3
+            Result<String[], Error> r2 = Dir::list(Path::join(dir, names[i]));
+            if r2.is_ok() {
+                String[] sub = r2.take();
+                sub.sort();
+                for k in 0..sub.len { if is_audio(sub[k]) { g_files.push(names[i] + "/" + sub[k]); } }
+            }
+        }
+    }
+}
+
+// /mv NAME FOLDER: move a song into a folder of the music folder (made when it is not there); FOLDER "." brings it back
+String move_song(String what, String folder) {
+    int n = find_song(what);
+    if n < 0 { return "no song like '" + what + "'"; }
+    String file = g_files[n];
+    String base = file;
+    int slash = -1;
+    for i in 0..file.len { if file[i] == '/' { slash = i; } }
+    if slash >= 0 { base = file.slice(slash + 1, file.len); }
+    if folder.contains("..") || folder.starts_with("/") { return "the folder must be a plain name inside " + music_dir(); }
+    String dest_dir = music_dir();
+    if folder != "." && folder.len > 0 {
+        dest_dir = Path::join(music_dir(), folder);
+        Result<int, Error> mk = Dir::make_all(dest_dir);
+        if !mk.is_ok() { return "cannot make the folder " + folder; }
+    }
+    // the files of the song that belong together: sound, lyrics (.lrc, .txt)
+    String from_base = Path::join(music_dir(), strip_ext(file));
+    String to_base = Path::join(dest_dir, strip_ext(base));
+    Result<int, Error> r = Fs::rename(Path::join(music_dir(), file), Path::join(dest_dir, base));
+    if !r.is_ok() { return "cannot move " + file; }
+    Fs::rename(from_base + ".lrc", to_base + ".lrc");
+    Fs::rename(from_base + ".txt", to_base + ".txt");
+    g_files_ready = false;
+    return "moved " + strip_ext(base) + " to " + folder;
 }
 
 // the song for a number, a name or a part of a name; -1 when none
@@ -717,8 +755,8 @@ bool cmd_ready;
 void cmd_init() {
     if cmd_ready { return; }
     cmd_ready = true;
-    cmd_name = arr(24);
-    cmd_help = arr(24);
+    cmd_name = arr(32);
+    cmd_help = arr(32);
     cmd_name.push("play"); cmd_help.push("choose a song and play it  (/play NAME)");
     cmd_name.push("pause"); cmd_help.push("pause or go on");
     cmd_name.push("next"); cmd_help.push("the next song");
@@ -728,6 +766,7 @@ void cmd_init() {
     cmd_name.push("lyrics"); cmd_help.push("show the lyrics  (/lyrics get fetches them from the web)");
     cmd_name.push("get"); cmd_help.push("fetch a song: choose from the catalog, or give a name, an address, archive:ID");
     cmd_name.push("find"); cmd_help.push("search the Internet Archive  (/find words)");
+    cmd_name.push("mv"); cmd_help.push("move a song into a folder  (/mv NAME FOLDER;  FOLDER . brings it back)");
     cmd_name.push("shuffle"); cmd_help.push("shuffle on / off");
     cmd_name.push("repeat"); cmd_help.push("repeat: off, all, one");
     cmd_name.push("volume"); cmd_help.push("the volume  (/volume 80)  in the Jaric app");
@@ -920,6 +959,12 @@ void run_command(String line) {
     }
     else if cmd == "find" {
         if arg.len == 0 { g_note = "/find words  (for example /find piano)"; } else { g_note = "searching ..."; archive_picker(arg); }
+    }
+    else if cmd == "mv" {
+        int sp = -1;
+        for i in 0..arg.len { if arg[i] == ' ' { sp = i; } }
+        if sp <= 0 { g_note = "/mv NAME FOLDER   (for example /mv rain relax;  /mv rain .  brings it back)"; }
+        else { g_note = move_song(arg.slice(0, sp).trim(), arg.slice(sp + 1, arg.len).trim()); load_files(); }
     }
     else if cmd == "shuffle" { g_shuffle = !g_shuffle; if g_shuffle { g_note = "shuffle on"; } else { g_note = "shuffle off"; } }
     else if cmd == "repeat" { g_repeat = (g_repeat + 1) % 3; if g_repeat == 0 { g_note = "repeat off"; } else if g_repeat == 1 { g_note = "repeat all"; } else { g_note = "repeat one"; } }
@@ -1248,7 +1293,7 @@ int do_lyrics(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.3.0";
+    String VERSION = "0.3.1";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     if args.len > 1 {

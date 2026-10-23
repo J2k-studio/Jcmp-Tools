@@ -1140,10 +1140,13 @@ bool builtin(String[] a) {
             }
         } else if a.len >= 3 && a[1] == "font" {
             cout << esc() << "]7777;font;" << a[2] << (char)7;
+        } else if a.len >= 2 && (a[1] == "-restart" || a[1] == "restart") {
+            cout << esc() << "]7777;restart" << (char)7;
         } else if a.len >= 2 && a[1] == "core" {
             cout << esc() << "]7777;core" << (char)7;
         } else {
             cout << "jaric setting       one screen for everything: theme, font, colours, top bar, animation, the prompt\n";
+            cout << "jaric -restart       start the app again\n";
             cout << "jaric theme [NAME]   the colours (black soft amber green ice)\n";
             cout << "jaric font SIZE      the size of the letters (8 .. 28; a pinch on the screen does it too)\n";
             cout << "jaric video FILE|URL   play a video (mp4, webm, 3gp, ...) over the terminal\n";
