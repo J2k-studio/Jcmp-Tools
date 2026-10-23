@@ -1,6 +1,6 @@
 #!/bin/sh
 # makej: a build tool for J2K projects. The build file is the file "makej" (a simple TOML, written by hand: nano makej) or "makej.jk" (a J2K program).
-#   makej [init [-ai]] [target] [-v] [-n] [-j N]   makej list   makej clean   makej install FOLDER   makej --version
+#   makej [init [-ai|-game]] [target] [-v] [-n] [-j N]   makej list   makej clean   makej install FOLDER   makej --version
 # This file is the whole tool: the library of makej is inside it and is written to a cache folder at the first run.
 MAKEJ_VERSION=@VERSION@
 case "${1:-}" in --version|-version) echo "makej $MAKEJ_VERSION"; exit 0 ;; esac
@@ -84,6 +84,261 @@ cat > data/data.csv <<'MAKEJ_AI_DATA_EOF'
 1,1,0
 MAKEJ_AI_DATA_EOF
     echo "makej: wrote makej, src/chat.jk, data/data.csv (jget -li install neuron; then makej train, makej ask)"; exit 0
+fi
+if [ "${1:-}" = "init" ] && [ "${2:-}" = "-game" ]; then
+    [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
+    mkdir -p src lessons assets
+cat > makej <<'MAKEJ_GAME_EOF'
+# a game project (makej init -game). Needs the library gamej:  jget -li install gamej
+#   makej game          build the game          makej run           build and play
+#   makej lesson1 ..    build lesson 1 to 5     makej play1 ..      play lesson 1 to 5
+#   makej pack          build NAME.jec, the package of the game (a zip with manifest.toml, the program and assets/)
+[makej]
+out = "_out"
+
+[program.game]
+main = "src/main.jk"
+flags = ""
+
+[program.lesson1]
+main = "lessons/lesson1.jk"
+flags = ""
+
+[program.lesson2]
+main = "lessons/lesson2.jk"
+flags = ""
+
+[program.lesson3]
+main = "lessons/lesson3.jk"
+flags = ""
+
+[program.lesson4]
+main = "lessons/lesson4.jk"
+flags = ""
+
+[program.lesson5]
+main = "lessons/lesson5.jk"
+flags = ""
+
+[step.run]
+run = "_out/game"
+needs = "game"
+
+[step.play1]
+run = "_out/lesson1"
+needs = "lesson1"
+
+[step.play2]
+run = "_out/lesson2"
+needs = "lesson2"
+
+[step.play3]
+run = "_out/lesson3"
+needs = "lesson3"
+
+[step.play4]
+run = "_out/lesson4"
+needs = "lesson4"
+
+[step.play5]
+run = "_out/lesson5"
+needs = "lesson5"
+
+[step.pack]
+run = "zipj -q _out/game.jec manifest.toml _out/game assets"
+needs = "game"
+MAKEJ_GAME_EOF
+cat > manifest.toml <<'MAKEJ_GAME_MANIFEST_EOF'
+# the manifest of a .jec package (like AndroidManifest.xml of an apk): what it is and what to run
+name = "My Game"
+id = "game.mygame"
+version = "0.1.0"
+type = "game"
+entry = "_out/game"
+icon = "assets/icon.txt"
+MAKEJ_GAME_MANIFEST_EOF
+printf 'GAME\n' > assets/icon.txt
+cat > lessons/lesson1.jk <<'MAKEJ_L1_EOF'
+// Lesson 1: a window and a loop.   makej play1   (Esc ends the game)
+// A game is a loop: every turn reads the keys, changes the world, draws it. gamej does the rest (the screen, the time, 60 turns a second).
+#import <stdlib>
+#import <gamej>
+
+int main() {
+    Game g = Game::open("lesson 1");          // the whole terminal is the screen; a pixel is half a text cell
+    while g.running() {                       // false after Esc or Ctrl-C
+        g.begin();                            // reads the keys, measures the time since the last turn (g.dt)
+        g.clear(Game::rgb(10, 20, 40));       // colours are rgb(red, green, blue), each 0 .. 255
+        g.rect(10, 8, 20, 10, Game::rgb(255, 200, 60));        // x y width height colour
+        g.text(12, 12, "HELLO", Game::rgb(0, 0, 0));            // a small font: capitals, digits, signs
+        g.end();                              // draws the turn and waits for the next one
+    }
+    g.close();                                // gives the terminal back
+    return 0;
+}
+MAKEJ_L1_EOF
+cat > lessons/lesson2.jk <<'MAKEJ_L2_EOF'
+// Lesson 2: move with the keys.   makej play2   (arrows or w a s d; Esc ends)
+// g.held(key) is true while a key is pressed lately; g.hit(key) once for each press. Move by speed * g.dt so that the speed is the same on every phone.
+#import <stdlib>
+#import <gamej>
+
+int main() {
+    Game g = Game::open("lesson 2");
+    double x = 20.0;
+    double y = 20.0;
+    double speed = 30.0;                      // pixels per second
+    while g.running() {
+        g.begin();
+        if g.held(Key::left()) || g.held('a') { x -= speed * g.dt; }
+        if g.held(Key::right()) || g.held('d') { x += speed * g.dt; }
+        if g.held(Key::up()) || g.held('w') { y -= speed * g.dt; }
+        if g.held(Key::down()) || g.held('s') { y += speed * g.dt; }
+        g.clear(Game::rgb(10, 20, 40));
+        g.rect((int)x, (int)y, 6, 6, Game::rgb(120, 220, 255));
+        g.end();
+    }
+    g.close();
+    return 0;
+}
+MAKEJ_L2_EOF
+cat > lessons/lesson3.jk <<'MAKEJ_L3_EOF'
+// Lesson 3: gravity and a jump.   makej play3   (space jumps, left/right move)
+// A speed that changes every turn: gravity adds to vy, the floor stops it.
+#import <stdlib>
+#import <gamej>
+
+int main() {
+    Game g = Game::open("lesson 3");
+    double x = 10.0;
+    double y = 0.0;
+    double vy = 0.0;
+    int floor = g.h - 8;
+    while g.running() {
+        g.begin();
+        if g.held(Key::left()) { x -= 30.0 * g.dt; }
+        if g.held(Key::right()) { x += 30.0 * g.dt; }
+        vy += 120.0 * g.dt;                                     // gravity
+        y += vy * g.dt;
+        if y >= (double)(floor - 6) { y = (double)(floor - 6); vy = 0.0; if g.hit(Key::space()) { vy = -60.0; } }
+        g.clear(Game::rgb(20, 24, 40));
+        g.rect(0, floor, g.w, 8, Game::rgb(60, 140, 60));       // the ground
+        g.rect((int)x, (int)y, 6, 6, Game::rgb(255, 120, 80));
+        g.end();
+    }
+    g.close();
+    return 0;
+}
+MAKEJ_L3_EOF
+cat > lessons/lesson4.jk <<'MAKEJ_L4_EOF'
+// Lesson 4: things that fall, a hit, a score.   makej play4   (left/right catch the stars)
+// Game::overlap(a, b) tells if two boxes touch. Random numbers: Random::range.
+#import <stdlib>
+#import <gamej>
+
+int main() {
+    Game g = Game::open("lesson 4");
+    double px = 30.0;
+    double sx = 20.0;
+    double sy = 0.0;
+    int score = 0;
+    while g.running() {
+        g.begin();
+        if g.held(Key::left()) { px -= 50.0 * g.dt; }
+        if g.held(Key::right()) { px += 50.0 * g.dt; }
+        if px < 0.0 { px = 0.0; }
+        if px > (double)(g.w - 12) { px = (double)(g.w - 12); }
+        sy += 40.0 * g.dt;
+        if Game::overlap((int)px, g.h - 6, 12, 4, (int)sx, (int)sy, 3, 3) { score += 1; sy = 0.0; sx = (double)(Random::range(2, g.w - 4)); }
+        if sy > (double)g.h { sy = 0.0; sx = (double)(Random::range(2, g.w - 4)); score = 0; }       // missed: start again
+        g.clear(Game::rgb(8, 8, 24));
+        g.rect((int)px, g.h - 6, 12, 4, Game::rgb(120, 220, 255));
+        g.circle((int)sx, (int)sy, 1, Game::rgb(255, 230, 80));
+        g.text(2, 2, "SCORE " + str(score), Game::rgb(255, 255, 255));
+        g.end();
+    }
+    g.close();
+    return 0;
+}
+MAKEJ_L4_EOF
+cat > lessons/lesson5.jk <<'MAKEJ_L5_EOF'
+// Lesson 5: pictures made of letters, and a sound.   makej play5   (space makes the sound in the Jaric app)
+// g.art(x, y, rows, legend): each letter of the rows is a colour of the legend  <letter>#RRGGBB ; '.' is empty.
+#import <stdlib>
+#import <gamej>
+
+int main() {
+    Game g = Game::open("lesson 5");
+    String ship = "..w..\n.www.\nwwrww\nw.w.w";
+    String legend = "w#e0e0ffr#ff4040";            // w = pale blue, r = red
+    double x = 30.0;
+    while g.running() {
+        g.begin();
+        if g.held(Key::left()) { x -= 40.0 * g.dt; }
+        if g.held(Key::right()) { x += 40.0 * g.dt; }
+        if g.hit(Key::space()) { g.sound("beep.mp3"); }        // put beep.mp3 in the folder; the Jaric app plays it
+        g.clear(Game::rgb(5, 5, 20));
+        g.art((int)x, g.h - 8, ship, legend);
+        g.text(2, 2, "SHIP", Game::rgb(255, 255, 255));
+        g.end();
+    }
+    g.close();
+    return 0;
+}
+MAKEJ_L5_EOF
+cat > src/main.jk <<'MAKEJ_GAME_SRC_EOF'
+// Your game. Start from here: makej run (build and play), makej pack (make game.jec). The lessons are in lessons/ (makej play1 .. play5).
+//   Dodge the blocks: left/right move, space speeds up the world. Esc ends.
+#import <stdlib>
+#import <gamej>
+
+int main() {
+    Game g = Game::open("My Game");
+    double px = 40.0;
+    double[] bx = arr(8);
+    double[] by = arr(8);
+    for i in 0..6 { bx.push((double)Random::range(2, g.w - 6)); by.push(0.0 - (double)(i * 12)); }
+    int best = 0;
+    double alive_time = 0.0;
+    double speed = 30.0;
+    while g.running() {
+        g.begin();
+        if g.held(Key::left()) { px -= 60.0 * g.dt; }
+        if g.held(Key::right()) { px += 60.0 * g.dt; }
+        if px < 0.0 { px = 0.0; }
+        if px > (double)(g.w - 8) { px = (double)(g.w - 8); }
+        alive_time += g.dt;
+        speed = 30.0 + alive_time * 2.0;
+        bool dead = false;
+        for i in 0..6 {
+            by[i] = by[i] + speed * g.dt;
+            if by[i] > (double)g.h { by[i] = -4.0; bx[i] = (double)Random::range(2, g.w - 6); }
+            if Game::overlap((int)px, g.h - 6, 8, 4, (int)bx[i], (int)by[i], 4, 4) { dead = true; }
+        }
+        if dead {
+            if (int)alive_time > best { best = (int)alive_time; }
+            alive_time = 0.0;
+            for i in 0..6 { by[i] = 0.0 - (double)(i * 12); }
+        }
+        g.clear(Game::rgb(12, 14, 30));
+        g.rect((int)px, g.h - 6, 8, 4, Game::rgb(120, 220, 255));
+        for i in 0..6 { g.rect((int)bx[i], (int)by[i], 4, 4, Game::rgb(255, 90, 90)); }
+        g.text(2, 2, "TIME " + str((int)alive_time) + "  BEST " + str(best), Game::rgb(255, 255, 255));
+        g.end();
+    }
+    g.close();
+    return 0;
+}
+MAKEJ_GAME_SRC_EOF
+cat > README.md <<'MAKEJ_GAME_README_EOF'
+# My game (made with makej init -game)
+
+* `jget -li install gamej` once; then `makej run` plays the game, `makej pack` makes `game.jec` (the package of the game: a zip with `manifest.toml`, the program and `assets/`).
+* Learn: `makej play1` ... `makej play5` (the files are in `lessons/`, each short, with comments): 1 window and loop, 2 move, 3 gravity and jump, 4 falling things, hit and score, 5 pictures and sound.
+* The library: see `jcmp -showlib gamej` or the top of `~/.j2k/Library/gamej.j`. Draw: clear pixel rect frame_rect line circle text art. Input: held hit. Time: g.dt. Collision: Game::overlap. Sound: g.sound.
+* ภาษาไทย: ไลบรารีชื่อ `<gamej>` วาดบนเทอร์มินัลทั้งจอ (1 ช่อง = 2 พิกเซล) เกมคือลูป: อ่านปุ่ม -> เปลี่ยนโลก -> วาด; ใช้ `g.dt` เพื่อให้ความเร็วเท่ากันทุกเครื่อง
+MAKEJ_GAME_README_EOF
+    echo "makej: wrote makej, manifest.toml, src/main.jk, lessons/lesson1..5.jk, README.md (jget -li install gamej; then makej run, makej play1)"; exit 0
 fi
 if [ "${1:-}" = "init" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }

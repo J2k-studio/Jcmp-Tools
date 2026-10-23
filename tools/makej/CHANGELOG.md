@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.0
+* `makej init -game`: a game project with the library gamej: src/main.jk (a small game), five lessons (makej play1 .. play5), manifest.toml and `makej pack` (NAME.jec, the package of a game: a zip with the manifest, the program and assets/).
+
 ## 0.2.0
 * **Several cores:** `makej -j N` (default: the number of cores that are on) builds N targets at the same time, each as soon as what it needs is done; a failed target stops new ones from starting, the others finish, the exit code is 1.
 

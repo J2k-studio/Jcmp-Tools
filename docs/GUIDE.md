@@ -160,6 +160,14 @@ tarj x out.tar.gz -o dest   open (a gzip inside is found)  tarj t out.tar   list
 gzj notes.txt               make notes.txt.gz              gzj -d notes.txt.gz   open it
 ```
 
+## 6d. Games: makej init -game
+`jget -li install gamej`, then `makej init -game` in an empty folder. You get `src/main.jk` (a small game), `lessons/lesson1..5.jk`, `manifest.toml`, `README.md`.
+```
+makej run            build and play the game          makej play1 .. play5   the lessons (window, move, gravity, hit and score, pictures and sound)
+makej pack           make _out/game.jec, the package of the game (a zip: manifest.toml, the program, assets/)
+```
+The library `<gamej>`: `Game g = Game::open("title"); while g.running() { g.begin(); ...draw...; g.end(); } g.close();` Draw: clear pixel rect frame_rect line circle text art. Input: `g.held(Key::left())`, `g.hit(' ')`. Time: `g.dt`. Collision: `Game::overlap(...)`. Sound (Jaric app): `g.sound("a.mp3")`. Esc ends the game.
+
 ## 6c. mujic: music
 Install: `jget tool mujic`. Songs are in `~/music`.
 ```
