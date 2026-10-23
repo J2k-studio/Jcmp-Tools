@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.2
+* **Changed:** `jaric` with a word it does not know (for example `jaric assistent`) says "Did you mean: jaric assistant ?" and lists every command, now including `assistant`, `store`, `drives` and `sessions` (the list was old).
+
 ## 0.9.1
 * **Changed:** `pwd` prints the drive and the path (`f:/jaric`), like the prompt, in full; `pwd -P` prints the real path (`/data/data/.../home/jaric`).
 

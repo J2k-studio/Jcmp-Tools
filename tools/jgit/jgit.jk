@@ -1,0 +1,800 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// jgit: git in J2K. It reads and writes the repository folder of git (.git) in its own format, so the repositories of jgit and of git
+// are the same repositories. Version 0.1: the local work; objects that git packed (git gc, a clone) and the network come later.
+//   jgit init [DIR]          make a repository          jgit add PATH...      put files in the next commit (jgit add . : all, also the removed)
+//   jgit commit -m "text"    save what was added        jgit status           what changed        jgit log [-n N]   the history
+//   jgit diff                the lines that changed since the last add          jgit cat HASH|REF   an object   jgit branch [NAME]   jgit switch NAME
+// The name for commits: JGIT_NAME / JGIT_EMAIL, else [user] of .git/config or ~/.gitconfig.
+#import <stdlib>
+#import <deflate>
+
+String jgit_version() { return "0.1.0"; }
+
+int fail(String msg) {
+    cerr << "jgit: " << msg << "\n";
+    return 1;
+}
+
+// ---------------------------------------------------------------- SHA-1 (the names of the objects), zlib
+int rotl(int x, int n) { return ((x << n) | (x >> (32 - n))) & 4294967295; }
+
+String sha1_raw(String data) {
+    int h0 = 1732584193;
+    int h1 = 4023233417;
+    int h2 = 2562383102;
+    int h3 = 271733878;
+    int h4 = 3285377520;
+    String m = data + "";
+    m.push((char)128);
+    while m.len % 64 != 56 { m.push((char)0); }
+    int bits = data.len * 8;
+    for i in 0..8 { m.push((char)((bits >> (56 - 8 * i)) & 255)); }
+    int[] w = arr(81);
+    for i in 0..80 { w.push(0); }
+    int blocks = m.len / 64;
+    for b in 0..blocks {
+        for t in 0..16 {
+            int p = b * 64 + t * 4;
+            w[t] = ((m[p] & 255) << 24) | ((m[p + 1] & 255) << 16) | ((m[p + 2] & 255) << 8) | (m[p + 3] & 255);
+        }
+        for t in 16..80 { w[t] = rotl(w[t - 3] xor w[t - 8] xor w[t - 14] xor w[t - 16], 1); }
+        int a = h0; int bb = h1; int c = h2; int d = h3; int e = h4;
+        for t in 0..80 {
+            int f = 0;
+            int k = 0;
+            if t < 20 { f = (bb & c) | ((bb xor 4294967295) & d); k = 1518500249; }
+            else if t < 40 { f = bb xor c xor d; k = 1859775393; }
+            else if t < 60 { f = (bb & c) | (bb & d) | (c & d); k = 2400959708; }
+            else { f = bb xor c xor d; k = 3395469782; }
+            int tmp = (rotl(a, 5) + f + e + k + w[t]) & 4294967295;
+            e = d; d = c; c = rotl(bb, 30); bb = a; a = tmp;
+        }
+        h0 = (h0 + a) & 4294967295; h1 = (h1 + bb) & 4294967295; h2 = (h2 + c) & 4294967295;
+        h3 = (h3 + d) & 4294967295; h4 = (h4 + e) & 4294967295;
+    }
+    String r = "";
+    int[] hs = arr(6);
+    hs.push(h0); hs.push(h1); hs.push(h2); hs.push(h3); hs.push(h4);
+    for i in 0..5 { for k in 0..4 { r.push((char)((hs[i] >> (24 - 8 * k)) & 255)); } }
+    return r;
+}
+
+String to_hex(String raw) {
+    String h = "0123456789abcdef";
+    String r = "";
+    for i in 0..raw.len { int b = raw[i] & 255; r.push(h[b >> 4]); r.push(h[b & 15]); }
+    return r;
+}
+
+int hexval(char c) {
+    if c >= '0' && c <= '9' { return c - '0'; }
+    if c >= 'a' && c <= 'f' { return c - 'a' + 10; }
+    if c >= 'A' && c <= 'F' { return c - 'A' + 10; }
+    return 0 - 1;
+}
+
+String from_hex(String h) {
+    String r = "";
+    int i = 0;
+    while i + 1 < h.len { r.push((char)(hexval(h[i]) * 16 + hexval(h[i + 1]))); i += 2; }
+    return r;
+}
+
+bool is_hex40(String s) {
+    if s.len != 40 { return false; }
+    for i in 0..40 { if hexval(s[i]) < 0 { return false; } }
+    return true;
+}
+
+String zlib_pack(String data) {
+    String r = "";
+    r.push((char)120); r.push((char)156);
+    r.append(Deflate::compress(data));
+    int a = 1;
+    int b = 0;
+    for i in 0..data.len { a = (a + (data[i] & 255)) % 65521; b = (b + a) % 65521; }
+    int ad = (b << 16) | a;
+    for k in 0..4 { r.push((char)((ad >> (24 - 8 * k)) & 255)); }
+    return r;
+}
+
+String zlib_unpack(String z, bool^ ok) {
+    ok[0] = false;
+    if z.len < 7 { return ""; }
+    bool good = false;
+    String raw = z.slice(2, z.len);
+    String out = Deflate::decompress(raw, @good);
+    ok[0] = good;
+    return out;
+}
+
+// ---------------------------------------------------------------- the repository
+String g_git;                                 // the folder .git
+String g_top;                                 // the folder of the files
+
+String cwd() {
+    char buf[1024];
+    if Sys::getcwd(@buf, 1024) > 0 { return (char^)@buf; }
+    return ".";
+}
+
+bool find_repo() {
+    String d = cwd();
+    while d.len > 0 {
+        String g = d + "/.git";
+        if Dir::exists(g) { g_git = g; g_top = d; return true; }
+        if d == "/" { break; }
+        d = Path::parent(d);
+        if d.len == 0 { d = "/"; }
+    }
+    return false;
+}
+
+String obj_path(String hex) { return g_git + "/objects/" + hex.slice(0, 2) + "/" + hex.slice(2, 40); }
+
+String write_object(String kind, String body) {
+    String full = kind + " " + str(body.len);
+    full.push((char)0);
+    full.append(body);
+    String hex = to_hex(sha1_raw(full));
+    String p = obj_path(hex);
+    if !Fs::exists(p) {
+        Dir::make_all(Path::parent(p));
+        Fs::write_bytes(p, zlib_pack(full));
+    }
+    return hex;
+}
+
+// the object: kind and body ("" kind when it is missing or packed)
+String g_kind;
+String read_object(String hex) {
+    g_kind = "";
+    String p = obj_path(hex);
+    if !Fs::exists(p) {
+        if Dir::exists(g_git + "/objects/pack") { cerr << "jgit: the object " << hex << " is not a loose file: this repository has packed objects (git gc or a clone), which jgit 0.1 cannot read yet\n"; }
+        return "";
+    }
+    Result<String, Error> r = Fs::read_bytes(p);
+    if !r.is_ok() { return ""; }
+    bool ok = false;
+    String full = zlib_unpack(r.take(), @ok);
+    if !ok { cerr << "jgit: the object " << hex << " is damaged\n"; return ""; }
+    int z = full.find("\0");
+    if z < 0 { return ""; }
+    String head = full.slice(0, z);
+    int sp = head.find(" ");
+    g_kind = head.slice(0, sp);
+    return full.slice(z + 1, full.len);
+}
+
+String read_text_file(String p) {
+    if !Fs::exists(p) { return ""; }
+    Result<String, Error> r = Fs::read_text(p);
+    if !r.is_ok() { return ""; }
+    return r.take();
+}
+
+// HEAD: "ref: refs/heads/main" -> the branch; else a hash
+String head_ref() {
+    String h = read_text_file(g_git + "/HEAD").trim();
+    if h.starts_with("ref: ") { return h.slice(5, h.len); }
+    return "";
+}
+
+String ref_hash(String ref) {
+    String t = read_text_file(g_git + "/" + ref).trim();
+    if t.len == 40 { return t; }
+    String pr = read_text_file(g_git + "/packed-refs");
+    String[] ls = pr.split("\n");
+    String tail = " " + ref;
+    for i in 0..ls.len {
+        bool long_enough = ls[i].len > 41;
+        bool hit = ls[i].ends_with(tail);
+        if long_enough && hit { return ls[i].slice(0, 40); }
+    }
+    return "";
+}
+
+String head_commit() {
+    String r = head_ref();
+    if r.len > 0 { return ref_hash(r); }
+    String h = read_text_file(g_git + "/HEAD").trim();
+    if h.len == 40 { return h; }
+    return "";
+}
+
+// a name (HEAD, a branch, a hash) -> the hash
+String resolve(String name) {
+    if name == "HEAD" { return head_commit(); }
+    if is_hex40(name) { return name; }
+    String h = ref_hash("refs/heads/" + name);
+    if h.len == 0 { h = ref_hash("refs/tags/" + name); }
+    return h;
+}
+
+// ---------------------------------------------------------------- the index (version 2)
+String[] ix_path;
+String[] ix_sha;                       // raw 20 bytes
+int[] ix_mode;
+int[] ix_size;
+int[] ix_mtime;
+
+void ix_clear() { ix_path = arr(16); ix_sha = arr(16); ix_mode = arr(16); ix_size = arr(16); ix_mtime = arr(16); }
+
+int be32(String s, int at) { return ((s[at] & 255) << 24) | ((s[at + 1] & 255) << 16) | ((s[at + 2] & 255) << 8) | (s[at + 3] & 255); }
+void put32(String s, int v) { for k in 0..4 { s.push((char)((v >> (24 - 8 * k)) & 255)); } }
+
+bool ix_load() {
+    ix_clear();
+    String f = g_git + "/index";
+    if !Fs::exists(f) { return true; }
+    Result<String, Error> r = Fs::read_bytes(f);
+    if !r.is_ok() { return false; }
+    String d = r.take();
+    String magic = "";
+    if d.len >= 4 { magic = d.slice(0, 4); }
+    if d.len < 32 || magic != "DIRC" { cerr << "jgit: the index is not a git index\n"; return false; }
+    int ver = be32(d, 4);
+    if ver != 2 { cerr << "jgit: the index has version " << ver << "; jgit 0.1 reads version 2\n"; return false; }
+    int n = be32(d, 8);
+    int p = 12;
+    for i in 0..n {
+        if p + 62 > d.len { return false; }
+        int mtime = be32(d, p + 8);
+        int mode = be32(d, p + 24);
+        int size = be32(d, p + 36);
+        String sha = d.slice(p + 40, p + 60);
+        int flags = ((d[p + 60] & 255) << 8) | (d[p + 61] & 255);
+        int nl = flags & 4095;
+        int q = p + 62;
+        String name = "";
+        if nl < 4095 { name = d.slice(q, q + nl); q += nl; }
+        else { while q < d.len && d[q] != 0 { name.push(d[q]); q += 1; } }
+        int total = q - p;
+        int pad = 8 - (total % 8);                  // at least one zero byte, up to a multiple of 8
+        p = q + pad - 0;
+        ix_path.push(name); ix_sha.push(sha); ix_mode.push(mode); ix_size.push(size); ix_mtime.push(mtime);
+    }
+    return true;
+}
+
+void ix_save() {
+    // sorted by path (bytes)
+    int n = ix_path.len;
+    int[] ord = arr(n + 1);
+    for i in 0..n { ord.push(i); }
+    for i in 1..n {
+        int cur = ord[i];
+        int k = i - 1;
+        while k >= 0 {
+            String before = ix_path[ord[k]];
+            if !(before > ix_path[cur]) { break; }
+            ord[k + 1] = ord[k];
+            k -= 1;
+        }
+        ord[k + 1] = cur;
+    }
+    String out = "DIRC";
+    put32(out, 2);
+    put32(out, n);
+    for q in 0..n {
+        int i = ord[q];
+        int start = out.len;
+        put32(out, ix_mtime[i]); put32(out, 0); put32(out, ix_mtime[i]); put32(out, 0);
+        put32(out, 0); put32(out, 0);
+        put32(out, ix_mode[i]); put32(out, 0); put32(out, 0);
+        put32(out, ix_size[i]);
+        out.append(ix_sha[i]);
+        int nl = ix_path[i].len;
+        if nl > 4095 { nl = 4095; }
+        out.push((char)((nl >> 8) & 255)); out.push((char)(nl & 255));
+        out.append(ix_path[i]);
+        int total = out.len - start;
+        int pad = 8 - (total % 8);
+        for z in 0..pad { out.push((char)0); }
+    }
+    String sum = sha1_raw(out);
+    out.append(sum);
+    Fs::write_bytes(g_git + "/index", out);
+}
+
+int ix_find(String path) {
+    for i in 0..ix_path.len { if ix_path[i] == path { return i; } }
+    return 0 - 1;
+}
+
+void ix_set(String path, String sha, int mode, int size, int mtime) {
+    int i = ix_find(path);
+    if i < 0 { ix_path.push(path + ""); ix_sha.push(sha); ix_mode.push(mode); ix_size.push(size); ix_mtime.push(mtime); }
+    else { ix_sha[i] = sha; ix_mode[i] = mode; ix_size[i] = size; ix_mtime[i] = mtime; }
+}
+
+void ix_remove(String path) {
+    int i = ix_find(path);
+    if i < 0 { return; }
+    String[] np = arr(ix_path.len); String[] ns = arr(ix_path.len); int[] nm = arr(ix_path.len); int[] nz = arr(ix_path.len); int[] nt = arr(ix_path.len);
+    for k in 0..ix_path.len { if k != i { np.push(ix_path[k]); ns.push(ix_sha[k]); nm.push(ix_mode[k]); nz.push(ix_size[k]); nt.push(ix_mtime[k]); } }
+    ix_path = np; ix_sha = ns; ix_mode = nm; ix_size = nz; ix_mtime = nt;
+}
+
+// ---------------------------------------------------------------- files
+bool is_exec(String full) {
+    char st[128];
+    if Sys::stat(full.c(), @st) != 0 { return false; }
+    int mode = (st[16] & 255) | ((st[17] & 255) << 8);
+    return (mode & 64) != 0;
+}
+
+int mtime_of(String full) {
+    char st[128];
+    if Sys::stat(full.c(), @st) != 0 { return 0; }
+    int t = 0;
+    for z in 0..8 { t = t | ((st[88 + z] & 255) << (8 * z)); }
+    return t & 4294967295;
+}
+
+// the files below a folder (relative to the top), without .git; the paths sorted
+void walk(String rel, String[] out) {
+    String dir = g_top;
+    if rel.len > 0 { dir = g_top + "/" + rel; }
+    Result<String[], Error> r = Dir::list(dir);
+    if !r.is_ok() { return; }
+    String[] names = r.take();
+    names.sort();
+    for i in 0..names.len {
+        String n = names[i];
+        if n == ".git" { continue; }
+        String sub = n;
+        if rel.len > 0 { sub = rel + "/" + n; }
+        if Dir::exists(g_top + "/" + sub) { walk(sub, out); } else { out.push(sub + ""); }
+    }
+}
+
+// the path (as typed, from the current folder) -> relative to the top
+String rel_of(String typed) {
+    String full = typed;
+    if !typed.starts_with("/") { full = cwd() + "/" + typed; }
+    // remove . and .. and doubled slashes
+    String[] parts = full.split("/");
+    String[] keep = arr(parts.len);
+    for i in 0..parts.len {
+        if parts[i].len == 0 || parts[i] == "." { continue; }
+        if parts[i] == ".." { if keep.len > 0 { keep.pop(); } continue; }
+        keep.push(parts[i] + "");
+    }
+    String r = "";
+    for i in 0..keep.len { r = r + "/" + keep[i]; }
+    if r == g_top { return ""; }
+    if r.starts_with(g_top + "/") { return r.slice(g_top.len + 1, r.len); }
+    return r;
+}
+
+bool add_file(String rel) {
+    String full = g_top + "/" + rel;
+    Result<String, Error> r = Fs::read_bytes(full);
+    if !r.is_ok() { return false; }
+    String data = r.take();
+    String hex = write_object("blob", data);
+    int mode = 33188;
+    if is_exec(full) { mode = 33261; }
+    ix_set(rel, from_hex(hex), mode, data.len, mtime_of(full));
+    return true;
+}
+
+int do_add(String[] a) {
+    if a.len < 3 { return fail("usage: jgit add PATH...   (jgit add . adds everything, also what was removed)"); }
+    if !ix_load() { return 1; }
+    for k in 2..a.len {
+        String rel = rel_of(a[k]);
+        String full = g_top;
+        if rel.len > 0 { full = g_top + "/" + rel; }
+        if Dir::exists(full) {
+            String[] files = arr(16);
+            walk(rel, files);
+            for i in 0..files.len { add_file(files[i]); }
+            // a file of the index below this folder that is gone is removed from the index
+            String prefix = rel;
+            if prefix.len > 0 { prefix = prefix + "/"; }
+            String[] gone = arr(4);
+            for i in 0..ix_path.len {
+                String p = ix_path[i];
+                String pfull = g_top + "/" + p;
+                bool inside = prefix.len == 0 || p.starts_with(prefix);
+                bool missing = !Fs::exists(pfull);
+                if inside && missing { gone.push(p + ""); }
+            }
+            for i in 0..gone.len { ix_remove(gone[i]); }
+        } else if Fs::exists(full) {
+            if !add_file(rel) { return fail("cannot read " + a[k]); }
+        } else if ix_find(rel) >= 0 { ix_remove(rel); }
+        else { return fail(a[k] + ": no such file"); }
+    }
+    ix_save();
+    return 0;
+}
+
+// ---------------------------------------------------------------- trees and commits
+// the tree of the index paths from..to (sorted) that start with prefix; returns the hash (hex)
+String build_tree(String prefix, int from, int to) {
+    String[] names = arr(8);
+    int[] kinds = arr(8);            // 0 file, 1 folder
+    int[] idx = arr(8);              // file: the place in the index
+    String[] subs = arr(8);          // folder: the raw hash of its tree
+    int i = from;
+    while i < to {
+        String rest = ix_path[i].slice(prefix.len, ix_path[i].len);
+        int sl = rest.find("/");
+        if sl < 0 {
+            names.push(rest + ""); kinds.push(0); idx.push(i); subs.push("");
+            i += 1;
+        } else {
+            String dirname = rest.slice(0, sl);
+            String start = prefix + dirname + "/";
+            int j = i;
+            while j < to && ix_path[j].starts_with(start) { j += 1; }
+            names.push(dirname + ""); kinds.push(1); idx.push(0);
+            subs.push(from_hex(build_tree(start, i, j)));
+            i = j;
+        }
+    }
+    // git sorts the entries by name, a folder as if its name ended with /
+    int n = names.len;
+    String[] keys = arr(n + 1);
+    for k in 0..n { if kinds[k] == 1 { keys.push(names[k] + "/"); } else { keys.push(names[k] + ""); } }
+    int[] ord = arr(n + 1);
+    for k in 0..n { ord.push(k); }
+    for k in 1..n {
+        int cur = ord[k];
+        int m = k - 1;
+        while m >= 0 {
+            String before = keys[ord[m]];
+            if !(before > keys[cur]) { break; }
+            ord[m + 1] = ord[m];
+            m -= 1;
+        }
+        ord[m + 1] = cur;
+    }
+    String body = "";
+    for q in 0..n {
+        int k = ord[q];
+        if kinds[k] == 0 {
+            int fi = idx[k];
+            String mode = "100644";
+            if ix_mode[fi] == 33261 { mode = "100755"; }
+            body = body + mode + " " + names[k];
+            body.push((char)0);
+            body.append(ix_sha[fi]);
+        } else {
+            body = body + "40000 " + names[k];
+            body.push((char)0);
+            body.append(subs[k]);
+        }
+    }
+    return write_object("tree", body);
+}
+
+// the name and the e-mail for a commit
+String config_value(String text, String section, String key) {
+    String[] ls = text.split("\n");
+    String cur = "";
+    for i in 0..ls.len {
+        String ln = ls[i].trim();
+        if ln.len == 0 || ln[0] == '#' || ln[0] == ';' { continue; }
+        if ln[0] == '[' { cur = ln.slice(1, ln.len - 1).trim().lower(); continue; }
+        int eq = ln.find("=");
+        if eq <= 0 || cur != section { continue; }
+        if ln.slice(0, eq).trim().lower() == key { return ln.slice(eq + 1, ln.len).trim(); }
+    }
+    return "";
+}
+
+String who(String key, String envname) {
+    switch Env::get(envname) {
+        Option::Some(v): { if v.len > 0 { return v; } }
+        Option::None: { }
+    }
+    String v = config_value(read_text_file(g_git + "/config"), "user", key);
+    if v.len > 0 { return v; }
+    String home = ".";
+    switch Env::get("HOME") { Option::Some(h): { home = h; } Option::None: { } }
+    return config_value(read_text_file(home + "/.gitconfig"), "user", key);
+}
+
+// the files of a tree, recursively: path -> raw hash (and mode), appended to the lists
+void tree_files(String hex, String prefix, String[] paths, String[] shas, int[] modes) {
+    String body = read_object(hex);
+    if g_kind != "tree" { return; }
+    int p = 0;
+    while p < body.len {
+        int sp = body.slice(p, body.len).find(" ");
+        String mode = body.slice(p, p + sp);
+        int q = p + sp + 1;
+        int z = q;
+        while z < body.len && body[z] != 0 { z += 1; }
+        String name = body.slice(q, z);
+        String raw = body.slice(z + 1, z + 21);
+        p = z + 21;
+        if mode == "40000" { tree_files(to_hex(raw), prefix + name + "/", paths, shas, modes); }
+        else {
+            paths.push(prefix + name); shas.push(raw);
+            int m = 33188;
+            if mode == "100755" { m = 33261; }
+            modes.push(m);
+        }
+    }
+}
+
+String commit_tree(String hex) {
+    String body = read_object(hex);
+    if g_kind != "commit" { return ""; }
+    if body.starts_with("tree ") { return body.slice(5, 45); }
+    return "";
+}
+
+int do_commit(String[] a) {
+    String msg = "";
+    for i in 2..a.len - 1 { if a[i] == "-m" { msg = a[i + 1]; } }
+    if msg.len == 0 { return fail("usage: jgit commit -m \"what you did\""); }
+    if !ix_load() { return 1; }
+    if ix_path.len == 0 { return fail("nothing to save: jgit add FILE first"); }
+    String name = who("name", "JGIT_NAME");
+    String email = who("email", "JGIT_EMAIL");
+    if name.len == 0 || email.len == 0 { return fail("who are you? JGIT_NAME and JGIT_EMAIL, or [user] name and email in ~/.gitconfig"); }
+    // sorted by path for the tree
+    int n = ix_path.len;
+    ix_save();
+    if !ix_load() { return 1; }
+    String tree = build_tree("", 0, n);
+    String parent = head_commit();
+    String ptree = "";
+    if parent.len == 40 { ptree = commit_tree(parent); }
+    if ptree == tree { return fail("nothing changed since the last commit"); }
+    int now = Time::now_ms() / 1000;
+    String who_line = name + " <" + email + "> " + str(now) + " +0000";
+    String body = "tree " + tree + "\n";
+    if parent.len == 40 { body = body + "parent " + parent + "\n"; }
+    body = body + "author " + who_line + "\ncommitter " + who_line + "\n\n" + msg + "\n";
+    String hex = write_object("commit", body);
+    String ref = head_ref();
+    if ref.len == 0 { ref = "refs/heads/main"; Fs::write_text(g_git + "/HEAD", "ref: refs/heads/main\n"); }
+    Dir::make_all(Path::parent(g_git + "/" + ref));
+    Fs::write_text(g_git + "/" + ref, hex + "\n");
+    String short_ref = ref;
+    if ref.starts_with("refs/heads/") { short_ref = ref.slice(11, ref.len); }
+    cout << "[" << short_ref << " " << hex.slice(0, 7) << "] " << msg << "\n";
+    return 0;
+}
+
+// ---------------------------------------------------------------- init, status, log, cat, branch, switch
+int do_init(String[] a) {
+    String dir = ".";
+    if a.len > 2 { dir = a[2]; }
+    Dir::make_all(dir + "/.git/objects");
+    Dir::make_all(dir + "/.git/refs/heads");
+    Dir::make_all(dir + "/.git/refs/tags");
+    if !Fs::exists(dir + "/.git/HEAD") { Fs::write_text(dir + "/.git/HEAD", "ref: refs/heads/main\n"); }
+    if !Fs::exists(dir + "/.git/config") { Fs::write_text(dir + "/.git/config", "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n"); }
+    cout << "made the repository " << dir << "/.git\n";
+    return 0;
+}
+
+int do_status() {
+    if !ix_load() { return 1; }
+    String[] hp = arr(8); String[] hs = arr(8); int[] hm = arr(8);
+    String head = head_commit();
+    if head.len == 40 { tree_files(commit_tree(head), "", hp, hs, hm); }
+    String ref = head_ref();
+    if ref.starts_with("refs/heads/") { cout << "on branch " << ref.slice(11, ref.len) << "\n"; }
+    int staged = 0; int changed = 0; int other = 0;
+    // staged: in the index and different from (or missing in) HEAD; and removed ones
+    for i in 0..ix_path.len {
+        int h = 0 - 1;
+        for k in 0..hp.len { if hp[k] == ix_path[i] { h = k; } }
+        if h < 0 { cout << "  A  " << ix_path[i] << "\n"; staged += 1; }
+        else if hs[h] != ix_sha[i] { cout << "  M  " << ix_path[i] << "\n"; staged += 1; }
+    }
+    for k in 0..hp.len { if ix_find(hp[k]) < 0 { cout << "  D  " << hp[k] << "\n"; staged += 1; } }
+    // the work folder against the index
+    for i in 0..ix_path.len {
+        String full = g_top + "/" + ix_path[i];
+        if !Fs::exists(full) { cout << "   D " << ix_path[i] << "\n"; changed += 1; continue; }
+        Result<String, Error> r = Fs::read_bytes(full);
+        if !r.is_ok() { continue; }
+        String data = r.take();
+        String body = "blob " + str(data.len);
+        body.push((char)0);
+        body.append(data);
+        if sha1_raw(body) != ix_sha[i] { cout << "   M " << ix_path[i] << "\n"; changed += 1; }
+    }
+    String[] files = arr(16);
+    walk("", files);
+    for i in 0..files.len { if ix_find(files[i]) < 0 { cout << "  ?? " << files[i] << "\n"; other += 1; } }
+    if staged + changed + other == 0 { cout << "nothing to save, the work folder is clean\n"; }
+    else { cout << "(A added, M changed, D removed; first column: in the next commit; second: not added yet; ??: not tracked)\n"; }
+    return 0;
+}
+
+String format_time(int t) {
+    Date d;
+    d.set_unix(t);
+    return d.text();
+}
+
+int do_log(String[] a) {
+    int limit = 20;
+    for i in 2..a.len - 1 { if a[i] == "-n" { limit = a[i + 1].to_int(); } }
+    String h = head_commit();
+    if h.len != 40 { cout << "no commits yet\n"; return 0; }
+    int shown = 0;
+    while h.len == 40 && shown < limit {
+        String body = read_object(h);
+        if g_kind != "commit" { break; }
+        String parent = "";
+        String author = "";
+        String[] ls = body.split("\n");
+        int msg_at = 0;
+        for i in 0..ls.len {
+            if ls[i].len == 0 { msg_at = i + 1; break; }
+            if ls[i].starts_with("parent ") && parent.len == 0 { parent = ls[i].slice(7, 47); }
+            if ls[i].starts_with("author ") { author = ls[i].slice(7, ls[i].len); }
+        }
+        // author: Name <mail> 1234567890 +0000
+        int gt = author.find(">");
+        String who_text = author;
+        String when = "";
+        if gt > 0 { who_text = author.slice(0, gt + 1); String rest = author.slice(gt + 2, author.len); int sp = rest.find(" "); if sp > 0 { when = format_time(rest.slice(0, sp).to_int()) + " " + rest.slice(sp + 1, rest.len); } }
+        cout << "commit " << h << "\nAuthor: " << who_text << "\nDate:   " << when << "\n\n";
+        for i in msg_at..ls.len { if ls[i].len > 0 || i < ls.len - 1 { cout << "    " << ls[i] << "\n"; } }
+        cout << "\n";
+        h = parent;
+        shown += 1;
+    }
+    return 0;
+}
+
+int do_cat(String[] a) {
+    if a.len < 3 { return fail("usage: jgit cat HASH|HEAD|BRANCH"); }
+    String h = resolve(a[2]);
+    if h.len != 40 { return fail("no such object or name: " + a[2]); }
+    String body = read_object(h);
+    if g_kind.len == 0 { return fail("cannot read the object " + h); }
+    cout << body;
+    return 0;
+}
+
+int do_branch(String[] a) {
+    if a.len >= 3 {
+        String head = head_commit();
+        if head.len != 40 { return fail("make a commit first"); }
+        Fs::write_text(g_git + "/refs/heads/" + a[2], head + "\n");
+        cout << "branch " << a[2] << " at " << head.slice(0, 7) << "\n";
+        return 0;
+    }
+    String cur = head_ref();
+    Result<String[], Error> r = Dir::list(g_git + "/refs/heads");
+    if !r.is_ok() { return 0; }
+    String[] names = r.take();
+    names.sort();
+    for i in 0..names.len {
+        String mark = "  ";
+        if cur == "refs/heads/" + names[i] { mark = "* "; }
+        cout << mark << names[i] << "\n";
+    }
+    return 0;
+}
+
+// the work folder takes the files of a commit; refuses when files were changed and not saved
+int do_switch(String[] a) {
+    if a.len < 3 { return fail("usage: jgit switch BRANCH"); }
+    String target = ref_hash("refs/heads/" + a[2]);
+    if target.len != 40 { return fail("no branch " + a[2] + " (jgit branch NAME makes one)"); }
+    if !ix_load() { return 1; }
+    String head = head_commit();
+    // refuse when a tracked file differs from the index
+    for i in 0..ix_path.len {
+        String full = g_top + "/" + ix_path[i];
+        if !Fs::exists(full) { return fail(ix_path[i] + " was removed and not saved: jgit add it or bring it back first"); }
+        Result<String, Error> r = Fs::read_bytes(full);
+        if !r.is_ok() { continue; }
+        String d = r.take();
+        String b = "blob " + str(d.len);
+        b.push((char)0);
+        b.append(d);
+        if sha1_raw(b) != ix_sha[i] { return fail(ix_path[i] + " has changes that are not saved: commit or undo them first"); }
+    }
+    String[] op = arr(8); String[] os = arr(8); int[] om = arr(8);
+    if head.len == 40 { tree_files(commit_tree(head), "", op, os, om); }
+    String[] np = arr(8); String[] ns = arr(8); int[] nm = arr(8);
+    tree_files(commit_tree(target), "", np, ns, nm);
+    // remove the files that are not in the new tree
+    for i in 0..op.len {
+        bool keep = false;
+        for k in 0..np.len { if np[k] == op[i] { keep = true; } }
+        if !keep { Fs::remove(g_top + "/" + op[i]); }
+    }
+    ix_clear();
+    for k in 0..np.len {
+        String body = read_object(to_hex(ns[k]));
+        if g_kind != "blob" { return fail("cannot read a file of the branch"); }
+        String full = g_top + "/" + np[k];
+        Dir::make_all(Path::parent(full));
+        Fs::write_bytes(full, body);
+        if nm[k] == 33261 { Sys::chmod(full.c(), 493); }
+        ix_set(np[k], ns[k], nm[k], body.len, mtime_of(full));
+    }
+    ix_save();
+    Fs::write_text(g_git + "/HEAD", "ref: refs/heads/" + a[2] + "\n");
+    cout << "on branch " << a[2] << "\n";
+    return 0;
+}
+
+// diff: lines that changed since the last add, as plus and minus
+int do_diff() {
+    if !ix_load() { return 1; }
+    int shown = 0;
+    for i in 0..ix_path.len {
+        String full = g_top + "/" + ix_path[i];
+        if !Fs::exists(full) { continue; }
+        Result<String, Error> r = Fs::read_bytes(full);
+        if !r.is_ok() { continue; }
+        String now_text = r.take();
+        String old_body = read_object(to_hex(ix_sha[i]));
+        if g_kind != "blob" || old_body == now_text { continue; }
+        String[] a = old_body.split("\n");
+        String[] b = now_text.split("\n");
+        if a.len > 1500 || b.len > 1500 { cout << "diff " << ix_path[i] << ": too long to compare here\n"; continue; }
+        cout << "diff " << ix_path[i] << "\n--- a/" << ix_path[i] << "\n+++ b/" << ix_path[i] << "\n";
+        // the longest common part of the lines
+        int n = a.len;
+        int m = b.len;
+        int[] tab = arr((n + 1) * (m + 1) + 1);
+        for z in 0..(n + 1) * (m + 1) { tab.push(0); }
+        int ii = n - 1;
+        while ii >= 0 {
+            int jj = m - 1;
+            while jj >= 0 {
+                if a[ii] == b[jj] { tab[ii * (m + 1) + jj] = tab[(ii + 1) * (m + 1) + jj + 1] + 1; }
+                else {
+                    int d1 = tab[(ii + 1) * (m + 1) + jj];
+                    int d2 = tab[ii * (m + 1) + jj + 1];
+                    if d1 > d2 { tab[ii * (m + 1) + jj] = d1; } else { tab[ii * (m + 1) + jj] = d2; }
+                }
+                jj -= 1;
+            }
+            ii -= 1;
+        }
+        int x = 0;
+        int y = 0;
+        while x < n || y < m {
+            if x < n && y < m && a[x] == b[y] { x += 1; y += 1; }
+            else if y < m && (x >= n || tab[x * (m + 1) + y + 1] >= tab[(x + 1) * (m + 1) + y]) { cout << "+" << b[y] << "\n"; y += 1; }
+            else { cout << "-" << a[x] << "\n"; x += 1; }
+        }
+        shown += 1;
+    }
+    if shown == 0 { cout << "nothing changed since the last add\n"; }
+    return 0;
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jgit " << jgit_version() << "\n"; return 0; }
+    if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
+        cout << "jgit: git in J2K (the repositories are the repositories of git)\n";
+        cout << "  jgit init [DIR] | add PATH... | commit -m \"text\" | status | log [-n N] | diff | cat HASH|REF | branch [NAME] | switch NAME\n";
+        return 0;
+    }
+    if a[1] == "init" { return do_init(a); }
+    if !find_repo() { return fail("this is not a repository (jgit init)"); }
+    if a[1] == "add" { return do_add(a); }
+    if a[1] == "commit" { return do_commit(a); }
+    if a[1] == "status" { return do_status(); }
+    if a[1] == "log" { return do_log(a); }
+    if a[1] == "diff" { return do_diff(); }
+    if a[1] == "cat" { return do_cat(a); }
+    if a[1] == "branch" { return do_branch(a); }
+    if a[1] == "switch" { return do_switch(a); }
+    cerr << "jgit: unknown command '" << a[1] << "' (jgit help)\n";
+    return 2;
+}

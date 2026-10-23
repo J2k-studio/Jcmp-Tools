@@ -654,6 +654,29 @@ String drive_form_full(String real) {
     return dr_name[best] + ":" + rest;
 }
 
+// the distance of two words (the number of letters to change, add or take away)
+int word_distance(String x, String y) {
+    int n = x.len;
+    int m = y.len;
+    if n > 20 || m > 20 { return 99; }
+    int[] prev = arr(m + 2);
+    int[] cur = arr(m + 2);
+    for j in 0..m + 1 { prev.push(j); cur.push(0); }
+    for i in 1..n + 1 {
+        cur[0] = i;
+        for j in 1..m + 1 {
+            int cost = 1;
+            if x[i - 1] == y[j - 1] { cost = 0; }
+            int best = prev[j - 1] + cost;
+            if prev[j] + 1 < best { best = prev[j] + 1; }
+            if cur[j - 1] + 1 < best { best = cur[j - 1] + 1; }
+            cur[j] = best;
+        }
+        for j in 0..m + 1 { prev[j] = cur[j]; }
+    }
+    return prev[m];
+}
+
 // the start of a word: X:/... or :/... (the drive), expanded; "" when the word does not begin with a drive. n = the length of the part that was taken
 String drive_expand(String w, int^ taken) {
     taken[0] = 0;
@@ -1476,11 +1499,29 @@ bool builtin(String[] a) {
         } else if a.len >= 2 && a[1] == "core" {
             cout << esc() << "]7777;core" << (char)7;
         } else {
-            cout << "jaric setting       one screen for everything: theme, font, colours, top bar, animation, the prompt\n";
-            cout << "jaric -restart       start the app again\n";
+            // an unknown word: the nearest command is offered
+            if a.len >= 2 {
+                String[] known = arr(16);
+                known.push("setting"); known.push("restart"); known.push("theme"); known.push("font"); known.push("video"); known.push("core");
+                known.push("assistant"); known.push("store"); known.push("drives"); known.push("sessions");
+                String best = "";
+                int bestd = 3;
+                for k in 0..known.len {
+                    int dd = word_distance(a[1].lower(), known[k]);
+                    if dd < bestd { bestd = dd; best = known[k] + ""; }
+                }
+                if best.len > 0 { cout << "jaric: no command '" << a[1] << "'. Did you mean:  jaric " << best << " ?\n\n"; }
+                else { cout << "jaric: no command '" << a[1] << "'.\n\n"; }
+            }
+            cout << "jaric setting        one screen for everything: theme, font, colours, top bar, animation, the prompt, the assistant\n";
             cout << "jaric theme [NAME]   the colours (black soft amber green ice)\n";
             cout << "jaric font SIZE      the size of the letters (8 .. 28; a pinch on the screen does it too)\n";
-            cout << "jaric video FILE|URL   play a video (mp4, webm, 3gp, ...) over the terminal\n";
+            cout << "jaric video FILE|URL play a video (mp4, webm, 3gp, ...) over the terminal\n";
+            cout << "jaric assistant [question]   talk to the assistant xaiorin (xr)\n";
+            cout << "jaric store [list | install ID | update]   the store of the programs of Jaric (.jc)\n";
+            cout << "jaric drives         the drives (f: is home, 0: the phone storage ...)\n";
+            cout << "jaric sessions       how the tabs work;  start PROGRAM opens a program in a new tab\n";
+            cout << "jaric -restart       start the app again\n";
             cout << "jaric core           call the library of the app (J2K through JNI)\n";
         }
         return true;
@@ -2151,7 +2192,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.9.1\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.9.2\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
