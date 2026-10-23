@@ -8,7 +8,7 @@ python3 - "$V" <<'PY'
 import sys
 v=sys.argv[1]
 t=open('makej.sh.in').read()
-t=t.replace('@VERSION@',v).replace('@LIB_J@',open('lib/makej.j').read().rstrip('\n')).replace('@LIB_JK@',open('lib/makej_file.jk').read().rstrip('\n'))
+t=t.replace('@VERSION@',v).replace('@LIB_J@',open('lib/makej.j').read().rstrip('\n')).replace('@LIB_JK@',open('lib/makej_file.jk').read().rstrip('\n')).replace('@GAMEACTIVITY@',open('android/GameActivity.java').read().rstrip('\n'))
 open('dist/makej','w').write(t)
 PY
 chmod 755 dist/makej

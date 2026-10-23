@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.0
+* `makej apk`: an Android app from a game project: the runner (GameActivity, Java) + your program + jpty + assets/ in a signed .apk (needs aapt2 ecj d8 zipalign apksigner and android.jar). `manifest.toml` gets orientation and controls (arrows and two buttons on the screen). The game library is Jaric Engine (`<gamej>`).
+
 ## 0.4.0
 * `makej init -game`: a game project with the library gamej: src/main.jk (a small game), five lessons (makej play1 .. play5), manifest.toml and `makej pack` (NAME.jec, the package of a game: a zip with the manifest, the program and assets/).
 
