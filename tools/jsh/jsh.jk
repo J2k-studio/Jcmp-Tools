@@ -725,6 +725,7 @@ String setting_label(int i) {
     t.push("volume keys = Ctrl / Esc");
     t.push("scrollback lines (later)"); t.push("bell (later)"); t.push("key vibration (later)");
     t.push("start command (later)"); t.push("run scripts from the net (later)");
+    t.push("xr learns from the shell"); t.push("xr runs in the background");
     return t[i];
 }
 
@@ -751,6 +752,8 @@ String setting_value(int i) {
     if i == 20 { String v = kv_get(setting_cfg(), "vibrate", false); if v.len == 0 { v = "off"; } return v; }
     if i == 21 { String v = kv_get(setting_cfg(), "startup", false); if v.len == 0 { v = "(none)"; } return v; }
     if i == 22 { String v = kv_get(setting_cfg(), "run_net", false); if v.len == 0 { v = "ask"; } return v; }
+    if i == 23 { String v = kv_get(setting_cfg(), "xr_learn", false); if v.len == 0 { v = "off"; } return v; }
+    if i == 24 { String v = kv_get(setting_cfg(), "xr_autostart", false); if v.len == 0 { v = "off"; } return v; }
     String home_rc = getv("HOME") + "/.jshrc";
     String key = "JSH_COLOR_NAME";
     if i == 9 { key = "JSH_COLOR_PATH"; } else if i == 10 { key = "JSH_COLOR_MARK"; } else if i == 11 { key = "JSH_COLOR_ERROR"; }
@@ -803,6 +806,8 @@ void setting_change(int i, int dir) {
         else if i == 19 { key = "bell"; ch.push("on"); ch.push("off"); }
         else if i == 20 { key = "vibrate"; ch.push("off"); ch.push("on"); }
         else if i == 22 { key = "run_net"; ch.push("ask"); ch.push("never"); ch.push("allow"); }
+        else if i == 23 { key = "xr_learn"; ch.push("off"); ch.push("on"); }
+        else if i == 24 { key = "xr_autostart"; ch.push("off"); ch.push("on"); }
         else if i == 18 {
             key = "scrollback";
             int n = cur.to_int();
@@ -887,6 +892,7 @@ int[] setting_order() {
     o.push(0 - 4); o.push(18); o.push(19); o.push(20); o.push(21); o.push(22);
     o.push(0 - 5); o.push(13);
     o.push(0 - 6); o.push(14); o.push(15); o.push(16);
+    o.push(0 - 8); o.push(24); o.push(23);
     o.push(0 - 7); o.push(12);
     return o;
 }
@@ -898,6 +904,7 @@ String section_title(int n) {
     if n == 4 { return "terminal and security"; }
     if n == 5 { return "font and cursor"; }
     if n == 6 { return "screen"; }
+    if n == 8 { return "assistant xaiorin (xr)"; }
     return "other";
 }
 
@@ -1869,6 +1876,31 @@ void run_andor(String[] all) {
     }
 }
 
+// ---- what the assistant xaiorin (xr) may learn from: when the setting "xr_learn" in config.local is on, every command that you type
+//      is written as one line  COMMAND <tab> EXIT-STATUS <tab> MESSAGE  to ~/.neuron/events.txt (only on this phone; xr forget deletes it)
+int xr_learn_on;                         // 1: the setting is on
+int xr_learn_asked;                      // 1: the setting was read
+
+bool looks_secret(String c) {
+    String l = c.lower();
+    return l.contains("password") || l.contains("passwd") || l.contains("token") || l.contains("secret") || l.contains("authorization") || l.contains("api_key") || l.contains("apikey");
+}
+
+void log_event(String cmd, int status) {
+    if xr_learn_asked == 0 { xr_learn_asked = 1; if kv_get(setting_cfg(), "xr_learn", false) == "on" { xr_learn_on = 1; } }
+    if xr_learn_on == 0 { return; }
+    if looks_secret(cmd) { return; }
+    String dir = getv("HOME") + "/.neuron";
+    String file = dir + "/events.txt";
+    if !Dir::exists(dir) { Dir::make_all(dir); }
+    Result<int, Error> sz = Fs::size(file);
+    if sz.is_ok() && sz.take() > 400000 { return; }               // enough for one learning; xr learn / xr forget makes room
+    String msg = "";
+    if status == 127 { msg = "command not found"; }
+    String one = cmd.replace("\t", " ").replace("\n", " ");
+    Fs::append_text(file, one + "\t" + str(status) + "\t" + msg + "\n");
+}
+
 void run_line(String text) {
     run_script_text(text);
 }
@@ -1916,7 +1948,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.7.6\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.8.0\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
@@ -1966,6 +1998,7 @@ int main() {
         history.push(t);
         interrupted = 0;
         run_script_text(t);
+        log_event(t, last_status);
         interrupted = 0;
     }
     return last_status;

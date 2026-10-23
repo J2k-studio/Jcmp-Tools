@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0
+* **Added:** the shell can feed the assistant xaiorin (xr): with the setting `xr_learn = on` (`jaric setting`, section "assistant xaiorin (xr)") every command you type is written as `COMMAND<tab>STATUS<tab>MESSAGE` to `~/.neuron/events.txt` on this phone only (a line that has "password", "token", "secret", "api_key" or "authorization" is skipped; the file stops growing at 400 KB). `xr learn` teaches the assistant from it, `xr forget` deletes it. Off by default.
+* **Added:** settings "xr runs in the background" (`xr_autostart`; the Jaric app starts `xr start` with the app) and "xr learns from the shell".
+
 ## 0.7.6
 * `jaric setting` no longer scrolls and overprints itself: every line is drawn at its place, and when the list is longer than the screen it is a window that follows the chosen item ("more above / more below" in the help line).
 

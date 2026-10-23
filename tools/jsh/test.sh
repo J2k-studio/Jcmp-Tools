@@ -93,3 +93,24 @@ got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" h11a.jsh ana bob 2>&1 | tr '\n' '|'); [ 
 for f in b:hash c:shebang d:plain; do got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" h11${f%%:*}.jsh 2>&1); [ "$got" = "${f##*:}" ] || { echo "shell test (step 11): header $f: $got"; exit 1; }; done
 got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" h11e.jash 2>&1 || true); case "$got" in *"settings file of jash"*) ;; *) echo "shell test (step 11): a jash file must not run: $got"; exit 1 ;; esac
 echo "shell test (step 11): ok"
+# step 12: with xr_learn = on in config.local every typed command is written to ~/.neuron/events.txt (a line with "password" is not); off: nothing
+T12=$(mktemp -d); mkdir -p "$T12/usr/etc"; printf 'xr_learn = on\n' > "$T12/usr/etc/config.local"
+HOME="$T12" PREFIX="$T12/usr" SH="$SH" python3 - <<'PY' || { echo "shell test (step 12): the pty"; exit 1; }
+import pty, os, time, select
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ['TERM'] = 'xterm'
+    os.execv(os.environ['SH'], ['jsh'])
+def rd(t):
+    end = time.time() + t
+    while time.time() < end:
+        r, _, _ = select.select([fd], [], [], 0.2)
+        if r:
+            try: os.read(fd, 65536)
+            except OSError: break
+rd(1.0)
+for c in [b'gti status\r', b'echo hello\r', b'echo my password is x\r', b'exit\r']:
+    os.write(fd, c); rd(0.6)
+PY
+[ "$(grep -c "" "$T12/.neuron/events.txt")" = 3 ] && grep -q "gti status.127.command not found" "$T12/.neuron/events.txt" && ! grep -q password "$T12/.neuron/events.txt" || { echo "shell test (step 12): events"; cat "$T12/.neuron/events.txt"; exit 1; }
+echo "shell test (step 12): ok"

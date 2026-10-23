@@ -1,5 +1,9 @@
 # neuron changelog
 
+## 0.3.0
+* **Added:** the assistant learns from the shell. `xr learn` (or `neuron learn`) reads `~/.neuron/events.txt` (written by jsh 0.8.0 when the setting "xr learns from the shell" is on), makes `~/.neuron/learned.txt` (a wrong command followed by the right one: "Did you mean: git status"; the commands that follow each other) and goes on training the assistant model for 3 rounds (`neuron train DATA -o OUT -i MODEL` does that for any model). `xr forget` deletes what was seen. Nothing is sent anywhere; the learning is a toy until there is much text.
+* **Changed:** a new model always has the whole printable ASCII in its vocabulary (so it can learn commands later). Older models still load.
+
 ## 0.2.0
 * **Added:** the assistant **xaiorin** (short `xr`, also `xaiorin`: the same program under that name, installed with the tool). `xr start` puts a small server on this machine (127.0.0.1) in the background: it keeps the model in memory and remembers the talk; `xr status`, `xr stop`, `xr reset`. `xr "question"` gives one answer, `xr` alone is a chat; both use the background program when it runs and load the model themselves when it does not. Settings in `~/.jash`, section `[xr]`: `port` (7790), `temperature` (0.7), `max` (200), `autostart` (read by the Jaric app: start with the app).
 ## 0.1.0
