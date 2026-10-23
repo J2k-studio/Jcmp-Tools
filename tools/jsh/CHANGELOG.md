@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.2
+* A long path in the prompt is the first letters of the last two folders: `jc :/f/h>` (short ones stay whole: `jc :/home>`).
+
 ## 0.6.1
 * --help and -V work (the standard of the tools: docs/STANDARD.md); the version text was wrong (0.5.0) in 0.5.1 to 0.6.0
 
