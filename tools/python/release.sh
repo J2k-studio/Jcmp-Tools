@@ -17,6 +17,7 @@ cp "$CERT" _work/python-android/etc/cert.pem
 P=_work/python-android/lib/python3.14
 rm -rf "$P/test" "$P/idlelib" "$P/tkinter" "$P/turtledemo" "$P/turtle.py" "$P/config-3.14-aarch64-linux-android" _work/python-android/lib/pkgconfig
 find _work/python-android -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
-tar cf dist/python-files.tar -C _work python-android      # plain tar: jget unpacks tars itself and does not read gzip yet
+for n in python3 pip pip3; do cp dist/python "_work/$n"; done            # the same launcher under other names (python3, pip = python -m pip)
+tar cf dist/python-files.tar -C _work python-android python3 pip pip3      # plain tar: jget unpacks tars itself and does not read gzip yet
 rm -rf _work
 ( cd dist && sha256sum python python-files.tar > SHA256SUMS && ls -l )

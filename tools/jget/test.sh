@@ -18,6 +18,8 @@ mkdir -p "$W/tz/src/sub"; echo hello > "$W/tz/src/a.txt"; echo deep > "$W/tz/src
 ( cd "$W/tz" && tar czf t.tar.gz src && tar cf t.tar src )
 mkdir "$W/tz/o1" "$W/tz/o2"
 "$J" untar "$W/tz/t.tar" "$W/tz/o1" && "$J" untar "$W/tz/t.tar.gz" "$W/tz/o2"
+chmod 755 "$W/tz/src/a.txt"; ( cd "$W/tz" && tar cf t2.tar src ); mkdir "$W/tz/o3"; "$J" untar "$W/tz/t2.tar" "$W/tz/o3"
+t "untar: the x bit is kept" '[ -x "$W/tz/o3/src/a.txt" ] && [ ! -x "$W/tz/o3/src/sub/b.txt" ]'
 t "untar: a tar and a gzip-packed tar" '[ "$(cat "$W/tz/o1/src/sub/b.txt")" = deep ] && [ "$(cat "$W/tz/o2/src/a.txt")" = hello ]'
 head -c 300000 /dev/urandom > "$W/www/big.bin"
 printf 'hello jget\n' > "$W/www/page.txt"

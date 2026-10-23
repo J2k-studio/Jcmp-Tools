@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.5
+* `jget untar` and `jget tool` keep the x bit of the files of a tar (a program that comes in the files of a tool can be run).
+
 ## 0.7.4
 * `jget untar FILE [DIR]` opens a `.tar` or a gzip-packed tar (`.tar.gz`, `.tgz`); the files of a tool may now be packed with gzip. jget imports the library `deflate` (build: `jget -li install deflate`, or J2K_PATH to the library folder).
 

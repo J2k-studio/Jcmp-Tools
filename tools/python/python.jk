@@ -59,8 +59,13 @@ int main() {
     String[] args = Env::args();
     int argv[96];
     int c = 0;
-    argv[c] = cstr("python3"); c += 1;
-    if name_of(me) == "yt-dlp" { argv[c] = cstr(here + "/yt-dlp.pyz"); c += 1; }
+    // argv[0] is the full path of this program: sys.executable (pip and subprocess start Python again with it); an empty
+    // sys.executable would make Python send print() to the system log, as an embedded app does.
+    // Called  pip / pip3  it is  python -m pip ;  called  yt-dlp  it runs yt-dlp.pyz (sys.executable is then the real python next to it)
+    String mode = name_of(me);
+    if mode == "pip" || mode == "pip3" { argv[c] = cstr(here + "/python"); c += 1; argv[c] = cstr("-m"); c += 1; argv[c] = cstr("pip"); c += 1; }
+    else if mode == "yt-dlp" { argv[c] = cstr(here + "/python"); c += 1; argv[c] = cstr(here + "/yt-dlp.pyz"); c += 1; }
+    else { argv[c] = cstr(me); c += 1; }
     for i in 1..args.len { if c < 94 { argv[c] = cstr(args[i]); c += 1; } }
     argv[c] = 0;
     return Native::call2(fn, c, (int)@argv);

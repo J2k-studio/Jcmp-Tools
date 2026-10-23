@@ -83,7 +83,7 @@ for N in $NAMES; do
     if [ "$N" = python ]; then echo "installed: $BINDIR/python  (Python 3.14, $BINDIR/python3 is a link)"; else
     echo "installed: $BINDIR/$N  ($("$BINDIR/$N" --version 2>/dev/null | head -1))"; fi
     case "$N" in jbox|zipj|tarj) "$BINDIR/$N" --install "$BINDIR" 2>/dev/null || true ;; esac
-    case "$N" in python) ln -sf python "$BINDIR/python3" ;; esac
+    # python3, pip and pip3 are copies of the launcher that come with the files of the tool python
     # the files that belong to the tool (the library of the compiler): NAME-files.tar, when the release has it
     FW="$(grep " $N-files.tar\$" "$TMP/SHA256SUMS.$N" | cut -d' ' -f1 || true)"
     if [ -n "$FW" ]; then

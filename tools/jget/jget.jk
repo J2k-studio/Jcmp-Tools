@@ -32,7 +32,7 @@
 #import <deflate>
 using stdlib;
 
-String jget_version() { return "0.7.4"; }
+String jget_version() { return "0.7.5"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -701,6 +701,8 @@ bool untar_plain(String path, String dir) {
                 left -= n;
             }
             Sys::close(out);
+            int mode = tar_number(@h + 100, 8);
+            if (mode & 64) != 0 { Sys::chmod(full.c(), 493); }          // the x bit of the tar: a program stays a program (0755)
             int pad = (512 - size % 512) % 512;
             if pad > 0 && ok { if !read_exact(fd, @blk, pad) { ok = false; } }
         } else {
