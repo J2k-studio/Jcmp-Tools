@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.2
+* Links the second name of a tool after installing it: `unj` (zipj), `gzj` (tarj), and the commands of jbox.
+
 ## 0.7.1
 * `jget tool all` installs every tool (but jget itself).
 
