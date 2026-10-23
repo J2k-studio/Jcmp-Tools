@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.3
+* `jget -m URL ...` puts songs from links in the music folder (~/music, or $MUJIC_DIR) for mujic; `-O` decodes %20 and other escapes in the file name.
+
 ## 0.7.2
 * Links the second name of a tool after installing it: `unj` (zipj), `gzj` (tarj), and the commands of jbox.
 

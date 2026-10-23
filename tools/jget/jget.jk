@@ -6,6 +6,7 @@
 //   jget URL -o FILE              save it as FILE   (-o - writes it to the screen)
 //   jget -h URL ...               the same (-h = http: the address follows)
 //   (a downloaded script or program is made executable by itself, unless it already is; -x does it for any file)
+//   jget -m URL ...               songs from links go to the music folder (~/music, or $MUJIC_DIR): mujic plays them
 //   jget -sh URL [args]           download a shell script and run it at once (what  curl URL | sh  does), then delete it
 //   jget --install [DIR]          copy this program into DIR (default: $PREFIX/bin on Termux, else ~/.local/bin)
 //   jget --update                 replace this program by the latest release
@@ -30,7 +31,7 @@
 #import <stdlib>
 using stdlib;
 
-String jget_version() { return "0.7.2"; }
+String jget_version() { return "0.7.3"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -109,9 +110,66 @@ String name_of(String url) {
     for i in 0..path.len {
         if path[i] == '/' { last = i + 1; }
     }
-    String n = path.slice(last, path.len);
+    String n = url_decode(path.slice(last, path.len));
     if n.len == 0 || n == "." || n == ".." { return "index.html"; }
     return n;
+}
+
+int hex_digit(int c) {
+    if c >= '0' && c <= '9' { return c - '0'; }
+    if c >= 'a' && c <= 'f' { return c - 'a' + 10; }
+    if c >= 'A' && c <= 'F' { return c - 'A' + 10; }
+    return -1;
+}
+
+// %20 -> a space, %E0%B8... -> the letters; a / or a zero byte in it becomes _ (the name stays one file name)
+String url_decode(String s) {
+    String r = "";
+    int i = 0;
+    while i < s.len {
+        if s[i] == '%' && i + 2 < s.len && hex_digit(s[i + 1] & 255) >= 0 && hex_digit(s[i + 2] & 255) >= 0 {
+            int c = hex_digit(s[i + 1] & 255) * 16 + hex_digit(s[i + 2] & 255);
+            if c == '/' || c == 0 { c = '_'; }
+            r.push((char)c);
+            i += 3;
+        } else { r.push(s[i]); i += 1; }
+    }
+    return r;
+}
+
+// the folder for songs: $MUJIC_DIR, else ~/music
+String music_folder() {
+    switch Env::get("MUJIC_DIR") {
+        Option::Some(d): { if d.len > 0 { return d; } }
+        Option::None: { }
+    }
+    String home = ".";
+    switch Env::get("HOME") {
+        Option::Some(h): { home = h; }
+        Option::None: { }
+    }
+    return Path::join(home, "music");
+}
+
+bool has_audio_ext(String n) {
+    String l = n.lower();
+    return l.ends_with(".mp3") || l.ends_with(".ogg") || l.ends_with(".m4a") || l.ends_with(".flac") || l.ends_with(".wav") || l.ends_with(".opus") || l.ends_with(".aac");
+}
+
+// jget -m URL ...: songs from links go to the music folder (the name from the link; .mp3 is added when it has no sound extension)
+int cmd_music(String[] av, int at) {
+    if av.len <= at { return usage(); }
+    String dir = music_folder();
+    if !Dir::exists(dir) { Dir::make_all(dir); }
+    int rc = 0;
+    for i in at..av.len {
+        String n = name_of(av[i]);
+        if n == "index.html" { n = "song"; }
+        if !has_audio_ext(n) { n = n + ".mp3"; }
+        String to = Path::join(dir, n);
+        if download(av[i], to, g_quiet == 1) { cout << "saved " << to << nl; } else { rc = 1; }
+    }
+    return rc;
 }
 
 // move a finished file into place (a rename: the file is whole or it is not there)
@@ -355,6 +413,7 @@ int usage() {
     err("usage: jget URL [-o FILE]               download a file (to a pipe or a file when the output goes there: jget URL | sh)\n");
     err("       jget -O URL                      save it with the name in the address (even in a pipe)\n");
     err("       jget -x URL                      and make the file executable\n");
+    err("       jget -m URL ...                  songs from links go to ~/music (or $MUJIC_DIR)\n");
     err("       jget -sh URL [args]              download a script and run it at once\n");
     err("       jget -q URL                      without the progress bar\n");
     err("       jget --install [DIR] | --update  install this program / replace it by the latest release\n");
@@ -779,6 +838,7 @@ int main() {
     if first == "-li" { return cmd_library(av, 2); }
     if first == "-sh" { return cmd_run_script(av, 2); }
     if first == "tool" { return cmd_tool(av, 2); }
+    if first == "-m" { return cmd_music(av, 2); }
     if first == "--install" { return cmd_install_self(av, 2); }
     if first == "--update" { return cmd_update_self(); }
     if first == "-h" || first == "-O" || is_address(first) { return cmd_fetch(av, 1); }
