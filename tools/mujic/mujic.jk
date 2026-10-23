@@ -454,6 +454,11 @@ int g_pos;                              // ms at g_pos_at
 int g_pos_at;
 int g_len;                              // ms, 0 when unknown
 String g_msg;
+bool g_shuffle;
+int g_repeat;                           // 0 off, 1 all, 2 one
+int g_volume;                     // percent (the app)
+String g_filter;                        // only the songs that contain these letters
+int g_seed;
 
 bool have_program(String name) {
     String path = "";
@@ -531,6 +536,15 @@ void snd_stop() {
     if g_backend == 1 { osc_audio("stop"); }
     else if g_backend == 2 { String[] a = arr(1); a.push("stop"); Proc::run("termux-media-player", a); }
     else if g_backend == 3 { stop_child(); }
+}
+
+void snd_volume(int delta) {
+    g_volume += delta;
+    if g_volume < 0 { g_volume = 0; }
+    if g_volume > 100 { g_volume = 100; }
+    if g_backend == 1 { osc_audio("volume;" + str(g_volume)); }
+    g_msg = "volume " + str(g_volume) + "%";
+    if g_backend != 1 { g_msg = g_msg + " (only in the Jaric app; use the phone's volume keys)"; }
 }
 
 void snd_seek(int delta) {
@@ -647,6 +661,38 @@ int g_sel;                              // the song under the cursor
 int g_play = -1;                        // the song that plays
 bool g_show_lyrics = true;
 
+// the song after the current one (shuffle, repeat); -1 when the list ends
+int next_song(int dir) {
+    int n = g_files.len;
+    if n == 0 { return -1; }
+    if g_repeat == 2 && g_play >= 0 { return g_play; }
+    if g_shuffle && n > 1 {
+        g_seed = g_seed * 1103515245 + 12345 + now();
+        int k = (g_seed >> 8) % n;
+        if k < 0 { k = 0 - k; }
+        if k == g_play { k = (k + 1) % n; }
+        return k;
+    }
+    int k = g_play + dir;
+    if k >= n || k < 0 {
+        if g_repeat == 1 { return (k + n) % n; }
+        return -1;
+    }
+    return k;
+}
+
+bool shown(int i) {
+    if g_filter.len == 0 { return true; }
+    return g_files[i].lower().contains(g_filter.lower());
+}
+
+// the song under the cursor moved by dir among the songs that match the filter
+void move_sel(int dir) {
+    int k = g_sel + dir;
+    while k >= 0 && k < g_files.len && !shown(k) { k += dir; }
+    if k >= 0 && k < g_files.len { g_sel = k; }
+}
+
 void play_index(int n) {
     if n < 0 || n >= g_files.len { return; }
     g_play = n;
@@ -666,18 +712,33 @@ void draw() {
     String f = "\e[H";
     String head = " mujic  " + str(g_files.len) + " songs";
     if g_backend == 0 { head = head + "  (no sound here)"; }
+    String modes = "";
+    if g_shuffle { modes = modes + " shuffle"; }
+    if g_repeat == 1 { modes = modes + " repeat-all"; }
+    if g_repeat == 2 { modes = modes + " repeat-one"; }
+    if g_backend == 1 { modes = modes + " vol " + str(g_volume); }
+    if g_filter.len > 0 { modes = modes + " /" + g_filter; }
+    head = head + modes;
     f = f + sgr("1;30;47", pad(head, cols)) + "\n";
     int list_h = g_files.len;
+    if g_filter.len > 0 { list_h = 0; for i in 0..g_files.len { if shown(i) { list_h += 1; } } }
     int max_list = (rows - 4) / 3;
     if max_list < 3 { max_list = 3; }
     if list_h > max_list { list_h = max_list; }
     if list_h < 1 { list_h = 1; }
     int first = 0;
     if g_sel >= list_h { first = g_sel - list_h + 1; }
+    int[] vis = arr(g_files.len + 1);
+    for i in 0..g_files.len { if shown(i) { vis.push(i); } }
+    int vsel = 0;
+    for k in 0..vis.len { if vis[k] == g_sel { vsel = k; } }
+    first = 0;
+    if vsel >= list_h { first = vsel - list_h + 1; }
     for r in 0..list_h {
-        int i = first + r;
+        int i = -1;
+        if first + r < vis.len { i = vis[first + r]; }
         String line = "";
-        if i < g_files.len {
+        if i >= 0 {
             String mark = "  ";
             if i == g_play { mark = "> "; if g_state == 2 { mark = "|| "; } }
             line = pad(mark + str(i + 1) + ". " + strip_ext(g_files[i]), cols);
@@ -727,7 +788,7 @@ void draw() {
     if filled > barw { filled = barw; }
     String bar = "#".repeat(filled) + "-".repeat(barw - filled);
     f = f + " " + sgr("36", bar) + " " + t + "\n";
-    String help = " up/down  enter play  space pause  n/p  </> seek  l lyrics  g get  q quit";
+    String help = " enter play  space pause  n/p  </> seek  +/- vol  z shuffle  r repeat  / find  l lyrics  g get  q";
     if g_msg.len > 0 { help = " " + g_msg; }
     f = f + sgr("2;7", pad(help, cols));
     cout << f << "\e[J";
@@ -745,6 +806,8 @@ String prompt_line(String question) {
 int do_player(String start) {
     lyrics_clear();
     g_msg = "";
+    g_volume = 100;
+    g_filter = "";
     g_player = "";
     ltitle = "";
     load_files();
@@ -763,12 +826,21 @@ int do_player(String start) {
         draw();
         int ev = next_event(250);
         if ev == -9 || ev == 'q' || ev == 'Q' || ev == 3 { run = false; }
-        else if ev == 257 { if g_sel > 0 { g_sel -= 1; } }
-        else if ev == 258 { if g_sel < g_files.len - 1 { g_sel += 1; } }
+        else if ev == 257 { move_sel(0 - 1); }
+        else if ev == 258 { move_sel(1); }
+        else if ev == 'z' { g_shuffle = !g_shuffle; }
+        else if ev == 'r' { g_repeat = (g_repeat + 1) % 3; }
+        else if ev == '+' || ev == '=' { snd_volume(10); }
+        else if ev == '-' { snd_volume(0 - 10); }
+        else if ev == '/' {
+            g_filter = prompt_line(" find: ").trim();
+            if g_filter.len > 0 && !shown(g_sel) { move_sel(1); if !shown(g_sel) { move_sel(0 - 1); } }
+        }
+        else if ev == 27 { g_filter = ""; }
         else if ev == 13 || ev == 10 { play_index(g_sel); }
         else if ev == ' ' { if g_state == 0 && g_play < 0 { play_index(g_sel); } else { snd_pause(); } }
-        else if ev == 'n' { if g_files.len > 0 { play_index((g_play + 1) % g_files.len); } }
-        else if ev == 'p' { if g_files.len > 0 { play_index((g_play - 1 + g_files.len) % g_files.len); } }
+        else if ev == 'n' { int k = next_song(1); if k >= 0 { play_index(k); } else if g_files.len > 0 { play_index(0); } }
+        else if ev == 'p' { int k = next_song(0 - 1); if k >= 0 { play_index(k); } else if g_files.len > 0 { play_index(g_files.len - 1); } }
         else if ev == 259 { snd_seek(10000); }
         else if ev == 260 { snd_seek(0 - 10000); }
         else if ev == 's' { snd_stop(); }
@@ -813,7 +885,10 @@ int do_player(String start) {
         // the song ended: the next one
         bool ended = g_state == 0 && g_play >= 0 && g_msg.len == 0 && (g_len > 0 || g_backend != 1);
         if g_backend == 1 && g_state == 1 && g_len > 0 && cur_pos() >= g_len + 1500 { ended = true; }
-        if ended && g_files.len > 0 && g_pos_at > 0 && now() - g_pos_at > 1500 { play_index((g_play + 1) % g_files.len); }
+        if ended && g_files.len > 0 && g_pos_at > 0 && now() - g_pos_at > 1500 {
+            int k = next_song(1);
+            if k >= 0 { play_index(k); } else { g_play = -1; g_pos = 0; }
+        }
     }
     snd_stop();
     cout << "\e[?25h\e[?1049l";
@@ -848,7 +923,7 @@ int do_lyrics(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.1.0";
+    String VERSION = "0.2.0";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     if args.len > 1 {

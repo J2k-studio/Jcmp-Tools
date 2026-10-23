@@ -24,6 +24,8 @@ txt=out.decode('utf8','replace')
 ok=ok and 'strangers' in txt and '00:2' in txt and '03:20' in txt
 os.write(fd,b' '); rd(0.4); ok=ok and b'audio;pause' in out
 os.write(fd,b'\x1b[C'); rd(0.4); ok=ok and b'audio;seek;' in out
+os.write(fd,b'-'); rd(0.4); ok=ok and b'audio;volume;90' in out
+os.write(fd,b'z'); rd(0.3); ok=ok and b'shuffle' in out
 os.write(fd,b'q'); rd(0.8)
 ok=ok and b'audio;stop' in out and b'?1049l' in out
 os.waitpid(pid,0)
