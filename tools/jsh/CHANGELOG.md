@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.3
+* **Fixed (the prompt `r:/../files/home>` in the app):** the roots of the drives are turned into their real paths before they are compared with the folder you are in. On Android `HOME` is `/data/data/...` (a link) and `getcwd` says `/data/user/0/...`; the two forms did not match, so home was not found as the drive `f` and the prompt fell back to the drive `r` with a cut path. It says `f:/` and `f:/jaric` now.
+
 ## 0.9.2
 * **Changed:** `jaric` with a word it does not know (for example `jaric assistent`) says "Did you mean: jaric assistant ?" and lists every command, now including `assistant`, `store`, `drives` and `sessions` (the list was old).
 

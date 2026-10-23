@@ -156,3 +156,31 @@ printf 'pwd\ncd f:/jaric\npwd\npwd -P\ncd :/\npwd\n' > "$T13/p.jsh"
 got=$(HOME="$H" PREFIX="$T13/usr" "$SH" "$T13/p.jsh" 2>&1 | tr '\n' '|')
 case "$got" in *"f:/jaric|$H/jaric|f:/|") ;; *) echo "shell test (step 13): pwd: $got"; exit 1 ;; esac
 echo "shell test (step 13): ok"
+# step 14: HOME given as a link (on Android /data/data is a link of /data/user/0 and getcwd gives the real form): the prompt still says f:/
+T14=$(mktemp -d); mkdir -p "$T14/real/files/home/jaric"; ln -s "$T14/real" "$T14/alias"
+HOME="$T14/alias/files/home" PREFIX="$T14/usr" SH="$SH" python3 - <<'PY' || { echo "shell test (step 14): HOME as a link"; exit 1; }
+import pty, os, time, select, re, sys
+home = os.environ['HOME']
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ['TERM'] = 'xterm'
+    os.chdir(home)
+    os.execv(os.environ['SH'], ['jsh'])
+def rd(t):
+    out = b''; end = time.time() + t
+    while time.time() < end:
+        r, _, _ = select.select([fd], [], [], 0.2)
+        if r:
+            try: out += os.read(fd, 65536)
+            except OSError: break
+    return out.decode(errors='ignore')
+rd(1.0); got = []
+for c in [b'\r', b'cd jaric\r', b'exit\r']:
+    os.write(fd, c); o = rd(0.6)
+    t = re.sub(r'\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07', '', o)
+    m = re.findall(r'jc (\S+)>', t); got.append(m[-1] if m else '?')
+if got[:2] != ['f:/', 'f:/jaric']:
+    print(got); sys.exit(1)
+PY
+echo "shell test (step 14): ok"
+
