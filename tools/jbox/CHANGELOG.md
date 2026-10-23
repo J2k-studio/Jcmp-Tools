@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.1
+* nl (numbered lines) and tac (lines in reverse).
+
 ## 0.2.0
 * kill [-9 | -TERM | -INT | -HUP ...] PID ...
 

@@ -30,6 +30,8 @@ check "$("$J" basename /x/y.txt)" "y.txt" basename
 check "$(echo hi | "$J" tee out.txt; "$J" cat out.txt)" "hi
 hi" tee
 "$J" false && { echo "jbox test: false must fail"; exit 1; } || true
+check "$(printf 'a\n\nb\n' | "$J" nl | tr -d ' ' | tr '\n' ,)" "1a,,2b," nl
+check "$(printf 'a\nb\nc\n' | "$J" tac | tr '\n' ,)" "c,b,a," tac
 echo "jbox test: ok"
 check "$(echo 'a b a' | "$J" sed 's/a/X/g')" "X b X" sed-g
 check "$(echo 'a b a' | "$J" sed 's/a/X/')" "X b a" sed-first
