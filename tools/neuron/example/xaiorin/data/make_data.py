@@ -1,4 +1,4 @@
-# Writes data/chat.txt: the talk that xaiorin learns (questions and answers about the tools of Jaric, greetings in English and Thai).
+# Writes data/chat.txt: the talk that xaiorin learns (questions and answers about the tools of Jaric, in English).
 # Edit the list QA (or add your own lines to data/own.txt, same shape) and run:  python3 data/make_data.py
 import random, os
 random.seed(7)
@@ -58,30 +58,31 @@ QA = [
  (["what is j2k","what language is this"], "J2K is the language of Jaric. Its compiler is jcmp."),
  (["what is jaric","what is this app"], "Jaric is a terminal app with its own shell, tools and a language."),
 ]
-TH = [
- ("สวัสดี","สวัสดีครับ ผมคือ xaiorin ผู้ช่วยของคุณ"),
- ("คุณชื่ออะไร","ผมชื่อ xaiorin เรียกสั้นๆ ว่า xr"),
- ("ขอบคุณ","ยินดีครับ"),
- ("ลาก่อน","แล้วพบกันใหม่ครับ"),
- ("ติดตั้งเครื่องมือยังไง","ใช้คำสั่ง jget tool ชื่อเครื่องมือ"),
- ("ติดตั้ง python ยังไง","ใช้คำสั่ง jget tool python"),
- ("เล่นเพลงยังไง","พิมพ์ mujic แล้วพิมพ์ชื่อเพลง"),
- ("แก้ไขไฟล์ยังไง","ใช้คำสั่ง coderin ชื่อไฟล์"),
- ("ดูโปรแกรมที่รันอยู่","ใช้คำสั่ง jamanager ps"),
- ("ตั้งค่ายังไง","พิมพ์ jaric setting"),
-]
+# Ways to put a question in other words. The first group is used for learning, the second group is kept back for testing
+# (data/test.txt): the model must answer questions it has never seen in that form.
+TRAIN_FORMS = ["{q}", "{q}?", "please {q}", "tell me {q}", "can you tell me {q}", "i want to know {q}", "{q} please", "quick question: {q}", "hey, {q}", "ok so {q}"]
+TEST_FORMS = ["could you tell me {q}", "i would like to know {q}", "{q}, thanks", "one more thing: {q}", "so {q}?", "um {q}"]
+def forms(q, kind):
+    out = []
+    for f in (TRAIN_FORMS if kind == "train" else TEST_FORMS):
+        out.append(f.format(q=q))
+    return out
 lines = []
+test = []
 for qs, a in QA:
     for q in qs:
-        lines.append(f"You: {q}\nBot: {a}\n")
-for q, a in TH:
-    lines.append(f"You: {q}\nBot: {a}\n")
+        for v in forms(q, "train"):
+            lines.append(f"You: {v}\nBot: {a}\n")
+        for v in forms(q, "test"):
+            test.append(f"You: {v}\nBot: {a}\n")
 own = os.path.join(os.path.dirname(__file__), "own.txt")
 if os.path.exists(own):
     lines.append(open(own, encoding="utf-8").read().rstrip("\n") + "\n")
 text = ""
-for _ in range(4):                      # every pair four times, in a new order each time
+for _ in range(2):                      # every pair twice, in a new order each time
     random.shuffle(lines)
     text += "".join(lines)
 open(os.path.join(os.path.dirname(__file__), "chat.txt"), "w", encoding="utf-8").write(text)
 print(len(lines), "pairs,", len(text.encode("utf-8")), "bytes")
+open(os.path.join(os.path.dirname(__file__), "test.txt"), "w", encoding="utf-8").write("".join(test))
+print(len(test), "test pairs (never used for learning) in data/test.txt")

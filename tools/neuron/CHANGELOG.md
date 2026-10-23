@@ -1,5 +1,11 @@
 # neuron changelog
 
+## 0.4.0
+* **Added:** the assistant looks for the answer before it asks the model. `neuron train` keeps the pairs `You: question` / `Bot: answer` of the text inside the `.jw` file (a line `pairs N` and then one line for each); `xr`, `xr start` and `neuron chat` find the question that is the most like the new one (how many groups of three letters they share, after small letters and without marks) and give its answer when the likeness is 0.5 or more; else the model writes on as before. So "how to stop a program?" gets the answer of "how do i stop a program". Settings in `~/.jash`: `[xr] search = on | off`, `match = 0.5`. Old models without pairs work as before.
+* **Added:** `neuron eval MODEL.jw TEST.txt` measures how many of the test questions (never learned in that form) are answered right: by the search alone, by the model alone and by both as xr does it.
+* **Measured** with the project xaiorin (1120 learned pairs; 672 test pairs asked in other words): search 96%, the model alone 19% (it must write the whole answer exactly), both 96%. A bigger model on this much text does not make the model alone good; the search is what answers.
+* It is a search, not understanding: a question about something that is not in the text still gets a sentence of the model.
+
 ## 0.3.1
 * **Added:** `neuron where` (and `xr where`): shows the folder of the assistant (`~/.neuron`, a hidden folder because its name starts with a dot) and each file with its size: the model, the events, the learned talk, the settings.
 

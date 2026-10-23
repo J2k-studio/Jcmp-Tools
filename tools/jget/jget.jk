@@ -33,7 +33,7 @@
 #import <deflate>
 using stdlib;
 
-String jget_version() { return "0.7.6"; }
+String jget_version() { return "0.8.0"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -487,6 +487,52 @@ int cmd_fetch(String[] av, int at) {
     return 1;
 }
 
+// The policy for scripts from the net (setting "run_net" in etc/config.local of the Jaric app; JGET_CONFIG names another file):
+//   ask (default): at a terminal the size and the first 20 lines are shown and Enter / y runs it, anything else does not;
+//                  without a terminal (a script runs jget) nothing can be asked, so it runs as before
+//   never: refuse      allow: run at once
+String conf_value(String key) {
+    String file = "";
+    switch Env::get("JGET_CONFIG") {
+        Option::Some(f): { file = f; }
+        Option::None: { }
+    }
+    if file.len == 0 {
+        switch Env::get("PREFIX") {
+            Option::Some(p): { if p.len > 0 { file = p + "/etc/config.local"; } }
+            Option::None: { }
+        }
+    }
+    if file.len == 0 || !Fs::exists(file) { return ""; }
+    Result<String, Error> r = Fs::read_text(file);
+    if !r.is_ok() { return ""; }
+    String[] ls = r.take().split("\n");
+    for i in 0..ls.len {
+        String ln = ls[i].trim();
+        int eq = ln.find("=");
+        if eq <= 0 || ln[0] == '#' { continue; }
+        if ln.slice(0, eq).trim() == key { return ln.slice(eq + 1, ln.len).trim().replace("\"", ""); }
+    }
+    return "";
+}
+
+// true when the downloaded script may be run
+bool run_net_allowed(String tmp, String url) {
+    String policy = conf_value("run_net");
+    if policy == "never" { err("jget: running scripts from the net is switched off (jaric setting: run scripts from the net = never)\n"); return false; }
+    if policy == "allow" { return true; }
+    if Sys::isatty(0) != 0 || Sys::isatty(2) != 0 { return true; }       // nobody to ask
+    Result<String, Error> r = Fs::read_text(tmp);
+    String text = "";
+    if r.is_ok() { text = r.take(); }
+    String[] ls = text.split("\n");
+    err("jget: " + url + "  (" + str(text.len) + " bytes) is a script. The first lines:\n");
+    for i in 0..ls.len { if i < 20 { err("  | " + ls[i] + "\n"); } }
+    err("Run it? [y/N] ");
+    String a = Input::line().trim();
+    return a == "y" || a == "Y" || a == "yes";
+}
+
 // jget -sh URL [args]: download a script, run it with sh (-jsh: with jsh, the shell of Jaric), delete it
 int cmd_run_script(String[] av, int at, String shell) {
     if av.len <= at { return usage(); }
@@ -497,6 +543,7 @@ int cmd_run_script(String[] av, int at, String shell) {
         Option::None: { tmp = "/tmp/.jget_script." + str(Sys::getpid()); }
     }
     if !download(url, tmp, true) { return 1; }
+    if !run_net_allowed(tmp, url) { Fs::remove(tmp); err("jget: not run\n"); return 1; }
     String[] args = arr(0);
     args.push(tmp);
     for i in at + 1..av.len { args.push(av[i]); }

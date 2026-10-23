@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.0
+* **Added (security):** the policy for scripts from the net, `jget -sh` and `-jsh`: setting `run_net` in `etc/config.local` (`jaric setting`, section "terminal and security", now a working item): `ask` (default) shows the size and the first 20 lines at a terminal and asks `Run it? [y/N]`; without a terminal (a script that calls jget) nothing can be asked and it runs as before; `never` refuses; `allow` runs at once. `JGET_CONFIG` names another config file (tests).
+
 ## 0.7.6
 * `jget -jsh URL [args]` downloads a script and runs it with jsh (the shell of Jaric), like `-sh` does with sh.
 

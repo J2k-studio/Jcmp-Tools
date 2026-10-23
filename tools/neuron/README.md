@@ -12,6 +12,8 @@ neuron ask MODEL.jw X1 X2 ...                                                a n
 ```
 How it learns: for every place of the text the model sees the last `-k` bytes and must guess the next one; a wrong guess changes the numbers a little (rate `-r`); one pass over the text is a round (`-e` rounds). A text of 3 KB takes about 10 seconds for 6 rounds; 1 MB takes hours: start small. `-k` is how far back it looks, `-d` the numbers for each byte, `-h` the neurons (more = remembers more, slower).
 
+**The search before the model:** the pairs of the text are kept in the `.jw` file; when you ask, `xr` first looks for the question of the talk that is the most like yours (words in another order, small letters, a mark more or less) and answers with its answer; only when nothing is like enough (below `match`, 0.5) the model writes. Switch it off: `jash set xr.search off`.
+
 **To teach it to chat**, write the text as lines of a talk, many of them, in the same shape: `You: hello`, `Bot: Hi!` (see `example/chat.txt`). `neuron chat` puts `You: your line` and `Bot: ` in front of the model and stops the answer at the line end. It copies and mixes what it saw: a small model on a small text is a toy, a good one needs a lot of good text and many rounds.
 
 The program `neuron.jk` is the trainer: it is short, and it is yours to change (another model shape, another way to learn). Build: `JCMP=path sh build.sh` (jcmp 1.2.0.0; the library neuron is in `build/libs` of Jcmp or `jget -li install neuron`).

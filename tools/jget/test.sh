@@ -43,6 +43,35 @@ t "download: a script is made executable by itself" '$J -q http://127.0.0.1:$POR
 t "download: an ordinary file is not made executable" '$J -q http://127.0.0.1:$PORT/page.txt -o plain.txt && [ ! -x plain.txt ]'
 t "download: a program (ELF) is made executable by itself" '$J -q http://127.0.0.1:$PORT/prog.bin -o prog.bin && [ -x prog.bin ]'
 mkdir -p "$W/bin"; printf '#!/bin/sh\necho "via jsh"\nexec sh "$@"\n' > "$W/bin/jsh"; chmod +x "$W/bin/jsh"
+printf 'run_net = never\n' > "$W/never.conf"; printf 'run_net = allow\n' > "$W/allow.conf"
+t "run_net = never: the script is not run" '[ -z "$(JGET_CONFIG="$W/never.conf" $J -sh http://127.0.0.1:$PORT/hello.sh one 2>/dev/null)" ]'
+t "run_net = allow: the script is run" '[ "$(JGET_CONFIG="$W/allow.conf" $J -sh http://127.0.0.1:$PORT/hello.sh one 2>/dev/null)" = "ran with one" ]'
+cat > "$W/ask.py" <<'PY'
+import pty, os, sys, time, select
+answer, jget, url = sys.argv[1], sys.argv[2], sys.argv[3]
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ['JGET_CONFIG'] = '/nonexistent'
+    os.execv(jget, ['jget', '-sh', url, 'one'])
+out = b''
+asked = False
+end = time.time() + 15
+while time.time() < end:
+    r, _, _ = select.select([fd], [], [], 0.2)
+    if r:
+        try: d = os.read(fd, 65536)
+        except OSError: break
+        if not d: break
+        out += d
+        if b'Run it?' in out and not asked:
+            asked = True
+            os.write(fd, answer.encode() + b'\r')
+txt = out.decode(errors='ignore')
+print('ASKED' if 'Run it?' in txt else 'NOT-ASKED')
+print('RAN' if 'ran with one' in txt else 'NOT-RAN')
+PY
+t "run_net = ask at a terminal: the first lines are shown and n does not run" 'python3 "$W/ask.py" n "$J" http://127.0.0.1:$PORT/hello.sh | tr "\n" " " | grep -q "ASKED NOT-RAN"'
+t "run_net = ask at a terminal: y runs it" 'python3 "$W/ask.py" y "$J" http://127.0.0.1:$PORT/hello.sh | tr "\n" " " | grep -q "ASKED RAN"'
 t "-jsh: the script is run by the program jsh, with the arguments" '[ "$(PATH="$W/bin:$PATH" $J -jsh http://127.0.0.1:$PORT/hello.sh two 2>/dev/null | tr "\n" "|")" = "via jsh|ran with two|" ]'
 t "-sh: downloads a script, runs it with the arguments, leaves nothing" '[ "$($J -sh http://127.0.0.1:$PORT/hello.sh one 2>/dev/null)" = "ran with one" ]'
 t "--install: copies the program and the copy works" '$J --install "$W/inst" >/dev/null && [ "$("$W/inst/jget" --version)" = "jget $(cat $HERE/VERSION)" ]'

@@ -7,6 +7,7 @@
 //   neuron install MODEL.jw                                                      make a model the assistant of this phone (~/.neuron/assistant.jw)
 //   neuron learn | forget                                                        learn from the events the shell wrote (~/.neuron/events.txt) / delete them
 //   neuron train DATA.txt -o OUT.jw -i MODEL.jw                                  go on learning from a model
+//   neuron eval MODEL.jw TEST.txt [-n 200]                                      measure: the share of the test questions answered right
 //   neuron info MODEL.jw                                                         what is in a model file
 //   neuron ask MODEL.jw X1 X2 ...                                                a numeric model (library neuron, neuron-jw 1)
 // The model: every byte of the text has a vector of d numbers; the last k bytes are put side by side, one layer of h neurons with
@@ -16,7 +17,7 @@
 #import <math>
 #import <neuron>
 
-String neuron_version() { return "0.3.1"; }
+String neuron_version() { return "0.4.0"; }
 
 int fail(String msg) {
     cerr << "neuron: " << msg << "\n";
@@ -46,6 +47,8 @@ struct CharLm {
     double[] x;                     // k * d  (the input of the last step)
     double[] hid;                   // h
     double[] p;                     // v  (the probabilities of the last step)
+    String[] pq;                    // the questions of the talk it learned (for the search that comes before the model)
+    String[] pa;                    // and their answers
 }
 
 CharLm lm_alloc(int k, int d, int h, int v) {
@@ -57,6 +60,7 @@ CharLm lm_alloc(int k, int d, int h, int v) {
     m.emb = arr(v * d + 1); m.w1 = arr(k * d * h + 1); m.b1 = arr(h + 1);
     m.w2 = arr(h * v + 1); m.b2 = arr(v + 1);
     m.x = arr(k * d + 1); m.hid = arr(h + 1); m.p = arr(v + 1);
+    m.pq = arr(16); m.pa = arr(16);
     for i in 0..v * d { m.emb.push(0.0); }
     for i in 0..k * d * h { m.w1.push(0.0); }
     for i in 0..h { m.b1.push(0.0); m.hid.push(0.0); }
@@ -145,6 +149,9 @@ bool lm_save(CharLm m, String path) {
     String t = "neuron-jw 2\nkind charlm\ncontext " + str(m.k) + "\ndim " + str(m.d) + "\nhidden " + str(m.h) + "\nvocab " + str(m.v) + "\n";
     for i in 0..m.v { t = t + str(m.bytes[i]) + " "; }
     t = t + "\n" + numbers(m.emb, m.v * m.d) + numbers(m.w1, m.k * m.d * m.h) + numbers(m.b1, m.h) + numbers(m.w2, m.h * m.v) + numbers(m.b2, m.v);
+    // the questions and answers of the talk: one line each,  question <tab> answer  (the search before the model uses them)
+    t = t + "pairs " + str(m.pq.len) + "\n";
+    for i in 0..m.pq.len { t = t + m.pq[i].replace("\t", " ").replace("\n", " ") + "\t" + m.pa[i].replace("\t", " ").replace("\n", " ") + "\n"; }
     return Fs::write_text(path, t).is_ok();
 }
 
@@ -178,6 +185,16 @@ CharLm lm_load(String path, bool^ ok) {
     fill(m.b1, ls[9], h);
     fill(m.w2, ls[10], h * v);
     fill(m.b2, ls[11], v);
+    if ls.len > 12 && ls[12].starts_with("pairs ") {
+        int np = ls[12].slice(6, ls[12].len).to_int();
+        for i in 0..np {
+            if 13 + i >= ls.len { break; }
+            int tab = ls[13 + i].find("\t");
+            if tab <= 0 { continue; }
+            m.pq.push(ls[13 + i].slice(0, tab) + "");
+            m.pa.push(ls[13 + i].slice(tab + 1, ls[13 + i].len) + "");
+        }
+    }
     ok[0] = true;
     return m;
 }
@@ -196,6 +213,65 @@ CharLm lm_for_text(String text, int k, int d, int h) {
     for b in 0..256 { if seen[b] == 1 { m.bytes.push(b); m.index[b] = at; at += 1; } }
     lm_init_weights(m);
     return m;
+}
+
+// the lines  You: question  and  Bot: answer  that follow each other become pairs (the same question again is kept once)
+void lm_collect_pairs(CharLm m, String text) {
+    String[] ls = text.split("\n");
+    for i in 0..ls.len - 1 {
+        if ls[i].starts_with("You: ") && ls[i + 1].starts_with("Bot: ") {
+            String q = ls[i].slice(5, ls[i].len).trim();
+            String a = ls[i + 1].slice(5, ls[i + 1].len).trim();
+            if q.len == 0 || a.len == 0 { continue; }
+            bool seen = false;
+            for k in 0..m.pq.len { if m.pq[k] == q { seen = true; m.pa[k] = a + ""; } }
+            if !seen { m.pq.push(q + ""); m.pa.push(a + ""); }
+        }
+    }
+}
+
+// a question in a simple form for the comparison: small letters, only letters, digits and bytes of other scripts, one space between words
+String simple_form(String t) {
+    String r = " ";
+    bool space = true;
+    for i in 0..t.len {
+        int c = t[i] & 255;
+        if c >= 65 && c <= 90 { c += 32; }
+        bool word = (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c >= 128;
+        if word { r.push((char)c); space = false; }
+        else if !space { r.push(' '); space = true; }
+    }
+    if !space { r.push(' '); }
+    return r;
+}
+
+// the likeness of two forms, 0 .. 1: how many of the groups of three letters they have in common (Dice)
+double likeness(String x, String y) {
+    int nx = x.len - 2;
+    int ny = y.len - 2;
+    if nx < 1 || ny < 1 { return 0.0; }
+    int[] used = arr(ny + 1);
+    for j in 0..ny { used.push(0); }
+    int common = 0;
+    for i in 0..nx {
+        for j in 0..ny {
+            if used[j] == 0 && x[i] == y[j] && x[i + 1] == y[j + 1] && x[i + 2] == y[j + 2] { used[j] = 1; common += 1; break; }
+        }
+    }
+    return 2.0 * (double)common / (double)(nx + ny);
+}
+
+// the answer of the question that is the most like q, "" when none is like enough (limit 0..1)
+String search_answer(CharLm m, String q, double limit) {
+    String fq = simple_form(q);
+    double best = 0.0;
+    int at = 0 - 1;
+    for i in 0..m.pq.len {
+        double s = likeness(fq, simple_form(m.pq[i]));
+        if s > best { best = s; at = i; }
+    }
+    if at >= 0 && best >= limit { return m.pa[at] + ""; }
+    return "";
 }
 
 int word_of(CharLm m, int byte) {
@@ -263,7 +339,8 @@ int do_train(String[] a) {
         if !okm { return fail(from + " is not a model of neuron"); }
         k = m.k; d = m.d; h = m.h;
     }
-    cout << "text " << text.len << " bytes, vocabulary " << m.v << ", model: context " << k << ", dim " << d << ", hidden " << h << ", " << epochs << " rounds\n";
+    lm_collect_pairs(m, text);
+    cout << "text " << text.len << " bytes, " << m.pq.len << " questions with answers, vocabulary " << m.v << ", model: context " << k << ", dim " << d << ", hidden " << h << ", " << epochs << " rounds\n";
     int[] ctx = arr(k + 1);
     for j in 0..k { ctx.push(0); }
     int space = word_of(m, 32);
@@ -320,6 +397,50 @@ String assistant_path() {
     return home + "/.neuron/assistant.jw";
 }
 
+// neuron eval MODEL.jw TEST.txt [-n 200]: how many of the questions of the test text (never learned) are answered right,
+// by the search alone, by the model alone (the most likely byte each time) and by both together as xr does it
+int do_eval(String[] a) {
+    if a.len < 4 { return fail("usage: neuron eval MODEL.jw TEST.txt [-n 200]"); }
+    bool ok = false;
+    CharLm m = open_model(a[2], @ok);
+    if !ok { return 1; }
+    Result<String, Error> rd = Fs::read_bytes(a[3]);
+    if !rd.is_ok() { return fail("cannot read " + a[3]); }
+    CharLm probe = lm_alloc(1, 1, 1, 1);
+    lm_collect_pairs(probe, rd.take());
+    int total = probe.pq.len;
+    if total == 0 { return fail("no pairs (You: / Bot:) in " + a[3]); }
+    int maxn = option(a, "-n", "200").to_int();
+    if maxn > total { maxn = total; }
+    String lim_text = jash_get("xr", "match", "0.5");
+    double limit = lim_text.to_double();
+    int by_search = 0;
+    int by_model = 0;
+    int by_both = 0;
+    int answered = 0;
+    int step = total / maxn;
+    if step < 1 { step = 1; }
+    int done = 0;
+    int at = 0;
+    while at < total && done < maxn {
+        String q = probe.pq[at];
+        String want = probe.pa[at];
+        String found = search_answer(m, q, limit);
+        if found.len > 0 { answered += 1; }
+        if found == want { by_search += 1; }
+        String gen = lm_write(m, "You: " + q + "\nBot: ", want.len + 20, 0.0, true);
+        if gen == want { by_model += 1; }
+        if found.len > 0 { if found == want { by_both += 1; } } else if gen == want { by_both += 1; }
+        done += 1;
+        at += step;
+    }
+    cout << "questions tested: " << done << " (never learned in that form)\n";
+    cout << "  search alone: " << by_search * 100 / done << " % right  (" << answered * 100 / done << " % were answered by the search)\n";
+    cout << "  model alone:  " << by_model * 100 / done << " % right\n";
+    cout << "  both (as xr): " << by_both * 100 / done << " % right\n";
+    return 0;
+}
+
 int do_install(String[] a) {
     if a.len < 3 { return fail("usage: neuron install MODEL.jw   (it becomes the assistant: neuron chat)"); }
     bool ok = false;
@@ -351,7 +472,7 @@ int do_chat(String[] a) {
         String line = Input::line().trim();
         if line.len == 0 { break; }
         talk = talk + "You: " + line + "\nBot: ";
-        String reply = lm_write(m, talk, n, t, true);
+        String reply = reply_to(m, talk, line, n, t);
         talk = talk + reply + "\n";
         cout << "Bot: " << reply << "\n";
         if talk.len > 4000 { talk = talk.slice(talk.len - 2000, talk.len); }
@@ -421,6 +542,16 @@ String xr_dir() {
 
 int xr_port() { return jash_get("xr", "port", "7790").to_int(); }
 
+// the reply to a question: the answer of the question that is the most like it (settings [xr] search = on, match = 0.5), else the model writes on
+String reply_to(CharLm m, String talk, String question, int n, double t) {
+    if jash_get("xr", "search", "on") != "off" {
+        String found = search_answer(m, question, jash_get("xr", "match", "0.5").to_double());
+        if found.len > 0 { return found; }
+    }
+    return lm_write(m, talk, n, t, true);
+}
+
+
 String read_line_from(Connection c) {
     String got = "";
     while got.find("\n") < 0 && got.len < 8000 {
@@ -455,7 +586,7 @@ int xr_serve(String model, int port) {
         else if req == "stop" { c.send("bye\n"); c.close(); l.close(); return 0; }
         else if req.starts_with("ask ") {
             talk = talk + "You: " + req.slice(4, req.len) + "\nBot: ";
-            answer = lm_write(m, talk, n, t, true);
+            answer = reply_to(m, talk, req.slice(4, req.len), n, t);
             talk = talk + answer + "\n";
             if talk.len > 4000 { talk = talk.slice(talk.len - 2000, talk.len); }
         } else { answer = "?"; }
@@ -567,7 +698,7 @@ int xr_main(String[] a) {
         String q = cmd;
         for i in 2..a.len { q = q + " " + a[i]; }
         if server { bool ok = false; cout << xr_call("ask " + q, @ok) << "\n"; }
-        else { cout << lm_write(own, "You: " + q + "\nBot: ", n, t, true) << "\n"; }
+        else { cout << reply_to(own, "You: " + q + "\nBot: ", q, n, t) << "\n"; }
         return 0;
     }
     String talk = "";
@@ -582,7 +713,7 @@ int xr_main(String[] a) {
         if server { bool ok = false; reply = xr_call("ask " + line, @ok); }
         else {
             talk = talk + "You: " + line + "\nBot: ";
-            reply = lm_write(own, talk, n, t, true);
+            reply = reply_to(own, talk, line, n, t);
             talk = talk + reply + "\n";
             if talk.len > 4000 { talk = talk.slice(talk.len - 2000, talk.len); }
         }
@@ -743,6 +874,7 @@ int main() {
         cout << "  neuron run MODEL.jw \"start\" [-n 200] [-t 0.8]       write on from a start\n";
         cout << "  neuron chat [MODEL.jw]                              talk with the model (no file: the assistant)\n";
         cout << "  neuron install MODEL.jw                             make it the assistant of this phone\n";
+        cout << "  neuron eval MODEL.jw TEST.txt                       how many questions that were never learned are answered right\n";
         cout << "  neuron info MODEL.jw      neuron ask MODEL.jw X1 X2 ...   (a numeric model)\n";
         return 0;
     }
@@ -751,6 +883,7 @@ int main() {
     if a[1] == "chat" { return do_chat(a); }
     if a[1] == "info" { return do_info(a); }
     if a[1] == "install" { return do_install(a); }
+    if a[1] == "eval" { return do_eval(a); }
     if a[1] == "learn" { return do_learn(a); }
     if a[1] == "forget" { return do_forget(); }
     if a[1] == "where" { return do_where(); }

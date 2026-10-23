@@ -1,0 +1,1344 @@
+You: could you tell me hello
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: i would like to know hello
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: hello, thanks
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: one more thing: hello
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: so hello?
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: um hello
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: could you tell me hi
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: i would like to know hi
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: hi, thanks
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: one more thing: hi
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: so hi?
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: um hi
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: could you tell me hey
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: i would like to know hey
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: hey, thanks
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: one more thing: hey
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: so hey?
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: um hey
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: could you tell me good morning
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: i would like to know good morning
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: good morning, thanks
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: one more thing: good morning
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: so good morning?
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: um good morning
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: could you tell me who are you
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: i would like to know who are you
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: who are you, thanks
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: one more thing: who are you
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: so who are you?
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: um who are you
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: could you tell me what is your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: i would like to know what is your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: what is your name, thanks
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: one more thing: what is your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: so what is your name?
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: um what is your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: could you tell me your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: i would like to know your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: your name, thanks
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: one more thing: your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: so your name?
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: um your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: could you tell me how are you
+Bot: I am fine, thank you. What do you want to do?
+You: i would like to know how are you
+Bot: I am fine, thank you. What do you want to do?
+You: how are you, thanks
+Bot: I am fine, thank you. What do you want to do?
+You: one more thing: how are you
+Bot: I am fine, thank you. What do you want to do?
+You: so how are you?
+Bot: I am fine, thank you. What do you want to do?
+You: um how are you
+Bot: I am fine, thank you. What do you want to do?
+You: could you tell me how do you do
+Bot: I am fine, thank you. What do you want to do?
+You: i would like to know how do you do
+Bot: I am fine, thank you. What do you want to do?
+You: how do you do, thanks
+Bot: I am fine, thank you. What do you want to do?
+You: one more thing: how do you do
+Bot: I am fine, thank you. What do you want to do?
+You: so how do you do?
+Bot: I am fine, thank you. What do you want to do?
+You: um how do you do
+Bot: I am fine, thank you. What do you want to do?
+You: could you tell me thank you
+Bot: You are welcome.
+You: i would like to know thank you
+Bot: You are welcome.
+You: thank you, thanks
+Bot: You are welcome.
+You: one more thing: thank you
+Bot: You are welcome.
+You: so thank you?
+Bot: You are welcome.
+You: um thank you
+Bot: You are welcome.
+You: could you tell me thanks
+Bot: You are welcome.
+You: i would like to know thanks
+Bot: You are welcome.
+You: thanks, thanks
+Bot: You are welcome.
+You: one more thing: thanks
+Bot: You are welcome.
+You: so thanks?
+Bot: You are welcome.
+You: um thanks
+Bot: You are welcome.
+You: could you tell me bye
+Bot: Goodbye! See you.
+You: i would like to know bye
+Bot: Goodbye! See you.
+You: bye, thanks
+Bot: Goodbye! See you.
+You: one more thing: bye
+Bot: Goodbye! See you.
+You: so bye?
+Bot: Goodbye! See you.
+You: um bye
+Bot: Goodbye! See you.
+You: could you tell me goodbye
+Bot: Goodbye! See you.
+You: i would like to know goodbye
+Bot: Goodbye! See you.
+You: goodbye, thanks
+Bot: Goodbye! See you.
+You: one more thing: goodbye
+Bot: Goodbye! See you.
+You: so goodbye?
+Bot: Goodbye! See you.
+You: um goodbye
+Bot: Goodbye! See you.
+You: could you tell me see you
+Bot: Goodbye! See you.
+You: i would like to know see you
+Bot: Goodbye! See you.
+You: see you, thanks
+Bot: Goodbye! See you.
+You: one more thing: see you
+Bot: Goodbye! See you.
+You: so see you?
+Bot: Goodbye! See you.
+You: um see you
+Bot: Goodbye! See you.
+You: could you tell me what can you do
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: i would like to know what can you do
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: what can you do, thanks
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: one more thing: what can you do
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: so what can you do?
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: um what can you do
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: could you tell me help
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: i would like to know help
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: help, thanks
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: one more thing: help
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: so help?
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: um help
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: could you tell me how do i install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: i would like to know how do i install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: how do i install a tool, thanks
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: one more thing: how do i install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: so how do i install a tool?
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: um how do i install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: could you tell me install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: i would like to know install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: install a tool, thanks
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: one more thing: install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: so install a tool?
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: um install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: could you tell me how do i update jget
+Bot: Run jget --update.
+You: i would like to know how do i update jget
+Bot: Run jget --update.
+You: how do i update jget, thanks
+Bot: Run jget --update.
+You: one more thing: how do i update jget
+Bot: Run jget --update.
+You: so how do i update jget?
+Bot: Run jget --update.
+You: um how do i update jget
+Bot: Run jget --update.
+You: could you tell me update jget
+Bot: Run jget --update.
+You: i would like to know update jget
+Bot: Run jget --update.
+You: update jget, thanks
+Bot: Run jget --update.
+You: one more thing: update jget
+Bot: Run jget --update.
+You: so update jget?
+Bot: Run jget --update.
+You: um update jget
+Bot: Run jget --update.
+You: could you tell me how do i install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: i would like to know how do i install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: how do i install python, thanks
+Bot: Run jget tool python. Then python3 and pip work.
+You: one more thing: how do i install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: so how do i install python?
+Bot: Run jget tool python. Then python3 and pip work.
+You: um how do i install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: could you tell me install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: i would like to know install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: install python, thanks
+Bot: Run jget tool python. Then python3 and pip work.
+You: one more thing: install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: so install python?
+Bot: Run jget tool python. Then python3 and pip work.
+You: um install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: could you tell me how do i install pip
+Bot: pip comes with the tool python: jget tool python.
+You: i would like to know how do i install pip
+Bot: pip comes with the tool python: jget tool python.
+You: how do i install pip, thanks
+Bot: pip comes with the tool python: jget tool python.
+You: one more thing: how do i install pip
+Bot: pip comes with the tool python: jget tool python.
+You: so how do i install pip?
+Bot: pip comes with the tool python: jget tool python.
+You: um how do i install pip
+Bot: pip comes with the tool python: jget tool python.
+You: could you tell me where is pip
+Bot: pip comes with the tool python: jget tool python.
+You: i would like to know where is pip
+Bot: pip comes with the tool python: jget tool python.
+You: where is pip, thanks
+Bot: pip comes with the tool python: jget tool python.
+You: one more thing: where is pip
+Bot: pip comes with the tool python: jget tool python.
+You: so where is pip?
+Bot: pip comes with the tool python: jget tool python.
+You: um where is pip
+Bot: pip comes with the tool python: jget tool python.
+You: could you tell me how do i install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: i would like to know how do i install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: how do i install yt-dlp, thanks
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: one more thing: how do i install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: so how do i install yt-dlp?
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: um how do i install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: could you tell me install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: i would like to know install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: install yt-dlp, thanks
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: one more thing: install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: so install yt-dlp?
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: um install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: could you tell me how do i update the compiler
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: i would like to know how do i update the compiler
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: how do i update the compiler, thanks
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: one more thing: how do i update the compiler
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: so how do i update the compiler?
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: um how do i update the compiler
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: could you tell me update jcmp
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: i would like to know update jcmp
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: update jcmp, thanks
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: one more thing: update jcmp
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: so update jcmp?
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: um update jcmp
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: could you tell me how do i build a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: i would like to know how do i build a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: how do i build a program, thanks
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: one more thing: how do i build a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: so how do i build a program?
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: um how do i build a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: could you tell me compile a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: i would like to know compile a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: compile a program, thanks
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: one more thing: compile a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: so compile a program?
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: um compile a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: could you tell me how do i run a program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: i would like to know how do i run a program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: how do i run a program, thanks
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: one more thing: how do i run a program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: so how do i run a program?
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: um how do i run a program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: could you tell me run my program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: i would like to know run my program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: run my program, thanks
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: one more thing: run my program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: so run my program?
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: um run my program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: could you tell me what is makej
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: i would like to know what is makej
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: what is makej, thanks
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: one more thing: what is makej
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: so what is makej?
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: um what is makej
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: could you tell me what does makej do
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: i would like to know what does makej do
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: what does makej do, thanks
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: one more thing: what does makej do
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: so what does makej do?
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: um what does makej do
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: could you tell me how do i start a project
+Bot: Make a folder and run makej init -pro NAME.
+You: i would like to know how do i start a project
+Bot: Make a folder and run makej init -pro NAME.
+You: how do i start a project, thanks
+Bot: Make a folder and run makej init -pro NAME.
+You: one more thing: how do i start a project
+Bot: Make a folder and run makej init -pro NAME.
+You: so how do i start a project?
+Bot: Make a folder and run makej init -pro NAME.
+You: um how do i start a project
+Bot: Make a folder and run makej init -pro NAME.
+You: could you tell me new project
+Bot: Make a folder and run makej init -pro NAME.
+You: i would like to know new project
+Bot: Make a folder and run makej init -pro NAME.
+You: new project, thanks
+Bot: Make a folder and run makej init -pro NAME.
+You: one more thing: new project
+Bot: Make a folder and run makej init -pro NAME.
+You: so new project?
+Bot: Make a folder and run makej init -pro NAME.
+You: um new project
+Bot: Make a folder and run makej init -pro NAME.
+You: could you tell me how do i make a game
+Bot: Run makej init -game and then makej run.
+You: i would like to know how do i make a game
+Bot: Run makej init -game and then makej run.
+You: how do i make a game, thanks
+Bot: Run makej init -game and then makej run.
+You: one more thing: how do i make a game
+Bot: Run makej init -game and then makej run.
+You: so how do i make a game?
+Bot: Run makej init -game and then makej run.
+You: um how do i make a game
+Bot: Run makej init -game and then makej run.
+You: could you tell me start a game
+Bot: Run makej init -game and then makej run.
+You: i would like to know start a game
+Bot: Run makej init -game and then makej run.
+You: start a game, thanks
+Bot: Run makej init -game and then makej run.
+You: one more thing: start a game
+Bot: Run makej init -game and then makej run.
+You: so start a game?
+Bot: Run makej init -game and then makej run.
+You: um start a game
+Bot: Run makej init -game and then makej run.
+You: could you tell me how do i make an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: i would like to know how do i make an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: how do i make an ai, thanks
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: one more thing: how do i make an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: so how do i make an ai?
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: um how do i make an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: could you tell me train an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: i would like to know train an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: train an ai, thanks
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: one more thing: train an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: so train an ai?
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: um train an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: could you tell me how do i talk to you
+Bot: Type xr and a question, or just xr to chat.
+You: i would like to know how do i talk to you
+Bot: Type xr and a question, or just xr to chat.
+You: how do i talk to you, thanks
+Bot: Type xr and a question, or just xr to chat.
+You: one more thing: how do i talk to you
+Bot: Type xr and a question, or just xr to chat.
+You: so how do i talk to you?
+Bot: Type xr and a question, or just xr to chat.
+You: um how do i talk to you
+Bot: Type xr and a question, or just xr to chat.
+You: could you tell me how to use xr
+Bot: Type xr and a question, or just xr to chat.
+You: i would like to know how to use xr
+Bot: Type xr and a question, or just xr to chat.
+You: how to use xr, thanks
+Bot: Type xr and a question, or just xr to chat.
+You: one more thing: how to use xr
+Bot: Type xr and a question, or just xr to chat.
+You: so how to use xr?
+Bot: Type xr and a question, or just xr to chat.
+You: um how to use xr
+Bot: Type xr and a question, or just xr to chat.
+You: could you tell me how do i start the assistant
+Bot: Run xr start. It runs in the background.
+You: i would like to know how do i start the assistant
+Bot: Run xr start. It runs in the background.
+You: how do i start the assistant, thanks
+Bot: Run xr start. It runs in the background.
+You: one more thing: how do i start the assistant
+Bot: Run xr start. It runs in the background.
+You: so how do i start the assistant?
+Bot: Run xr start. It runs in the background.
+You: um how do i start the assistant
+Bot: Run xr start. It runs in the background.
+You: could you tell me start xr
+Bot: Run xr start. It runs in the background.
+You: i would like to know start xr
+Bot: Run xr start. It runs in the background.
+You: start xr, thanks
+Bot: Run xr start. It runs in the background.
+You: one more thing: start xr
+Bot: Run xr start. It runs in the background.
+You: so start xr?
+Bot: Run xr start. It runs in the background.
+You: um start xr
+Bot: Run xr start. It runs in the background.
+You: could you tell me how do i stop the assistant
+Bot: Run xr stop.
+You: i would like to know how do i stop the assistant
+Bot: Run xr stop.
+You: how do i stop the assistant, thanks
+Bot: Run xr stop.
+You: one more thing: how do i stop the assistant
+Bot: Run xr stop.
+You: so how do i stop the assistant?
+Bot: Run xr stop.
+You: um how do i stop the assistant
+Bot: Run xr stop.
+You: could you tell me stop xr
+Bot: Run xr stop.
+You: i would like to know stop xr
+Bot: Run xr stop.
+You: stop xr, thanks
+Bot: Run xr stop.
+You: one more thing: stop xr
+Bot: Run xr stop.
+You: so stop xr?
+Bot: Run xr stop.
+You: um stop xr
+Bot: Run xr stop.
+You: could you tell me how do i make you learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: i would like to know how do i make you learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: how do i make you learn, thanks
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: one more thing: how do i make you learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: so how do i make you learn?
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: um how do i make you learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: could you tell me xr learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: i would like to know xr learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: xr learn, thanks
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: one more thing: xr learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: so xr learn?
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: um xr learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: could you tell me how do i delete what you saw
+Bot: Run xr forget. It deletes the events and the learned text.
+You: i would like to know how do i delete what you saw
+Bot: Run xr forget. It deletes the events and the learned text.
+You: how do i delete what you saw, thanks
+Bot: Run xr forget. It deletes the events and the learned text.
+You: one more thing: how do i delete what you saw
+Bot: Run xr forget. It deletes the events and the learned text.
+You: so how do i delete what you saw?
+Bot: Run xr forget. It deletes the events and the learned text.
+You: um how do i delete what you saw
+Bot: Run xr forget. It deletes the events and the learned text.
+You: could you tell me xr forget
+Bot: Run xr forget. It deletes the events and the learned text.
+You: i would like to know xr forget
+Bot: Run xr forget. It deletes the events and the learned text.
+You: xr forget, thanks
+Bot: Run xr forget. It deletes the events and the learned text.
+You: one more thing: xr forget
+Bot: Run xr forget. It deletes the events and the learned text.
+You: so xr forget?
+Bot: Run xr forget. It deletes the events and the learned text.
+You: um xr forget
+Bot: Run xr forget. It deletes the events and the learned text.
+You: could you tell me where are your files
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: i would like to know where are your files
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: where are your files, thanks
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: one more thing: where are your files
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: so where are your files?
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: um where are your files
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: could you tell me where is the model
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: i would like to know where is the model
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: where is the model, thanks
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: one more thing: where is the model
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: so where is the model?
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: um where is the model
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: could you tell me how do i play music
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: i would like to know how do i play music
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: how do i play music, thanks
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: one more thing: how do i play music
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: so how do i play music?
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: um how do i play music
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: could you tell me play a song
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: i would like to know play a song
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: play a song, thanks
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: one more thing: play a song
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: so play a song?
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: um play a song
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: could you tell me how do i get free music
+Bot: In mujic type /get and choose a free song.
+You: i would like to know how do i get free music
+Bot: In mujic type /get and choose a free song.
+You: how do i get free music, thanks
+Bot: In mujic type /get and choose a free song.
+You: one more thing: how do i get free music
+Bot: In mujic type /get and choose a free song.
+You: so how do i get free music?
+Bot: In mujic type /get and choose a free song.
+You: um how do i get free music
+Bot: In mujic type /get and choose a free song.
+You: could you tell me fetch a song
+Bot: In mujic type /get and choose a free song.
+You: i would like to know fetch a song
+Bot: In mujic type /get and choose a free song.
+You: fetch a song, thanks
+Bot: In mujic type /get and choose a free song.
+You: one more thing: fetch a song
+Bot: In mujic type /get and choose a free song.
+You: so fetch a song?
+Bot: In mujic type /get and choose a free song.
+You: um fetch a song
+Bot: In mujic type /get and choose a free song.
+You: could you tell me how do i add my songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: i would like to know how do i add my songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: how do i add my songs, thanks
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: one more thing: how do i add my songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: so how do i add my songs?
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: um how do i add my songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: could you tell me import songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: i would like to know import songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: import songs, thanks
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: one more thing: import songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: so import songs?
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: um import songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: could you tell me how do i sort songs into folders
+Bot: In mujic type /mv NAME FOLDER.
+You: i would like to know how do i sort songs into folders
+Bot: In mujic type /mv NAME FOLDER.
+You: how do i sort songs into folders, thanks
+Bot: In mujic type /mv NAME FOLDER.
+You: one more thing: how do i sort songs into folders
+Bot: In mujic type /mv NAME FOLDER.
+You: so how do i sort songs into folders?
+Bot: In mujic type /mv NAME FOLDER.
+You: um how do i sort songs into folders
+Bot: In mujic type /mv NAME FOLDER.
+You: could you tell me move a song
+Bot: In mujic type /mv NAME FOLDER.
+You: i would like to know move a song
+Bot: In mujic type /mv NAME FOLDER.
+You: move a song, thanks
+Bot: In mujic type /mv NAME FOLDER.
+You: one more thing: move a song
+Bot: In mujic type /mv NAME FOLDER.
+You: so move a song?
+Bot: In mujic type /mv NAME FOLDER.
+You: um move a song
+Bot: In mujic type /mv NAME FOLDER.
+You: could you tell me how do i see the lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: i would like to know how do i see the lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: how do i see the lyrics, thanks
+Bot: In mujic type /lyrics get, then /lyrics.
+You: one more thing: how do i see the lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: so how do i see the lyrics?
+Bot: In mujic type /lyrics get, then /lyrics.
+You: um how do i see the lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: could you tell me show lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: i would like to know show lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: show lyrics, thanks
+Bot: In mujic type /lyrics get, then /lyrics.
+You: one more thing: show lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: so show lyrics?
+Bot: In mujic type /lyrics get, then /lyrics.
+You: um show lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: could you tell me how do i edit a file
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: i would like to know how do i edit a file
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: how do i edit a file, thanks
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: one more thing: how do i edit a file
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: so how do i edit a file?
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: um how do i edit a file
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: could you tell me open the editor
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: i would like to know open the editor
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: open the editor, thanks
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: one more thing: open the editor
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: so open the editor?
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: um open the editor
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: could you tell me how do i see running programs
+Bot: Run jamanager ps, or jamanager top.
+You: i would like to know how do i see running programs
+Bot: Run jamanager ps, or jamanager top.
+You: how do i see running programs, thanks
+Bot: Run jamanager ps, or jamanager top.
+You: one more thing: how do i see running programs
+Bot: Run jamanager ps, or jamanager top.
+You: so how do i see running programs?
+Bot: Run jamanager ps, or jamanager top.
+You: um how do i see running programs
+Bot: Run jamanager ps, or jamanager top.
+You: could you tell me task manager
+Bot: Run jamanager ps, or jamanager top.
+You: i would like to know task manager
+Bot: Run jamanager ps, or jamanager top.
+You: task manager, thanks
+Bot: Run jamanager ps, or jamanager top.
+You: one more thing: task manager
+Bot: Run jamanager ps, or jamanager top.
+You: so task manager?
+Bot: Run jamanager ps, or jamanager top.
+You: um task manager
+Bot: Run jamanager ps, or jamanager top.
+You: could you tell me how do i stop a program
+Bot: Run jamanager kill PID.
+You: i would like to know how do i stop a program
+Bot: Run jamanager kill PID.
+You: how do i stop a program, thanks
+Bot: Run jamanager kill PID.
+You: one more thing: how do i stop a program
+Bot: Run jamanager kill PID.
+You: so how do i stop a program?
+Bot: Run jamanager kill PID.
+You: um how do i stop a program
+Bot: Run jamanager kill PID.
+You: could you tell me kill a program
+Bot: Run jamanager kill PID.
+You: i would like to know kill a program
+Bot: Run jamanager kill PID.
+You: kill a program, thanks
+Bot: Run jamanager kill PID.
+You: one more thing: kill a program
+Bot: Run jamanager kill PID.
+You: so kill a program?
+Bot: Run jamanager kill PID.
+You: um kill a program
+Bot: Run jamanager kill PID.
+You: could you tell me how much memory is free
+Bot: Run jamanager mem.
+You: i would like to know how much memory is free
+Bot: Run jamanager mem.
+You: how much memory is free, thanks
+Bot: Run jamanager mem.
+You: one more thing: how much memory is free
+Bot: Run jamanager mem.
+You: so how much memory is free?
+Bot: Run jamanager mem.
+You: um how much memory is free
+Bot: Run jamanager mem.
+You: could you tell me check memory
+Bot: Run jamanager mem.
+You: i would like to know check memory
+Bot: Run jamanager mem.
+You: check memory, thanks
+Bot: Run jamanager mem.
+You: one more thing: check memory
+Bot: Run jamanager mem.
+You: so check memory?
+Bot: Run jamanager mem.
+You: um check memory
+Bot: Run jamanager mem.
+You: could you tell me how do i see the disk
+Bot: Run jamanager drives.
+You: i would like to know how do i see the disk
+Bot: Run jamanager drives.
+You: how do i see the disk, thanks
+Bot: Run jamanager drives.
+You: one more thing: how do i see the disk
+Bot: Run jamanager drives.
+You: so how do i see the disk?
+Bot: Run jamanager drives.
+You: um how do i see the disk
+Bot: Run jamanager drives.
+You: could you tell me free space
+Bot: Run jamanager drives.
+You: i would like to know free space
+Bot: Run jamanager drives.
+You: free space, thanks
+Bot: Run jamanager drives.
+You: one more thing: free space
+Bot: Run jamanager drives.
+You: so free space?
+Bot: Run jamanager drives.
+You: um free space
+Bot: Run jamanager drives.
+You: could you tell me how do i change the settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: i would like to know how do i change the settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: how do i change the settings, thanks
+Bot: Type jaric setting. Use the arrows and Enter.
+You: one more thing: how do i change the settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: so how do i change the settings?
+Bot: Type jaric setting. Use the arrows and Enter.
+You: um how do i change the settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: could you tell me open settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: i would like to know open settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: open settings, thanks
+Bot: Type jaric setting. Use the arrows and Enter.
+You: one more thing: open settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: so open settings?
+Bot: Type jaric setting. Use the arrows and Enter.
+You: um open settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: could you tell me how do i change the font size
+Bot: In jaric setting choose font size, or pinch the screen.
+You: i would like to know how do i change the font size
+Bot: In jaric setting choose font size, or pinch the screen.
+You: how do i change the font size, thanks
+Bot: In jaric setting choose font size, or pinch the screen.
+You: one more thing: how do i change the font size
+Bot: In jaric setting choose font size, or pinch the screen.
+You: so how do i change the font size?
+Bot: In jaric setting choose font size, or pinch the screen.
+You: um how do i change the font size
+Bot: In jaric setting choose font size, or pinch the screen.
+You: could you tell me bigger letters
+Bot: In jaric setting choose font size, or pinch the screen.
+You: i would like to know bigger letters
+Bot: In jaric setting choose font size, or pinch the screen.
+You: bigger letters, thanks
+Bot: In jaric setting choose font size, or pinch the screen.
+You: one more thing: bigger letters
+Bot: In jaric setting choose font size, or pinch the screen.
+You: so bigger letters?
+Bot: In jaric setting choose font size, or pinch the screen.
+You: um bigger letters
+Bot: In jaric setting choose font size, or pinch the screen.
+You: could you tell me how do i change the theme
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: i would like to know how do i change the theme
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: how do i change the theme, thanks
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: one more thing: how do i change the theme
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: so how do i change the theme?
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: um how do i change the theme
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: could you tell me change colours
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: i would like to know change colours
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: change colours, thanks
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: one more thing: change colours
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: so change colours?
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: um change colours
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: could you tell me how do i restart the app
+Bot: Type jaric -restart.
+You: i would like to know how do i restart the app
+Bot: Type jaric -restart.
+You: how do i restart the app, thanks
+Bot: Type jaric -restart.
+You: one more thing: how do i restart the app
+Bot: Type jaric -restart.
+You: so how do i restart the app?
+Bot: Type jaric -restart.
+You: um how do i restart the app
+Bot: Type jaric -restart.
+You: could you tell me restart jaric
+Bot: Type jaric -restart.
+You: i would like to know restart jaric
+Bot: Type jaric -restart.
+You: restart jaric, thanks
+Bot: Type jaric -restart.
+You: one more thing: restart jaric
+Bot: Type jaric -restart.
+You: so restart jaric?
+Bot: Type jaric -restart.
+You: um restart jaric
+Bot: Type jaric -restart.
+You: could you tell me how do i open a new tab
+Bot: Tap + at the top, or type start PROGRAM.
+You: i would like to know how do i open a new tab
+Bot: Tap + at the top, or type start PROGRAM.
+You: how do i open a new tab, thanks
+Bot: Tap + at the top, or type start PROGRAM.
+You: one more thing: how do i open a new tab
+Bot: Tap + at the top, or type start PROGRAM.
+You: so how do i open a new tab?
+Bot: Tap + at the top, or type start PROGRAM.
+You: um how do i open a new tab
+Bot: Tap + at the top, or type start PROGRAM.
+You: could you tell me new session
+Bot: Tap + at the top, or type start PROGRAM.
+You: i would like to know new session
+Bot: Tap + at the top, or type start PROGRAM.
+You: new session, thanks
+Bot: Tap + at the top, or type start PROGRAM.
+You: one more thing: new session
+Bot: Tap + at the top, or type start PROGRAM.
+You: so new session?
+Bot: Tap + at the top, or type start PROGRAM.
+You: um new session
+Bot: Tap + at the top, or type start PROGRAM.
+You: could you tell me how do i run a script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: i would like to know how do i run a script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: how do i run a script, thanks
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: one more thing: how do i run a script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: so how do i run a script?
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: um how do i run a script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: could you tell me run a jsh script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: i would like to know run a jsh script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: run a jsh script, thanks
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: one more thing: run a jsh script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: so run a jsh script?
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: um run a jsh script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: could you tell me how do i download a file
+Bot: Run jget URL. It shows a progress bar.
+You: i would like to know how do i download a file
+Bot: Run jget URL. It shows a progress bar.
+You: how do i download a file, thanks
+Bot: Run jget URL. It shows a progress bar.
+You: one more thing: how do i download a file
+Bot: Run jget URL. It shows a progress bar.
+You: so how do i download a file?
+Bot: Run jget URL. It shows a progress bar.
+You: um how do i download a file
+Bot: Run jget URL. It shows a progress bar.
+You: could you tell me download a file
+Bot: Run jget URL. It shows a progress bar.
+You: i would like to know download a file
+Bot: Run jget URL. It shows a progress bar.
+You: download a file, thanks
+Bot: Run jget URL. It shows a progress bar.
+You: one more thing: download a file
+Bot: Run jget URL. It shows a progress bar.
+You: so download a file?
+Bot: Run jget URL. It shows a progress bar.
+You: um download a file
+Bot: Run jget URL. It shows a progress bar.
+You: could you tell me how do i download and run a script
+Bot: jget -jsh URL. Only use addresses you trust.
+You: i would like to know how do i download and run a script
+Bot: jget -jsh URL. Only use addresses you trust.
+You: how do i download and run a script, thanks
+Bot: jget -jsh URL. Only use addresses you trust.
+You: one more thing: how do i download and run a script
+Bot: jget -jsh URL. Only use addresses you trust.
+You: so how do i download and run a script?
+Bot: jget -jsh URL. Only use addresses you trust.
+You: um how do i download and run a script
+Bot: jget -jsh URL. Only use addresses you trust.
+You: could you tell me run a script from the net
+Bot: jget -jsh URL. Only use addresses you trust.
+You: i would like to know run a script from the net
+Bot: jget -jsh URL. Only use addresses you trust.
+You: run a script from the net, thanks
+Bot: jget -jsh URL. Only use addresses you trust.
+You: one more thing: run a script from the net
+Bot: jget -jsh URL. Only use addresses you trust.
+You: so run a script from the net?
+Bot: jget -jsh URL. Only use addresses you trust.
+You: um run a script from the net
+Bot: jget -jsh URL. Only use addresses you trust.
+You: could you tell me how do i open a zip file
+Bot: Run unj FILE.zip.
+You: i would like to know how do i open a zip file
+Bot: Run unj FILE.zip.
+You: how do i open a zip file, thanks
+Bot: Run unj FILE.zip.
+You: one more thing: how do i open a zip file
+Bot: Run unj FILE.zip.
+You: so how do i open a zip file?
+Bot: Run unj FILE.zip.
+You: um how do i open a zip file
+Bot: Run unj FILE.zip.
+You: could you tell me unzip
+Bot: Run unj FILE.zip.
+You: i would like to know unzip
+Bot: Run unj FILE.zip.
+You: unzip, thanks
+Bot: Run unj FILE.zip.
+You: one more thing: unzip
+Bot: Run unj FILE.zip.
+You: so unzip?
+Bot: Run unj FILE.zip.
+You: um unzip
+Bot: Run unj FILE.zip.
+You: could you tell me how do i make a zip file
+Bot: Run zipj out.zip FOLDER.
+You: i would like to know how do i make a zip file
+Bot: Run zipj out.zip FOLDER.
+You: how do i make a zip file, thanks
+Bot: Run zipj out.zip FOLDER.
+You: one more thing: how do i make a zip file
+Bot: Run zipj out.zip FOLDER.
+You: so how do i make a zip file?
+Bot: Run zipj out.zip FOLDER.
+You: um how do i make a zip file
+Bot: Run zipj out.zip FOLDER.
+You: could you tell me zip a folder
+Bot: Run zipj out.zip FOLDER.
+You: i would like to know zip a folder
+Bot: Run zipj out.zip FOLDER.
+You: zip a folder, thanks
+Bot: Run zipj out.zip FOLDER.
+You: one more thing: zip a folder
+Bot: Run zipj out.zip FOLDER.
+You: so zip a folder?
+Bot: Run zipj out.zip FOLDER.
+You: um zip a folder
+Bot: Run zipj out.zip FOLDER.
+You: could you tell me how do i open a tar file
+Bot: Run tarj x FILE.tar.gz.
+You: i would like to know how do i open a tar file
+Bot: Run tarj x FILE.tar.gz.
+You: how do i open a tar file, thanks
+Bot: Run tarj x FILE.tar.gz.
+You: one more thing: how do i open a tar file
+Bot: Run tarj x FILE.tar.gz.
+You: so how do i open a tar file?
+Bot: Run tarj x FILE.tar.gz.
+You: um how do i open a tar file
+Bot: Run tarj x FILE.tar.gz.
+You: could you tell me untar
+Bot: Run tarj x FILE.tar.gz.
+You: i would like to know untar
+Bot: Run tarj x FILE.tar.gz.
+You: untar, thanks
+Bot: Run tarj x FILE.tar.gz.
+You: one more thing: untar
+Bot: Run tarj x FILE.tar.gz.
+You: so untar?
+Bot: Run tarj x FILE.tar.gz.
+You: um untar
+Bot: Run tarj x FILE.tar.gz.
+You: could you tell me how do i list files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: i would like to know how do i list files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: how do i list files, thanks
+Bot: Run dir. Use dir -a to see hidden ones.
+You: one more thing: how do i list files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: so how do i list files?
+Bot: Run dir. Use dir -a to see hidden ones.
+You: um how do i list files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: could you tell me show files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: i would like to know show files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: show files, thanks
+Bot: Run dir. Use dir -a to see hidden ones.
+You: one more thing: show files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: so show files?
+Bot: Run dir. Use dir -a to see hidden ones.
+You: um show files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: could you tell me how do i find a word in files
+Bot: Run grep -n WORD FILE.
+You: i would like to know how do i find a word in files
+Bot: Run grep -n WORD FILE.
+You: how do i find a word in files, thanks
+Bot: Run grep -n WORD FILE.
+You: one more thing: how do i find a word in files
+Bot: Run grep -n WORD FILE.
+You: so how do i find a word in files?
+Bot: Run grep -n WORD FILE.
+You: um how do i find a word in files
+Bot: Run grep -n WORD FILE.
+You: could you tell me search text
+Bot: Run grep -n WORD FILE.
+You: i would like to know search text
+Bot: Run grep -n WORD FILE.
+You: search text, thanks
+Bot: Run grep -n WORD FILE.
+You: one more thing: search text
+Bot: Run grep -n WORD FILE.
+You: so search text?
+Bot: Run grep -n WORD FILE.
+You: um search text
+Bot: Run grep -n WORD FILE.
+You: could you tell me how do i see a video file
+Bot: Run jaric video FILE.
+You: i would like to know how do i see a video file
+Bot: Run jaric video FILE.
+You: how do i see a video file, thanks
+Bot: Run jaric video FILE.
+You: one more thing: how do i see a video file
+Bot: Run jaric video FILE.
+You: so how do i see a video file?
+Bot: Run jaric video FILE.
+You: um how do i see a video file
+Bot: Run jaric video FILE.
+You: could you tell me play video
+Bot: Run jaric video FILE.
+You: i would like to know play video
+Bot: Run jaric video FILE.
+You: play video, thanks
+Bot: Run jaric video FILE.
+You: one more thing: play video
+Bot: Run jaric video FILE.
+You: so play video?
+Bot: Run jaric video FILE.
+You: um play video
+Bot: Run jaric video FILE.
+You: could you tell me how do i read a video file
+Bot: Run jvp4 info FILE.
+You: i would like to know how do i read a video file
+Bot: Run jvp4 info FILE.
+You: how do i read a video file, thanks
+Bot: Run jvp4 info FILE.
+You: one more thing: how do i read a video file
+Bot: Run jvp4 info FILE.
+You: so how do i read a video file?
+Bot: Run jvp4 info FILE.
+You: um how do i read a video file
+Bot: Run jvp4 info FILE.
+You: could you tell me video info
+Bot: Run jvp4 info FILE.
+You: i would like to know video info
+Bot: Run jvp4 info FILE.
+You: video info, thanks
+Bot: Run jvp4 info FILE.
+You: one more thing: video info
+Bot: Run jvp4 info FILE.
+You: so video info?
+Bot: Run jvp4 info FILE.
+You: um video info
+Bot: Run jvp4 info FILE.
+You: could you tell me what is jash
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: i would like to know what is jash
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: what is jash, thanks
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: one more thing: what is jash
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: so what is jash?
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: um what is jash
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: could you tell me what is the jash file
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: i would like to know what is the jash file
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: what is the jash file, thanks
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: one more thing: what is the jash file
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: so what is the jash file?
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: um what is the jash file
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: could you tell me what is a jc file
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: i would like to know what is a jc file
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: what is a jc file, thanks
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: one more thing: what is a jc file
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: so what is a jc file?
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: um what is a jc file
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: could you tell me what is jc
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: i would like to know what is jc
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: what is jc, thanks
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: one more thing: what is jc
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: so what is jc?
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: um what is jc
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: could you tell me what is a jw file
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: i would like to know what is a jw file
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: what is a jw file, thanks
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: one more thing: what is a jw file
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: so what is a jw file?
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: um what is a jw file
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: could you tell me what is jw
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: i would like to know what is jw
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: what is jw, thanks
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: one more thing: what is jw
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: so what is jw?
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: um what is jw
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: could you tell me what is j2k
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: i would like to know what is j2k
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: what is j2k, thanks
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: one more thing: what is j2k
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: so what is j2k?
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: um what is j2k
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: could you tell me what language is this
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: i would like to know what language is this
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: what language is this, thanks
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: one more thing: what language is this
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: so what language is this?
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: um what language is this
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: could you tell me what is jaric
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: i would like to know what is jaric
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: what is jaric, thanks
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: one more thing: what is jaric
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: so what is jaric?
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: um what is jaric
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: could you tell me what is this app
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: i would like to know what is this app
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: what is this app, thanks
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: one more thing: what is this app
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: so what is this app?
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: um what is this app
+Bot: Jaric is a terminal app with its own shell, tools and a language.
