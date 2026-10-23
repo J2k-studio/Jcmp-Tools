@@ -164,12 +164,11 @@ printf '_out/\n*.apk\n*.jc\n.makej_*\n' > .gitignore
 fi
 if [ "${1:-}" = "init" ] && [ "${2:-}" = "-ai" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
-    mkdir -p src data
+    mkdir -p data
 cat > makej <<'MAKEJ_AI_EOF'
-# an AI project (makej init -ai). Needs the tool neuron:  jget tool neuron   (and for the small numeric example the library: jget -li install neuron)
+# an AI project (makej init -ai). Needs the tool neuron:  jget tool neuron   (the commands below are steps: they run only when you name them)
 #   makej train     learns the talk in data/chat.txt and writes the model assistant.jw   (all the AI in one .jw file)
-#   makej chat      talks with the model;   makej install   makes it the assistant of this phone (neuron chat)
-#   makej numeric   builds the small numeric example (src/chat.jk: a network that learns data/data.csv)
+#   makej chat      talks with the model;   makej install   makes it the assistant of this phone (xr, neuron chat)
 [makej]
 out = "_out"
 
@@ -181,60 +180,7 @@ run = "neuron chat assistant.jw"
 
 [step.install]
 run = "neuron install assistant.jw"
-
-[program.numeric]
-main = "src/chat.jk"
-flags = ""
-
-[step.numeric_train]
-run = "_out/numeric train data/data.csv model.jw"
-needs = "numeric"
-
-[step.numeric_ask]
-run = "_out/numeric ask model.jw 1 0"
-needs = "numeric"
 MAKEJ_AI_EOF
-cat > src/chat.jk <<'MAKEJ_AI_SRC_EOF'
-// A small model with the library neuron (jget -li install neuron).
-//   chat train data/data.csv model.jw      learns from rows  x1,x2,answer
-//   chat ask model.jw 1 0                  asks the model
-#import <stdlib>
-#import <math>
-#import <neuron>
-
-int main() {
-    String[] a = Env::args();
-    if a.len < 3 { cerr << "usage: chat train DATA.csv OUT.jw | chat ask MODEL.jw X1 X2\n"; return 2; }
-    if a[1] == "train" && a.len >= 4 {
-        String[] rows = Fs::read_lines(a[2]).take();
-        int n = rows.len;
-        Tensor x = Tensor::zeros(n, 2);
-        Tensor y = Tensor::zeros(n, 1);
-        for i in 0..n {
-            String[] f = rows[i].split(",");
-            x.set(i, 0, f[0].to_double());
-            x.set(i, 1, f[1].to_double());
-            y.set(i, 0, f[2].to_double());
-        }
-        Network net = Network::make();
-        net.add(2, 8);
-        net.add(8, 1);
-        double loss = net.fit(x, y, 4000, 0.1);
-        net.save(a[3]);
-        cout << "trained on " << n << " rows, loss " << loss << ", saved " << a[3] << "\n";
-        return 0;
-    }
-    if a[1] == "ask" && a.len >= 5 {
-        Network net = Network::load(a[2]);
-        Tensor q = Tensor::zeros(1, 2);
-        q.set(0, 0, a[3].to_double());
-        q.set(0, 1, a[4].to_double());
-        cout << net.predict(q).get(0, 0) << "\n";
-        return 0;
-    }
-    return 2;
-}
-MAKEJ_AI_SRC_EOF
 cat > data/chat.txt <<'MAKEJ_AI_CHAT_EOF'
 You: hello
 Bot: Hi! I am your helper.
@@ -257,13 +203,7 @@ Bot: Hi! I am your helper.
 You: bye
 Bot: Goodbye! See you.
 MAKEJ_AI_CHAT_EOF
-cat > data/data.csv <<'MAKEJ_AI_DATA_EOF'
-0,0,0
-0,1,1
-1,0,1
-1,1,0
-MAKEJ_AI_DATA_EOF
-    echo "makej: wrote makej, data/chat.txt (the talk to learn), src/chat.jk, data/data.csv. Next: jget tool neuron; makej train (writes assistant.jw), makej chat, makej install"; exit 0
+    echo "makej: wrote makej and data/chat.txt (the talk to learn). Next: jget tool neuron; makej train (writes assistant.jw), makej chat, makej install"; exit 0
 fi
 if [ "${1:-}" = "targets" ]; then
     cat <<'MAKEJ_TARGETS_EOF'

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.4
+* **Fixed:** `makej init -ai` wrote a numeric example program (`src/chat.jk`, `data/data.csv`) that a bare `makej` built, and it failed with "library not found 'neuron'" when the library was not installed. The project now has only `makej` and `data/chat.txt`; the steps `train`, `chat`, `install` run when named. Older -ai projects: delete the `[program.numeric]` and `[step.numeric_*]` parts of the file `makej`, or run `makej train` directly.
+
 ## 0.8.3
 * **Added:** when jcmp is too old, makej at a terminal asks "update jcmp now with jget tool jcmp ? [Y/n]" and does it (`MAKEJ_UPDATE_JCMP=yes` without asking, `=no` never). Without jget or a terminal it prints the command.
 

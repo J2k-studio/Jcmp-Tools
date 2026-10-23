@@ -1,0 +1,2 @@
+text 36824 bytes, vocabulary 136, model: context 24, dim 12, hidden 128, 12 rounds
+  round 1  13 %   loss 2.729672   19 s     round 1  27 %   loss 2.451128   34 s     round 1  40 %   loss 2.260742   48 s     round 1  54 %   loss 2.190300   61 s     round 1  67 %   loss 2.128692   74 s     round 1  81 %   loss 2.098806   87 s     round 1  95 %   loss 2.107469   100 s   round 1 of 12: loss 2.118756   (105 s)                    
