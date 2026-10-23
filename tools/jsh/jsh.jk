@@ -1,5 +1,3 @@
-// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
-// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // jsh: the shell of Jaric (a working name). Step 1 to 4 of docs/os-structure.md section 10: a prompt, line editing and history,
 // built-ins (cd pwd exit help history echo), programs with arguments, `$?`, pipes ( | ), redirection ( > >> < ), background ( & ).
 // It runs on the host today (Termux) and inside jemu / Jaric OS later: it uses only Sys:: calls and the library.
@@ -143,8 +141,36 @@ String suggestion_for(String line) {
     return c[0].slice(part.len, c[0].len);
 }
 
+// colours while typing: the first word is green when it is a command (a built-in, an alias, a program), red when it is not (once it is followed by a space)
+String known_word;
+bool known_ok;
+bool known_ready;
+bool command_known(String w) {
+    if known_ready && w == known_word { return known_ok; }
+    bool ok = w.len == 0 || is_builtin_name(w) || is_jbox_name(w) || find_alias(w) >= 0 || have_program(w);
+    if !ok {
+        for k in 0..w.len { if w[k] == '=' || w[k] == '$' || w[k] == '(' || w[k] == '{' || w[k] == '[' || w[k] == '"' || w[k] == 39 { ok = true; } }
+        if w.starts_with("./") || w.starts_with("/") || w.starts_with("~") || w.starts_with("../") { ok = Fs::exists(w) || w.starts_with("~"); }
+        if w == "if" || w == "for" || w == "while" || w == "case" || w == "function" || w == "then" || w == "do" || w == "done" || w == "fi" || w == "else" || w == "elif" || w == "esac" { ok = true; }
+    }
+    known_word = w + "";
+    known_ok = ok;
+    known_ready = true;
+    return ok;
+}
+
 void redraw(String prompt, String line, int cursor) {
-    cout << "\r" << prompt << line << esc() << "[K";
+    int ws = 0;
+    while ws < line.len && line[ws] == ' ' { ws += 1; }
+    int we = ws;
+    while we < line.len && line[we] != ' ' { we += 1; }
+    if we < line.len && we > ws && Sys::isatty(1) == 0 {
+        String code = "[38;2;120;220;130m";
+        if !command_known(line.slice(ws, we)) { code = "[38;2;255;110;110m"; }
+        cout << "\r" << prompt << line.slice(0, ws) << esc() << code << line.slice(ws, we) << esc() << "[0m" << line.slice(we, line.len) << esc() << "[K";
+    } else {
+        cout << "\r" << prompt << line << esc() << "[K";
+    }
     int back = cols_of(line, cursor, line.len);
     if cursor == line.len {
         String ghost = suggestion_for(line);
@@ -1343,9 +1369,10 @@ String prompt_text() {
     // the prompt is only shown on a terminal: 24-bit colours (the folder blue, the mark green, red after a failure)
     String e = esc();
     String reset = e + "[0m";
-    String mark = e + "[1;38;2;255;255;255m>" + e + "[22;38;2;176;176;176m>" + reset;                     // white to grey
-    if last_status != 0 { mark = e + "[1;38;2;255;95;95m>>" + reset; }                                     // red after a failure (echo $? shows the code)
-    return e + "[38;2;200;200;200m" + dir + reset + mark + " " + prompt_mark();
+    String mark = e + "[1;38;2;120;220;130m>" + reset;                                                   // jc ~/ >   the mark is green
+    if last_status != 0 { mark = e + "[1;38;2;255;95;95m>" + reset; }                                    // red after a failure (echo $? shows the code)
+    if !dir.ends_with("/") { dir = dir + "/"; }
+    return e + "[1;38;2;110;170;255mjc" + reset + " " + e + "[38;2;200;200;200m" + dir + reset + " " + mark + " " + prompt_mark();
 }
 
 // commands joined by && and || (the words are already split)
@@ -1406,7 +1433,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.5.0\n"; return 0; }
+    if cmdline.len > 1 && cmdline[1] == "--version" { cout << "jsh 0.5.1\n"; return 0; }
     if cmdline.len > 1 && cmdline[1] == "install" {                              // jsh install NAME ...
         running = 1;
         String[] jw = arr(cmdline.len + 2);

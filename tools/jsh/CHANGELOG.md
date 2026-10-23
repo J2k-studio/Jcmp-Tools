@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.1
+* The prompt is `jc ~/ >` (the mark is red after a failure); while typing the first word is green when it is a command and red when it is not.
+
 ## 0.4.1
 * `clear` and `dir [-a] [FOLDER]` are built in when jbox is not installed (a fresh install can list its files); jaric-core.
 
