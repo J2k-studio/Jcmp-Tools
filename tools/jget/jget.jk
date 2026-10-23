@@ -740,7 +740,7 @@ int cmd_tool(String[] av, int at) {
             Fs::remove(sums + ".keep");
         }
         cout << "installed " << name << " " << ver << " in " << dir << nl;
-        if name == "jbox" || name == "zipj" {                                             // its commands as links next to it
+        if name == "jbox" || name == "zipj" || name == "tarj" {                                             // its commands as links next to it
             String[] ja = arr(2);
             ja.push("--install");
             ja.push(dir);

@@ -1,0 +1,347 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// tarj and gzj: tar archives (also .tar.gz / .tgz) and gzip files. One program: it acts as gzj or as tarj by its name (a link or a copy).
+#import <stdlib>
+#import <deflate>
+
+int fail(String who, String msg) {
+    cerr << who << ": " << msg << "\n";
+    return 1;
+}
+
+// the bytes of a file (Fs::read_text stops at a zero byte)
+String read_bin(String path, bool^ ok) {
+    ok[0] = false;
+    int fd = Sys::open_read(path.c());
+    if fd < 0 { return ""; }
+    String r = "";
+    char buf[8192];
+    int n = Sys::read(fd, @buf, 8192);
+    while n > 0 {
+        for i in 0..n { r.push(buf[i]); }
+        n = Sys::read(fd, @buf, 8192);
+    }
+    Sys::close(fd);
+    ok[0] = n == 0;
+    return r;
+}
+
+String stdin_bytes() {
+    String r = "";
+    char buf[8192];
+    int n = Sys::read(0, @buf, 8192);
+    while n > 0 {
+        for i in 0..n { r.push(buf[i]); }
+        n = Sys::read(0, @buf, 8192);
+    }
+    return r;
+}
+
+void make_parents(String path) {
+    String dir = Path::parent(path);
+    if dir.len > 0 && !Dir::exists(dir) { Dir::make_all(dir); }
+}
+
+bool safe_name(String name) {
+    if name.len == 0 || name[0] == '/' { return false; }
+    String[] parts = name.split("/");
+    for i in 0..parts.len { if parts[i] == ".." { return false; } }
+    return true;
+}
+
+// the mode (low 12 bits) and the modification time of a file
+int file_mode(String path) {
+    char st[128];
+    if Sys::stat(path.c(), @st) != 0 { return 420; }
+    int m = (st[16] & 255) | ((st[17] & 255) << 8);
+    return m & 4095;
+}
+int file_mtime(String path) {
+    char st[128];
+    if Sys::stat(path.c(), @st) != 0 { return 0; }
+    int t = 0;
+    for i in 0..8 { t = t | ((st[88 + i] & 255) << (8 * i)); }
+    return t;
+}
+
+// ---------------------------------------------------------------- tar
+String octal(int v, int width) {                       // width - 1 digits and a zero byte
+    String r = "";
+    for i in 0..width - 1 { r.push((char)(48 + ((v >> (3 * (width - 2 - i))) & 7))); }
+    r.push((char)0);
+    return r;
+}
+void put_field(String h, String s, int width) {         // text padded with zero bytes
+    for i in 0..width { if i < s.len { h.push(s[i]); } else { h.push((char)0); } }
+}
+
+String tar_out;
+
+void tar_add(String name, String data, bool isdir, int mode, int mtime) {
+    String nm = name;
+    String prefix = "";
+    if nm.len > 100 {                                     // ustar: the part before a / goes to the prefix field
+        int cut = -1;
+        for i in 0..nm.len { if nm[i] == '/' && nm.len - i - 1 <= 100 && i <= 155 && nm.len - i - 1 > 0 { cut = i; break; } }
+        if cut < 0 { cerr << "tarj: name too long, skipped: " << name << "\n"; return; }
+        prefix = nm.slice(0, cut);
+        nm = nm.slice(cut + 1, nm.len);
+    }
+    String h = "";
+    put_field(h, nm, 100);
+    h.append(octal(mode, 8));
+    h.append(octal(0, 8));
+    h.append(octal(0, 8));
+    int dl = data.len;
+    if isdir { dl = 0; }
+    h.append(octal(dl, 12));
+    h.append(octal(mtime, 12));
+    for i in 0..8 { h.push(' '); }                        // the checksum counts these as spaces
+    if isdir { h.push('5'); } else { h.push('0'); }
+    put_field(h, "", 100);
+    put_field(h, "ustar", 6);
+    h.push('0'); h.push('0');
+    put_field(h, "", 32);
+    put_field(h, "", 32);
+    put_field(h, "", 8);
+    put_field(h, "", 8);
+    put_field(h, prefix, 155);
+    put_field(h, "", 12);
+    int sum = 0;
+    for i in 0..512 { sum += h[i] & 255; }
+    String c = octal(sum, 7);
+    for i in 0..7 { h[148 + i] = c[i]; }
+    h[155] = ' ';
+    tar_out.append(h);
+    if !isdir {
+        tar_out.append(data);
+        int pad = (512 - data.len % 512) % 512;
+        for i in 0..pad { tar_out.push((char)0); }
+    }
+}
+
+void add_path(String path, String name, bool quiet) {
+    if Dir::exists(path) {
+        String dname = name;
+        if !dname.ends_with("/") { dname = dname + "/"; }
+        tar_add(dname, "", true, file_mode(path), file_mtime(path));
+        if !quiet { cout << "  adding " << dname << "\n"; }
+        Result<String[], Error> r = Dir::list(path);
+        if r.is_ok() {
+            String[] names = r.take();
+            names.sort();
+            for i in 0..names.len { add_path(Path::join(path, names[i]), Path::join(name, names[i]), quiet); }
+        }
+        return;
+    }
+    bool ok = false;
+    String t = read_bin(path, @ok);
+    if !ok { cerr << "tarj: cannot read " << path << "\n"; return; }
+    tar_add(name, t, false, file_mode(path), file_mtime(path));
+    if !quiet { cout << "  adding " << name << "\n"; }
+}
+
+int parse_octal(String s, int from, int n) {
+    int v = 0;
+    for i in from..from + n {
+        int c = s[i] & 255;
+        if c >= 48 && c <= 55 { v = v * 8 + (c - 48); } else if v > 0 || c == 0 { if c == 0 || c == 32 { if v > 0 { break; } } }
+    }
+    return v;
+}
+String field_text(String s, int from, int n) {
+    String r = "";
+    for i in from..from + n { if s[i] == 0 { break; } r.push(s[i]); }
+    return r;
+}
+
+// the data of a .tar: gunzip it when it starts with the gzip bytes
+String tar_data(String raw, bool^ ok) {
+    ok[0] = true;
+    if raw.len > 2 && (raw[0] & 255) == 31 && (raw[1] & 255) == 139 { return Gzip::unpack(raw, ok); }
+    return raw;
+}
+
+// walks the archive: list = only names, otherwise extract into dest
+int tar_walk(String raw, String dest, bool list, bool quiet) {
+    bool ok = false;
+    String t = tar_data(raw, @ok);
+    if !ok { return fail("tarj", "the gzip data is damaged"); }
+    int p = 0;
+    String longname = "";
+    int count = 0;
+    while p + 512 <= t.len {
+        bool zero = true;
+        for i in 0..512 { if t[p + i] != 0 { zero = false; break; } }
+        if zero { break; }
+        String name = field_text(t, p, 100);
+        String pre = field_text(t, p + 345, 155);
+        if pre.len > 0 { name = pre + "/" + name; }
+        int mode = parse_octal(t, p + 100, 8);
+        int size = parse_octal(t, p + 124, 12);
+        int type = t[p + 156] & 255;
+        int sum = parse_octal(t, p + 148, 8);
+        int calc = 0;
+        for i in 0..512 { if i >= 148 && i < 156 { calc += 32; } else { calc += t[p + i] & 255; } }
+        if calc != sum { return fail("tarj", "the header checksum is wrong (this is not a tar file, or it is damaged)"); }
+        if p + 512 + size > t.len { return fail("tarj", "the archive ends too early"); }
+        String data = t.slice(p + 512, p + 512 + size);
+        p += 512 + ((size + 511) / 512) * 512;
+        if type == 76 { longname = field_text(data, 0, data.len); continue; }          // GNU: a long name comes first
+        if type == 120 {                                                                // pax: path=... records
+            int q = 0;
+            while q < data.len {
+                int sp = q;
+                while sp < data.len && data[sp] != ' ' { sp += 1; }
+                int rl = 0;
+                for k in q..sp { rl = rl * 10 + ((data[k] & 255) - 48); }
+                if rl <= 0 { break; }
+                String rec = data.slice(sp + 1, q + rl - 1);
+                if rec.starts_with("path=") { longname = rec.slice(5, rec.len); }
+                q += rl;
+            }
+            continue;
+        }
+        if longname.len > 0 { name = longname; longname = ""; }
+        if type == 103 || type == 120 { continue; }
+        bool isdir = type == 53 || name.ends_with("/");
+        if type != 0 && type != 48 && type != 53 { if !quiet || list { cerr << "tarj: skipped (a link or a special file): " << name << "\n"; } continue; }
+        count += 1;
+        if list { cout << name << "\n"; continue; }
+        if !safe_name(name) { cerr << "tarj: unsafe name skipped: " << name << "\n"; continue; }
+        String target = name;
+        if dest.len > 0 { target = Path::join(dest, name); }
+        if isdir { Dir::make_all(target); }
+        else {
+            make_parents(target);
+            Result<int, Error> w = Fs::write_text(target, data);
+            if !w.is_ok() { cerr << "tarj: cannot write " << target << "\n"; continue; }
+            Sys::chmod(target.c(), mode & 511);
+        }
+        if !quiet { cout << "  extracted " << name << "\n"; }
+    }
+    if count == 0 && !list { cerr << "tarj: nothing in the archive\n"; }
+    return 0;
+}
+
+int do_tarj(String[] a) {
+    if a.len < 3 {
+        cerr << "tarj c OUT.tar[.gz] files...    make an archive (.gz or .tgz in the name: also gzip)\n";
+        cerr << "tarj x FILE [-o DIR] [-q]       extract (a .gz inside is found by itself)\n";
+        cerr << "tarj t FILE                     list the names\n";
+        return 2;
+    }
+    String cmd = a[1];
+    bool quiet = false;
+    String outdir = "";
+    String[] files = arr(8);
+    int i = 2;
+    while i < a.len {
+        if a[i] == "-q" { quiet = true; i += 1; }
+        else if a[i] == "-o" && i + 1 < a.len { outdir = a[i + 1] + ""; i += 2; }
+        else { files.push(a[i] + ""); i += 1; }
+    }
+    if cmd == "c" {
+        if files.len < 2 { return fail("tarj", "c needs OUT.tar and at least one file or folder"); }
+        tar_out = "";
+        for k in 1..files.len {
+            if !Dir::exists(files[k]) && !Fs::exists(files[k]) { return fail("tarj", files[k] + ": no such file"); }
+            String nm = files[k];
+            while nm.len > 1 && nm.ends_with("/") { nm = nm.slice(0, nm.len - 1); }
+            add_path(files[k], nm, quiet);
+        }
+        for k in 0..1024 { tar_out.push((char)0); }
+        String out = files[0];
+        String data = tar_out;
+        if out.ends_with(".gz") || out.ends_with(".tgz") { data = Gzip::pack(tar_out); }
+        Result<int, Error> w = Fs::write_text(out, data);
+        if !w.is_ok() { return fail("tarj", "cannot write " + out); }
+        return 0;
+    }
+    if cmd == "x" || cmd == "t" {
+        if files.len < 1 { return fail("tarj", cmd + " needs a file"); }
+        bool ok = false;
+        String raw = read_bin(files[0], @ok);
+        if !ok { return fail("tarj", "cannot read " + files[0]); }
+        if outdir.len > 0 { Dir::make_all(outdir); }
+        return tar_walk(raw, outdir, cmd == "t", quiet);
+    }
+    return fail("tarj", "unknown command " + cmd + " (c, x, t)");
+}
+
+// ---------------------------------------------------------------- gzj
+int do_gzj(String[] a) {
+    bool dec = false;
+    bool keep = false;
+    bool tostd = false;
+    String file = "";
+    for i in 1..a.len {
+        if a[i] == "-d" { dec = true; }
+        else if a[i] == "-k" { keep = true; }
+        else if a[i] == "-c" { tostd = true; }
+        else { file = a[i] + ""; }
+    }
+    if file.len == 0 && !tostd {
+        cerr << "gzj FILE            make FILE.gz (FILE is removed; -k keeps it)\n";
+        cerr << "gzj -d FILE.gz      open it again\n";
+        cerr << "gzj -c [-d] [FILE]  write to the screen / a pipe; with no FILE: read the input\n";
+        return 2;
+    }
+    String data = "";
+    if file.len == 0 { data = stdin_bytes(); }
+    else {
+        bool ok = false;
+        data = read_bin(file, @ok);
+        if !ok { return fail("gzj", "cannot read " + file); }
+    }
+    String res = "";
+    if dec {
+        bool ok2 = false;
+        res = Gzip::unpack(data, @ok2);
+        if !ok2 { return fail("gzj", "not a gzip file, or it is damaged"); }
+    } else { res = Gzip::pack(data); }
+    if tostd {
+        int off = 0;
+        while off < res.len {
+            int n = res.len - off;
+            if n > 8192 { n = 8192; }
+            char buf[8192];
+            for k in 0..n { buf[k] = res[off + k]; }
+            Sys::write(1, @buf, n);
+            off += n;
+        }
+        return 0;
+    }
+    String target = "";
+    if dec {
+        if !file.ends_with(".gz") { return fail("gzj", file + ": the name must end with .gz"); }
+        target = file.slice(0, file.len - 3);
+    } else { target = file + ".gz"; }
+    if Fs::exists(target) { return fail("gzj", target + " exists already"); }
+    Result<int, Error> w = Fs::write_text(target, res);
+    if !w.is_ok() { return fail("gzj", "cannot write " + target); }
+    if !keep { Fs::remove(file); }
+    return 0;
+}
+
+int main() {
+    String[] args = Env::args();
+    if args.len > 1 && args[1] == "--version" { cout << "tarj 0.1.0\n"; return 0; }
+    if args.len > 1 && args[1] == "--install" {
+        String self = "";
+        self.append((char^)Sys::arg(0));
+        String dir = Path::parent(self);
+        if dir.len == 0 { dir = "."; }
+        String link = Path::join(dir, "gzj");
+        if !Fs::exists(link) { Sys::call(36, (int)"tarj".c(), 0 - 100, (int)link.c(), 0, 0, 0); }
+        cout << "tarj: gzj linked in " << dir << "\n";
+        return 0;
+    }
+    String app = Path::name(args[0]);
+    if app == "gzj" { return do_gzj(args); }
+    if app == "tarj" { return do_tarj(args); }
+    if args.len > 1 && args[1] == "gzj" { String[] r = arr(args.len); for i in 1..args.len { r.push(args[i]); } return do_gzj(r); }
+    if args.len > 1 && args[1] == "tarj" { String[] r = arr(args.len); for i in 1..args.len { r.push(args[i]); } return do_tarj(r); }
+    cerr << "tarj: tar files      gzj: gzip files.   tarj c|x|t ...   gzj [-d] FILE\n";
+    return 2;
+}

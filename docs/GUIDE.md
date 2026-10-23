@@ -137,6 +137,18 @@ void main() {
 ```
 `install jcmp` (in `jsh`) brings the compiler and its library. The tutorial and the reference are in the repository of the language.
 
+## 6b. zipj, unj, tarj, gzj: archives
+Install: `jget tool zipj`, `jget tool tarj` (each also makes its second name: `unj`, `gzj`).
+```
+unj test.zip                open here, no folder          unj test.zip -f   into a folder named test
+unj test.zip -o dest        into dest                     unj test.zip -l   only list
+unj test.zip -p secret      a password (without -p it is asked, nothing is shown)
+zipj out.zip a.txt folder   make a zip                    zipj out.zip a -P secret   with a password
+tarj c out.tar.gz src       make a tar (.gz / .tgz: gzip too)
+tarj x out.tar.gz -o dest   open (a gzip inside is found)  tarj t out.tar   list
+gzj notes.txt               make notes.txt.gz              gzj -d notes.txt.gz   open it
+```
+
 ## 7. jpty
 `jpty [-w COLS] [-h ROWS] PROGRAM args` runs a program on a pseudo terminal (so a shell or an editor sees a real terminal). It is what the Jaric app uses to start `jsh`.
 
