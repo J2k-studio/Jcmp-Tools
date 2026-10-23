@@ -499,31 +499,169 @@ void glob_into(String[] w, String word) {
 }
 
 // $? and $NAME in a word
-// The drives (designed by the assistant at the owner's wish, adjustable; docs/os-userland-ideas.md): a word that starts with  :/X  where X is a
-// letter of the table is the folder of that drive:  :/f = the folder of the app (the parent of HOME, "files"), :/h = HOME, :/0 = the phone storage
-// (/storage/emulated/0), :/s = /sdcard, :/p = PREFIX, :/t = the folder for temporary files, :/r = the root /.  :/ alone is the root /.
-// The prompt shows a short form of the real path (the letter is the first letter of the folder above); these are the long ones to type.
-String drive_root(char c) {
-    if c == 'f' { return Path::parent(getv("HOME")); }
-    if c == 'h' { return getv("HOME"); }
-    if c == '0' { if Dir::exists("/storage/emulated/0") { return "/storage/emulated/0"; } return "/sdcard"; }
-    if c == 's' { return "/sdcard"; }
-    if c == 'p' { return getv("PREFIX"); }
-    if c == 't' { String t = getv("TMPDIR"); if t.len == 0 { t = getv("PREFIX") + "/tmp"; } return t; }
-    if c == 'r' { return "/"; }
+// ---- The drives (the owner's design, 2026-10-23; docs/os-userland-ideas.md). A path can start with a drive: f:/jaric, 0:/Download.
+//      The drive f is home (the basic path); a path that starts with  :/  (no letter) is the same as ~/ : home.  The drive 0 is the phone storage,
+//      r is the root / of the system. More drives: "drive new NAME PATH" (kept in ~/.jsh_drives).
+//      The prompt says where you are:  jc f:/>  at home,  jc f:/jaric>  in ~/jaric,  jc 0:/Download>  in the storage.
+String[] dr_name;
+String[] dr_path;
+int dr_ready;
+
+void drive_add(String n, String p) {
+    for i in 0..dr_name.len { if dr_name[i] == n { dr_path[i] = p + ""; return; } }
+    dr_name.push(n + "");
+    dr_path.push(p + "");
+}
+
+void drives_load() {
+    if dr_ready == 1 { return; }
+    dr_ready = 1;
+    dr_name = arr(8);
+    dr_path = arr(8);
+    drive_add("f", getv("HOME"));
+    if Dir::exists("/storage/emulated/0") { drive_add("0", "/storage/emulated/0"); }
+    else if Dir::exists("/sdcard") { drive_add("0", "/sdcard"); }
+    String file = getv("HOME") + "/.jsh_drives";
+    if Fs::exists(file) {
+        Result<String, Error> r = Fs::read_text(file);
+        if r.is_ok() {
+            String[] ls = r.take().split("\n");
+            for i in 0..ls.len {
+                String ln = ls[i].trim();
+                if ln.len == 0 || ln[0] == '#' { continue; }
+                int sp = ln.find(" ");
+                if sp <= 0 { continue; }
+                drive_add(ln.slice(0, sp).trim(), ln.slice(sp + 1, ln.len).trim());
+            }
+        }
+    }
+    drive_add("r", "/");
+}
+
+// the real folder of a drive, "" when there is no such drive
+String drive_path(String name) {
+    drives_load();
+    for i in 0..dr_name.len { if dr_name[i] == name { return dr_path[i]; } }
     return "";
+}
+
+bool drive_name_ok(String n) {
+    if n.len == 0 || n.len > 12 { return false; }
+    for i in 0..n.len {
+        char c = n[i];
+        bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+        if !ok { return false; }
+    }
+    return true;
+}
+
+// a real path as  X:/rest  (the drive with the longest folder that holds it)
+String drive_form(String real) {
+    drives_load();
+    int best = 0 - 1;
+    int bestlen = 0 - 1;
+    for i in 0..dr_name.len {
+        String root = dr_path[i];
+        bool inside = false;
+        String under = root + "/";
+        if root == "/" { inside = true; }
+        else if real == root { inside = true; }
+        else if real.starts_with(under) { inside = true; }
+        if inside && root.len > bestlen { best = i; bestlen = root.len; }
+    }
+    if best < 0 { return real; }
+    String rest = real.slice(dr_path[best].len, real.len);
+    if dr_path[best] == "/" { rest = real; }
+    if rest.len == 0 { rest = "/"; }
+    // a long path is cut:  f:/../parent/name
+    String[] parts = rest.split("/");
+    if parts.len > 4 { rest = "/../" + parts[parts.len - 2] + "/" + parts[parts.len - 1]; }
+    return dr_name[best] + ":" + rest;
+}
+
+void drive_list() {
+    drives_load();
+    cout << ":/   home (the same as ~/ and f:/)\n";
+    for i in 0..dr_name.len { cout << dr_name[i] << ":/  " << dr_path[i] << "\n"; }
+}
+
+// drive            the list;   drive new NAME PATH   make a drive of a folder;   drive remove NAME
+int drive_command(String[] a) {
+    drives_load();
+    if a.len == 1 { drive_list(); return 0; }
+    String file = getv("HOME") + "/.jsh_drives";
+    if a[1] == "new" && a.len >= 4 {
+        String name = a[2];
+        String path = a[3];
+        if !drive_name_ok(name) { cerr << "drive: the name is letters, digits and _ (up to 12)\n"; return 1; }
+        if name == "f" || name == "r" || name == "0" { cerr << "drive: " << name << " is a drive of the system and cannot be changed\n"; return 1; }
+        if !path.starts_with("/") { cerr << "drive: the folder must be a full path (it starts with /)\n"; return 1; }
+        if !Dir::exists(path) { cerr << "drive: " << path << " is not a folder\n"; return 1; }
+        String text = "";
+        if Fs::exists(file) { Result<String, Error> r = Fs::read_text(file); if r.is_ok() { text = r.take(); } }
+        String out = "";
+        String[] ls = text.split("\n");
+        String key = name + " ";
+        for i in 0..ls.len {
+            String ln = ls[i].trim();
+            bool mine = ln.starts_with(key);
+            if ln.len > 0 && !mine { out = out + ln + "\n"; }
+        }
+        out = out + name + " " + path + "\n";
+        Fs::write_text(file, out);
+        drive_add(name, path);
+        cout << name << ":/ is " << path << "\n";
+        return 0;
+    }
+    if a[1] == "remove" && a.len >= 3 {
+        String name = a[2];
+        if !Fs::exists(file) { cerr << "drive: no drive " << name << " was made\n"; return 1; }
+        Result<String, Error> r = Fs::read_text(file);
+        String text = "";
+        if r.is_ok() { text = r.take(); }
+        String out = "";
+        bool found = false;
+        String[] ls = text.split("\n");
+        for i in 0..ls.len { String ln = ls[i].trim(); if ln.starts_with(name + " ") { found = true; } else if ln.len > 0 { out = out + ln + "\n"; } }
+        if !found { cerr << "drive: no drive " << name << " was made\n"; return 1; }
+        Fs::write_text(file, out);
+        dr_ready = 0;
+        cout << "removed the drive " << name << "\n";
+        return 0;
+    }
+    cerr << "usage: drive | drive new NAME PATH | drive remove NAME\n";
+    return 2;
+}
+
+// the start of a word: X:/... or :/... (the drive), expanded; "" when the word does not begin with a drive. n = the length of the part that was taken
+String drive_expand(String w, int^ taken) {
+    taken[0] = 0;
+    if w.len >= 2 && w[0] == ':' && w[1] == '/' { taken[0] = 2; return getv("HOME") + "/"; }
+    if w == ":" { taken[0] = 1; return getv("HOME"); }
+    int k = 0;
+    while k < w.len && k < 13 && w[k] != ':' { k += 1; }
+    if k == 0 || k >= w.len || w[k] != ':' { return ""; }
+    if k + 1 < w.len && w[k + 1] != '/' { return ""; }
+    String name = w.slice(0, k);
+    if !drive_name_ok(name) { return ""; }
+    String root = drive_path(name);
+    if root.len == 0 { return ""; }
+    taken[0] = k + 1;
+    if k + 1 < w.len { taken[0] = k + 2; }                      // the slash after the colon is taken too
+    if root == "/" { return "/"; }
+    return root + "/";
 }
 
 String expand(String w) {
     String r = "";
     int i = 0;
     if w.len > 0 && w[0] == '~' && (w.len == 1 || w[1] == '/') { r = getv("HOME"); i = 1; }
-    if w.len >= 2 && w[0] == ':' && w[1] == '/' {
-        if w.len == 2 { r = "/"; i = 2; }
-        else if w.len == 3 || w[3] == '/' {
-            String root = drive_root(w[2]);
-            if root.len > 0 { r = root; i = 3; }
-        }
+    int dtaken = 0;
+    String dpart = drive_expand(w, @dtaken);
+    if dtaken > 0 {
+        r = dpart;
+        if dtaken >= w.len && r.len > 1 && r.ends_with("/") { r = r.slice(0, r.len - 1); }   // f:  alone is the folder, f:/ too
+        i = dtaken;
     }
     while i < w.len {
         if w[i] == '$' && i + 1 < w.len {
@@ -1022,7 +1160,7 @@ bool have_program(String name) {
 
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "jaric" || n == "start" || n == "install" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
@@ -1260,6 +1398,7 @@ bool builtin(String[] a) {
         bcode = run_file(a[1]);
         return true;
     }
+    if name == "drive" { bcode = drive_command(a); return true; }
     if name == "start" {                                         // start PROGRAM [args]: a new session (tab) of the Jaric app runs it
         bcode = 0;
         if a.len < 2 { cout << "start PROGRAM [arguments]   run a program in a new tab of the Jaric app (other terminals: nothing happens)\n"; return true; }
@@ -1289,12 +1428,7 @@ bool builtin(String[] a) {
         } else if a.len >= 3 && a[1] == "font" {
             cout << esc() << "]7777;font;" << a[2] << (char)7;
         } else if a.len >= 2 && a[1] == "drives" {
-            String[] dl = arr(8);
-            dl.push("f"); dl.push("h"); dl.push("0"); dl.push("s"); dl.push("p"); dl.push("t"); dl.push("r");
-            String[] dn = arr(8);
-            dn.push("the folder of the app"); dn.push("home"); dn.push("the phone storage"); dn.push("/sdcard"); dn.push("the prefix (bin, etc ...)"); dn.push("temporary files"); dn.push("the root of the system");
-            cout << ":/    the root /  (a word that starts with :/X is the folder of the drive X: cp song.mp3 :/0/Music)\n";
-            for i in 0..dl.len { cout << ":/" << dl[i] << "   " << drive_root(dl[i][0]) << "   (" << dn[i] << ")\n"; }
+            drive_list();
         } else if a.len >= 2 && (a[1] == "store" || a[1] == "-store") {
             // jaric store [list | install ID | update ...]: the store of the programs of Jaric (the tool jstore)
             String[] sa = arr(4);
@@ -1888,8 +2022,8 @@ String prompt_text() {
     char buf[512];
     String dir = "?";
     if Sys::getcwd(@buf, 512) > 0 { dir = (char^)@buf; }
-    // the path is the real one; ":" in front of it says which drive (":/" is the root), the long ones are cut:  jc :/../files/home>
-    dir = short_path(dir);
+    // the drive and the path in it:  f:/  (home),  f:/jaric,  0:/Download ; a long one is cut:  f:/../src/main
+    dir = drive_form(dir);
     String e = esc();
     String reset = e + "[0m";
     String c_name = colour_rgb(getv("JSH_COLOR_NAME"), "110;170;255");
@@ -1898,7 +2032,7 @@ String prompt_text() {
     String c_err = colour_rgb(getv("JSH_COLOR_ERROR"), "255;95;95");                  // red after a failure (echo $? shows the code)
     String mark = e + "[1;38;2;" + c_mark + "m>" + reset;
     if last_status != 0 { mark = e + "[1;38;2;" + c_err + "m>" + reset; }
-    return e + "[1;38;2;" + c_name + "mjc" + reset + " " + e + "[38;2;" + c_path + "m:" + dir + reset + mark + " " + prompt_mark();
+    return e + "[1;38;2;" + c_name + "mjc" + reset + " " + e + "[38;2;" + c_path + "m" + dir + reset + mark + " " + prompt_mark();
 }
 
 // commands joined by && and || (the words are already split)
@@ -1992,7 +2126,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.8.3\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.9.0\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";

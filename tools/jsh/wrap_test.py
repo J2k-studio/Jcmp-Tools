@@ -64,7 +64,8 @@ for _ in range(5):
     os.write(fd,b'\x1b[C'); rd(0.05)
 rd(0.3)
 rows=[''.join(r).rstrip() for r in scr.g]
-pr = [k for k, r in enumerate(rows) if r.startswith('jc :')]
+import re as _re
+pr = [k for k, r in enumerate(rows) if _re.match(r'jc \S+:/', r)]
 ok = len(pr) == 1
 if ok:
     pw = rows[pr[0]].index('echo')

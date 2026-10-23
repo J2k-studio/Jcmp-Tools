@@ -21,6 +21,9 @@ _out/jsh
 
 **Licence:** Mozilla Public License 2.0 (`LICENSE` in this folder): use it, change it, share it; if you distribute a changed version of these files, you publish the changed files under the same licence.
 
+## Drives
+A path may start with a drive: `f:/jaric` (the drive `f` is **home**), `0:/Download` (the phone storage), `r:/etc` (the root of the system); `:/` with no letter is home, like `~/`. The prompt shows where you are: `jc f:/>` at home, `jc f:/jaric>` in `~/jaric`. More drives: `drive new music /sdcard/Music` then `cd music:/`; `drive` lists, `drive remove NAME` takes one away. A URL is never taken for a drive.
+
 ## Colours of the prompt
 Put in `~/.jshrc`: `export JSH_COLOR_MARK=sky` (also `JSH_COLOR_NAME` for `jc`, `JSH_COLOR_PATH`, `JSH_COLOR_ERROR` for the mark after a failure). A value is a name (white grey black red green blue sky cyan yellow orange magenta), `#rrggbb` or `r,g,b`.
 

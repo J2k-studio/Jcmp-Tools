@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+* **Changed (the drives, the owner's design of 2026-10-23; replaces the `:/X` letters of 0.8.2):** a path may start with a drive written before the colon: `f:/jaric`, `0:/Download`. **The drive `f` is home** and `:/` with no letter is home too (the same as `~/`): `cp song.mp3 :/Music`, `cd f:/jaric`. `0:` is the phone storage, `r:` the root `/`; `drive new NAME PATH` makes more drives (kept in `~/.jsh_drives`), `drive remove NAME`, `drive` and `jaric drives` list them. A URL (`http://...`) and a name that is not a drive are left alone.
+* **Changed (the prompt):** it shows the drive and the folder in it: `jc f:/>` at home, `jc f:/jaric>` in `~/jaric`, `jc 0:/Download>` in the storage, `jc r:/data>` elsewhere; a deep path is cut (`f:/../er/est`).
+
 ## 0.8.3
 * **Added:** `jaric store` (also `jaric -store`) opens the store of the programs of Jaric: `jaric store` lists them, `jaric store install ID`, `update`, `remove ID` (the tool `jstore`; says how to install it when it is missing).
 

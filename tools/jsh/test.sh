@@ -114,9 +114,42 @@ for c in [b'gti status\r', b'echo hello\r', b'echo my password is x\r', b'exit\r
 PY
 [ "$(grep -c "" "$T12/.neuron/events.txt")" = 3 ] && grep -q "gti status.127.command not found" "$T12/.neuron/events.txt" && ! grep -q password "$T12/.neuron/events.txt" || { echo "shell test (step 12): events"; cat "$T12/.neuron/events.txt"; exit 1; }
 echo "shell test (step 12): ok"
-# step 13: the drives: a word that starts with :/X is the folder of the drive (not a URL, not an unknown letter)
-T13=$(mktemp -d); mkdir -p "$T13/files/home"
-printf 'echo :/h :/f/home :/ :/x/y http://a:/b\n' > "$T13/d.jsh"
-got=$(HOME="$T13/files/home" PREFIX="$T13/usr" "$SH" "$T13/d.jsh" 2>&1)
-[ "$got" = "$T13/files/home $T13/files/home / :/x/y http://a:/b" ] || { echo "shell test (step 13): drives: $got"; exit 1; }
+# step 13: the drives (the owner's design): f:/ is home, :/ is home too, 0:/ the phone storage, r:/ the root; "drive new" makes more; a URL or an unknown name is left alone
+T13=$(mktemp -d); mkdir -p "$T13/files/home/jaric" "$T13/ext"
+cat > "$T13/d.jsh" <<EOT
+echo :/ :/x f:/jaric f: f:/ http://a:/b zz:/q a:b
+drive new ext $T13/ext
+echo ext:/z
+drive remove ext
+echo ext:/z
+EOT
+got=$(HOME="$T13/files/home" PREFIX="$T13/usr" "$SH" "$T13/d.jsh" 2>&1 | tr '\n' '|')
+H="$T13/files/home"
+[ "$got" = "$H $H/x $H/jaric $H $H http://a:/b zz:/q a:b|ext:/ is $T13/ext|$T13/ext/z|removed the drive ext|ext:/z|" ] || { echo "shell test (step 13): drives: $got"; exit 1; }
+# the prompt says the drive and the folder: f:/ at home, f:/jaric inside, r:/... outside the drives
+HOME="$H" PREFIX="$T13/usr" T13="$T13" SH="$SH" python3 - <<'PY' || { echo "shell test (step 13): the prompt"; exit 1; }
+import pty, os, time, select, re, sys
+home = os.environ['HOME']
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ['TERM'] = 'xterm'
+    os.chdir(home)
+    os.execv(os.environ['SH'], ['jsh'])
+def rd(t):
+    out = b''; end = time.time() + t
+    while time.time() < end:
+        r, _, _ = select.select([fd], [], [], 0.2)
+        if r:
+            try: out += os.read(fd, 65536)
+            except OSError: break
+    return out.decode(errors='ignore')
+rd(1.0); got = []
+for c in [b'\r', b'cd jaric\r', b'cd :/\r', ('cd ' + os.environ['T13'] + '\r').encode(), b'exit\r']:
+    os.write(fd, c); o = rd(0.6)
+    t = re.sub(r'\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07', '', o)
+    m = re.findall(r'jc (\S+)>', t)
+    got.append(m[-1] if m else '?')
+if got[:3] != ['f:/', 'f:/jaric', 'f:/'] or not got[3].startswith('r:/'):
+    print(got); sys.exit(1)
+PY
 echo "shell test (step 13): ok"
