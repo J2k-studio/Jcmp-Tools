@@ -16,7 +16,7 @@
 #import <math>
 #import <neuron>
 
-String neuron_version() { return "0.3.0"; }
+String neuron_version() { return "0.3.1"; }
 
 int fail(String msg) {
     cerr << "neuron: " << msg << "\n";
@@ -540,6 +540,7 @@ int xr_main(String[] a) {
         return rc;
     }
     if cmd == "forget" { return do_forget(); }
+    if cmd == "where" { return do_where(); }
     if cmd == "help" || cmd == "--help" || cmd == "-h" {
         cout << "xaiorin (xr): the AI assistant of this phone\n";
         cout << "  xr                      talk (lines in, answers out; an empty line leaves)\n";
@@ -681,6 +682,35 @@ int do_learn(String[] a) {
     return 0;
 }
 
+// where everything of the assistant lies, and how big it is
+int do_where() {
+    String dir = xr_dir();
+    String home = ".";
+    switch Env::get("HOME") {
+        Option::Some(h): { if h.len > 0 { home = h; } }
+        Option::None: { }
+    }
+    String[] names = arr(8);
+    String[] what = arr(8);
+    names.push(dir + "/assistant.jw"); what.push("the model of the assistant (neuron install puts it here)");
+    names.push(dir + "/events.txt"); what.push("what jsh saw in the shell (only when the setting is on)");
+    names.push(dir + "/learned.txt"); what.push("the talk made from the events (xr learn)");
+    names.push(home + "/.jash"); what.push("the settings, section [xr]");
+    cout << "folder of the assistant: " << dir << "\n";
+    for i in 0..names.len {
+        String size = "-";
+        if Fs::exists(names[i]) {
+            Result<int, Error> r = Fs::size(names[i]);
+            if r.is_ok() { size = str(r.take() / 1024) + " KB"; }
+        }
+        String line = size;
+        while line.len < 10 { line = " " + line; }
+        cout << line << "  " << names[i] << "   " << what[i] << "\n";
+    }
+    cout << "(the folder starts with a dot, so a list does not show it: dir -a " << home << ")\n";
+    return 0;
+}
+
 int do_forget() {
     String dir = xr_dir();
     int n = 0;
@@ -723,6 +753,7 @@ int main() {
     if a[1] == "install" { return do_install(a); }
     if a[1] == "learn" { return do_learn(a); }
     if a[1] == "forget" { return do_forget(); }
+    if a[1] == "where" { return do_where(); }
     if a[1] == "xr" { String[] b = arr(a.len); for i in 1..a.len { b.push(a[i]); } return xr_main(b); }
     if a[1] == "ask" { return do_ask(a); }
     cerr << "neuron: unknown command '" << a[1] << "' (neuron help)\n";

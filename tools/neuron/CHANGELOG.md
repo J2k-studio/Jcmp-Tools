@@ -1,5 +1,8 @@
 # neuron changelog
 
+## 0.3.1
+* **Added:** `neuron where` (and `xr where`): shows the folder of the assistant (`~/.neuron`, a hidden folder because its name starts with a dot) and each file with its size: the model, the events, the learned talk, the settings.
+
 ## 0.3.0
 * **Added:** the assistant learns from the shell. `xr learn` (or `neuron learn`) reads `~/.neuron/events.txt` (written by jsh 0.8.0 when the setting "xr learns from the shell" is on), makes `~/.neuron/learned.txt` (a wrong command followed by the right one: "Did you mean: git status"; the commands that follow each other) and goes on training the assistant model for 3 rounds (`neuron train DATA -o OUT -i MODEL` does that for any model). `xr forget` deletes what was seen. Nothing is sent anywhere; the learning is a toy until there is much text.
 * **Changed:** a new model always has the whole printable ASCII in its vocabulary (so it can learn commands later). Older models still load.

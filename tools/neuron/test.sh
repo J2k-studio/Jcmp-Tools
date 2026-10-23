@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; export J2K_PATH="${J2K_PATH:-$HOME/Jcmp/build/libs}"; sh b
 N="$PWD/_out/neuron"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T"
-[ "$("$N" --version)" = "neuron 0.3.0" ] || { echo "neuron test: version"; exit 1; }
+[ "$("$N" --version)" = "neuron 0.3.1" ] || { echo "neuron test: version"; exit 1; }
 i=0; : > "$T/chat.txt"
 while [ $i -lt 40 ]; do printf 'You: hello\nBot: Hi! I am your helper.\nYou: bye\nBot: Goodbye!\n' >> "$T/chat.txt"; i=$((i+1)); done
 "$N" train "$T/chat.txt" -o "$T/chat.jw" -k 10 -d 6 -h 48 -e 6 -r 0.08 > "$T/train.txt" || { cat "$T/train.txt"; echo "neuron test: train"; exit 1; }
@@ -27,4 +27,5 @@ cp "$N" "$T/xr"; printf '[#jash]\n[xr]\nport = 7793\ntemperature = 0\n' > "$T/.j
 "$T/xr" start > /dev/null; "$T/xr" status | grep -q "runs (port 7793)" || { echo "neuron test: xr start"; exit 1; }
 "$T/xr" "bye" | grep -q "Goodbye!" || { echo "neuron test: xr through the server"; exit 1; }
 "$T/xr" stop > /dev/null; "$T/xr" status | grep -q "not running" || { echo "neuron test: xr stop"; exit 1; }
+"$N" where | grep -q "assistant.jw" || { echo "neuron test: where"; exit 1; }
 echo "neuron tests: ok"
