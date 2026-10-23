@@ -1,0 +1,976 @@
+You: new project
+Bot: Make a folder and run makej init -pro NAME.
+You: install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: change colours
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: how do i edit a file
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: good morning
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: how do i read a video file
+Bot: Run jvp4 info FILE.
+You: what language is this
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: what is j2k
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: how do i install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: ตั้งค่ายังไง
+Bot: พิมพ์ jaric setting
+You: hello
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: where is the model
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: what is jash
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: run a script from the net
+Bot: jget -jsh URL. Only use addresses you trust.
+You: stop xr
+Bot: Run xr stop.
+You: เล่นเพลงยังไง
+Bot: พิมพ์ mujic แล้วพิมพ์ชื่อเพลง
+You: search text
+Bot: Run grep -n WORD FILE.
+You: how do i add my songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: hi
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: how do i see the lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: how do i start a project
+Bot: Make a folder and run makej init -pro NAME.
+You: restart jaric
+Bot: Type jaric -restart.
+You: show lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: how do i delete what you saw
+Bot: Run xr forget. It deletes the events and the learned text.
+You: what can you do
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: task manager
+Bot: Run jamanager ps, or jamanager top.
+You: how do i play music
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: new session
+Bot: Tap + at the top, or type start PROGRAM.
+You: ลาก่อน
+Bot: แล้วพบกันใหม่ครับ
+You: how do i install pip
+Bot: pip comes with the tool python: jget tool python.
+You: start xr
+Bot: Run xr start. It runs in the background.
+You: how do i install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: how do i start the assistant
+Bot: Run xr start. It runs in the background.
+You: hey
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: how do i change the theme
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: bigger letters
+Bot: In jaric setting choose font size, or pinch the screen.
+You: ติดตั้งเครื่องมือยังไง
+Bot: ใช้คำสั่ง jget tool ชื่อเครื่องมือ
+You: สวัสดี
+Bot: สวัสดีครับ ผมคือ xaiorin ผู้ช่วยของคุณ
+You: thanks
+Bot: You are welcome.
+You: kill a program
+Bot: Run jamanager kill PID.
+You: what is makej
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: ขอบคุณ
+Bot: ยินดีครับ
+You: what is jw
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: how do i make an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: untar
+Bot: Run tarj x FILE.tar.gz.
+You: how do i download and run a script
+Bot: jget -jsh URL. Only use addresses you trust.
+You: install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: run my program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: what does makej do
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: how do i sort songs into folders
+Bot: In mujic type /mv NAME FOLDER.
+You: how do i make a game
+Bot: Run makej init -game and then makej run.
+You: download a file
+Bot: Run jget URL. It shows a progress bar.
+You: import songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: xr forget
+Bot: Run xr forget. It deletes the events and the learned text.
+You: how do i stop the assistant
+Bot: Run xr stop.
+You: video info
+Bot: Run jvp4 info FILE.
+You: how do i open a zip file
+Bot: Run unj FILE.zip.
+You: how do i restart the app
+Bot: Type jaric -restart.
+You: ดูโปรแกรมที่รันอยู่
+Bot: ใช้คำสั่ง jamanager ps
+You: unzip
+Bot: Run unj FILE.zip.
+You: compile a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: how do i stop a program
+Bot: Run jamanager kill PID.
+You: how do i run a script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: move a song
+Bot: In mujic type /mv NAME FOLDER.
+You: how do i talk to you
+Bot: Type xr and a question, or just xr to chat.
+You: play video
+Bot: Run jaric video FILE.
+You: open the editor
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: how do i update the compiler
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: zip a folder
+Bot: Run zipj out.zip FOLDER.
+You: what is the jash file
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: คุณชื่ออะไร
+Bot: ผมชื่อ xaiorin เรียกสั้นๆ ว่า xr
+You: xr learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: how do i install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: see you
+Bot: Goodbye! See you.
+You: where is pip
+Bot: pip comes with the tool python: jget tool python.
+You: how do i download a file
+Bot: Run jget URL. It shows a progress bar.
+You: train an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: how do i make a zip file
+Bot: Run zipj out.zip FOLDER.
+You: how do i find a word in files
+Bot: Run grep -n WORD FILE.
+You: check memory
+Bot: Run jamanager mem.
+You: how do i update jget
+Bot: Run jget --update.
+You: what is a jc file
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: start a game
+Bot: Run makej init -game and then makej run.
+You: install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: free space
+Bot: Run jamanager drives.
+You: what is your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: show files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: ติดตั้ง python ยังไง
+Bot: ใช้คำสั่ง jget tool python
+You: แก้ไขไฟล์ยังไง
+Bot: ใช้คำสั่ง coderin ชื่อไฟล์
+You: how do i open a tar file
+Bot: Run tarj x FILE.tar.gz.
+You: open settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: how do i see a video file
+Bot: Run jaric video FILE.
+You: what is this app
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: how do i list files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: how do i open a new tab
+Bot: Tap + at the top, or type start PROGRAM.
+You: how do i build a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: help
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: how do i change the settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: what is jaric
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: how do i get free music
+Bot: In mujic type /get and choose a free song.
+You: how do i see the disk
+Bot: Run jamanager drives.
+You: what is a jw file
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: how do i run a program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: how do you do
+Bot: I am fine, thank you. What do you want to do?
+You: play a song
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: fetch a song
+Bot: In mujic type /get and choose a free song.
+You: bye
+Bot: Goodbye! See you.
+You: who are you
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: update jcmp
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: how do i see running programs
+Bot: Run jamanager ps, or jamanager top.
+You: how are you
+Bot: I am fine, thank you. What do you want to do?
+You: how do i change the font size
+Bot: In jaric setting choose font size, or pinch the screen.
+You: how do i make you learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: goodbye
+Bot: Goodbye! See you.
+You: how much memory is free
+Bot: Run jamanager mem.
+You: what is jc
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: thank you
+Bot: You are welcome.
+You: your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: run a jsh script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: where are your files
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: update jget
+Bot: Run jget --update.
+You: how to use xr
+Bot: Type xr and a question, or just xr to chat.
+You: how do i play music
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: update jcmp
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: untar
+Bot: Run tarj x FILE.tar.gz.
+You: how do i start a project
+Bot: Make a folder and run makej init -pro NAME.
+You: what is jw
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: stop xr
+Bot: Run xr stop.
+You: what is a jc file
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: how do i start the assistant
+Bot: Run xr start. It runs in the background.
+You: install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: new session
+Bot: Tap + at the top, or type start PROGRAM.
+You: what is jash
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: how do i open a zip file
+Bot: Run unj FILE.zip.
+You: how do i make you learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: compile a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: where is the model
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: update jget
+Bot: Run jget --update.
+You: how do i sort songs into folders
+Bot: In mujic type /mv NAME FOLDER.
+You: start a game
+Bot: Run makej init -game and then makej run.
+You: how do i make an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: how do i read a video file
+Bot: Run jvp4 info FILE.
+You: show files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: how do i install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: task manager
+Bot: Run jamanager ps, or jamanager top.
+You: unzip
+Bot: Run unj FILE.zip.
+You: สวัสดี
+Bot: สวัสดีครับ ผมคือ xaiorin ผู้ช่วยของคุณ
+You: bye
+Bot: Goodbye! See you.
+You: what is a jw file
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: change colours
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: ขอบคุณ
+Bot: ยินดีครับ
+You: เล่นเพลงยังไง
+Bot: พิมพ์ mujic แล้วพิมพ์ชื่อเพลง
+You: import songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: how do i see a video file
+Bot: Run jaric video FILE.
+You: where are your files
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: who are you
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: see you
+Bot: Goodbye! See you.
+You: start xr
+Bot: Run xr start. It runs in the background.
+You: how do i get free music
+Bot: In mujic type /get and choose a free song.
+You: how do i build a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: train an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: how do i make a zip file
+Bot: Run zipj out.zip FOLDER.
+You: แก้ไขไฟล์ยังไง
+Bot: ใช้คำสั่ง coderin ชื่อไฟล์
+You: what is jc
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: how do i update jget
+Bot: Run jget --update.
+You: open the editor
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: how do i open a tar file
+Bot: Run tarj x FILE.tar.gz.
+You: how do you do
+Bot: I am fine, thank you. What do you want to do?
+You: kill a program
+Bot: Run jamanager kill PID.
+You: how do i see the disk
+Bot: Run jamanager drives.
+You: how do i stop the assistant
+Bot: Run xr stop.
+You: how do i change the theme
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: ตั้งค่ายังไง
+Bot: พิมพ์ jaric setting
+You: what is your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: what is this app
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: where is pip
+Bot: pip comes with the tool python: jget tool python.
+You: how do i edit a file
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: thanks
+Bot: You are welcome.
+You: goodbye
+Bot: Goodbye! See you.
+You: how do i talk to you
+Bot: Type xr and a question, or just xr to chat.
+You: help
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: ลาก่อน
+Bot: แล้วพบกันใหม่ครับ
+You: how do i update the compiler
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: good morning
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: what can you do
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: what is j2k
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: what is the jash file
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: how do i stop a program
+Bot: Run jamanager kill PID.
+You: run a script from the net
+Bot: jget -jsh URL. Only use addresses you trust.
+You: fetch a song
+Bot: In mujic type /get and choose a free song.
+You: thank you
+Bot: You are welcome.
+You: check memory
+Bot: Run jamanager mem.
+You: your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: xr learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: ดูโปรแกรมที่รันอยู่
+Bot: ใช้คำสั่ง jamanager ps
+You: what language is this
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: play video
+Bot: Run jaric video FILE.
+You: how to use xr
+Bot: Type xr and a question, or just xr to chat.
+You: what is makej
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: how do i install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: how do i find a word in files
+Bot: Run grep -n WORD FILE.
+You: run my program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: zip a folder
+Bot: Run zipj out.zip FOLDER.
+You: how do i run a program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: hi
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: new project
+Bot: Make a folder and run makej init -pro NAME.
+You: ติดตั้งเครื่องมือยังไง
+Bot: ใช้คำสั่ง jget tool ชื่อเครื่องมือ
+You: hey
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: how do i delete what you saw
+Bot: Run xr forget. It deletes the events and the learned text.
+You: how do i download a file
+Bot: Run jget URL. It shows a progress bar.
+You: how do i run a script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: how do i list files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: free space
+Bot: Run jamanager drives.
+You: what is jaric
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: how do i change the settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: show lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: how much memory is free
+Bot: Run jamanager mem.
+You: how do i see the lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: how do i install pip
+Bot: pip comes with the tool python: jget tool python.
+You: what does makej do
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: ติดตั้ง python ยังไง
+Bot: ใช้คำสั่ง jget tool python
+You: how do i download and run a script
+Bot: jget -jsh URL. Only use addresses you trust.
+You: xr forget
+Bot: Run xr forget. It deletes the events and the learned text.
+You: open settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: how do i see running programs
+Bot: Run jamanager ps, or jamanager top.
+You: how are you
+Bot: I am fine, thank you. What do you want to do?
+You: video info
+Bot: Run jvp4 info FILE.
+You: play a song
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: how do i add my songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: bigger letters
+Bot: In jaric setting choose font size, or pinch the screen.
+You: คุณชื่ออะไร
+Bot: ผมชื่อ xaiorin เรียกสั้นๆ ว่า xr
+You: download a file
+Bot: Run jget URL. It shows a progress bar.
+You: how do i restart the app
+Bot: Type jaric -restart.
+You: restart jaric
+Bot: Type jaric -restart.
+You: hello
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: move a song
+Bot: In mujic type /mv NAME FOLDER.
+You: how do i change the font size
+Bot: In jaric setting choose font size, or pinch the screen.
+You: run a jsh script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: how do i make a game
+Bot: Run makej init -game and then makej run.
+You: how do i install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: how do i open a new tab
+Bot: Tap + at the top, or type start PROGRAM.
+You: search text
+Bot: Run grep -n WORD FILE.
+You: how do i read a video file
+Bot: Run jvp4 info FILE.
+You: good morning
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: run a jsh script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: what language is this
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: stop xr
+Bot: Run xr stop.
+You: show files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: how do i make a zip file
+Bot: Run zipj out.zip FOLDER.
+You: how do i run a program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: show lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: thank you
+Bot: You are welcome.
+You: what is this app
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: start xr
+Bot: Run xr start. It runs in the background.
+You: how do i make an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: untar
+Bot: Run tarj x FILE.tar.gz.
+You: xr learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: kill a program
+Bot: Run jamanager kill PID.
+You: task manager
+Bot: Run jamanager ps, or jamanager top.
+You: ดูโปรแกรมที่รันอยู่
+Bot: ใช้คำสั่ง jamanager ps
+You: thanks
+Bot: You are welcome.
+You: compile a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: run a script from the net
+Bot: jget -jsh URL. Only use addresses you trust.
+You: who are you
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: what is jw
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: how do i see a video file
+Bot: Run jaric video FILE.
+You: how do i sort songs into folders
+Bot: In mujic type /mv NAME FOLDER.
+You: how are you
+Bot: I am fine, thank you. What do you want to do?
+You: ติดตั้งเครื่องมือยังไง
+Bot: ใช้คำสั่ง jget tool ชื่อเครื่องมือ
+You: import songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: how much memory is free
+Bot: Run jamanager mem.
+You: how do i start the assistant
+Bot: Run xr start. It runs in the background.
+You: where is pip
+Bot: pip comes with the tool python: jget tool python.
+You: start a game
+Bot: Run makej init -game and then makej run.
+You: how to use xr
+Bot: Type xr and a question, or just xr to chat.
+You: update jget
+Bot: Run jget --update.
+You: how do i see the disk
+Bot: Run jamanager drives.
+You: how do i delete what you saw
+Bot: Run xr forget. It deletes the events and the learned text.
+You: how do i open a zip file
+Bot: Run unj FILE.zip.
+You: what is a jw file
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: hi
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: how do i change the font size
+Bot: In jaric setting choose font size, or pinch the screen.
+You: what is a jc file
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: run my program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: how do i talk to you
+Bot: Type xr and a question, or just xr to chat.
+You: what is the jash file
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: restart jaric
+Bot: Type jaric -restart.
+You: what does makej do
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: what is your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: check memory
+Bot: Run jamanager mem.
+You: fetch a song
+Bot: In mujic type /get and choose a free song.
+You: how do i restart the app
+Bot: Type jaric -restart.
+You: how do i build a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: train an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: free space
+Bot: Run jamanager drives.
+You: แก้ไขไฟล์ยังไง
+Bot: ใช้คำสั่ง coderin ชื่อไฟล์
+You: what is j2k
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: hey
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: how do i get free music
+Bot: In mujic type /get and choose a free song.
+You: new session
+Bot: Tap + at the top, or type start PROGRAM.
+You: update jcmp
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: download a file
+Bot: Run jget URL. It shows a progress bar.
+You: install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: play video
+Bot: Run jaric video FILE.
+You: คุณชื่ออะไร
+Bot: ผมชื่อ xaiorin เรียกสั้นๆ ว่า xr
+You: help
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: how do i change the theme
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: what is jc
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: how do i edit a file
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: how do i install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: move a song
+Bot: In mujic type /mv NAME FOLDER.
+You: new project
+Bot: Make a folder and run makej init -pro NAME.
+You: how do i stop the assistant
+Bot: Run xr stop.
+You: where is the model
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: how do i run a script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: how do i list files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: search text
+Bot: Run grep -n WORD FILE.
+You: how do i play music
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: how do i install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: how do i find a word in files
+Bot: Run grep -n WORD FILE.
+You: how do i update the compiler
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: bye
+Bot: Goodbye! See you.
+You: how do i update jget
+Bot: Run jget --update.
+You: video info
+Bot: Run jvp4 info FILE.
+You: how do i install pip
+Bot: pip comes with the tool python: jget tool python.
+You: play a song
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: how do i make you learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: how do i open a new tab
+Bot: Tap + at the top, or type start PROGRAM.
+You: what is jash
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: how do you do
+Bot: I am fine, thank you. What do you want to do?
+You: how do i add my songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: goodbye
+Bot: Goodbye! See you.
+You: open the editor
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: what is makej
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: how do i download a file
+Bot: Run jget URL. It shows a progress bar.
+You: hello
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: where are your files
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: ลาก่อน
+Bot: แล้วพบกันใหม่ครับ
+You: see you
+Bot: Goodbye! See you.
+You: how do i download and run a script
+Bot: jget -jsh URL. Only use addresses you trust.
+You: how do i start a project
+Bot: Make a folder and run makej init -pro NAME.
+You: what is jaric
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: how do i open a tar file
+Bot: Run tarj x FILE.tar.gz.
+You: what can you do
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: how do i stop a program
+Bot: Run jamanager kill PID.
+You: สวัสดี
+Bot: สวัสดีครับ ผมคือ xaiorin ผู้ช่วยของคุณ
+You: ขอบคุณ
+Bot: ยินดีครับ
+You: xr forget
+Bot: Run xr forget. It deletes the events and the learned text.
+You: how do i change the settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: ตั้งค่ายังไง
+Bot: พิมพ์ jaric setting
+You: how do i see running programs
+Bot: Run jamanager ps, or jamanager top.
+You: เล่นเพลงยังไง
+Bot: พิมพ์ mujic แล้วพิมพ์ชื่อเพลง
+You: how do i make a game
+Bot: Run makej init -game and then makej run.
+You: unzip
+Bot: Run unj FILE.zip.
+You: bigger letters
+Bot: In jaric setting choose font size, or pinch the screen.
+You: how do i see the lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: ติดตั้ง python ยังไง
+Bot: ใช้คำสั่ง jget tool python
+You: open settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: how do i install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: change colours
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: zip a folder
+Bot: Run zipj out.zip FOLDER.
+You: what is the jash file
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: what is a jw file
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: restart jaric
+Bot: Type jaric -restart.
+You: free space
+Bot: Run jamanager drives.
+You: how do i open a zip file
+Bot: Run unj FILE.zip.
+You: what is jash
+Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
+You: how do i update jget
+Bot: Run jget --update.
+You: ขอบคุณ
+Bot: ยินดีครับ
+You: start xr
+Bot: Run xr start. It runs in the background.
+You: train an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: how do i see running programs
+Bot: Run jamanager ps, or jamanager top.
+You: stop xr
+Bot: Run xr stop.
+You: thanks
+Bot: You are welcome.
+You: how do i restart the app
+Bot: Type jaric -restart.
+You: what is your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: how do i see the disk
+Bot: Run jamanager drives.
+You: how do i list files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: hey
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: how do i edit a file
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: how do i find a word in files
+Bot: Run grep -n WORD FILE.
+You: how do i change the settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: เล่นเพลงยังไง
+Bot: พิมพ์ mujic แล้วพิมพ์ชื่อเพลง
+You: run a jsh script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: how do i install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: goodbye
+Bot: Goodbye! See you.
+You: play video
+Bot: Run jaric video FILE.
+You: new project
+Bot: Make a folder and run makej init -pro NAME.
+You: video info
+Bot: Run jvp4 info FILE.
+You: how do i change the font size
+Bot: In jaric setting choose font size, or pinch the screen.
+You: how do i read a video file
+Bot: Run jvp4 info FILE.
+You: play a song
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: how much memory is free
+Bot: Run jamanager mem.
+You: how do i install pip
+Bot: pip comes with the tool python: jget tool python.
+You: install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: good morning
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: update jcmp
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: how do i stop a program
+Bot: Run jamanager kill PID.
+You: run a script from the net
+Bot: jget -jsh URL. Only use addresses you trust.
+You: what is jw
+Bot: A .jw file is a model of neuron, the whole AI in one file.
+You: how do i open a tar file
+Bot: Run tarj x FILE.tar.gz.
+You: ติดตั้งเครื่องมือยังไง
+Bot: ใช้คำสั่ง jget tool ชื่อเครื่องมือ
+You: who are you
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: how do i stop the assistant
+Bot: Run xr stop.
+You: how to use xr
+Bot: Type xr and a question, or just xr to chat.
+You: how do i update the compiler
+Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+You: fetch a song
+Bot: In mujic type /get and choose a free song.
+You: how do i run a script
+Bot: Write the file with [#jsh] on the first line and run jsh file.jsh.
+You: install python
+Bot: Run jget tool python. Then python3 and pip work.
+You: what is this app
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: bye
+Bot: Goodbye! See you.
+You: what is makej
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: how do i make a zip file
+Bot: Run zipj out.zip FOLDER.
+You: check memory
+Bot: Run jamanager mem.
+You: xr learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: how do i start the assistant
+Bot: Run xr start. It runs in the background.
+You: what can you do
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: task manager
+Bot: Run jamanager ps, or jamanager top.
+You: how do i see the lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: how do i see a video file
+Bot: Run jaric video FILE.
+You: how do i talk to you
+Bot: Type xr and a question, or just xr to chat.
+You: how do i download a file
+Bot: Run jget URL. It shows a progress bar.
+You: what does makej do
+Bot: makej is the build tool. makej builds, makej run runs, makej -j builds on many cores.
+You: your name
+Bot: I am xaiorin, xr for short, a small model that runs on your phone.
+You: compile a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: where is the model
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: hi
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: import songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: how do i install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: what is j2k
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: where is pip
+Bot: pip comes with the tool python: jget tool python.
+You: thank you
+Bot: You are welcome.
+You: what is a jc file
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: hello
+Bot: Hi! I am xaiorin, your helper. Ask me about the tools.
+You: how do i build a program
+Bot: Write hello.jk and run jcmp hello.jk -o hello.
+You: kill a program
+Bot: Run jamanager kill PID.
+You: แก้ไขไฟล์ยังไง
+Bot: ใช้คำสั่ง coderin ชื่อไฟล์
+You: ดูโปรแกรมที่รันอยู่
+Bot: ใช้คำสั่ง jamanager ps
+You: open settings
+Bot: Type jaric setting. Use the arrows and Enter.
+You: how do you do
+Bot: I am fine, thank you. What do you want to do?
+You: how do i make a game
+Bot: Run makej init -game and then makej run.
+You: update jget
+Bot: Run jget --update.
+You: ติดตั้ง python ยังไง
+Bot: ใช้คำสั่ง jget tool python
+You: xr forget
+Bot: Run xr forget. It deletes the events and the learned text.
+You: open the editor
+Bot: Run coderin FILE. Save with Ctrl-S and quit with Ctrl-Q.
+You: unzip
+Bot: Run unj FILE.zip.
+You: what is jc
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: how do i add my songs
+Bot: In mujic type /import PATH, or put the files in the folder music.
+You: how do i start a project
+Bot: Make a folder and run makej init -pro NAME.
+You: สวัสดี
+Bot: สวัสดีครับ ผมคือ xaiorin ผู้ช่วยของคุณ
+You: how do i open a new tab
+Bot: Tap + at the top, or type start PROGRAM.
+You: how are you
+Bot: I am fine, thank you. What do you want to do?
+You: help
+Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
+You: search text
+Bot: Run grep -n WORD FILE.
+You: what is jaric
+Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: how do i play music
+Bot: Type mujic. Then write part of a song name and press Enter.
+You: how do i install yt-dlp
+Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+You: how do i get free music
+Bot: In mujic type /get and choose a free song.
+You: show lyrics
+Bot: In mujic type /lyrics get, then /lyrics.
+You: where are your files
+Bot: In the folder .neuron in your home. Run xr where to see it.
+You: what language is this
+Bot: J2K is the language of Jaric. Its compiler is jcmp.
+You: ตั้งค่ายังไง
+Bot: พิมพ์ jaric setting
+You: new session
+Bot: Tap + at the top, or type start PROGRAM.
+You: คุณชื่ออะไร
+Bot: ผมชื่อ xaiorin เรียกสั้นๆ ว่า xr
+You: how do i make an ai
+Bot: Run makej init -ai, edit data/chat.txt, then makej train.
+You: ลาก่อน
+Bot: แล้วพบกันใหม่ครับ
+You: show files
+Bot: Run dir. Use dir -a to see hidden ones.
+You: how do i delete what you saw
+Bot: Run xr forget. It deletes the events and the learned text.
+You: how do i sort songs into folders
+Bot: In mujic type /mv NAME FOLDER.
+You: start a game
+Bot: Run makej init -game and then makej run.
+You: change colours
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: bigger letters
+Bot: In jaric setting choose font size, or pinch the screen.
+You: untar
+Bot: Run tarj x FILE.tar.gz.
+You: see you
+Bot: Goodbye! See you.
+You: how do i download and run a script
+Bot: jget -jsh URL. Only use addresses you trust.
+You: download a file
+Bot: Run jget URL. It shows a progress bar.
+You: zip a folder
+Bot: Run zipj out.zip FOLDER.
+You: install a tool
+Bot: Use jget tool NAME, for example jget tool mujic.
+You: how do i change the theme
+Bot: Type jaric theme NAME, for example jaric theme amber.
+You: how do i make you learn
+Bot: Turn on the setting in jaric setting, use the shell, then run xr learn.
+You: run my program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: how do i run a program
+Bot: After jcmp hello.jk -o hello type ./hello.
+You: move a song
+Bot: In mujic type /mv NAME FOLDER.

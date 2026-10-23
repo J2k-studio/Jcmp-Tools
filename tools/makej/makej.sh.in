@@ -12,7 +12,17 @@ need_jcmp() {
     major=${have%%.*}; rest=${have#*.}; minor=${rest%%.*}
     case "$major$minor" in *[!0-9]*) return 0 ;; esac
     if [ "$major" -lt 1 ] || { [ "$major" -eq 1 ] && [ "$minor" -lt 2 ]; }; then
-        echo "makej: your jcmp is $have; makej $MAKEJ_VERSION needs jcmp 1.2.0.0 or newer. Update it:  jget tool jcmp   (or: jcmp -update)" >&2
+        echo "makej: your jcmp is $have; makej $MAKEJ_VERSION needs jcmp 1.2.0.0 or newer." >&2
+        # at a terminal makej offers to update it at once (MAKEJ_UPDATE_JCMP=yes does it without asking, =no never)
+        want="${MAKEJ_UPDATE_JCMP:-ask}"
+        if [ "$want" = ask ] && [ -t 0 ] && [ -t 2 ] && command -v jget >/dev/null 2>&1; then
+            printf 'makej: update jcmp now with  jget tool jcmp ?  [Y/n] ' >&2; read -r ans || ans=n
+            case "$ans" in n|N|no) want=no ;; *) want=yes ;; esac
+        fi
+        if [ "$want" = yes ] && command -v jget >/dev/null 2>&1; then
+            jget tool jcmp >&2 && { echo "makej: jcmp is updated; run makej again" >&2; exit 2; }
+        fi
+        echo "makej: update it with:  jget tool jcmp   (or: jcmp -update)" >&2
         exit 2
     fi
 }

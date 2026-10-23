@@ -1,0 +1,14 @@
+# xaiorin: the AI assistant of Jaric (project of the tool neuron).   jget tool neuron
+#   makej train     learns the talk in data/chat.txt (about 15 minutes on a phone) and writes assistant.jw
+#   makej chat      talks with the model;   makej install   makes it the assistant: then  xr "question"  and  xr start
+[makej]
+out = "_out"
+
+[step.train]
+run = "neuron train data/chat.txt -o assistant.jw -k 24 -d 12 -h 128 -e 12 -r 0.06"
+
+[step.chat]
+run = "neuron chat assistant.jw -t 0.2"
+
+[step.install]
+run = "neuron install assistant.jw"

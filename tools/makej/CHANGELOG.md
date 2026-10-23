@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.3
+* **Added:** when jcmp is too old, makej at a terminal asks "update jcmp now with jget tool jcmp ? [Y/n]" and does it (`MAKEJ_UPDATE_JCMP=yes` without asking, `=no` never). Without jget or a terminal it prints the command.
+
 ## 0.8.2
 * **Fixed:** with an old compiler (jcmp 0.9.x or 1.0) makej printed a wall of errors such as "unknown escape sequence: a backslash followed by 'e'" from its own library. It now checks the version first and says: "your jcmp is X; makej needs jcmp 1.2.0.0 or newer. Update it: jget tool jcmp". If jcmp is missing it says so.
 
