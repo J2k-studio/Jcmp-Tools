@@ -1,5 +1,8 @@
 # mujic changelog
 
+## 0.2.1
+* Esc leaves the player (it clears the find first).
+
 ## 0.2.0
 * Shuffle (z), repeat off/all/one (r), volume (+ and -, in the Jaric app), find in the list (/), Esc clears the find; the app keeps the volume between songs.
 

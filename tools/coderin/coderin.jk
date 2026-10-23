@@ -1170,6 +1170,11 @@ String draw_popup(int sr, int sc) {
 }
 
 void handle_key(int k) {
+    if k == K_ESC {                                                  // Esc leaves, like Ctrl-Q (an open menu or prompt took it before)
+        if dirty && quit_asked == 0 { msg = "unsaved changes: Esc again leaves without saving (Ctrl-S saves)"; quit_asked = 1; return; }
+        quit_asked = 2;
+        return;
+    }
     String act = "";
     if k >= 1 && k <= 26 { act = binding("Ctrl-" + letter_of(k)); }
     if act != "quit" { quit_asked = 0; }
@@ -1403,7 +1408,7 @@ int ex_mode(String[] a) {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "coderin 0.4.1\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "coderin 0.4.2\n"; return 0; }
     if a.len > 1 && (a[1] == "--help" || a[1] == "-h") {
         cout << "coderin: a text editor for the terminal.   coderin FILE   open (or make) a file;   coderin -ex [NAME]   list / install extensions\n";
         cout << "  keys: Ctrl-S save, Ctrl-Q leave, Ctrl-F find, Ctrl-Z undo, Ctrl-C/X/V copy cut paste (the full list: jget docs GUIDE.md, section coderin)\n";

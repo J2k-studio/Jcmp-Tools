@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.2
+* Esc leaves (a second Esc when there are unsaved changes), like Ctrl-Q; an open menu or prompt takes the Esc first.
+
 ## 0.4.1
 * --help and -V work (the standard of the tools: docs/STANDARD.md)
 

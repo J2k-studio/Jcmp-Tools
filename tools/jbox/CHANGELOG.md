@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.1
+* less: Esc leaves (the arrows still move).
+
 ## 0.6.0
 * New: rev (Thai marks stay with their letter), yes, uname, hostname, whoami, realpath, base64 (-d), sha256sum, cmp, paste, fold -w, printf, uptime, free, nproc.
 
