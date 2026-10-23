@@ -25,6 +25,9 @@ struct Build {
     String want;
     String outdir;
     String jcmp;
+    bool live;            // a terminal and a jcmp that tells the percent: bars while it works
+    int live_lines;       // the lines of the bars on the screen now
+    int jcmp_j;           // the processes of one jcmp (0: do not say)
 
     static Build make() {
         Build b;
@@ -39,6 +42,9 @@ struct Build {
         b.dry = 0;
         b.outdir = "_out";
         b.jcmp = "jcmp";
+        b.live = false;
+        b.live_lines = 0;
+        b.jcmp_j = 0;
         b.jobs = Build::cores();
         String[] a = Env::args();
         int i = 1;
@@ -54,10 +60,25 @@ struct Build {
         if b.jobs < 1 { b.jobs = 1; }
         return b;
     }
-    // the number of cores that are on (the file /sys/devices/system/cpu/online: 0-7 or 0-3,6), 4 when it cannot be read
+    // the number of cores this process may use (Cpus_allowed_list of /proc/self/status: 2-3,5), else the cores that are on, 4 when none can be read
     static int cores() {
-        Result<String, Error> r = Fs::read_text("/sys/devices/system/cpu/online");
         int n = 0;
+        Result<String, Error> st = Fs::read_text("/proc/self/status");
+        if st.is_ok() {
+            String[] lines = st.take().split("\n");
+            for i in 0..lines.len {
+                if lines[i].starts_with("Cpus_allowed_list:") {
+                    String[] parts = lines[i].slice(18, lines[i].len).trim().split(",");
+                    for k in 0..parts.len {
+                        int dash = parts[k].find("-");
+                        if dash > 0 { n += parts[k].slice(dash + 1, parts[k].len).to_int() - parts[k].slice(0, dash).to_int() + 1; }
+                        else if parts[k].len > 0 { n += 1; }
+                    }
+                }
+            }
+        }
+        if n >= 1 { return n; }
+        Result<String, Error> r = Fs::read_text("/sys/devices/system/cpu/online");
         switch r {
             Result::Ok(t): {
                 String[] parts = t.trim().split(",");
@@ -196,6 +217,79 @@ struct Build {
         }
         return 127;
     }
+    String out_text(self, int i) { return Path::join(self.outdir, ".out_" + self.names[i]); }
+
+    // where jcmp writes how far the compile of a target is
+    String prog_file(self, int i) { return Path::join(self.outdir, ".prog_" + self.names[i]); }
+
+    // does this jcmp tell the percent (-progress) and take -j N? (an old one would stop with "unknown option")
+    String jcmp_help(self) {
+        String[] a = arr(2);
+        a.push("-help");
+        Result<String, Error> r = Proc::output(self.jcmp, a);
+        if r.is_ok() { return r.take(); }
+        return "";
+    }
+
+    // [||||||||      ] 62%
+    static String bar(int pct, int width) {
+        if pct < 0 { pct = 0; }
+        if pct > 100 { pct = 100; }
+        int filled = pct * width / 100;
+        String r = "[";
+        for k in 0..width { if k < filled { r = r + "|"; } else { r = r + " "; } }
+        r = r + "] ";
+        if pct < 100 { r = r + " "; }
+        if pct < 10 { r = r + " "; }
+        return r + str(pct) + "%";
+    }
+
+    // the bars of the targets that run now (and of the cores of a compile), made again in place
+    void draw_live(self, int^ state, int^ t_start) {
+        int n = self.names.len;
+        String f = "";
+        if self.live_lines > 0 { f = f + "\e[" + str(self.live_lines) + "A"; }
+        int lines = 0;
+        for i in 0..n {
+            if state[i] != 1 { continue; }
+            int pct = 0;
+            String stage = "";
+            String cores = "";
+            if self.kinds[i] != "step" {
+                String file = self.prog_file(i);
+                if Fs::exists(file) {
+                    Result<String, Error> r = Fs::read_text(file);
+                    if r.is_ok() {
+                        String[] w = r.take().trim().split(" ");
+                        if w.len >= 3 { pct = w[0].to_int(); stage = w[1] + ""; cores = w[2] + ""; }
+                    }
+                }
+                f = f + "\e[K  " + Build::bar(pct, 24) + "  " + self.names[i] + "  " + stage + "\n";
+                lines += 1;
+                if cores.len > 1 {
+                    String[] cs = cores.split(",");
+                    String row = "";
+                    for k in 0..cs.len { row = row + "core " + str(k + 1) + " " + Build::bar(cs[k].to_int(), 10) + "  "; }
+                    f = f + "\e[K      " + row + "\n";
+                    lines += 1;
+                }
+            } else {
+                int secs = (Time::now_ms() - t_start[i]) / 1000;
+                f = f + "\e[K  running  " + self.names[i] + "  " + str(secs) + " s\n";
+                lines += 1;
+            }
+        }
+        f = f + "\e[J";
+        self.live_lines = lines;
+        cout << f;
+    }
+
+    // take the bars off the screen (before a line of text is written)
+    void clear_live(self) {
+        if self.live_lines > 0 { cout << "\e[" << self.live_lines << "A\e[J"; }
+        self.live_lines = 0;
+    }
+
     // the command that makes a target ("" when the result is up to date)
     String command_of(self, int i) {
         if self.kinds[i] == "step" { return self.mains[i]; }
@@ -206,6 +300,9 @@ struct Build {
         if Build::mtime(out) > newest && newest > 0 { return ""; }
         String cmd = self.jcmp + " " + self.mains[i] + " -o " + out;
         if self.flags[i].len > 0 { cmd = cmd + " " + self.flags[i]; }
+        if self.live { cmd = cmd + " -progress '" + self.prog_file(i) + "'"; }
+        if self.jcmp_j > 0 && !self.flags[i].contains("-j") { cmd = cmd + " -j " + str(self.jcmp_j); }
+        if self.live { cmd = cmd + " > '" + self.out_text(i) + "' 2>&1"; }          // what jcmp says is shown after the bars are gone
         return cmd;
     }
     // mark a target and what it needs as wanted
@@ -266,6 +363,21 @@ struct Build {
             self.want_it(self.want, wanted);
         }
         if wanted[n] == 1 { return 2; }
+        int^ t_start = (int^)Mem::alloc0(8 * (n + 1));
+        // bars: a terminal, no -n, and a jcmp that tells the percent; the processes of one jcmp share the cores that the programs built at the same time do not use
+        if self.dry == 0 && Sys::isatty(1) == 0 {
+            String hp = self.jcmp_help();
+            if hp.contains("-progress") { self.live = true; }
+            if hp.contains(" -j N") {
+                int progs = 0;
+                for i in 0..n { if wanted[i] == 1 && self.kinds[i] != "step" { progs += 1; } }
+                int at_once = progs;
+                if at_once > self.jobs { at_once = self.jobs; }
+                if at_once < 1 { at_once = 1; }
+                self.jcmp_j = self.jobs / at_once;
+                if self.jcmp_j < 1 { self.jcmp_j = 1; }
+            }
+        }
         int running = 0;
         bool failed = false;
         bool progress = true;
@@ -289,8 +401,12 @@ struct Build {
                             state[i] = 2;
                             progress = true;
                         } else {
-                            if self.kinds[i] == "step" { cout << "makej: " << self.names[i] << "\n"; } else { cout << "makej: building " << self.names[i] << "\n"; }
-                            if self.verbose == 1 { cout << "  $ " << cmd << "\n"; }
+                            if !self.live {
+                                if self.kinds[i] == "step" { cout << "makej: " << self.names[i] << "\n"; } else { cout << "makej: building " << self.names[i] << "\n"; }
+                            }
+                            if self.verbose == 1 { self.clear_live(); cout << "  $ " << cmd << "\n"; }
+                            if self.live { Fs::remove(self.prog_file(i)); }
+                            t_start[i] = Time::now_ms();
                             if self.kinds[i] != "step" { Dir::make_all(self.outdir); }
                             String[] args = arr(2);
                             args.push("-c");
@@ -311,14 +427,41 @@ struct Build {
             // wait for one of them
             if running > 0 {
                 int status = 0;
-                int done_pid = Sys::wait(0 - 1, @status);
+                int done_pid = 0;
+                if self.live {
+                    while done_pid <= 0 {
+                        done_pid = Sys::call(260, 0 - 1, (int)@status, 1, 0, 0, 0);       // wait4 with WNOHANG
+                        if done_pid == 0 { self.draw_live(state, t_start); Time::sleep_ms(80); }
+                    }
+                } else {
+                    done_pid = Sys::wait(0 - 1, @status);
+                }
                 for i in 0..n {
                     if state[i] == 1 && pid_of[i] == done_pid {
                         running -= 1;
                         int code = (status >> 8) & 255;
                         if (status & 127) != 0 { code = 128 + (status & 127); }
-                        if code == 0 { state[i] = 2; }
-                        else {
+                        if self.live {
+                            self.clear_live();
+                            if self.kinds[i] != "step" {
+                                String of = self.out_text(i);
+                                if Fs::exists(of) {
+                                    Result<String, Error> orr = Fs::read_text(of);
+                                    if orr.is_ok() { String said = orr.take(); if said.len > 0 { if code == 0 { cout << said; } else { cerr << said; } } }
+                                    Fs::remove(of);
+                                }
+                            }
+                        }
+                        if code == 0 {
+                            state[i] = 2;
+                            if self.live {
+                                int ms = Time::now_ms() - t_start[i];
+                                String what = "built";
+                                if self.kinds[i] == "step" { what = "done"; }
+                                cout << "  " << Build::bar(100, 24) << "  " << self.names[i] << "  " << what << " in " << ms / 1000 << "." << (ms % 1000) / 100 << " s\n";
+                                Fs::remove(self.prog_file(i));
+                            }
+                        } else {
                             state[i] = 3;
                             failed = true;
                             cerr << "makej: " << self.names[i] << " failed (exit code " << code << ")\n";
@@ -338,6 +481,8 @@ struct Build {
         Mem::free(wanted);
         Mem::free(state);
         Mem::free(pid_of);
+        Mem::free(t_start);
+        if self.live { self.clear_live(); }
         int secs10 = (Time::now_ms() - started_at) / 100;
         if rc == 0 { cout << "makej: done in " << secs10 / 10 << "." << secs10 % 10 << " s\n"; }
         return rc;

@@ -160,6 +160,9 @@ tarj x out.tar.gz -o dest   open (a gzip inside is found)  tarj t out.tar   list
 gzj notes.txt               make notes.txt.gz              gzj -d notes.txt.gz   open it
 ```
 
+### Bars and many cores
+`makej -j 8` builds up to 8 targets at once; on a terminal it shows a bar for each: `[||||||||        ] 62%  game  registers`, and when one big program is compiled on many processes, a bar for each core under it. `makej -j 1` is one by one. The number of cores is what the system lets this program use (`nproc`); Termux in the background may get only a few, so keep it on the screen (`termux-wake-lock`) for a big build.
+
 ## 5b. makej init -pro: the structure of a project
 `makej init -pro NAME` makes a folder with `src/` (`main.jk`, `lib/`), `tests/` (a runner), `docs/`, `assets/`, `scripts/release.sh`, `manifest.toml`, `VERSION`, `CHANGELOG.md`, `README.md`, `.gitignore` and a build file with `makej`, `makej run`, `makej test`, `makej release`. Your own parts go in `src/lib/*.j` (found by `#import "name"` through `flags = "-I src/lib"`).
 

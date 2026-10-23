@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+* **Bars while it builds:** on a terminal, `makej` (and `makej -j N`) shows `[||||||||      ] 62%  name  stage` for every target that runs, and under it the bars of the cores (`core 1 [|||| ] 70%  core 2 ...`) when jcmp works on many processes; a finished target stays as `[||||||||||||] 100%  name  built in 1.2 s`. What jcmp says (warnings, errors) is shown after the bars. Pipes and files get the plain lines as before.
+* `makej -j N`: N targets at the same time, and the cores left over go to each jcmp (`jcmp -j K`, the compile of one big program on many processes). The default is the number of cores this process may use (not the cores of the phone: the system sometimes gives only some of them to a program that is in the background).
+* Needs jcmp 1.2 for the bars and for `-j`; an older jcmp is used as before.
+
 ## 0.6.1
 * `makej -pro`, `makej -game`, `makej -ai` work as `makej init -pro` and so on (the files did not appear when `init` was left out).
 
