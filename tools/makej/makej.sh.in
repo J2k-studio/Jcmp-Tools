@@ -5,6 +5,18 @@
 MAKEJ_VERSION=@VERSION@
 case "${1:-}" in --version|-version) echo "makej $MAKEJ_VERSION"; exit 0 ;; esac
 case "${1:-}" in -pro|-game|-ai) first=$1; shift; set -- init "$first" "$@" ;; esac
+# makej is built with jcmp 1.2.0.0 or newer (its library uses forms that older compilers do not know: they stop with "unknown escape sequence")
+need_jcmp() {
+    have="$(jcmp -version 2>/dev/null | cut -d' ' -f2)"
+    if [ -z "$have" ]; then echo "makej: the compiler jcmp is not installed (or not in the PATH): jget tool jcmp" >&2; exit 2; fi
+    major=${have%%.*}; rest=${have#*.}; minor=${rest%%.*}
+    case "$major$minor" in *[!0-9]*) return 0 ;; esac
+    if [ "$major" -lt 1 ] || { [ "$major" -eq 1 ] && [ "$minor" -lt 2 ]; }; then
+        echo "makej: your jcmp is $have; makej $MAKEJ_VERSION needs jcmp 1.2.0.0 or newer. Update it:  jget tool jcmp   (or: jcmp -update)" >&2
+        exit 2
+    fi
+}
+case "${1:-}" in --version|-version|-h|--help|help) ;; *) need_jcmp ;; esac
 home="${MAKEJ_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/makej/$MAKEJ_VERSION}"
 if [ ! -f "$home/makej_file.jk" ]; then
     mkdir -p "$home"

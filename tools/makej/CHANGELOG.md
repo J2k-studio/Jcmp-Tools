@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.2
+* **Fixed:** with an old compiler (jcmp 0.9.x or 1.0) makej printed a wall of errors such as "unknown escape sequence: a backslash followed by 'e'" from its own library. It now checks the version first and says: "your jcmp is X; makej needs jcmp 1.2.0.0 or newer. Update it: jget tool jcmp". If jcmp is missing it says so.
+
 ## 0.8.1
 * **Changed:** `makej init -ai` (also `makej -ai`) now writes a project for the tool neuron: `data/chat.txt` (a talk to learn), and the steps `makej train` (writes `assistant.jw`, the whole AI in one file), `makej chat`, `makej install` (makes it the assistant of the phone); the small numeric example stays as `makej numeric_train` / `numeric_ask`.
 
