@@ -13,3 +13,4 @@ jvp4|A video player made only of J2K (today: jvp4 info reads mp4 / mov files)
 python|Python 3.14 for Android ARM64 (the official build, started by a small J2K launcher): python, python3, ssl, sqlite3
 yt-dlp|Downloads audio and video from many sites with yt-dlp (needs the tool python); use it only for what you may download
 jamanager|The task manager of Jaric: programs, memory, stop a program, drives, caches (jamanager ps, top, mem, kill, drives, cache)
+jash|The settings of your programs in one file (~/.jash) and the command to read and change it (jash list, get, set, edit, import)

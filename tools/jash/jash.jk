@@ -1,0 +1,246 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// jash: the settings of the programs of Jaric in one file (~/.jash, like the rc files of bash) and the command to read and change it.
+//   jash list [SECTION]        every setting (or the ones of a section)
+//   jash get SECTION.KEY       the value of one setting (prints nothing and exits 1 when it is not set)
+//   jash set SECTION.KEY VALUE set one
+//   jash unset SECTION.KEY     remove one
+//   jash edit                  open the file with coderin (or $EDITOR)
+//   jash path                  where the file is
+//   jash import                take the older files in: $PREFIX/etc/config.local, theme.toml, ~/.jshrc (JSH_COLOR_*)
+//   jash reset                 empty the file (the old file is kept as .jash.old)
+// The file: the first line [#jash], then  [section]  and  key = value  lines; # starts a comment.
+#import <stdlib>
+
+String jash_version() { return "0.1.0"; }
+
+int fail(String msg) {
+    cerr << "jash: " << msg << "\n";
+    return 1;
+}
+
+String env_or(String name, String fallback) {
+    switch Env::get(name) {
+        Option::Some(v): { if v.len > 0 { return v; } }
+        Option::None: { }
+    }
+    return fallback;
+}
+
+String file_path() {
+    String f = env_or("JASH_FILE", "");
+    if f.len > 0 { return f; }
+    return env_or("HOME", ".") + "/.jash";
+}
+
+String[] read_lines(String path) {
+    String[] none = arr(1);
+    if !Fs::exists(path) { return none; }
+    Result<String, Error> r = Fs::read_text(path);
+    if !r.is_ok() { return none; }
+    return r.take().split("\n");
+}
+
+// the section and the key of "section.key" (the first dot); false when the form is wrong
+String g_sec;
+String g_key;
+bool split_name(String name) {
+    int dot = name.find(".");
+    if dot <= 0 || dot + 1 >= name.len { return false; }
+    g_sec = name.slice(0, dot);
+    g_key = name.slice(dot + 1, name.len);
+    return true;
+}
+
+// the value of key in section ("" and ok=false when none)
+String get_value(String[] lines, String sec, String key, bool^ ok) {
+    ok[0] = false;
+    String cur = "";
+    for i in 0..lines.len {
+        String ln = lines[i].trim();
+        if ln.len == 0 || ln[0] == '#' { continue; }
+        if ln[0] == '[' {
+            if ln == "[#jash]" { continue; }
+            cur = ln.slice(1, ln.len - 1).trim();
+            continue;
+        }
+        int eq = ln.find("=");
+        if eq <= 0 || cur != sec { continue; }
+        if ln.slice(0, eq).trim() == key {
+            ok[0] = true;
+            return ln.slice(eq + 1, ln.len).trim().replace("\"", "");
+        }
+    }
+    return "";
+}
+
+// the file again with key in section set to value (value "" removes it); a section that gets empty stays
+String with_value(String[] lines, String sec, String key, String value, bool remove) {
+    String out = "";
+    String cur = "";
+    bool done = false;
+    bool sec_seen = false;
+    bool header = false;
+    for i in 0..lines.len {
+        String raw = lines[i];
+        String ln = raw.trim();
+        if i == lines.len - 1 && ln.len == 0 { continue; }
+        if ln == "[#jash]" { header = true; out = out + raw + "\n"; continue; }
+        if ln.len > 0 && ln[0] == '[' {
+            if cur == sec && !done && !remove { out = out + key + " = " + value + "\n"; done = true; }
+            cur = ln.slice(1, ln.len - 1).trim();
+            if cur == sec { sec_seen = true; }
+            out = out + raw + "\n";
+            continue;
+        }
+        int eq = ln.find("=");
+        String name_here = "";
+        if eq > 0 { name_here = ln.slice(0, eq).trim(); }
+        if ln.len > 0 && ln[0] != '#' && eq > 0 && cur == sec && name_here == key {
+            if !remove && !done { out = out + key + " = " + value + "\n"; done = true; }
+            continue;
+        }
+        out = out + raw + "\n";
+    }
+    if !done && !remove {
+        if cur == sec { out = out + key + " = " + value + "\n"; }
+        else if sec_seen { out = out + key + " = " + value + "\n"; }
+        else { out = out + "[" + sec + "]\n" + key + " = " + value + "\n"; }
+    }
+    if !header { out = "[#jash]\n" + out; }
+    return out;
+}
+
+void write_file(String text) {
+    String path = file_path();
+    String dir = Path::parent(path);
+    if dir.len > 0 && !Dir::exists(dir) { Dir::make_all(dir); }
+    Fs::write_text(path, text);
+}
+
+int do_list(String[] a) {
+    String[] lines = read_lines(file_path());
+    String want = "";
+    if a.len > 2 { want = a[2]; }
+    String cur = "";
+    int shown = 0;
+    for i in 0..lines.len {
+        String ln = lines[i].trim();
+        if ln.len == 0 || ln == "[#jash]" { continue; }
+        if ln[0] == '#' { continue; }
+        if ln[0] == '[' { cur = ln.slice(1, ln.len - 1).trim(); continue; }
+        int eq = ln.find("=");
+        if eq <= 0 { continue; }
+        if want.len > 0 && cur != want { continue; }
+        cout << cur << "." << ln.slice(0, eq).trim() << " = " << ln.slice(eq + 1, ln.len).trim() << "\n";
+        shown += 1;
+    }
+    if shown == 0 { cerr << "jash: nothing set in " << file_path() << "\n"; }
+    return 0;
+}
+
+int do_get(String[] a) {
+    if a.len < 3 { return fail("usage: jash get SECTION.KEY"); }
+    if !split_name(a[2]) { return fail("the name is SECTION.KEY, for example jsh.color_mark"); }
+    bool ok = false;
+    String v = get_value(read_lines(file_path()), g_sec, g_key, @ok);
+    if !ok { return 1; }
+    cout << v << "\n";
+    return 0;
+}
+
+int do_set(String[] a) {
+    if a.len < 4 { return fail("usage: jash set SECTION.KEY VALUE"); }
+    if !split_name(a[2]) { return fail("the name is SECTION.KEY, for example jsh.color_mark"); }
+    String value = a[3];
+    for i in 4..a.len { value = value + " " + a[i]; }
+    write_file(with_value(read_lines(file_path()), g_sec, g_key, value, false));
+    return 0;
+}
+
+int do_unset(String[] a) {
+    if a.len < 3 { return fail("usage: jash unset SECTION.KEY"); }
+    if !split_name(a[2]) { return fail("the name is SECTION.KEY"); }
+    write_file(with_value(read_lines(file_path()), g_sec, g_key, "", true));
+    return 0;
+}
+
+int do_edit() {
+    String ed = env_or("EDITOR", "coderin");
+    if !Fs::exists(file_path()) { write_file("[#jash]\n"); }
+    String[] args = arr(1);
+    args.push(file_path());
+    Result<int, Error> r = Proc::run(ed, args);
+    if !r.is_ok() { return fail("cannot start " + ed + "  (set EDITOR, or install coderin: jget tool coderin)"); }
+    return 0;
+}
+
+// the older files: config.local and theme.toml (key = value lines) and the exports JSH_COLOR_* of ~/.jshrc
+int do_import() {
+    String prefix = env_or("PREFIX", "");
+    String[] lines = read_lines(file_path());
+    String text = "";
+    int n = 0;
+    String[] names = arr(2);
+    names.push("app"); names.push("theme");
+    String[] files = arr(2);
+    files.push(prefix + "/etc/config.local"); files.push(prefix + "/etc/theme.toml");
+    for f in 0..files.len {
+        if prefix.len == 0 || !Fs::exists(files[f]) { continue; }
+        String[] src = read_lines(files[f]);
+        for i in 0..src.len {
+            String ln = src[i].trim();
+            int eq = ln.find("=");
+            if ln.len == 0 || ln[0] == '#' || ln[0] == '[' || eq <= 0 { continue; }
+            lines = with_value(lines, names[f], ln.slice(0, eq).trim(), ln.slice(eq + 1, ln.len).trim().replace("\"", ""), false).split("\n");
+            n += 1;
+        }
+    }
+    String rc = env_or("HOME", ".") + "/.jshrc";
+    String[] rcl = read_lines(rc);
+    for i in 0..rcl.len {
+        String ln = rcl[i].trim();
+        if !ln.starts_with("export JSH_COLOR_") { continue; }
+        int eq = ln.find("=");
+        if eq <= 0 { continue; }
+        String key = ln.slice(7 + 4, eq).lower();                          // JSH_COLOR_MARK -> color_mark
+        lines = with_value(lines, "jsh", key, ln.slice(eq + 1, ln.len).trim().replace("\"", ""), false).split("\n");
+        n += 1;
+    }
+    String all = "";
+    for i in 0..lines.len { if !(i == lines.len - 1 && lines[i].len == 0) { all = all + lines[i] + "\n"; } }
+    write_file(all);
+    cout << "jash: " << n << " settings taken from the older files into " << file_path() << "\n";
+    return 0;
+}
+
+int do_reset() {
+    String path = file_path();
+    if Fs::exists(path) { Fs::rename(path, path + ".old"); }
+    write_file("[#jash]\n");
+    cout << "jash: emptied " << path << " (the old file is " << path << ".old)\n";
+    return 0;
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jash " << jash_version() << "\n"; return 0; }
+    if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
+        cout << "jash: the settings of the programs of Jaric, in the file " << file_path() << "\n";
+        cout << "  jash list [SECTION]         every setting (or the ones of a section)\n";
+        cout << "  jash get SECTION.KEY        one value (exit 1 when not set)\n";
+        cout << "  jash set SECTION.KEY VALUE  set one;   jash unset SECTION.KEY  remove one\n";
+        cout << "  jash edit | path | import | reset\n";
+        return 0;
+    }
+    if a[1] == "list" { return do_list(a); }
+    if a[1] == "get" { return do_get(a); }
+    if a[1] == "set" { return do_set(a); }
+    if a[1] == "unset" { return do_unset(a); }
+    if a[1] == "edit" { return do_edit(); }
+    if a[1] == "path" { cout << file_path() << "\n"; return 0; }
+    if a[1] == "import" { return do_import(); }
+    if a[1] == "reset" { return do_reset(); }
+    cerr << "jash: unknown command '" << a[1] << "' (jash help)\n";
+    return 2;
+}
