@@ -15,3 +15,4 @@ yt-dlp|Downloads audio and video from many sites with yt-dlp (needs the tool pyt
 jamanager|The task manager of Jaric: programs, memory, stop a program, drives, caches (jamanager ps, top, mem, kill, drives, cache)
 jash|The settings of your programs in one file (~/.jash) and the command to read and change it (jash list, get, set, edit, import)
 neuron|Small AI models on the phone: train a language model, chat with it, make it the assistant xaiorin (xr) that runs in the background (.jw files)
+jc|Install and run the programs of Jaric (.jc packages) with permissions: jc install, run, list, perm, remove

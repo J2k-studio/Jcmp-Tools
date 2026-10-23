@@ -1,0 +1,317 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// jc: install and run the programs of Jaric (.jc packages, made by  makej pack  or  makej dist).
+//   jc info FILE.jc              what is in a package: name, id, version, the permissions it asks for, the files
+//   jc install FILE.jc [-y]      unpack it into ~/.local/share/jc/apps/ID, show what it asks for and ask once (-y: yes)
+//   jc run ID|FILE.jc [args]     run an installed program (or a package that is not installed: it is installed first, asking once)
+//   jc list                      the installed programs with their version and the permissions they have
+//   jc perm ID [NAME on|off]     show or change the permissions of a program
+//   jc remove ID                 delete a program (its folder under apps/)
+// A .jc is a zip file: manifest.toml (name, id, version, type, entry, permissions = ["files", "network", ...]), the program (entry) and assets/.
+// A program started by jc finds JC_ASSETS (its assets folder), JC_HOME (its own folder) and JC_PERMS (the permissions it has, with commas):
+// the libraries of Jaric look at JC_PERMS and refuse what is not allowed (a convention, not a wall: see docs/security.md of Jaric).
+#import <stdlib>
+#import "zipcore"
+
+String jc_version() { return "0.1.0"; }
+
+int fail(String msg) {
+    cerr << "jc: " << msg << "\n";
+    return 1;
+}
+
+String env_or(String name, String fallback) {
+    switch Env::get(name) {
+        Option::Some(v): { if v.len > 0 { return v; } }
+        Option::None: { }
+    }
+    return fallback;
+}
+
+String jc_home() {
+    String h = env_or("JC_ROOT", "");
+    if h.len > 0 { return h; }
+    return env_or("HOME", ".") + "/.local/share/jc";
+}
+
+// the value of  key = value  in the manifest ("" when none); quotes are taken away
+String manifest_value(String text, String key) {
+    String[] ls = text.split("\n");
+    for i in 0..ls.len {
+        String ln = ls[i].trim();
+        int eq = ln.find("=");
+        if eq <= 0 || ln[0] == '#' || ln[0] == '[' { continue; }
+        if ln.slice(0, eq).trim() == key { return ln.slice(eq + 1, ln.len).trim().replace("\"", ""); }
+    }
+    return "";
+}
+
+// ["files", "network"] -> files,network
+String perm_list(String text) {
+    String v = manifest_value(text, "permissions").replace("[", "").replace("]", "").replace(" ", "");
+    return v;
+}
+
+bool known_perm(String p) {
+    return p == "files" || p == "network" || p == "audio" || p == "camera" || p == "location" || p == "clipboard" || p == "run" || p == "sessions" || p == "assistant";
+}
+
+String read_package(String path, bool^ ok) {
+    ok[0] = false;
+    Result<String, Error> r = Fs::read_bytes(path);
+    if !r.is_ok() { fail("cannot read " + path); return ""; }
+    String z = r.take();
+    if !zip_list(z) { fail(path + " is not a .jc package (not a zip file)"); return ""; }
+    ok[0] = true;
+    return z;
+}
+
+int entry_index(String name) {
+    for i in 0..zn_name.len { if zn_name[i] == name { return i; } }
+    return 0 - 1;
+}
+
+String manifest_of(String z) {
+    int mi = entry_index("manifest.toml");
+    if mi < 0 { return ""; }
+    return zip_extract(z, mi, "");
+}
+
+bool safe_name(String n) {
+    if n.len == 0 || n[0] == '/' { return false; }
+    for i in 0..n.len - 1 { if n[i] == '.' && n[i + 1] == '.' { return false; } }
+    return true;
+}
+
+bool good_id(String id) {
+    if id.len == 0 || id.len > 60 { return false; }
+    for i in 0..id.len {
+        char c = id[i];
+        bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-';
+        if !ok { return false; }
+    }
+    return id[0] != '.';
+}
+
+int do_info(String path) {
+    bool ok = false;
+    String z = read_package(path, @ok);
+    if !ok { return 1; }
+    String m = manifest_of(z);
+    if m.len == 0 { return fail(path + " has no manifest.toml"); }
+    cout << "name:         " << manifest_value(m, "name") << "\n";
+    cout << "id:           " << manifest_value(m, "id") << "\n";
+    cout << "version:      " << manifest_value(m, "version") << "\n";
+    cout << "type:         " << manifest_value(m, "type") << "\n";
+    cout << "entry:        " << manifest_value(m, "entry") << "\n";
+    String p = perm_list(m);
+    if p.len == 0 { cout << "permissions:  (none)\n"; } else { cout << "permissions:  " << p << "\n"; }
+    cout << "files:        " << zn_name.len << "\n";
+    return 0;
+}
+
+String app_dir(String id) { return jc_home() + "/apps/" + id; }
+
+// the permissions a program has (the file perms in its folder, comma separated); "" when none
+String granted(String id) {
+    String f = app_dir(id) + "/.perms";
+    if !Fs::exists(f) { return ""; }
+    Result<String, Error> r = Fs::read_text(f);
+    if !r.is_ok() { return ""; }
+    return r.take().trim();
+}
+
+void set_granted(String id, String list) {
+    Fs::write_text(app_dir(id) + "/.perms", list + "\n");
+}
+
+int do_install(String path, bool yes) {
+    bool ok = false;
+    String z = read_package(path, @ok);
+    if !ok { return 1; }
+    String m = manifest_of(z);
+    if m.len == 0 { return fail(path + " has no manifest.toml"); }
+    String id = manifest_value(m, "id");
+    String name = manifest_value(m, "name");
+    String entry = manifest_value(m, "entry");
+    if !good_id(id) { return fail("the id in the manifest is missing or has odd letters: '" + id + "'"); }
+    if entry.len == 0 || !safe_name(entry) { return fail("the entry in the manifest is missing or not a plain name"); }
+    if entry_index(entry) < 0 { return fail("the entry '" + entry + "' is not in the package"); }
+    String asked = perm_list(m);
+    String[] ps = asked.split(",");
+    for i in 0..ps.len { if ps[i].len > 0 && !known_perm(ps[i]) { return fail("the manifest asks for an unknown permission '" + ps[i] + "'"); } }
+    String old = granted(id);
+    String perm_file = app_dir(id) + "/.perms";
+    bool update = Fs::exists(perm_file);
+    cout << name << " (" << id << ") " << manifest_value(m, "version") << "\n";
+    if asked.len == 0 { cout << "  asks for no permissions\n"; }
+    else { for i in 0..ps.len { if ps[i].len > 0 { cout << "  asks for: " << ps[i] << "\n"; } } }
+    bool same_or_less = update;
+    if same_or_less {
+        // an update: asks again only for permissions that the old version did not have
+        String[] os = old.split(",");
+        for i in 0..ps.len {
+            if ps[i].len == 0 { continue; }
+            bool had = false;
+            for k in 0..os.len { if os[k] == ps[i] { had = true; } }
+            if !had { same_or_less = false; }
+        }
+    }
+    if !yes && !same_or_less && Sys::isatty(0) == 0 {
+        cout << "Install and give these permissions? [Y/n] ";
+        String a = Input::line().trim();
+        if a == "n" || a == "N" || a == "no" { cout << "not installed\n"; return 1; }
+    } else if !yes && !same_or_less && asked.len > 0 {
+        return fail("this package asks for permissions and there is no terminal to ask; use  jc install -y FILE.jc  to give them");
+    }
+    String dir = app_dir(id);
+    Dir::make_all(dir);
+    int written = 0;
+    for i in 0..zn_name.len {
+        String n = zn_name[i];
+        if !safe_name(n) { cerr << "jc: skipped " << n << " (an odd name)\n"; continue; }
+        if n.ends_with("/") { Dir::make_all(dir + "/" + n); continue; }
+        String data = zip_extract(z, i, "");
+        if zip_err.len > 0 { return fail(n + ": " + zip_err); }
+        String full = dir + "/" + n;
+        int slash = 0 - 1;
+        for k in 0..full.len { if full[k] == '/' { slash = k; } }
+        if slash > 0 { Dir::make_all(full.slice(0, slash)); }
+        if !Fs::write_bytes(full, data).is_ok() { return fail("cannot write " + full); }
+        written += 1;
+    }
+    Sys::chmod((dir + "/" + entry).c(), 493);
+    Fs::write_text(dir + "/manifest.toml", m);
+    set_granted(id, asked);
+    cout << "installed " << id << " (" << written << " files) in " << dir << "\n";
+    return 0;
+}
+
+// the folder of an installed program: the id, or "" when there is no such program
+bool installed(String id) {
+    if !good_id(id) { return false; }
+    String dir = app_dir(id);
+    String mf = dir + "/manifest.toml";
+    return Dir::exists(dir) && Fs::exists(mf);
+}
+
+int do_run(String[] a) {
+    if a.len < 3 { return fail("usage: jc run ID|FILE.jc [arguments]"); }
+    String what = a[2];
+    String id = what;
+    if what.ends_with(".jc") {
+        bool ok = false;
+        String z = read_package(what, @ok);
+        if !ok { return 1; }
+        String m = manifest_of(z);
+        id = manifest_value(m, "id");
+        if !installed(id) { if do_install(what, false) != 0 { return 1; } }
+    }
+    if !installed(id) { return fail("no program '" + id + "' is installed (jc list; jc install FILE.jc)"); }
+    Result<String, Error> mr = Fs::read_text(app_dir(id) + "/manifest.toml");
+    if !mr.is_ok() { return fail("cannot read the manifest of " + id); }
+    String entry = manifest_value(mr.take(), "entry");
+    String dir = app_dir(id);
+    String perms = granted(id);
+    String[] args = arr(a.len + 6);
+    args.push("-c");
+    args.push("cd \"$3\" && export JC_HOME=\"$3\" JC_ASSETS=\"$3/assets\" JEC_ASSETS=\"$3/assets\" JC_PERMS=\"$2\"; e=\"$1\"; shift 4; exec \"$e\" \"$@\"");
+    args.push("jc");
+    args.push(dir + "/" + entry);
+    args.push(perms);
+    args.push(dir);
+    args.push("-");
+    for i in 3..a.len { args.push(a[i]); }
+    Result<int, Error> r = Proc::run("sh", args);
+    if !r.is_ok() { return fail("cannot start " + entry); }
+    return r.take();
+}
+
+int do_list() {
+    String root = jc_home() + "/apps";
+    if !Dir::exists(root) { cout << "nothing is installed (jc install FILE.jc)\n"; return 0; }
+    Result<String[], Error> r = Dir::list(root);
+    if !r.is_ok() { return 0; }
+    String[] names = r.take();
+    names.sort();
+    int n = 0;
+    for i in 0..names.len {
+        if !installed(names[i]) { continue; }
+        Result<String, Error> mr = Fs::read_text(app_dir(names[i]) + "/manifest.toml");
+        String m = "";
+        if mr.is_ok() { m = mr.take(); }
+        String p = granted(names[i]);
+        if p.len == 0 { p = "-"; }
+        cout << names[i] << "  " << manifest_value(m, "version") << "  " << manifest_value(m, "name") << "   permissions: " << p << "\n";
+        n += 1;
+    }
+    if n == 0 { cout << "nothing is installed (jc install FILE.jc)\n"; }
+    return 0;
+}
+
+int do_perm(String[] a) {
+    if a.len < 3 { return fail("usage: jc perm ID [NAME on|off]"); }
+    String id = a[2];
+    if !installed(id) { return fail("no program '" + id + "' is installed"); }
+    if a.len == 3 { String p = granted(id); if p.len == 0 { p = "(none)"; } cout << id << " has: " << p << "\n"; return 0; }
+    if a.len < 5 { return fail("usage: jc perm ID NAME on|off"); }
+    String name = a[3];
+    if !known_perm(name) { return fail("unknown permission '" + name + "' (files network audio camera location clipboard run sessions assistant)"); }
+    String[] cur = granted(id).split(",");
+    String out = "";
+    bool present = false;
+    for i in 0..cur.len {
+        if cur[i].len == 0 { continue; }
+        if cur[i] == name { present = true; if a[4] == "on" { out = out + cur[i] + ","; } }
+        else { out = out + cur[i] + ","; }
+    }
+    if !present && a[4] == "on" { out = out + name + ","; }
+    if out.len > 0 { out = out.slice(0, out.len - 1); }
+    set_granted(id, out);
+    cout << id << " has: " << out << "\n";
+    return 0;
+}
+
+int do_remove(String id) {
+    if !installed(id) { return fail("no program '" + id + "' is installed"); }
+    String dir = app_dir(id);
+    Result<String[], Error> r = Dir::list(dir);
+    // the files and the folders under it, one level at a time (a program folder is not deep)
+    remove_tree(dir);
+    cout << "removed " << id << "\n";
+    return 0;
+}
+
+void remove_tree(String dir) {
+    Result<String[], Error> r = Dir::list(dir);
+    if r.is_ok() {
+        String[] names = r.take();
+        for i in 0..names.len {
+            String p = dir + "/" + names[i];
+            if Dir::exists(p) { remove_tree(p); } else { Fs::remove(p); }
+        }
+    }
+    Dir::remove(dir);
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jc " << jc_version() << "\n"; return 0; }
+    if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
+        cout << "jc: install and run the programs of Jaric (.jc packages)\n";
+        cout << "  jc info FILE.jc | install FILE.jc [-y] | run ID|FILE.jc [args] | list | perm ID [NAME on|off] | remove ID\n";
+        return 0;
+    }
+    if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
+    if a[1] == "install" && a.len >= 3 {
+        bool yes = false;
+        for i in 3..a.len { if a[i] == "-y" { yes = true; } }
+        return do_install(a[2], yes);
+    }
+    if a[1] == "run" { return do_run(a); }
+    if a[1] == "list" { return do_list(); }
+    if a[1] == "perm" { return do_perm(a); }
+    if a[1] == "remove" && a.len >= 3 { return do_remove(a[2]); }
+    cerr << "jc: unknown command '" << a[1] << "' (jc help)\n";
+    return 2;
+}

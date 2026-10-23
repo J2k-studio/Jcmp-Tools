@@ -380,6 +380,7 @@ version = "0.1.0"
 type = "game"
 entry = "_out/game"
 icon = "assets/icon.txt"
+permissions = ["audio"]        # what the program asks for when jc installs it: files network audio camera location clipboard run sessions assistant
 os = "$gos"                    # the systems makej dist builds for: android (apk), jaric (jc), linux  (makej targets)
 orientation = "landscape"      # landscape | portrait | sensorLandscape | unspecified (for makej apk)
 controls = true                # arrows and two buttons on the screen of the Android app

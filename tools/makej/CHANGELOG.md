@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.8
+* **Added:** the manifest of a game project has a line `permissions = ["audio"]` (what the package asks for; `jc install` shows it and asks once; the names are in the comment). Install a package with the tool `jc`: `jc install _out/game.jc`, `jc run game`.
+
 ## 0.8.7
 * **Changed:** the progress bar is smooth and in proportion: `hello ▕██████████▌░░░░░░░░░░░▏  62%` — blocks that fill the whole cell with steps of 1/8 of a cell, a dim track, the percent in a column of fixed width, the names of the targets in a column, the bar up to 30 cells wide. Green while working, yellow after 60%, red when full. `MAKEJ_BAR=ascii` brings back the old `[|||   ]` for a font without block letters.
 * The core bars (when jcmp runs on many cores) use the same form.
