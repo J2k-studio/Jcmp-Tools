@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.6
+* `jaric setting` no longer scrolls and overprints itself: every line is drawn at its place, and when the list is longer than the screen it is a window that follows the chosen item ("more above / more below" in the help line).
+
 ## 0.7.5
 * `start PROGRAM [arguments]` runs a program in a new tab (session) of the Jaric app (`7777;session;new;COMMAND`; in other terminals nothing happens). `jaric sessions` says how the tabs work.
 

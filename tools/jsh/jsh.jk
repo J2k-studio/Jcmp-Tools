@@ -913,13 +913,15 @@ void setting_draw(int sel) {
     String e = esc();
     int rows = Term::rows();
     int cols = Term::cols();
+    if rows < 8 { rows = 24; }
     if cols < 30 { cols = 80; }
-    String out = e + "[2J" + e + "[H" + e + "[1mjaric setting" + e + "[0m   (jash import takes these files in: " + cfg_dir() + "/config.local, theme.toml, ~/.jshrc)\n";
+    // every line of the screen as a text; the line of the chosen item is remembered, so the window can follow it
+    String[] lines = arr(48);
+    int sel_line = 0;
     int[] o = setting_order();
     int[] items = setting_items();
-    int lines_used = 3;
     for k in 0..o.len {
-        if o[k] < 0 { out = out + "\n " + e + "[36m" + section_title(0 - o[k]) + e + "[0m\n"; lines_used += 2; continue; }
+        if o[k] < 0 { lines.push(e + "[36m" + section_title(0 - o[k]) + e + "[0m"); continue; }
         int i = o[k];
         String val = setting_value(i);
         String line = "  " + setting_label(i);
@@ -928,11 +930,28 @@ void setting_draw(int sel) {
         String sw = "";
         if i >= 2 && i <= 4 && val != "(theme)" { sw = " " + swatch(val, "0;0;0"); }
         if i >= 8 && i <= 11 && val != "(default)" { sw = " " + swatch(val, "255;255;255"); }
-        if i == items[sel] { out = out + e + "[7m> " + line.slice(2, line.len) + e + "[0m" + sw + "\n"; }
-        else { out = out + line + sw + "\n"; }
-        lines_used += 1;
+        if i == items[sel] { sel_line = lines.len; lines.push(e + "[7m> " + line.slice(2, line.len) + e + "[0m" + sw); }
+        else { lines.push(line + sw); }
     }
-    out = out + "\n  up/down choose    left/right change    Enter type a value    q leave (the app reads the files again)\n";
+    // the window: row 1 is the title, the last row is the help, the lines in between scroll so that the chosen one is seen
+    int room = rows - 2;
+    int top = 0;
+    if lines.len > room {
+        top = sel_line - room / 2;
+        if top < 0 { top = 0; }
+        if top > lines.len - room { top = lines.len - room; }
+    }
+    String out = e + "[H" + e + "[1mjaric setting" + e + "[0m  " + e + "[2m(" + cfg_dir() + "/config.local; jash import)" + e + "[0m" + e + "[K";
+    for r in 0..room {
+        int li = top + r;
+        out = out + e + "[" + str(r + 2) + ";1H";
+        if li < lines.len { out = out + lines[li]; }
+        out = out + e + "[K";
+    }
+    String help = "up/down choose  left/right change  Enter type  q leave";
+    if top > 0 { help = help + "  (more above)"; }
+    if top + room < lines.len { help = help + "  (more below)"; }
+    out = out + e + "[" + str(rows) + ";1H" + e + "[2m" + help + e + "[0m" + e + "[K";
     cout << out;
 }
 
@@ -941,6 +960,7 @@ void setting_screen() {
     int sel = 0;
     bool run = true;
     int[] its = setting_items();
+    cout << esc() << "[2J";
     while run {
         setting_draw(sel);
         int k = Input::key();
@@ -1896,7 +1916,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.7.5\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.7.6\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
