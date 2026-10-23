@@ -42,6 +42,8 @@ t "download: -x makes the file executable" '$J -q -x http://127.0.0.1:$PORT/hell
 t "download: a script is made executable by itself" '$J -q http://127.0.0.1:$PORT/hello.sh -o y.sh && [ -x y.sh ] && [ "$(./y.sh b)" = "ran with b" ]'
 t "download: an ordinary file is not made executable" '$J -q http://127.0.0.1:$PORT/page.txt -o plain.txt && [ ! -x plain.txt ]'
 t "download: a program (ELF) is made executable by itself" '$J -q http://127.0.0.1:$PORT/prog.bin -o prog.bin && [ -x prog.bin ]'
+mkdir -p "$W/bin"; printf '#!/bin/sh\necho "via jsh"\nexec sh "$@"\n' > "$W/bin/jsh"; chmod +x "$W/bin/jsh"
+t "-jsh: the script is run by the program jsh, with the arguments" '[ "$(PATH="$W/bin:$PATH" $J -jsh http://127.0.0.1:$PORT/hello.sh two 2>/dev/null | tr "\n" "|")" = "via jsh|ran with two|" ]'
 t "-sh: downloads a script, runs it with the arguments, leaves nothing" '[ "$($J -sh http://127.0.0.1:$PORT/hello.sh one 2>/dev/null)" = "ran with one" ]'
 t "--install: copies the program and the copy works" '$J --install "$W/inst" >/dev/null && [ "$("$W/inst/jget" --version)" = "jget $(cat $HERE/VERSION)" ]'
 t "pipe: with no -o the data goes to the output (jget URL | sh)" '[ "$($J -q http://127.0.0.1:$PORT/page.txt)" = "hello jget" ] && [ ! -e page.txt ]'

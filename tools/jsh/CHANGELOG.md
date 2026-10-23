@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.3
+* The first line of a script may be `[#jsh]` (the owner's form; taken away), `#jsh` or `#!jsh` (comments); `[#jash]` / `#jash` is a settings file of jash and is not run. `jsh script a b` sets `$1`, `$2`, `$0` and `$#`. `$#` is expanded (it was not, also in functions).
+
 ## 0.7.2
 * A long line (longer than the screen) is redrawn in the right place: the arrows, Home, End and editing no longer start new lines again and again (the cursor goes up to the first row of the line before the line is printed, and the width of colour codes, Thai marks and wide letters is counted).
 

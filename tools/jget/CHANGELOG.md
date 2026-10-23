@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.6
+* `jget -jsh URL [args]` downloads a script and runs it with jsh (the shell of Jaric), like `-sh` does with sh.
+
 ## 0.7.5
 * `jget untar` and `jget tool` keep the x bit of the files of a tar (a program that comes in the files of a tool can be run).
 

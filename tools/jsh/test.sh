@@ -87,3 +87,9 @@ python3 "$ROOT/setting_test.py" "$SH" 2>/dev/null || { echo "shell test (step 9)
 echo "shell test (step 9): ok"
 python3 "$ROOT/wrap_test.py" "$SH" >/dev/null 2>&1 || { echo "shell test (step 10): a long line and the arrows"; exit 1; }
 echo "shell test (step 10): ok"
+# step 11: the first line of a script ([#jsh], #jsh, #!jsh, none), the arguments $1 $# $0, a settings file of jash is not run
+printf '[#jsh]\necho "a=$1 n=$# s=$0"\n' > h11a.jsh; printf '#jsh\necho hash\n' > h11b.jsh; printf '#!jsh\necho shebang\n' > h11c.jsh; printf 'echo plain\n' > h11d.jsh; printf '[#jash]\n[jsh]\ncolor = red\n' > h11e.jash
+got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" h11a.jsh ana bob 2>&1 | tr '\n' '|'); [ "$got" = "a=ana n=2 s=h11a.jsh|" ] || { echo "shell test (step 11): [#jsh] and arguments: $got"; exit 1; }
+for f in b:hash c:shebang d:plain; do got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" h11${f%%:*}.jsh 2>&1); [ "$got" = "${f##*:}" ] || { echo "shell test (step 11): header $f: $got"; exit 1; }; done
+got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" h11e.jash 2>&1 || true); case "$got" in *"settings file of jash"*) ;; *) echo "shell test (step 11): a jash file must not run: $got"; exit 1 ;; esac
+echo "shell test (step 11): ok"

@@ -530,6 +530,7 @@ String expand(String w) {
                 continue;
             }
             if w[i + 1] == '?' { r = r + str(last_status); i += 2; continue; }
+            if w[i + 1] == '#' { r = r + getv("#"); i += 2; continue; }               // $#: the number of arguments
             int j = i + 1;
             String name = "";
             while j < w.len && ((w[j] >= 'A' && w[j] <= 'Z') || (w[j] >= 'a' && w[j] <= 'z') || w[j] == '_' || (w[j] >= '0' && w[j] <= '9')) { name.push(w[j]); j += 1; }
@@ -1758,6 +1759,14 @@ int run_file(String path) {
     Result<String, Error> r = Fs::read_text(path);
     if r.is_ok() { text = r.take(); }
     else { cerr << "jsh: " << path << ": cannot read it\n"; return 1; }
+    // the first line may name the shell: [#jsh] (the owner's form), #jsh or #!jsh run here; [#jash] / #jash is a settings file, not a script
+    int nl = text.find("\n");
+    String first = text;
+    String rest = "";
+    if nl >= 0 { first = text.slice(0, nl); rest = text.slice(nl + 1, text.len); }
+    first = first.trim();
+    if first == "[#jash]" || first == "#jash" { cerr << "jsh: " << path << " is a settings file of jash (jash list / jash set); it is not run\n"; return 1; }
+    if first == "[#jsh]" { text = rest; }          // the bracket form is not a comment, so the line is taken away; the other forms are comments already
     return run_script_text(text);
 }
 
@@ -1787,7 +1796,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.7.2\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.7.3\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
@@ -1806,6 +1815,9 @@ int main() {
     if cmdline.len > 1 {                                      // jsh -c "commands"   or   jsh script
         running = 1;
         if cmdline[1] == "-c" && cmdline.len > 2 { run_line(cmdline[2]); return last_status; }
+        for i in 2..cmdline.len { if i - 1 < 10 { setv(str(i - 1), cmdline[i]); } }     // jsh script a b : $1 = a, $2 = b, $# = 2
+        setv("#", str(cmdline.len - 2));
+        setv("0", cmdline[1]);
         return run_file(cmdline[1]);
     }
     running = 1;

@@ -35,5 +35,5 @@ In jsh: `install jsh`. Both check the SHA-256 of the file before anything is ins
 1. Start it: `jsh`. Type a few letters: the grey ghost text is the newest history line that continues them; Tab takes it.
 2. Pipes and files: `ls | sort > list.txt`, then `cat list.txt`; `a && b` runs b only if a worked.
 3. Variables and aliases: `NAME=world`, `echo hello $NAME`, `alias ll="ls -l"`; put the lines you want every time in `~/.jshrc`.
-4. A script is a text file of commands: write `hello.jsh` with the line `if [ -z "$1" ]; then echo hi; else echo hi $1; fi`, then run it with `jsh hello.jsh ana` (any file name works).
+4. A script is a text file of commands. Put `[#jsh]` on the first line (`#jsh` and `#!jsh` work too; no line works too), then `if [ -z "$1" ]; then echo hi; else echo hi $1; fi`; save it as `hello.jsh` and run `jsh hello.jsh ana` (`$1` is the first argument, `$#` how many, `$0` the file). A file that begins with `[#jash]` is a settings file, jsh will not run it. `jget -jsh URL` downloads a script and runs it with jsh.
 5. In the Jaric app: `jaric setting` for the look, `jaric theme NAME`, `jaric font 12`, `jaric -restart` to start the app again.

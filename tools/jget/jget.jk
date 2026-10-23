@@ -8,6 +8,7 @@
 //   (a downloaded script or program is made executable by itself, unless it already is; -x does it for any file)
 //   jget -m URL ...               songs from links go to the music folder (~/music, or $MUJIC_DIR): mujic plays them
 //   jget -sh URL [args]           download a shell script and run it at once (what  curl URL | sh  does), then delete it
+//   jget -jsh URL [args]          the same, run by jsh (the shell of Jaric)
 //   jget --install [DIR]          copy this program into DIR (default: $PREFIX/bin on Termux, else ~/.local/bin)
 //   jget --update                 replace this program by the latest release
 //   jget -q ...                   no progress bar
@@ -32,7 +33,7 @@
 #import <deflate>
 using stdlib;
 
-String jget_version() { return "0.7.5"; }
+String jget_version() { return "0.7.6"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -416,6 +417,7 @@ int usage() {
     err("       jget -x URL                      and make the file executable\n");
     err("       jget -m URL ...                  songs from links go to ~/music (or $MUJIC_DIR)\n");
     err("       jget -sh URL [args]              download a script and run it at once\n");
+    err("       jget -jsh URL [args]             the same with jsh (a script of Jaric, first line [#jsh])\n");
     err("       jget -q URL                      without the progress bar\n");
     err("       jget --install [DIR] | --update  install this program / replace it by the latest release\n");
     err("       jget tool list | NAME ...        the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...): install them next to jget
@@ -485,8 +487,8 @@ int cmd_fetch(String[] av, int at) {
     return 1;
 }
 
-// jget -sh URL [args]: download a script, run it with sh, delete it
-int cmd_run_script(String[] av, int at) {
+// jget -sh URL [args]: download a script, run it with sh (-jsh: with jsh, the shell of Jaric), delete it
+int cmd_run_script(String[] av, int at, String shell) {
     if av.len <= at { return usage(); }
     String url = av[at];
     String tmp = "/data/local/tmp/.jget_script";
@@ -498,7 +500,7 @@ int cmd_run_script(String[] av, int at) {
     String[] args = arr(0);
     args.push(tmp);
     for i in at + 1..av.len { args.push(av[i]); }
-    int code = run_prog("sh", args);
+    int code = run_prog(shell, args);
     Fs::remove(tmp);
     return code;
 }
@@ -863,7 +865,8 @@ int main() {
     if first == "--version" || first == "-V" { cout << "jget " << jget_version() << nl; return 0; }
     if first == "--help" { usage(); return 0; }
     if first == "-li" { return cmd_library(av, 2); }
-    if first == "-sh" { return cmd_run_script(av, 2); }
+    if first == "-sh" { return cmd_run_script(av, 2, "sh"); }
+    if first == "-jsh" { return cmd_run_script(av, 2, "jsh"); }
     if first == "tool" { return cmd_tool(av, 2); }
     if first == "untar" {                                  // jget untar FILE [DIR] : a .tar or a gzip-packed tar (.tar.gz, .tgz)
         if av.len < 3 { return usage(); }
