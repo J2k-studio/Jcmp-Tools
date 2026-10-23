@@ -1,0 +1,264 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// jamanager: the task manager of Jaric (like the Task Manager of Windows): programs, memory, stop a program, drives, cache.
+//   jamanager ps [-a]        the programs you can see: pid, state, memory (MB), cpu seconds, name   (-a: also the ones without a name)
+//   jamanager top [-n N]     the same, biggest memory first, drawn again every 2 seconds N times (Ctrl-C leaves)
+//   jamanager mem            the memory of the machine
+//   jamanager kill PID [-9]  stop a program (-9 at once, default: ask it to stop)
+//   jamanager drives         the drives: size, used, free (the folder :/f is the home folder of Jaric)
+//   jamanager cache          the size of the caches (~/.cache, ~/.j2k, the folder for temporary files)
+#import <stdlib>
+
+String jam_version() { return "0.1.0"; }
+
+int fail(String msg) {
+    cerr << "jamanager: " << msg << "\n";
+    return 1;
+}
+
+// a file of /proc: they say size 0, so read until the end
+String read_proc(String path) {
+    int fd = Sys::open_read(path.c());
+    if fd < 0 { return ""; }
+    String out = "";
+    char buf[4096];
+    while true {
+        int n = Sys::read(fd, @buf, 4096);
+        if n <= 0 { break; }
+        for i in 0..n { out.push(buf[i]); }
+        if out.len > 1000000 { break; }
+    }
+    Sys::close(fd);
+    return out;
+}
+
+bool all_digits(String s) {
+    if s.len == 0 { return false; }
+    for i in 0..s.len { if s[i] < '0' || s[i] > '9' { return false; } }
+    return true;
+}
+
+String[] g_pid;
+String[] g_name;
+String[] g_state;
+int[] g_rss;                      // KB
+int[] g_cpu;                      // seconds
+
+// one line of /proc/PID/stat:  pid (name) S ppid ... utime stime ... rss
+bool load_one(String pid) {
+    String st = read_proc("/proc/" + pid + "/stat");
+    if st.len == 0 { return false; }
+    int open = -1;
+    int close = -1;
+    for i in 0..st.len {
+        if st[i] == '(' && open < 0 { open = i; }
+        if st[i] == ')' { close = i; }
+    }
+    if open < 0 || close < open { return false; }
+    String name = st.slice(open + 1, close);
+    String[] f = st.slice(close + 2, st.len).trim().split(" ");
+    if f.len < 22 { return false; }
+    int ticks = f[11].to_int() + f[12].to_int();                  // utime + stime, in 1/100 s
+    g_pid.push(pid + "");
+    g_name.push(name + "");
+    g_state.push(f[0] + "");
+    g_rss.push(f[21].to_int() * 4);                               // pages of 4 KB
+    g_cpu.push(ticks / 100);
+    return true;
+}
+
+void load_all() {
+    g_pid = arr(64); g_name = arr(64); g_state = arr(64);
+    g_rss = arr(64); g_cpu = arr(64);
+    Result<String[], Error> r = Dir::list("/proc");
+    if !r.is_ok() { return; }
+    String[] names = r.take();
+    names.sort();
+    for i in 0..names.len { if all_digits(names[i]) { load_one(names[i]); } }
+}
+
+String pad_left(String s, int w) {
+    String r = s;
+    while r.len < w { r = " " + r; }
+    return r;
+}
+
+String cut_to(String s, int w) {
+    if w < 1 { return ""; }
+    if s.len <= w { return s; }
+    return s.slice(0, w);
+}
+
+// the table; the order of the rows is given in order[] (indexes)
+String table(int[] order, int rows, int width) {
+    String out = pad_left("PID", 7) + " S " + pad_left("MEM MB", 7) + pad_left("CPU s", 7) + "  NAME\n";
+    int shown = 0;
+    for k in 0..order.len {
+        if shown >= rows { break; }
+        int i = order[k];
+        out = out + pad_left(g_pid[i], 7) + " " + g_state[i] + " " + pad_left(str(g_rss[i] / 1024), 7) + pad_left(str(g_cpu[i]), 7) + "  " + cut_to(g_name[i], width - 26) + "\n";
+        shown += 1;
+    }
+    return out;
+}
+
+int[] by_pid() {
+    int[] o = arr(g_pid.len + 1);
+    for i in 0..g_pid.len { o.push(i); }
+    return o;
+}
+
+int[] by_memory() {
+    int[] o = by_pid();
+    // a simple selection by size (a few hundred rows at most)
+    for i in 0..o.len {
+        int best = i;
+        for k in i + 1..o.len { if g_rss[o[k]] > g_rss[o[best]] { best = k; } }
+        int t = o[i]; o[i] = o[best]; o[best] = t;
+    }
+    return o;
+}
+
+String meminfo_line() {
+    String t = read_proc("/proc/meminfo");
+    int total = 0; int avail = 0; int swap = 0; int swapfree = 0;
+    String[] lines = t.split("\n");
+    for i in 0..lines.len {
+        String[] p = lines[i].split(" ");
+        String[] w = arr(4);
+        for k in 0..p.len { if p[k].len > 0 { w.push(p[k] + ""); } }
+        if w.len < 2 { continue; }
+        if w[0] == "MemTotal:" { total = w[1].to_int(); }
+        if w[0] == "MemAvailable:" { avail = w[1].to_int(); }
+        if w[0] == "SwapTotal:" { swap = w[1].to_int(); }
+        if w[0] == "SwapFree:" { swapfree = w[1].to_int(); }
+    }
+    return "memory " + str((total - avail) / 1024) + " of " + str(total / 1024) + " MB used, " + str(avail / 1024) + " MB free;  swap " + str((swap - swapfree) / 1024) + " of " + str(swap / 1024) + " MB";
+}
+
+int do_ps(String[] a) {
+    load_all();
+    int width = Term::cols();
+    if width < 30 { width = 80; }
+    cout << table(by_pid(), 100000, width);
+    cout << g_pid.len << " programs visible (Android shows you only your own)\n";
+    return 0;
+}
+
+int do_top(String[] a) {
+    int rounds = 1000000;
+    for i in 2..a.len { if a[i] == "-n" && i + 1 < a.len { rounds = a[i + 1].to_int(); } }
+    for r in 0..rounds {
+        load_all();
+        int width = Term::cols();
+        int height = Term::rows();
+        if width < 30 { width = 80; }
+        if height < 6 { height = 24; }
+        cout << "\e[H\e[2J" << cut_to("jamanager top   " + meminfo_line(), width) << "\n";
+        cout << table(by_memory(), height - 3, width);
+        if r + 1 < rounds { Time::sleep_ms(2000); }
+    }
+    return 0;
+}
+
+int do_mem() {
+    cout << meminfo_line() << "\n";
+    return 0;
+}
+
+int do_kill(String[] a) {
+    if a.len < 3 { return fail("usage: jamanager kill PID [-9]"); }
+    int sig = 15;
+    for i in 3..a.len { if a[i] == "-9" { sig = 9; } }
+    if !all_digits(a[2]) { return fail(a[2] + " is not a program number"); }
+    int pid = a[2].to_int();
+    if pid <= 1 { return fail("refused: pid " + a[2]); }
+    if Sys::kill(pid, sig) != 0 { return fail("cannot stop " + a[2] + " (not yours, or not running)"); }
+    String what = "TERM";
+    if sig == 9 { what = "KILL"; }
+    cout << "sent " << what << " to " << pid << "\n";
+    return 0;
+}
+
+// the size of a folder (the files in it, below it): bytes
+int folder_size(String path, int depth) {
+    if depth > 8 { return 0; }
+    Result<String[], Error> r = Dir::list(path);
+    if !r.is_ok() { return 0; }
+    String[] names = r.take();
+    int total = 0;
+    for i in 0..names.len {
+        String p = path + "/" + names[i];
+        if Dir::exists(p) { total += folder_size(p, depth + 1); }
+        else {
+            Result<int, Error> s = Fs::size(p);
+            if s.is_ok() { total += s.take(); }
+        }
+    }
+    return total;
+}
+
+String home_dir() {
+    switch Env::get("HOME") {
+        Option::Some(h): { if h.len > 0 { return h; } }
+        Option::None: { }
+    }
+    return ".";
+}
+
+int do_cache() {
+    String h = home_dir();
+    String tmp = "/tmp";
+    switch Env::get("TMPDIR") {
+        Option::Some(t): { if t.len > 0 { tmp = t; } }
+        Option::None: { }
+    }
+    String[] names = arr(4);
+    names.push(h + "/.cache"); names.push(h + "/.j2k"); names.push(tmp);
+    for i in 0..names.len {
+        if Dir::exists(names[i]) { cout << pad_left(str(folder_size(names[i], 0) / 1024) + " KB", 12) << "  " << names[i] << "\n"; }
+        else { cout << pad_left("-", 12) << "  " << names[i] << "  (not there)\n"; }
+    }
+    return 0;
+}
+
+// the free space of the drive that holds a folder: statfs (system call 43): block size at 8, blocks at 16, free at 24, available at 32
+int do_drives() {
+    String[] places = arr(4);
+    places.push(home_dir()); places.push("/sdcard"); places.push("/data"); places.push("/");
+    cout << pad_left("SIZE MB", 10) << pad_left("USED MB", 10) << pad_left("FREE MB", 10) << "  FOLDER\n";
+    for i in 0..places.len {
+        char buf[128];
+        int rc = Sys::call(43, (int)places[i].c(), (int)@buf, 0, 0, 0, 0);
+        if rc != 0 { continue; }
+        int bsize = 0; int blocks = 0; int avail = 0;
+        for k in 0..8 { bsize = bsize | ((buf[8 + k] & 255) << (8 * k)); blocks = blocks | ((buf[16 + k] & 255) << (8 * k)); avail = avail | ((buf[32 + k] & 255) << (8 * k)); }
+        int size = blocks / 1024 * bsize / 1024;
+        int free = avail / 1024 * bsize / 1024;
+        cout << pad_left(str(size), 10) << pad_left(str(size - free), 10) << pad_left(str(free), 10) << "  " << places[i] << "\n";
+    }
+    return 0;
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jamanager " << jam_version() << "\n"; return 0; }
+    if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
+        cout << "jamanager: the task manager of Jaric\n";
+        cout << "  jamanager ps          the programs you can see (pid, memory, cpu, name)\n";
+        cout << "  jamanager top [-n N]  the same, biggest memory first, every 2 seconds\n";
+        cout << "  jamanager mem         the memory of the machine\n";
+        cout << "  jamanager kill PID [-9]   stop a program\n";
+        cout << "  jamanager drives      the size and the free space of the drives\n";
+        cout << "  jamanager cache       the size of the caches\n";
+        return 0;
+    }
+    if a[1] == "ps" { return do_ps(a); }
+    if a[1] == "top" { return do_top(a); }
+    if a[1] == "mem" { return do_mem(); }
+    if a[1] == "kill" { return do_kill(a); }
+    if a[1] == "drives" { return do_drives(); }
+    if a[1] == "cache" { return do_cache(); }
+    cerr << "jamanager: unknown command '" << a[1] << "' (jamanager help)\n";
+    return 2;
+}
