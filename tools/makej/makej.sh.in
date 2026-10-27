@@ -1,6 +1,6 @@
 #!/bin/sh
 # makej: a build tool for J2K projects. The build file is the file "makej" (a simple TOML, written by hand: nano makej) or "makej.jk" (a J2K program).
-#   makej [init [-ai|-game [-os android|jaric|linux]|-pro [NAME]]] [apk|pack|linux|dist|targets] [target] [-v] [-n] [-j N]   makej list   makej clean   makej install FOLDER   makej --version
+#   makej [init [-ai|-apk|-game [-os android|jaric|linux]|-pro [NAME]]] [apk|pack|linux|dist|targets] [target] [-v] [-n] [-j N]   makej list   makej clean   makej install FOLDER   makej --version
 # This file is the whole tool: the library of makej is inside it and is written to a cache folder at the first run.
 MAKEJ_VERSION=@VERSION@
 case "${1:-}" in --version|-version) echo "makej $MAKEJ_VERSION"; exit 0 ;; esac
@@ -8,11 +8,11 @@ case "${1:-}" in -h|--help|help)
     echo "makej: a build tool for J2K projects (the build file is the file makej in the folder)"
     echo "  makej [target] [-v] [-n] [-j N]     build (-n: only show, -v: say more, -j: many jobs; -j alone = all cores)"
     echo "  makej list | clean | install FOLDER | run | test"
-    echo "  makej init [-pro NAME | -game | -ai]     start a project;   makej apk | pack | dist | targets   (for games)"
+    echo "  makej init [-pro NAME | -game | -apk | -ai]     start a project (-apk: an Android app);   makej apk | pack | dist | targets   (for games)"
     echo "  makej --version"
     exit 0 ;;
 esac
-case "${1:-}" in -pro|-game|-ai) first=$1; shift; set -- init "$first" "$@" ;; esac
+case "${1:-}" in -pro|-game|-ai|-apk) first=$1; shift; set -- init "$first" "$@" ;; esac
 # makej is built with jcmp 1.2.0.0 or newer (its library uses forms that older compilers do not know: they stop with "unknown escape sequence")
 need_jcmp() {
     have="$(jcmp -version 2>/dev/null | cut -d' ' -f2)"
@@ -311,6 +311,11 @@ MAKEJ_AM_EOF
     echo "makej: built _out/$safe.apk ($(wc -c < "_out/$safe.apk") bytes). Install: cp _out/$safe.apk /sdcard/ and open it, or  pm install -r _out/$safe.apk"
     exit 0
 fi
+APK_INIT=0
+if [ "${1:-}" = "init" ] && [ "${2:-}" = "-apk" ]; then      # makej init -apk: a project for an Android app (the same files as -game, os = android)
+    APK_INIT=1
+    set -- init -game -os android
+fi
 if [ "${1:-}" = "init" ] && [ "${2:-}" = "-game" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
     gos="android jaric linux"
@@ -575,7 +580,15 @@ cat > README.md <<'MAKEJ_GAME_README_EOF'
 * Jaric Engine = the library `<gamej>`: see `jcmp -showlib gamej` or the top of `~/.j2k/Library/gamej.j`. Draw: clear pixel rect frame_rect line circle text art. Input: held hit. Time: g.dt. Collision: Game::overlap. Sound: g.sound.
 * ภาษาไทย: ไลบรารีชื่อ `<gamej>` วาดบนเทอร์มินัลทั้งจอ (1 ช่อง = 2 พิกเซล) เกมคือลูป: อ่านปุ่ม -> เปลี่ยนโลก -> วาด; ใช้ `g.dt` เพื่อให้ความเร็วเท่ากันทุกเครื่อง
 MAKEJ_GAME_README_EOF
-    echo "makej: wrote makej, manifest.toml, src/main.jk, lessons/lesson1..5.jk, README.md (jget -li install gamej; then makej run, makej play1)"; exit 0
+    echo "makej: wrote makej, manifest.toml, src/main.jk, lessons/lesson1..5.jk, README.md (jget -li install gamej; then makej run, makej play1)"
+    if [ "$gos" = "android" ] || [ "$APK_INIT" = 1 ]; then
+        echo "makej: this is an Android app project: makej run tries it here, makej apk builds _out/NAME.apk"
+        miss=""
+        for t in aapt2 ecj d8 zipalign apksigner keytool; do command -v $t >/dev/null 2>&1 || miss="$miss $t"; done
+        [ -f "${ANDROID_JAR:-$HOME/android.jar}" ] || [ -f "$HOME/android-jar/android.jar" ] || miss="$miss android.jar"
+        [ -z "$miss" ] && echo "makej: every tool for an apk is there" || echo "makej: to build the apk you still need:$miss   (pkg install aapt2 ecj dx apksigner; android.jar: see README.md)"
+    fi
+    exit 0
 fi
 if [ "${1:-}" = "init" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }

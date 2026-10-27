@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+* **Changed:** as root the prompt keeps the name `jc` and turns it red (it said `root` in 0.10.0).
+* **Added:** `login` (or `signin`) without a name asks `login:` and then the password, like a Unix login; `login root` skips the first question. An unknown name is refused (`no user 'bob'`; root is the only user with a password for now). `passwd` changes the root password (the old one is asked first).
+
 ## 0.10.0
 * **Added (root):** `login root` (or `signin root`) asks the root password (the first time it is made, twice; kept as a salted SHA-256 in `files/.jaric/root`). As root `:/` is the top folder of the app (`:/usr/bin` holds the commands, `:/home` is home), the prompt says `root`, and `JC_ROOT=1` is set for the tools. `logout` (or `signout`) leaves. `root COMMAND ...` does one command as root and reads its words as root (`root cd :/usr/bin`). With jbox 0.8.0 the commands of the system (`usr/bin`, `usr/lib`, `usr/etc`) are changed by root only; reading is free. A rule that the tools keep, not a wall (Android is below it).
 

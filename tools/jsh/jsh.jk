@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.10.0"; }
+String jsh_version() { return "0.10.1"; }
 String[] history;
 int last_status;
 int running;
@@ -1347,7 +1347,7 @@ bool have_program(String name) {
 
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "login" || n == "signin" || n == "logout" || n == "signout" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "login" || n == "signin" || n == "passwd" || n == "logout" || n == "signout" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
@@ -1483,11 +1483,25 @@ bool builtin(String[] a) {
         return true;
     }
     if name == "login" || name == "signin" {
-        String who = "root";
+        String who = "";
         if a.len > 1 { who = a[1]; }
-        if who != "root" { cerr << name << ": only root can log in here (login root)\n"; bcode = 1; return true; }
+        else { cout << "login: "; who = Input::line().trim(); }                    // like a Unix login: the name, then the password
+        if who != "root" { cerr << name << ": no user '" << who << "' (the user with a password is root)\n"; bcode = 1; return true; }
         if root_on == 1 { cout << "you are root already (logout leaves)\n"; bcode = 0; return true; }
         if root_login() { root_set(1); cout << "root: :/ is now " << top_dir() << "  (try  dir :/  or  cd :/usr/bin ; logout leaves)\n"; bcode = 0; } else { bcode = 1; }
+        return true;
+    }
+    if name == "passwd" {                                     // passwd: change the root password (the old one is asked)
+        if !Fs::exists(root_file()) { cerr << "passwd: root has no password yet (login root makes one)\n"; bcode = 1; return true; }
+        if !root_login() { bcode = 1; return true; }
+        String p1 = read_secret("new root password: ");
+        if p1.len < 4 { cerr << "passwd: too short (at least 4 characters)\n"; bcode = 1; return true; }
+        String p2 = read_secret("again: ");
+        if p1 != p2 { cerr << "passwd: the two are not the same\n"; bcode = 1; return true; }
+        String salt = str(Time::now_ms());
+        Fs::write_text(root_file(), salt + " " + Hash::sha256(salt + p1) + "\n");
+        cout << "root password changed.\n";
+        bcode = 0;
         return true;
     }
     if name == "logout" || name == "signout" {
@@ -2295,7 +2309,7 @@ String prompt_text() {
     String mark = e + "[1;38;2;" + c_mark + "m>" + reset;
     if last_status != 0 { mark = e + "[1;38;2;" + c_err + "m>" + reset; }
     String who = "jc";
-    if root_on == 1 { who = "root"; c_name = "255;95;95"; }
+    if root_on == 1 { c_name = "255;60;60"; }                   // as root the name stays jc, in red
     return e + "[1;38;2;" + c_name + "m" + who + reset + " " + e + "[38;2;" + c_path + "m" + dir + reset + mark + " " + prompt_mark();
 }
 

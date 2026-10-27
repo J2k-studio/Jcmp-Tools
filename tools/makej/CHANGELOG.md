@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.0
+* **Added:** `makej init -apk` (and `makej -apk`) starts an Android app project: the game project of `-game` with `os = "android"` in `manifest.toml`. Before, `-apk` was not known and it wrote a bare `makej` file only. At the end it lists the tools that `makej apk` needs and that are still missing (aapt2 ecj d8 zipalign apksigner keytool, android.jar).
+
 ## 0.8.9
 * **Fixed:** `makej --help` (and `-h`, `help`) prints the usage and exits 0 (it looked for the build file).
 * The README names the license (the one of the repository).

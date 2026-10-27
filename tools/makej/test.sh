@@ -67,5 +67,9 @@ if command -v zipj >/dev/null 2>&1 && [ -f "$HOME/Jcmp/build/libs/gamej.j" ]; th
     J2K_PATH="$HOME/Jcmp/build/libs" "$MK" dist >/dev/null 2>&1 || { echo "dist jaric"; exit 1; }
     [ -f _out/game.jc ] && [ ! -f _out/My_Game.apk ] || { echo "dist makes only the jc package"; exit 1; }
 fi
+# makej init -apk: an Android app project (os = android), and  makej -apk  is the same
+cd "$T" && mkdir ap && cd ap && "$MK" init -apk 2>&1 | grep -q "Android app project" || { echo "init -apk"; exit 1; }
+[ -f makej ] && [ -f manifest.toml ] && [ -f src/main.jk ] && grep -q '^os = "android"' manifest.toml || { echo "init -apk makes the project with os = android"; exit 1; }
+cd "$T" && mkdir ap2 && cd ap2 && "$MK" -apk >/dev/null && grep -q '^os = "android"' manifest.toml || { echo "makej -apk"; exit 1; }
 cd "$ROOT"
 echo "makej tests (game): ok"

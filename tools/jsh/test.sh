@@ -7,7 +7,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
 OUT=$(printf 'echo hello world\necho "a  b" | cat\necho one > f.txt\necho two >> f.txt\ncat < f.txt\nfalse\necho status $?\necho x | tr x y | cat\nnosuchprog\ncd /\npwd\nexit 7\n' | "$SH" 2>&1) && rc=0 || rc=$?
-WANT='jsh 0.10.0 (the shell of Jaric): help shows the commands
+WANT='jsh 0.10.1 (the shell of Jaric): help shows the commands
 hello world
 a  b
 one
@@ -24,7 +24,7 @@ T2=$(mktemp -d); trap 'rm -rf "$T" "$T2"' EXIT
 cd "$T2"; touch a.txt b.txt c.log
 printf 'echo "echo in the script"\nexport K=5\necho k=$K\n' > s.jsh
 OUT2=$(printf 'NAME=jao\necho hi $NAME\nalias say=echo\nsay aliased\necho *.txt\nfalse || echo second\ntrue && echo third\necho a ; echo b\nunset NAME\necho [$NAME]\ntype cd\nexit 0\n' | HOME="$T2" "$SH" 2>&1)
-WANT2='jsh 0.10.0 (the shell of Jaric): help shows the commands
+WANT2='jsh 0.10.1 (the shell of Jaric): help shows the commands
 hi jao
 aliased
 a.txt b.txt
@@ -203,5 +203,15 @@ case "$BAD16" in *"wrong password"*) ;; *) echo "shell test (step 16): a wrong p
 case "$BAD16" in *"/usr"*) echo "shell test (step 16): a wrong password must not enter: $BAD16"; exit 1 ;; esac
 GOOD16=$(cd "$T16/files/home" && printf 'abcd\n' | HOME="$T16/files/home" "$SH" -c 'root cd :/usr/bin; pwd; cd :/; pwd' 2>&1)
 case "$GOOD16" in *"/usr/bin"*"f:/"*) ;; *) echo "shell test (step 16): root COMMAND: $GOOD16"; exit 1 ;; esac
+# login without a name asks "login:", then the password; an unknown name is refused; passwd changes the password
+NAMED16=$(cd "$T16/files/home" && printf 'root\nabcd\n' | HOME="$T16/files/home" "$SH" -c 'login; pwd' 2>&1) || true
+case "$NAMED16" in *"login: "*"root: :/ is now"*) ;; *) echo "shell test (step 16): login asks the name: $NAMED16"; exit 1 ;; esac
+UNK16=$(cd "$T16/files/home" && printf 'bob\n' | HOME="$T16/files/home" "$SH" -c 'login' 2>&1) || true
+case "$UNK16" in *"no user 'bob'"*) ;; *) echo "shell test (step 16): an unknown user: $UNK16"; exit 1 ;; esac
+cd "$T16/files/home" && printf 'abcd\nnewpw\nnewpw\n' | HOME="$T16/files/home" "$SH" -c 'passwd' 2>&1 | grep -q "password changed" || { echo "shell test (step 16): passwd"; exit 1; }
+OLD16=$(cd "$T16/files/home" && printf 'abcd\n' | HOME="$T16/files/home" "$SH" -c 'login root' 2>&1) || true
+case "$OLD16" in *"wrong password"*) ;; *) echo "shell test (step 16): the old password must not work: $OLD16"; exit 1 ;; esac
+NEW16=$(cd "$T16/files/home" && printf 'newpw\n' | HOME="$T16/files/home" "$SH" -c 'login root' 2>&1) || true
+case "$NEW16" in *"root: :/ is now"*) ;; *) echo "shell test (step 16): the new password: $NEW16"; exit 1 ;; esac
 rm -rf "$T16"
 echo "shell test (step 16): ok"
