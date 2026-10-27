@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 J="$PWD/_out/drive"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home"; mkdir -p "$HOME" "$T/music"
-[ "$("$J" --version)" = "drive 0.3.1" ] || { echo "drive test: version"; exit 1; }
+[ "$("$J" --version)" = "drive 0.4.0" ] || { echo "drive test: version"; exit 1; }
 "$J" | grep -q "^f:/  $HOME" || { echo "drive test: list shows f"; exit 1; }
 "$J" new songs "$T/music" | grep -q "songs:/ is $T/music" || { echo "drive test: new with a folder"; exit 1; }
 "$J" new work >/dev/null; [ -d "$HOME/drives/work" ] || { echo "drive test: new makes a folder"; exit 1; }
@@ -24,6 +24,9 @@ export HOME="$T/home"; mkdir -p "$HOME" "$T/music"
 "$J" -help | grep -q "drive new NAME" || { echo "drive test: -help"; exit 1; }
 "$J" --help | grep -q "drive -p" || { echo "drive test: --help"; exit 1; }
 "$J" -nonsense >/dev/null 2>&1 && { echo "drive test: an unknown option must fail"; exit 1; }
+# -all: the files folder (parent of home), hidden entries too
+mkdir -p "$T/files/home" "$T/files/usr/bin" "$T/files/.local"; touch "$T/files/usr/bin/jsh"
+( export HOME="$T/files/home" PREFIX="$T/files/usr"; "$J" -all | grep -q "usr/" && "$J" -all | grep -q ".local/" && "$J" -all | grep -q "usr/bin: the commands (1 files)" ) || { echo "drive test: -all"; exit 1; }
 # paths
 [ "$("$J" -p :/bin)" = "$HOME/bin" ] || { echo "drive test: -p :/bin"; exit 1; }
 [ "$("$J" -part f:/a/b)" = "$HOME/a/b" ] || { echo "drive test: -part f:"; exit 1; }

@@ -1,7 +1,7 @@
 // drive: the drives of Jaric (f:/ 0:/ r:/ and the ones you make). The list is kept in ~/.jsh_drives, the file that jsh reads.
 #import <stdlib>
 
-String drive_version() { return "0.3.1"; }
+String drive_version() { return "0.4.0"; }
 
 String env_or(String name, String fallback) {
     switch Env::get(name) {
@@ -207,6 +207,40 @@ String drive_of(String real) {
     return bestname + ":" + rest;
 }
 
+// drive -all: every entry of the folder that holds home (the files of the app: usr, home, hidden ones like .local ...), with the real path;
+// the folders are shown one level down for usr (bin, etc, lib ...)
+void list_level(String dir, String indent, String shown) {
+    switch Dir::list(dir) {
+        Result::Ok(names): {
+            names.sort();
+            for i in 0..names.len {
+                String p = Path::join(dir, names[i]);
+                String mark = "";
+                if Dir::exists(p) { mark = "/"; }
+                cout << indent << shown << names[i] << mark << "\n";
+            }
+        }
+        Result::Err(e): { cout << indent << "(cannot read " << dir << ")\n"; }
+    }
+}
+
+int do_all() {
+    String home = env_or("HOME", "/");
+    String top = Path::parent(home);                    // the files folder of the app (home is files/home)
+    cout << "the files of Jaric: " << top << "\n";
+    list_level(top, "  ", "");
+    String usr = env_or("PREFIX", top + "/usr");
+    if Dir::exists(usr) {
+        cout << "usr (" << usr << "):\n";
+        list_level(usr, "  ", "");
+        String ubin = usr + "/bin";
+        if Dir::exists(ubin) { cout << "usr/bin: the commands (" << count_entries(ubin) << " files)\n"; }
+    }
+    cout << "home (" << home << ", also :/ and f:/), with the hidden files:\n";
+    list_level(home, "  ", ":/");
+    return 0;
+}
+
 int do_list() {
     cout << ":/   home (the same as ~/ and f:/)\n";
     String[] sys = "f 0 r".split(" ");
@@ -339,6 +373,7 @@ int main() {
         cout << "drive: the drives of Jaric (f:/ 0:/ r:/ and your own)\n";
         cout << "  drive                       the list         drive NAME            where a drive is, how many entries\n";
         cout << "  drive -p :/bin              the real path of a path with a drive (-p, -path, -part);   drive -d /real/path   the path with the drive\n";
+        cout << "  drive -all                  every entry of the files of Jaric (usr, home, hidden ones), the commands folder usr/bin\n";
         cout << "  drive new NAME              a new drive with a new folder (in ~/drives)\n";
         cout << "  drive new NAME PATH         a drive of a folder that is there\n";
         cout << "  drive new NAME 2G           a size (K, M, G; 1.5G) may be given: it is the limit of the drive (shown and checked, not enforced yet)\n";
@@ -347,6 +382,7 @@ int main() {
         return 0;
     }
     if a.len == 1 || a[1] == "list" { return do_list(); }
+    if a[1] == "-all" || a[1] == "--all" || a[1] == "-a" { return do_all(); }
     if (a[1] == "-p" || a[1] == "-path" || a[1] == "-part") && a.len >= 3 { cout << real_of(a[2]) << "\n"; return 0; }     // drive -p :/bin  ->  the real path
     if (a[1] == "-d" || a[1] == "-drive") && a.len >= 3 {                                                          // drive -d /real/path  ->  the drive form
         String rp = a[2];

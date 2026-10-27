@@ -5,6 +5,7 @@
 ```
 drive                       the list
 drive songs                 where a drive is, how many entries it holds
+drive -all                  every entry of the files of Jaric: usr, home, hidden ones (.local ...), the commands in usr/bin
 drive -p :/bin              the real path of a drive path (-p, -path, -part);   drive -d /real/path   the other way
 drive new work              a new drive with a new folder (~/drives/work)
 drive new songs /storage/emulated/0/Music     a drive of a folder that is there

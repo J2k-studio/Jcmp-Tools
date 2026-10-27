@@ -1,5 +1,8 @@
 # drive changelog
 
+## 0.4.0
+* **Added:** `drive -all` shows every entry of the files of the app, the folder that holds home (`usr`, `home`, hidden ones such as `.local`), then `usr` one level down and the number of commands in `usr/bin`, then home with its hidden files. It shows what `:/` alone does not reach.
+
 ## 0.3.1
 * **Fixed:** `drive -help` was read as the name of a drive ("no drive -help"); `-help` now shows the help like `--help` and `-h`, and an unknown option says so and exits with 2.
 
