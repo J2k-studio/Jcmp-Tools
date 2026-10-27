@@ -191,149 +191,173 @@ Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other too
 You: um help
 Bot: I can tell you how to use jget, makej, jsh, mujic, python and the other tools.
 You: could you tell me how do i install a tool
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: i would like to know how do i install a tool
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: how do i install a tool, thanks
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: one more thing: how do i install a tool
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: so how do i install a tool?
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: um how do i install a tool
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: could you tell me install a tool
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: i would like to know install a tool
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: install a tool, thanks
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: one more thing: install a tool
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: so install a tool?
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: um install a tool
-Bot: Use jget tool NAME, for example jget tool mujic.
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: could you tell me add a program
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: i would like to know add a program
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: add a program, thanks
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: one more thing: add a program
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: so add a program?
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: um add a program
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: could you tell me get a new tool
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: i would like to know get a new tool
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: get a new tool, thanks
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: one more thing: get a new tool
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: so get a new tool?
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
+You: um get a new tool
+Bot: Use jc install NAME, for example jc install mujic. jc list shows what there is.
 You: could you tell me how do i update jget
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: i would like to know how do i update jget
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: how do i update jget, thanks
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: one more thing: how do i update jget
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: so how do i update jget?
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: um how do i update jget
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: could you tell me update jget
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: i would like to know update jget
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: update jget, thanks
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: one more thing: update jget
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: so update jget?
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: um update jget
-Bot: Run jget --update.
+Bot: Run jc update. It updates jsh and every tool that has a newer version.
 You: could you tell me how do i install python
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: i would like to know how do i install python
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: how do i install python, thanks
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: one more thing: how do i install python
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: so how do i install python?
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: um how do i install python
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: could you tell me install python
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: i would like to know install python
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: install python, thanks
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: one more thing: install python
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: so install python?
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: um install python
-Bot: Run jget tool python. Then python3 and pip work.
+Bot: Run jc install python. Then python3 and pip work.
 You: could you tell me how do i install pip
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: i would like to know how do i install pip
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: how do i install pip, thanks
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: one more thing: how do i install pip
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: so how do i install pip?
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: um how do i install pip
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: could you tell me where is pip
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: i would like to know where is pip
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: where is pip, thanks
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: one more thing: where is pip
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: so where is pip?
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: um where is pip
-Bot: pip comes with the tool python: jget tool python.
+Bot: pip comes with the tool python: jc install python.
 You: could you tell me how do i install yt-dlp
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: i would like to know how do i install yt-dlp
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: how do i install yt-dlp, thanks
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: one more thing: how do i install yt-dlp
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: so how do i install yt-dlp?
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: um how do i install yt-dlp
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: could you tell me install yt-dlp
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: i would like to know install yt-dlp
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: install yt-dlp, thanks
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: one more thing: install yt-dlp
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: so install yt-dlp?
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: um install yt-dlp
-Bot: Run jget tool python yt-dlp. Use it only for what you may download.
+Bot: Run jc install python yt-dlp. Use it only for what you may download.
 You: could you tell me how do i update the compiler
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: i would like to know how do i update the compiler
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: how do i update the compiler, thanks
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: one more thing: how do i update the compiler
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: so how do i update the compiler?
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: um how do i update the compiler
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: could you tell me update jcmp
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: i would like to know update jcmp
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: update jcmp, thanks
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: one more thing: update jcmp
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: so update jcmp?
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: um update jcmp
-Bot: Run jget tool jcmp. makej needs jcmp 1.2.0.0 or newer.
+Bot: Run jc install jcmp. makej needs jcmp 1.2.0.0 or newer.
 You: could you tell me how do i build a program
 Bot: Write hello.jk and run jcmp hello.jk -o hello.
 You: i would like to know how do i build a program
@@ -814,6 +838,18 @@ You: so kill a program?
 Bot: Run jamanager kill PID.
 You: um kill a program
 Bot: Run jamanager kill PID.
+You: could you tell me close a running program
+Bot: Run jamanager kill PID.
+You: i would like to know close a running program
+Bot: Run jamanager kill PID.
+You: close a running program, thanks
+Bot: Run jamanager kill PID.
+You: one more thing: close a running program
+Bot: Run jamanager kill PID.
+You: so close a running program?
+Bot: Run jamanager kill PID.
+You: um close a running program
+Bot: Run jamanager kill PID.
 You: could you tell me how much memory is free
 Bot: Run jamanager mem.
 You: i would like to know how much memory is free
@@ -935,29 +971,29 @@ Bot: Type jaric theme NAME, for example jaric theme amber.
 You: um change colours
 Bot: Type jaric theme NAME, for example jaric theme amber.
 You: could you tell me how do i restart the app
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: i would like to know how do i restart the app
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: how do i restart the app, thanks
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: one more thing: how do i restart the app
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: so how do i restart the app?
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: um how do i restart the app
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: could you tell me restart jaric
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: i would like to know restart jaric
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: restart jaric, thanks
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: one more thing: restart jaric
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: so restart jaric?
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: um restart jaric
-Bot: Type jaric -restart.
+Bot: Type jaric restart.
 You: could you tell me how do i open a new tab
 Bot: Tap + at the top, or type start PROGRAM.
 You: i would like to know how do i open a new tab
@@ -1150,6 +1186,18 @@ You: so show files?
 Bot: Run dir. Use dir -a to see hidden ones.
 You: um show files
 Bot: Run dir. Use dir -a to see hidden ones.
+You: could you tell me list a folder
+Bot: Run dir. Use dir -a to see hidden ones.
+You: i would like to know list a folder
+Bot: Run dir. Use dir -a to see hidden ones.
+You: list a folder, thanks
+Bot: Run dir. Use dir -a to see hidden ones.
+You: one more thing: list a folder
+Bot: Run dir. Use dir -a to see hidden ones.
+You: so list a folder?
+Bot: Run dir. Use dir -a to see hidden ones.
+You: um list a folder
+Bot: Run dir. Use dir -a to see hidden ones.
 You: could you tell me how do i find a word in files
 Bot: Run grep -n WORD FILE.
 You: i would like to know how do i find a word in files
@@ -1222,6 +1270,558 @@ You: so video info?
 Bot: Run jvp4 info FILE.
 You: um video info
 Bot: Run jvp4 info FILE.
+You: could you tell me how do i update everything
+Bot: Run jc update. jc update -n only shows what would change.
+You: i would like to know how do i update everything
+Bot: Run jc update. jc update -n only shows what would change.
+You: how do i update everything, thanks
+Bot: Run jc update. jc update -n only shows what would change.
+You: one more thing: how do i update everything
+Bot: Run jc update. jc update -n only shows what would change.
+You: so how do i update everything?
+Bot: Run jc update. jc update -n only shows what would change.
+You: um how do i update everything
+Bot: Run jc update. jc update -n only shows what would change.
+You: could you tell me update my tools
+Bot: Run jc update. jc update -n only shows what would change.
+You: i would like to know update my tools
+Bot: Run jc update. jc update -n only shows what would change.
+You: update my tools, thanks
+Bot: Run jc update. jc update -n only shows what would change.
+You: one more thing: update my tools
+Bot: Run jc update. jc update -n only shows what would change.
+You: so update my tools?
+Bot: Run jc update. jc update -n only shows what would change.
+You: um update my tools
+Bot: Run jc update. jc update -n only shows what would change.
+You: could you tell me get new versions
+Bot: Run jc update. jc update -n only shows what would change.
+You: i would like to know get new versions
+Bot: Run jc update. jc update -n only shows what would change.
+You: get new versions, thanks
+Bot: Run jc update. jc update -n only shows what would change.
+You: one more thing: get new versions
+Bot: Run jc update. jc update -n only shows what would change.
+You: so get new versions?
+Bot: Run jc update. jc update -n only shows what would change.
+You: um get new versions
+Bot: Run jc update. jc update -n only shows what would change.
+You: could you tell me how do i remove a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: i would like to know how do i remove a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: how do i remove a tool, thanks
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: one more thing: how do i remove a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: so how do i remove a tool?
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: um how do i remove a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: could you tell me uninstall a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: i would like to know uninstall a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: uninstall a tool, thanks
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: one more thing: uninstall a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: so uninstall a tool?
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: um uninstall a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: could you tell me delete a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: i would like to know delete a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: delete a tool, thanks
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: one more thing: delete a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: so delete a tool?
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: um delete a tool
+Bot: Run jc unstall NAME. jsh and jget cannot be removed.
+You: could you tell me how do i delete a file
+Bot: Run rm FILE.
+You: i would like to know how do i delete a file
+Bot: Run rm FILE.
+You: how do i delete a file, thanks
+Bot: Run rm FILE.
+You: one more thing: how do i delete a file
+Bot: Run rm FILE.
+You: so how do i delete a file?
+Bot: Run rm FILE.
+You: um how do i delete a file
+Bot: Run rm FILE.
+You: could you tell me remove a file
+Bot: Run rm FILE.
+You: i would like to know remove a file
+Bot: Run rm FILE.
+You: remove a file, thanks
+Bot: Run rm FILE.
+You: one more thing: remove a file
+Bot: Run rm FILE.
+You: so remove a file?
+Bot: Run rm FILE.
+You: um remove a file
+Bot: Run rm FILE.
+You: could you tell me erase a file
+Bot: Run rm FILE.
+You: i would like to know erase a file
+Bot: Run rm FILE.
+You: erase a file, thanks
+Bot: Run rm FILE.
+You: one more thing: erase a file
+Bot: Run rm FILE.
+You: so erase a file?
+Bot: Run rm FILE.
+You: um erase a file
+Bot: Run rm FILE.
+You: could you tell me how do i delete a folder
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: i would like to know how do i delete a folder
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: how do i delete a folder, thanks
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: one more thing: how do i delete a folder
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: so how do i delete a folder?
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: um how do i delete a folder
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: could you tell me remove a folder
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: i would like to know remove a folder
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: remove a folder, thanks
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: one more thing: remove a folder
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: so remove a folder?
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: um remove a folder
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: could you tell me delete a directory
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: i would like to know delete a directory
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: delete a directory, thanks
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: one more thing: delete a directory
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: so delete a directory?
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: um delete a directory
+Bot: Run rm -r FOLDER. It deletes the folder and everything in it.
+You: could you tell me how do i make a folder
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: i would like to know how do i make a folder
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: how do i make a folder, thanks
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: one more thing: how do i make a folder
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: so how do i make a folder?
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: um how do i make a folder
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: could you tell me create a folder
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: i would like to know create a folder
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: create a folder, thanks
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: one more thing: create a folder
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: so create a folder?
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: um create a folder
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: could you tell me new directory
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: i would like to know new directory
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: new directory, thanks
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: one more thing: new directory
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: so new directory?
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: um new directory
+Bot: Run mkdir NAME. mkdir -p makes the parents too.
+You: could you tell me how do i copy a file
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: i would like to know how do i copy a file
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: how do i copy a file, thanks
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: one more thing: how do i copy a file
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: so how do i copy a file?
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: um how do i copy a file
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: could you tell me copy a file
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: i would like to know copy a file
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: copy a file, thanks
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: one more thing: copy a file
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: so copy a file?
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: um copy a file
+Bot: Run cp FROM TO. Use cp -r for a folder.
+You: could you tell me how do i move a file
+Bot: Run mv FROM TO. It also renames.
+You: i would like to know how do i move a file
+Bot: Run mv FROM TO. It also renames.
+You: how do i move a file, thanks
+Bot: Run mv FROM TO. It also renames.
+You: one more thing: how do i move a file
+Bot: Run mv FROM TO. It also renames.
+You: so how do i move a file?
+Bot: Run mv FROM TO. It also renames.
+You: um how do i move a file
+Bot: Run mv FROM TO. It also renames.
+You: could you tell me rename a file
+Bot: Run mv FROM TO. It also renames.
+You: i would like to know rename a file
+Bot: Run mv FROM TO. It also renames.
+You: rename a file, thanks
+Bot: Run mv FROM TO. It also renames.
+You: one more thing: rename a file
+Bot: Run mv FROM TO. It also renames.
+You: so rename a file?
+Bot: Run mv FROM TO. It also renames.
+You: um rename a file
+Bot: Run mv FROM TO. It also renames.
+You: could you tell me rename something
+Bot: Run mv FROM TO. It also renames.
+You: i would like to know rename something
+Bot: Run mv FROM TO. It also renames.
+You: rename something, thanks
+Bot: Run mv FROM TO. It also renames.
+You: one more thing: rename something
+Bot: Run mv FROM TO. It also renames.
+You: so rename something?
+Bot: Run mv FROM TO. It also renames.
+You: um rename something
+Bot: Run mv FROM TO. It also renames.
+You: could you tell me how do i read a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: i would like to know how do i read a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: how do i read a file, thanks
+Bot: Run cat FILE. Use head or tail for a part.
+You: one more thing: how do i read a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: so how do i read a file?
+Bot: Run cat FILE. Use head or tail for a part.
+You: um how do i read a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: could you tell me show a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: i would like to know show a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: show a file, thanks
+Bot: Run cat FILE. Use head or tail for a part.
+You: one more thing: show a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: so show a file?
+Bot: Run cat FILE. Use head or tail for a part.
+You: um show a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: could you tell me print a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: i would like to know print a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: print a file, thanks
+Bot: Run cat FILE. Use head or tail for a part.
+You: one more thing: print a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: so print a file?
+Bot: Run cat FILE. Use head or tail for a part.
+You: um print a file
+Bot: Run cat FILE. Use head or tail for a part.
+You: could you tell me where am i
+Bot: Run pwd. pwd -p shows the real path.
+You: i would like to know where am i
+Bot: Run pwd. pwd -p shows the real path.
+You: where am i, thanks
+Bot: Run pwd. pwd -p shows the real path.
+You: one more thing: where am i
+Bot: Run pwd. pwd -p shows the real path.
+You: so where am i?
+Bot: Run pwd. pwd -p shows the real path.
+You: um where am i
+Bot: Run pwd. pwd -p shows the real path.
+You: could you tell me what folder am i in
+Bot: Run pwd. pwd -p shows the real path.
+You: i would like to know what folder am i in
+Bot: Run pwd. pwd -p shows the real path.
+You: what folder am i in, thanks
+Bot: Run pwd. pwd -p shows the real path.
+You: one more thing: what folder am i in
+Bot: Run pwd. pwd -p shows the real path.
+You: so what folder am i in?
+Bot: Run pwd. pwd -p shows the real path.
+You: um what folder am i in
+Bot: Run pwd. pwd -p shows the real path.
+You: could you tell me show the current folder
+Bot: Run pwd. pwd -p shows the real path.
+You: i would like to know show the current folder
+Bot: Run pwd. pwd -p shows the real path.
+You: show the current folder, thanks
+Bot: Run pwd. pwd -p shows the real path.
+You: one more thing: show the current folder
+Bot: Run pwd. pwd -p shows the real path.
+You: so show the current folder?
+Bot: Run pwd. pwd -p shows the real path.
+You: um show the current folder
+Bot: Run pwd. pwd -p shows the real path.
+You: could you tell me how do i change folder
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: i would like to know how do i change folder
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: how do i change folder, thanks
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: one more thing: how do i change folder
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: so how do i change folder?
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: um how do i change folder
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: could you tell me go to a folder
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: i would like to know go to a folder
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: go to a folder, thanks
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: one more thing: go to a folder
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: so go to a folder?
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: um go to a folder
+Bot: Run cd FOLDER. cd :/ goes home, cd 0:/ to the phone storage.
+You: could you tell me what are drives
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: i would like to know what are drives
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: what are drives, thanks
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: one more thing: what are drives
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: so what are drives?
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: um what are drives
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: could you tell me what is f: and 0:
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: i would like to know what is f: and 0:
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: what is f: and 0:, thanks
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: one more thing: what is f: and 0:
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: so what is f: and 0:?
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: um what is f: and 0:
+Bot: f:/ is your home, 0:/ is the storage of the phone, r:/ is the root. drive shows them.
+You: could you tell me how do i make a new drive
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: i would like to know how do i make a new drive
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: how do i make a new drive, thanks
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: one more thing: how do i make a new drive
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: so how do i make a new drive?
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: um how do i make a new drive
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: could you tell me create a drive
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: i would like to know create a drive
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: create a drive, thanks
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: one more thing: create a drive
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: so create a drive?
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: um create a drive
+Bot: Run drive new NAME for a new folder as a drive, or drive new NAME PATH for a folder you have. A size like 2G is allowed.
+You: could you tell me how do i see the real path of a drive
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: i would like to know how do i see the real path of a drive
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: how do i see the real path of a drive, thanks
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: one more thing: how do i see the real path of a drive
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: so how do i see the real path of a drive?
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: um how do i see the real path of a drive
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: could you tell me what is the real path
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: i would like to know what is the real path
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: what is the real path, thanks
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: one more thing: what is the real path
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: so what is the real path?
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: um what is the real path
+Bot: Run drive -p :/bin. drive -d PATH goes the other way.
+You: could you tell me how do i keep the app alive
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: i would like to know how do i keep the app alive
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: how do i keep the app alive, thanks
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: one more thing: how do i keep the app alive
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: so how do i keep the app alive?
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: um how do i keep the app alive
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: could you tell me the app closes when i swipe it
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: i would like to know the app closes when i swipe it
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: the app closes when i swipe it, thanks
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: one more thing: the app closes when i swipe it
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: so the app closes when i swipe it?
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: um the app closes when i swipe it
+Bot: Run jaric keepalive and allow the app to run in the background. The wake lock button is in the notification.
+You: could you tell me how do i use git
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: i would like to know how do i use git
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: how do i use git, thanks
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: one more thing: how do i use git
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: so how do i use git?
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: um how do i use git
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: could you tell me where is git
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: i would like to know where is git
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: where is git, thanks
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: one more thing: where is git
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: so where is git?
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: um where is git
+Bot: Run jgit. It works on local repositories: init, add, commit, status, log, diff.
+You: could you tell me how do i build the app
+Bot: Run makej apk in a project made with makej init -pro.
+You: i would like to know how do i build the app
+Bot: Run makej apk in a project made with makej init -pro.
+You: how do i build the app, thanks
+Bot: Run makej apk in a project made with makej init -pro.
+You: one more thing: how do i build the app
+Bot: Run makej apk in a project made with makej init -pro.
+You: so how do i build the app?
+Bot: Run makej apk in a project made with makej init -pro.
+You: um how do i build the app
+Bot: Run makej apk in a project made with makej init -pro.
+You: could you tell me make an apk
+Bot: Run makej apk in a project made with makej init -pro.
+You: i would like to know make an apk
+Bot: Run makej apk in a project made with makej init -pro.
+You: make an apk, thanks
+Bot: Run makej apk in a project made with makej init -pro.
+You: one more thing: make an apk
+Bot: Run makej apk in a project made with makej init -pro.
+You: so make an apk?
+Bot: Run makej apk in a project made with makej init -pro.
+You: um make an apk
+Bot: Run makej apk in a project made with makej init -pro.
+You: could you tell me how do i see the version of a tool
+Bot: Run NAME --version, for example jsh --version.
+You: i would like to know how do i see the version of a tool
+Bot: Run NAME --version, for example jsh --version.
+You: how do i see the version of a tool, thanks
+Bot: Run NAME --version, for example jsh --version.
+You: one more thing: how do i see the version of a tool
+Bot: Run NAME --version, for example jsh --version.
+You: so how do i see the version of a tool?
+Bot: Run NAME --version, for example jsh --version.
+You: um how do i see the version of a tool
+Bot: Run NAME --version, for example jsh --version.
+You: could you tell me which version
+Bot: Run NAME --version, for example jsh --version.
+You: i would like to know which version
+Bot: Run NAME --version, for example jsh --version.
+You: which version, thanks
+Bot: Run NAME --version, for example jsh --version.
+You: one more thing: which version
+Bot: Run NAME --version, for example jsh --version.
+You: so which version?
+Bot: Run NAME --version, for example jsh --version.
+You: um which version
+Bot: Run NAME --version, for example jsh --version.
+You: could you tell me what is jsh
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: i would like to know what is jsh
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: what is jsh, thanks
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: one more thing: what is jsh
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: so what is jsh?
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: um what is jsh
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: could you tell me what is the shell
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: i would like to know what is the shell
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: what is the shell, thanks
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: one more thing: what is the shell
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: so what is the shell?
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: um what is the shell
+Bot: jsh is the shell of Jaric. Type help inside it.
+You: could you tell me what is the kernel
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: i would like to know what is the kernel
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: what is the kernel, thanks
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: one more thing: what is the kernel
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: so what is the kernel?
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: um what is the kernel
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: could you tell me do you have an os
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: i would like to know do you have an os
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: do you have an os, thanks
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: one more thing: do you have an os
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: so do you have an os?
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
+You: um do you have an os
+Bot: The Jaric kernel is being built step by step; it runs in jemu first. See Jaric/os/kernel.
 You: could you tell me what is jash
 Bot: jash keeps the settings of your programs in the file .jash. Use jash list and jash set.
 You: i would like to know what is jash
@@ -1258,18 +1858,42 @@ You: so what is a jc file?
 Bot: A .jc file is a program package of Jaric, made by makej pack.
 You: um what is a jc file
 Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: could you tell me what is a .jc package
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: i would like to know what is a .jc package
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: what is a .jc package, thanks
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: one more thing: what is a .jc package
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: so what is a .jc package?
+Bot: A .jc file is a program package of Jaric, made by makej pack.
+You: um what is a .jc package
+Bot: A .jc file is a program package of Jaric, made by makej pack.
 You: could you tell me what is jc
-Bot: A .jc file is a program package of Jaric, made by makej pack.
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
 You: i would like to know what is jc
-Bot: A .jc file is a program package of Jaric, made by makej pack.
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
 You: what is jc, thanks
-Bot: A .jc file is a program package of Jaric, made by makej pack.
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
 You: one more thing: what is jc
-Bot: A .jc file is a program package of Jaric, made by makej pack.
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
 You: so what is jc?
-Bot: A .jc file is a program package of Jaric, made by makej pack.
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
 You: um what is jc
-Bot: A .jc file is a program package of Jaric, made by makej pack.
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
+You: could you tell me what does jc do
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
+You: i would like to know what does jc do
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
+You: what does jc do, thanks
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
+You: one more thing: what does jc do
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
+You: so what does jc do?
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
+You: um what does jc do
+Bot: jc installs and runs the programs of Jaric: jc install NAME, jc update, jc unstall NAME, jc list.
 You: could you tell me what is a jw file
 Bot: A .jw file is a model of neuron, the whole AI in one file.
 You: i would like to know what is a jw file
@@ -1342,3 +1966,243 @@ You: so what is this app?
 Bot: Jaric is a terminal app with its own shell, tools and a language.
 You: um what is this app
 Bot: Jaric is a terminal app with its own shell, tools and a language.
+You: could you tell me what is the weather
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know what is the weather
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: what is the weather, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: what is the weather
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so what is the weather?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um what is the weather
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me what is the capital of france
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know what is the capital of france
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: what is the capital of france, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: what is the capital of france
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so what is the capital of france?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um what is the capital of france
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me tell me a joke
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know tell me a joke
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: tell me a joke, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: tell me a joke
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so tell me a joke?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um tell me a joke
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me who is the president
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know who is the president
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: who is the president, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: who is the president
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so who is the president?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um who is the president
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me what is two plus two
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know what is two plus two
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: what is two plus two, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: what is two plus two
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so what is two plus two?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um what is two plus two
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me how tall is mount everest
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know how tall is mount everest
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: how tall is mount everest, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: how tall is mount everest
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so how tall is mount everest?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um how tall is mount everest
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me translate hello to french
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know translate hello to french
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: translate hello to french, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: translate hello to french
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so translate hello to french?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um translate hello to french
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me what is the meaning of life
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know what is the meaning of life
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: what is the meaning of life, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: what is the meaning of life
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so what is the meaning of life?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um what is the meaning of life
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me play a game with me
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know play a game with me
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: play a game with me, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: play a game with me
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so play a game with me?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um play a game with me
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me what time is it in tokyo
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know what time is it in tokyo
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: what time is it in tokyo, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: what time is it in tokyo
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so what time is it in tokyo?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um what time is it in tokyo
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me who won the football match
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know who won the football match
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: who won the football match, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: who won the football match
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so who won the football match?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um who won the football match
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me recommend a movie
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know recommend a movie
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: recommend a movie, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: recommend a movie
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so recommend a movie?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um recommend a movie
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me how do i cook rice
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know how do i cook rice
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: how do i cook rice, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: how do i cook rice
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so how do i cook rice?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um how do i cook rice
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me what is the price of gold
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know what is the price of gold
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: what is the price of gold, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: what is the price of gold
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so what is the price of gold?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um what is the price of gold
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me write me a poem
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know write me a poem
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: write me a poem, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: write me a poem
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so write me a poem?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um write me a poem
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me what is the weather on mars
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know what is the weather on mars
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: what is the weather on mars, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: what is the weather on mars
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so what is the weather on mars?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um what is the weather on mars
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me who invented the telephone
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know who invented the telephone
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: who invented the telephone, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: who invented the telephone
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so who invented the telephone?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um who invented the telephone
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me how far is the moon
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know how far is the moon
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: how far is the moon, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: how far is the moon
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so how far is the moon?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um how far is the moon
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me what is your favorite colour
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know what is your favorite colour
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: what is your favorite colour, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: what is your favorite colour
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so what is your favorite colour?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um what is your favorite colour
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: could you tell me tell me about dogs
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: i would like to know tell me about dogs
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: tell me about dogs, thanks
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: one more thing: tell me about dogs
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: so tell me about dogs?
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).
+You: um tell me about dogs
+Bot: I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool).

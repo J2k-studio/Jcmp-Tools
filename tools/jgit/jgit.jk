@@ -9,7 +9,7 @@
 #import <stdlib>
 #import <deflate>
 
-String jgit_version() { return "0.2.0"; }
+String jgit_version() { return "0.3.0"; }
 
 int fail(String msg) {
     cerr << "jgit: " << msg << "\n";
@@ -617,6 +617,11 @@ String config_value(String text, String section, String key) {
     return "";
 }
 
+String home_dir() {
+    switch Env::get("HOME") { Option::Some(h): { return h; } Option::None: { } }
+    return ".";
+}
+
 String who(String key, String envname) {
     switch Env::get(envname) {
         Option::Some(v): { if v.len > 0 { return v; } }
@@ -624,8 +629,9 @@ String who(String key, String envname) {
     }
     String v = config_value(read_text_file(g_git + "/config"), "user", key);
     if v.len > 0 { return v; }
-    String home = ".";
-    switch Env::get("HOME") { Option::Some(h): { home = h; } Option::None: { } }
+    String home = home_dir();
+    v = config_value(read_text_file(home + "/.jgit/user"), "user", key);          // written by  jgit login
+    if v.len > 0 { return v; }
     return config_value(read_text_file(home + "/.gitconfig"), "user", key);
 }
 
@@ -668,7 +674,15 @@ int do_commit(String[] a) {
     if ix_path.len == 0 { return fail("nothing to save: jgit add FILE first"); }
     String name = who("name", "JGIT_NAME");
     String email = who("email", "JGIT_EMAIL");
-    if name.len == 0 || email.len == 0 { return fail("who are you? JGIT_NAME and JGIT_EMAIL, or [user] name and email in ~/.gitconfig"); }
+    if (name.len == 0 || email.len == 0) && Sys::isatty(0) == 0 {          // at a terminal (0 = a terminal): ask now, once
+        cout << "jgit does not know who you are yet.\n";
+        String[] la = arr(2);
+        la.push("jgit"); la.push("login");
+        if do_login(la) != 0 { return 1; }
+        name = who("name", "JGIT_NAME");
+        email = who("email", "JGIT_EMAIL");
+    }
+    if name.len == 0 || email.len == 0 { return fail("who are you? run  jgit login  (or JGIT_NAME and JGIT_EMAIL, or [user] in ~/.gitconfig)"); }
     // sorted by path for the tree
     int n = ix_path.len;
     ix_save();
@@ -691,10 +705,37 @@ int do_commit(String[] a) {
     String short_ref = ref;
     if ref.starts_with("refs/heads/") { short_ref = ref.slice(11, ref.len); }
     cout << "[" << short_ref << " " << hex.slice(0, 7) << "] " << msg << "\n";
+    cout << "  author: " << name << " <" << email << ">   (change it: jgit login)\n";
     return 0;
 }
 
 // ---------------------------------------------------------------- init, status, log, cat, branch, switch
+// jgit login: who you are, asked once (name and email), kept in ~/.jgit/user; the commits use it. jgit login --name N --email E asks nothing.
+int do_login(String[] a) {
+    String name = "";
+    String email = "";
+    for i in 2..a.len - 1 {
+        if a[i] == "--name" { name = a[i + 1]; }
+        if a[i] == "--email" { email = a[i + 1]; }
+    }
+    if name.len == 0 {
+        String old = who("name", "JGIT_NAME");
+        if old.len > 0 { cout << "now: " << old << " <" << who("email", "JGIT_EMAIL") << ">\n"; }
+        cout << "your name: ";
+        name = Input::line().trim();
+    }
+    if email.len == 0 {
+        cout << "your email: ";
+        email = Input::line().trim();
+    }
+    if name.len == 0 || email.len == 0 || !email.contains("@") { return fail("a name and an email (with @) are needed"); }
+    String dir = home_dir() + "/.jgit";
+    Dir::make_all(dir);
+    Fs::write_text(dir + "/user", "[user]\n    name = " + name + "\n    email = " + email + "\n");
+    cout << "ok: commits are made as " << name << " <" << email << ">\n";
+    return 0;
+}
+
 int do_init(String[] a) {
     String dir = ".";
     if a.len > 2 { dir = a[2]; }
@@ -940,9 +981,10 @@ int main() {
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jgit " << jgit_version() << "\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
         cout << "jgit: git in J2K (the repositories are the repositories of git)\n";
-        cout << "  jgit init [DIR] | add PATH... | commit -m \"text\" | status | log [-n N] | diff | cat HASH|REF | branch [NAME] | switch NAME\n";
+        cout << "  jgit login | init [DIR] | add PATH... | commit -m \"text\" | status | log [-n N] | diff | cat HASH|REF | branch [NAME] | switch NAME\n";
         return 0;
     }
+    if a[1] == "login" { return do_login(a); }
     if a[1] == "init" { return do_init(a); }
     if !find_repo() { return fail("this is not a repository (jgit init)"); }
     if a[1] == "add" { return do_add(a); }

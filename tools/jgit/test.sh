@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; export J2K_PATH="${J2K_PATH:-$HOME/Jcmp/build/libs}"; sh b
 J="$PWD/_out/jgit"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export JGIT_NAME="Tester" JGIT_EMAIL="t@example.org" HOME="$T/home"; mkdir -p "$HOME"
-[ "$("$J" --version)" = "jgit 0.2.0" ] || { echo "jgit test: version"; exit 1; }
+[ "$("$J" --version)" = "jgit 0.3.0" ] || { echo "jgit test: version"; exit 1; }
 cd "$T"; "$J" init r1 > /dev/null; cd r1
 "$J" status > /dev/null 2>&1 && true
 mkdir -p src/deep; echo hello > a.txt; echo world > src/b.txt; printf '#!/bin/sh\necho x\n' > src/run.sh; chmod 755 src/run.sh; head -c 3000 /dev/urandom > bin.dat; echo deep > src/deep/c.txt
@@ -66,4 +66,17 @@ open('big.txt','w').write('\n'.join(ls))
     git branch -q old HEAD~2; "$J" switch old > /dev/null || { echo "jgit test: switch in a clone"; exit 1; }
     [ "$(git rev-parse --abbrev-ref HEAD)" = old ] && [ -z "$(git status --short)" ] || { echo "jgit test: after switch in a clone"; exit 1; }
 fi
+# login: kept in ~/.jgit/user, used by commit; without it (and without env, repo config, ~/.gitconfig) commit says to log in
+(
+  unset JGIT_NAME JGIT_EMAIL; export HOME="$T/home2"; mkdir -p "$HOME"; cd "$T"; "$J" init r3 >/dev/null; cd r3; echo a > a.txt; "$J" add a.txt
+  "$J" commit -m first </dev/null 2>"$T/err.txt" && { echo "jgit test: commit without identity must fail"; exit 1; }
+  grep -q "jgit login" "$T/err.txt" || { echo "jgit test: the message must name jgit login"; exit 1; }
+  "$J" login --name "Ann Lee" --email ann@example.org | grep -q "Ann Lee" || { echo "jgit test: login"; exit 1; }
+  [ -f "$HOME/.jgit/user" ] || { echo "jgit test: ~/.jgit/user"; exit 1; }
+  "$J" commit -m first | grep -q "author: Ann Lee <ann@example.org>" || { echo "jgit test: commit uses the login"; exit 1; }
+  "$J" log | grep -q "Author: Ann Lee <ann@example.org>" || { echo "jgit test: log shows the login"; exit 1; }
+  "$J" login --name Bob --email nomail >/dev/null 2>&1 && { echo "jgit test: a bad email"; exit 1; }
+  true
+) || exit 1
 echo "jgit tests: ok"
+

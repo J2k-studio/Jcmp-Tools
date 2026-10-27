@@ -6,7 +6,7 @@ jbox 0.7.1
 jc 0.2.0
 jcmp 1.2.0.0
 jget 0.9.1
-jgit 0.2.0
+jgit 0.3.0
 jpty 0.1.1
 jsh 0.9.10
 jstore 0.1.0
