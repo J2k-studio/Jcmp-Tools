@@ -33,7 +33,7 @@
 #import <deflate>
 using stdlib;
 
-String jget_version() { return "0.9.0"; }
+String jget_version() { return "0.9.1"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -925,6 +925,7 @@ int cmd_tool(String[] av, int at) {
             String name = order[i];
             String have = tool_installed_version(dir, name);
             if have.len == 0 && name != "jsh" { continue; }                                      // not installed: update does not add tools (jsh is the base)
+            if have == "unknown" && name != "jsh" { continue; }                                  // a file that jget did not install (no marker, no NAME X.Y.Z): leave it alone
             String lat = tool_latest(vtext, name);
             if lat.len == 0 {                                                                    // no versions.txt: ask the tool itself
                 String lv0 = dir + "/." + name + ".latest";

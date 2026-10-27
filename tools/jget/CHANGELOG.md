@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.1
+* **Changed:** `update` never installs a tool that is not there, and leaves alone a file that jget did not install (python without the marker, a program of the system); only `install` puts a tool first.
+
 ## 0.9.0
 * **Added:** `jget tool update [-n]` installs **jsh and the installed tools that have a newer version** and nothing else (`-n` only shows the list); it asks one file, `versions.txt` of Jcmp-Tools, for the newest versions. The old `jget tool all` means the same now (it no longer installs every tool). `jget tool unstall NAME` removes a tool and the files that came with it (`xr` and `xaiorin` with neuron, `python3` and `pip` with python, the Library with jcmp); jget and jsh refuse to be removed.
 * **Added:** jget writes the marker `.NAME.version` when it installs a tool, so the version of a tool that does not print `NAME X.Y.Z` (python) is known. `JCMPTOOLS_RAW` and `JCMPTOOLS_DL` name another place for the files and the releases of Jcmp-Tools (a mirror, the tests).
