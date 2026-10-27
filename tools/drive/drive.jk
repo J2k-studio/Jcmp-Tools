@@ -1,7 +1,7 @@
 // drive: the drives of Jaric (f:/ 0:/ r:/ and the ones you make). The list is kept in ~/.jsh_drives, the file that jsh reads.
 #import <stdlib>
 
-String drive_version() { return "0.3.0"; }
+String drive_version() { return "0.3.1"; }
 
 String env_or(String name, String fallback) {
     switch Env::get(name) {
@@ -335,7 +335,7 @@ int do_check() {
 int main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "drive " << drive_version() << "\n"; return 0; }
-    if a.len > 1 && (a[1] == "--help" || a[1] == "-h" || a[1] == "help") {
+    if a.len > 1 && (a[1] == "--help" || a[1] == "-h" || a[1] == "-help" || a[1] == "help") {
         cout << "drive: the drives of Jaric (f:/ 0:/ r:/ and your own)\n";
         cout << "  drive                       the list         drive NAME            where a drive is, how many entries\n";
         cout << "  drive -p :/bin              the real path of a path with a drive (-p, -path, -part);   drive -d /real/path   the path with the drive\n";
@@ -366,6 +366,7 @@ int main() {
         return 0;
     }
     if a[1] == "check" { return do_check(); }
+    if a[1].starts_with("-") { cerr << "drive: unknown option " << a[1] << "  (drive --help)\n"; return 2; }
     if a.len == 2 { return do_info(a[1]); }
     cerr << "usage: drive | drive NAME | drive new NAME [PATH] | drive remove NAME [-d]   (drive --help)\n";
     return 2;

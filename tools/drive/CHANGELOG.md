@@ -1,5 +1,8 @@
 # drive changelog
 
+## 0.3.1
+* **Fixed:** `drive -help` was read as the name of a drive ("no drive -help"); `-help` now shows the help like `--help` and `-h`, and an unknown option says so and exits with 2.
+
 ## 0.3.0
 * **Added:** `drive -p PATH` (also `-path`, `-part`) prints the real path of a path with a drive (`drive -p :/bin`, `drive -p 0:/Music`, `drive -p work:/a`); `drive -d REALPATH` prints the path with the drive (`/data/.../home/bin` gives `:/bin`).
 

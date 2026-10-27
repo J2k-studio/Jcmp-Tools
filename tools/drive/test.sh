@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 J="$PWD/_out/drive"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home"; mkdir -p "$HOME" "$T/music"
-[ "$("$J" --version)" = "drive 0.3.0" ] || { echo "drive test: version"; exit 1; }
+[ "$("$J" --version)" = "drive 0.3.1" ] || { echo "drive test: version"; exit 1; }
 "$J" | grep -q "^f:/  $HOME" || { echo "drive test: list shows f"; exit 1; }
 "$J" new songs "$T/music" | grep -q "songs:/ is $T/music" || { echo "drive test: new with a folder"; exit 1; }
 "$J" new work >/dev/null; [ -d "$HOME/drives/work" ] || { echo "drive test: new makes a folder"; exit 1; }
@@ -20,6 +20,10 @@ export HOME="$T/home"; mkdir -p "$HOME" "$T/music"
 "$J" remove songs >/dev/null; [ -d "$T/music" ] || { echo "drive test: remove keeps the folder"; exit 1; }
 "$J" remove work -d >/dev/null; [ ! -e "$HOME/drives/work" ] || { echo "drive test: remove -d"; exit 1; }
 "$J" | grep -q "songs\|work" && { echo "drive test: the list must be empty of made drives"; exit 1; }
+# help and unknown options
+"$J" -help | grep -q "drive new NAME" || { echo "drive test: -help"; exit 1; }
+"$J" --help | grep -q "drive -p" || { echo "drive test: --help"; exit 1; }
+"$J" -nonsense >/dev/null 2>&1 && { echo "drive test: an unknown option must fail"; exit 1; }
 # paths
 [ "$("$J" -p :/bin)" = "$HOME/bin" ] || { echo "drive test: -p :/bin"; exit 1; }
 [ "$("$J" -part f:/a/b)" = "$HOME/a/b" ] || { echo "drive test: -part f:"; exit 1; }
