@@ -24,7 +24,11 @@ String music_dir() {
         Option::Some(h): { home = h; }
         Option::None: { home = "."; }
     }
-    return Path::join(home, "music");
+    // the folder is hidden: ~/.music (an older ~/music is moved there once, so the songs are kept and the phone's gallery does not list them)
+    String hidden = Path::join(home, ".music");
+    String old = Path::join(home, "music");
+    if !Dir::exists(hidden) && Dir::exists(old) { Fs::rename(old, hidden); }
+    return hidden;
 }
 
 bool is_audio(String name) {
@@ -818,6 +822,7 @@ void cmd_init() {
     cmd_name.push("stop"); cmd_help.push("stop the sound");
     cmd_name.push("queue"); cmd_help.push("show the songs");
     cmd_name.push("lyrics"); cmd_help.push("show the lyrics  (/lyrics get fetches them from the web)");
+    cmd_name.push("scan"); cmd_help.push("find songs everywhere (home and the storage of the phone), at least SECONDS long: /scan -s 60  [PATH ...]");
     cmd_name.push("dir"); cmd_help.push("browse folders and play a song from any folder  (/dir PATH)");
     cmd_name.push("cd"); cmd_help.push("go to a folder  (/cd PATH;  ~ :/ f: 0: r: work)");
     cmd_name.push("pwd"); cmd_help.push("the folder you are in;  !command runs a shell command there");
@@ -843,7 +848,7 @@ String g_note;                          // one line under the panel: what happen
 
 // ---- a picker: a list to choose from (arrows, type to narrow, Enter, Esc)
 bool g_pk_on;
-int g_pk_kind;                          // 1 songs, 2 catalog, 3 archive results, 4 folders
+int g_pk_kind;                          // 1 songs, 2 catalog, 3 archive results, 4 folders, 5 songs found by /scan
 String g_pk_title;
 String[] g_pk_show;
 String[] g_pk_val;
@@ -975,6 +980,167 @@ void shell_line(String cmdline) {
     g_note = "output of: " + cmdline + "   (Tab: songs / lyrics / output)";
 }
 
+// ---------------------------------------------------------------- /scan: songs from everywhere, with a shortest length
+// The length without playing: wav from its header, mp3 from the first frame (or the Xing / Info tag of a variable rate), any other format from the size at 128 kbit/s
+// (shown with a ~).  Returns seconds; g_est tells if it is a guess.
+bool g_est;
+
+int be32(char^ b, int at) { return ((b[at] & 255) << 24) | ((b[at + 1] & 255) << 16) | ((b[at + 2] & 255) << 8) | (b[at + 3] & 255); }
+int le32(char^ b, int at) { return (b[at] & 255) | ((b[at + 1] & 255) << 8) | ((b[at + 2] & 255) << 16) | ((b[at + 3] & 255) << 24); }
+
+int song_seconds(String path, int size) {
+    g_est = true;
+    String l = path.lower();
+    char^ buf = (char^)Mem::alloc(8192);
+    int fd = Sys::open_read(path.c());
+    if fd < 0 { Mem::free(buf); return size / 16000; }
+    int got = Sys::read(fd, buf, 8192);
+    int secs = size / 16000;                                  // 128 kbit/s is 16000 bytes a second
+    if got >= 44 && l.ends_with(".wav") && buf[0] == 'R' && buf[1] == 'I' && buf[8] == 'W' {
+        int rate = le32(buf, 28);
+        if rate > 0 { secs = (size - 44) / rate; g_est = false; }
+    } else if got >= 10 && l.ends_with(".mp3") {
+        int at = 0;
+        if buf[0] == 'I' && buf[1] == 'D' && buf[2] == '3' {
+            at = 10 + (((buf[6] & 127) << 21) | ((buf[7] & 127) << 14) | ((buf[8] & 127) << 7) | (buf[9] & 127));
+        }
+        int tag = at;
+        if at >= 8192 {
+            // the tag is big (a picture): read the place after it
+            Sys::close(fd);
+            fd = Sys::open_read(path.c());
+            Sys::call(62, fd, at, 0, 0, 0, 0);                  // lseek
+            got = Sys::read(fd, buf, 8192);
+            at = 0;
+        }
+        int i = at;
+        while i + 4 < got && !((buf[i] & 255) == 255 && (buf[i + 1] & 224) == 224 && ((buf[i + 1] >> 1) & 3) == 1) { i += 1; }
+        if i + 4 < got {
+            int ver = (buf[i + 1] >> 3) & 3;                    // 3 = MPEG 1, 2 = MPEG 2, 0 = MPEG 2.5
+            int bri = (buf[i + 2] >> 4) & 15;
+            int sri = (buf[i + 2] >> 2) & 3;
+            int mono = 0;
+            if ((buf[i + 3] >> 6) & 3) == 3 { mono = 1; }
+            int kbps = 0;
+            int hz = 0;
+            if bri > 0 && bri < 15 && sri < 3 && ver != 1 {
+                if ver == 3 {
+                    int t1[15] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
+                    kbps = t1[bri];
+                    int h1[3] = {44100, 48000, 32000};
+                    hz = h1[sri];
+                } else {
+                    int t2[15] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160};
+                    kbps = t2[bri];
+                    int h2[3] = {22050, 24000, 16000};
+                    hz = h2[sri];
+                    if ver == 0 { hz = hz / 2; }
+                }
+                int spf = 1152;
+                if ver != 3 { spf = 576; }
+                int audio = size - (tag + i - at);
+                if kbps > 0 { secs = audio * 8 / (kbps * 1000); g_est = false; }
+                // a variable rate file has a Xing / Info tag with the number of frames
+                int side = 32;
+                if ver == 3 && mono == 1 { side = 17; }
+                if ver != 3 { side = 17; if mono == 1 { side = 9; } }
+                int x = i + 4 + side;
+                if x + 12 < got && ((buf[x] == 'X' && buf[x + 1] == 'i') || (buf[x] == 'I' && buf[x + 1] == 'n')) && (buf[x + 7] & 1) == 1 && hz > 0 {
+                    int frames = be32(buf, x + 8);
+                    secs = frames * spf / hz;
+                    g_est = false;
+                }
+            }
+        }
+    }
+    Sys::close(fd);
+    Mem::free(buf);
+    return secs;
+}
+
+String[] sc_path;                       // the songs found
+int[] sc_secs;
+bool[] sc_est;
+int sc_dirs;
+
+void scan_dir(String dir, int depth, int minsec, int limit) {
+    if depth > 8 || sc_path.len >= limit { return; }
+    switch Dir::list(dir) {
+        Result::Ok(names): {
+            for i in 0..names.len {
+                if sc_path.len >= limit { return; }
+                String n = names[i];
+                if n.len == 0 { continue; }
+                String p = Path::join(dir, n);
+                if Dir::exists(p) {
+                    if n[0] == '.' && n != ".music" { continue; }                // hidden folders (not ours), caches
+                    if n == "Android" || n == "proc" || n == "sys" || n == "dev" || n == "node_modules" { continue; }
+                    sc_dirs += 1;
+                    scan_dir(p, depth + 1, minsec, limit);
+                } else if is_audio(n) {
+                    int size = 0;
+                    switch Fs::size(p) { Result::Ok(v): { size = v; } Result::Err(e): { size = 0; } }
+                    if size < 20000 { continue; }                                // a click or a ringtone, not a song
+                    int sec = song_seconds(p, size);
+                    if sec >= minsec {
+                        sc_path.push(p + "");
+                        sc_secs.push(sec);
+                        sc_est.push(g_est);
+                    }
+                }
+            }
+        }
+        Result::Err(e): { }
+    }
+}
+
+// /scan [-s SECONDS] [PATH ...]: look for songs at least SECONDS long (default 60) in the home folder and the storage of the phone, or in the PATHs
+int scan_minsec;
+void scan_collect(String arg) {
+    int minsec = 60;
+    String[] words = arg.split(" ");
+    String[] roots = arr(4);
+    int i = 0;
+    while i < words.len {
+        String w = words[i].trim();
+        if w == "-s" && i + 1 < words.len { minsec = words[i + 1].to_int(); i += 2; continue; }
+        if w.len > 0 { roots.push(expand_path(w)); }
+        i += 1;
+    }
+    if roots.len == 0 {
+        String home = "/";
+        switch Env::get("HOME") { Option::Some(h): { home = h; } Option::None: { } }
+        roots.push(home + "");
+        String sd = "/storage/emulated/0";
+        if !Dir::exists(sd) { sd = "/sdcard"; }
+        if Dir::exists(sd) { roots.push(sd + ""); }
+    }
+    sc_path = arr(64);
+    sc_secs = arr(64);
+    sc_est = arr(64);
+    sc_dirs = 0;
+    scan_minsec = minsec;
+    for r in 0..roots.len { scan_dir(roots[r], 0, minsec, 3000); }
+}
+
+void do_scan(String arg) {
+    scan_collect(arg);
+    int minsec = scan_minsec;
+    if sc_path.len == 0 { g_note = "no song of " + str(minsec) + " seconds or more in " + str(sc_dirs) + " folders  (/scan -s 30  looks for shorter ones)"; return; }
+    pk_open(5, "Songs of " + str(minsec) + " seconds or more: " + str(sc_path.len) + " found in " + str(sc_dirs) + " folders (~ = a guess from the size)");
+    for k in 0..sc_path.len {
+        String mark = "";
+        if sc_est[k] { mark = "~"; }
+        String base = sc_path[k];
+        int sl = 0 - 1;
+        for q in 0..base.len { if base[q] == '/' { sl = q; } }
+        String file = base.slice(sl + 1, base.len);
+        String where = base.slice(0, sl + 1);
+        g_pk_show.push(strip_ext(file) + "   " + mark + clock(sc_secs[k] * 1000) + "   " + where);
+        g_pk_val.push(sc_path[k] + "");
+    }
+}
+
 // ---- the web search of the Internet Archive, into a picker
 bool archive_picker(String words) {
     String q = "(" + words + ") AND mediatype:audio";
@@ -1077,7 +1243,8 @@ void run_command(String line) {
     String arg = "";
     int sp = line.find(" ");
     if sp >= 0 { cmd = line.slice(0, sp); arg = line.slice(sp + 1, line.len).trim(); }
-    if cmd == "dir" || cmd == "ls" {
+    if cmd == "scan" { g_note = "scanning ..."; do_scan(arg); }
+    else if cmd == "dir" || cmd == "ls" {
         String ep = g_cwd;
         if arg.len > 0 { ep = expand_path(arg); }
         bool is_dir = Dir::exists(ep);
@@ -1189,6 +1356,7 @@ void pk_choose() {
     String v = g_pk_val[i];
     int kind = g_pk_kind;
     g_pk_on = false;
+    if kind == 5 { play_path(v); return; }
     if kind == 4 {
         if v == ".." { dir_picker(Path::join(g_cwd, "..")); }
         else if v.ends_with("/") { dir_picker(Path::join(g_cwd, v)); }
@@ -1495,8 +1663,23 @@ int do_lyrics(String[] a) {
     return fetch_lyrics(g_files[s], q);
 }
 
+// mujic scan [-s SECONDS] [PATH ...]: the same search, printed (length, path), for scripts
+int do_scan_cli(String[] a) {
+    String arg = "";
+    for i in 2..a.len { arg = arg + a[i] + " "; }
+    g_cwd = music_dir();
+    scan_collect(arg.trim());
+    for k in 0..sc_path.len {
+        String mark = " ";
+        if sc_est[k] { mark = "~"; }
+        cout << mark << clock(sc_secs[k] * 1000) << "  " << sc_path[k] << "\n";
+    }
+    cerr << sc_path.len << " songs of " << scan_minsec << " seconds or more in " << sc_dirs << " folders\n";
+    return 0;
+}
+
 int main() {
-    String VERSION = "0.4.1";
+    String VERSION = "0.5.0";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
@@ -1519,6 +1702,7 @@ int main() {
     }
     if args.len > 1 {
         String c = args[1];
+        if c == "scan" { return do_scan_cli(args); }
         if c == "list" { return do_list(); }
         if c == "catalog" { return do_catalog(); }
         if c == "get" { return do_get(args); }
