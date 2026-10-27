@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; export J2K_PATH="${J2K_PATH:-$HOME/Jcmp/build/libs}"; sh b
 N="$PWD/_out/neuron"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T"
-[ "$("$N" --version)" = "neuron 0.4.0" ] || { echo "neuron test: version"; exit 1; }
+[ "$("$N" --version)" = "neuron 0.4.1" ] || { echo "neuron test: version"; exit 1; }
 i=0; : > "$T/chat.txt"
 while [ $i -lt 40 ]; do printf 'You: hello\nBot: Hi! I am your helper.\nYou: bye\nBot: Goodbye!\n' >> "$T/chat.txt"; i=$((i+1)); done
 "$N" train "$T/chat.txt" -o "$T/chat.jw" -k 10 -d 6 -h 48 -e 6 -r 0.08 > "$T/train.txt" || { cat "$T/train.txt"; echo "neuron test: train"; exit 1; }

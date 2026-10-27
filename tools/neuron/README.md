@@ -24,7 +24,7 @@ The program `neuron.jk` is the trainer: it is short, and it is yours to change (
 xr start | stop | status | reset      the background program: keeps the model in memory and remembers the talk
 xr "what is your name"                one answer;   xr  alone = a chat
 ```
-Settings (`jash set xr.port 7791`): `port` (7790), `temperature` (0.7), `max` (bytes of an answer, 200), `autostart` (on / off: the Jaric app starts `xr start` when it opens; `jaric setting`, section "assistant").
+Settings (`jash set xr.port 7791`; `free_text` off: when no question of the talk is like yours, `xr` says "I do not know" instead of letting the small model write noise; `on` brings the writing back): `port` (7790), `temperature` (0.7), `max` (bytes of an answer, 200), `autostart` (on / off: the Jaric app starts `xr start` when it opens; `jaric setting`, section "assistant").
 
 ## The tool and the library are two things
 `jget tool neuron` installs this **program** (train, run, chat, xr). `jget -li install neuron` installs the **library** `<neuron>` (a J2K source file with `Tensor` and `Network`, for your own programs). The project of `makej init -ai` needs only the program, and its steps install it by themselves.

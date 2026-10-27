@@ -17,7 +17,7 @@
 #import <math>
 #import <neuron>
 
-String neuron_version() { return "0.4.0"; }
+String neuron_version() { return "0.4.1"; }
 
 int fail(String msg) {
     cerr << "neuron: " << msg << "\n";
@@ -547,6 +547,9 @@ String reply_to(CharLm m, String talk, String question, int n, double t) {
     if jash_get("xr", "search", "on") != "off" {
         String found = search_answer(m, question, jash_get("xr", "match", "0.5").to_double());
         if found.len > 0 { return found; }
+        // nothing is like the question: a model with a talk (pairs) says so; free writing of a small model is noise (setting [xr] free_text = on brings it back)
+        String free = jash_get("xr", "free_text", "off");
+        if m.pq.len > 0 && free != "on" { return "I do not know that. Ask me about the tools of Jaric (for example: how do I install a tool)."; }
     }
     return lm_write(m, talk, n, t, true);
 }

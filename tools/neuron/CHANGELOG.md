@@ -1,5 +1,8 @@
 # neuron changelog
 
+## 0.4.1
+* **Changed:** `xr` answers "I do not know that. Ask me about the tools of Jaric ..." when no question of the talk is like yours, instead of the noise that the small model writes (`xr what` printed letters in a mess). A model without a talk still writes freely; `jash set xr.free_text on` brings the writing back for a model with a talk.
+
 ## 0.4.0
 * **Added:** the assistant looks for the answer before it asks the model. `neuron train` keeps the pairs `You: question` / `Bot: answer` of the text inside the `.jw` file (a line `pairs N` and then one line for each); `xr`, `xr start` and `neuron chat` find the question that is the most like the new one (how many groups of three letters they share, after small letters and without marks) and give its answer when the likeness is 0.5 or more; else the model writes on as before. So "how to stop a program?" gets the answer of "how do i stop a program". Settings in `~/.jash`: `[xr] search = on | off`, `match = 0.5`. Old models without pairs work as before.
 * **Added:** `neuron eval MODEL.jw TEST.txt` measures how many of the test questions (never learned in that form) are answered right: by the search alone, by the model alone and by both as xr does it.
