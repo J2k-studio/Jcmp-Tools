@@ -1,5 +1,7 @@
 # Training plan: from a toy to an assistant that answers (plan, adjustable)
 
+**Status 2026-10-27 (measured with `neuron eval example/xaiorin/assistant.jw example/xaiorin/data/test.txt`, 1104 questions in forms never used for learning): both (as xr) 98 % right, was 56 %.** What changed: the data (`make_data.py`: answers brought up to date with `jc`, 20 more topics, 20 questions outside the topic that must get "I do not know", 16 forms of each question instead of 10, 2944 pairs). The model alone is still 0 % (it writes text byte by byte and does not generalise); the answers come from the search before the model. Training: `neuron train data/chat.txt -o assistant.jw -k 16 -d 12 -h 128 -e 8 -r 0.02`, 15 minutes on the phone. A tool older than 0.4.0 saves a model WITHOUT the pairs (then 0 %): use `neuron --version` before training.
+
 **Where we are (measured, 2026-10-23, `neuron eval`):** the model alone answers 19% of questions it never saw in that form (it has to write the whole answer exactly); the search before the model answers 96%. The model is a small network over the last 16 bytes (one hidden layer, no attention), so it repeats sentences it saw; it does not understand a question put in other words. More rounds do not change that: the loss on the learned text is already 0.08-0.11.
 
 ## What "real training" means here, step by step
