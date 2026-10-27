@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.9.9"; }
+String jsh_version() { return "0.9.10"; }
 String[] history;
 int last_status;
 int running;
@@ -705,7 +705,7 @@ int drive_command(String[] a) {
         cout << "removed the drive " << name << "\n";
         return 0;
     }
-    cerr << "usage: drive | drive new NAME PATH | drive remove NAME\n";
+    cerr << "usage: drive | drive new NAME PATH | drive remove NAME   (jc install drive: more)\n";
     return 2;
 }
 
@@ -1540,7 +1540,11 @@ bool builtin(String[] a) {
         bcode = run_file(a[1]);
         return true;
     }
-    if name == "drive" { bcode = drive_command(a); return true; }
+    if name == "drive" { dr_ready = 0; }                      // the list is read again (the program drive may change it)
+    if name == "drive" {
+        bool tool = have_program("drive");
+        if !tool { bcode = drive_command(a); return true; }
+    }     // with the tool drive installed (jc install drive) it does the work
     if name == "start" {                                         // start PROGRAM [args]: a new session (tab) of the Jaric app runs it
         bcode = 0;
         if a.len < 2 { cout << "start PROGRAM [arguments]   run a program in a new tab of the Jaric app (other terminals: nothing happens)\n"; return true; }

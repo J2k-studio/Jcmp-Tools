@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.10
+* **Changed:** when the tool `drive` is installed (`jc install drive`) the command `drive` is that program (a new drive can get its own new folder: `drive new NAME`); the built-in stays for a shell without it. The drive list is read again after every `drive`.
+
 ## 0.9.9
 * **Fixed:** a long grey guess (a long old line of the history) wrapped over the end of the row and every key scrolled the screen and printed the line again and again; the grey text is now cut to the room that is left on the row (Tab still takes the whole guess).
 

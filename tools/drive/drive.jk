@@ -1,0 +1,174 @@
+// drive: the drives of Jaric (f:/ 0:/ r:/ and the ones you make). The list is kept in ~/.jsh_drives, the file that jsh reads.
+#import <stdlib>
+
+String drive_version() { return "0.1.0"; }
+
+String env_or(String name, String fallback) {
+    switch Env::get(name) {
+        Option::Some(v): { if v.len > 0 { return v; } }
+        Option::None: { }
+    }
+    return fallback;
+}
+
+String list_file() { return env_or("HOME", "/") + "/.jsh_drives"; }
+String drives_root() { return env_or("HOME", "/") + "/drives"; }       // where a new drive without a folder is made
+
+int fail(String msg) { cerr << "drive: " << msg << "\n"; return 1; }
+
+bool name_ok(String n) {
+    if n.len == 0 || n.len > 12 { return false; }
+    for i in 0..n.len {
+        char c = n[i];
+        bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+        if !ok { return false; }
+    }
+    return true;
+}
+
+String read_list() {
+    if !Fs::exists(list_file()) { return ""; }
+    switch Fs::read_text(list_file()) {
+        Result::Ok(t): { return t; }
+        Result::Err(e): { return ""; }
+    }
+    return "";
+}
+
+// the path of a drive made by hand, "" when there is none
+String made_path(String name) {
+    String[] ls = read_list().split("\n");
+    for i in 0..ls.len {
+        String ln = ls[i].trim();
+        if ln.starts_with(name + " ") { return ln.slice(name.len + 1, ln.len).trim() + ""; }
+    }
+    return "";
+}
+
+String system_path(String name) {
+    if name == "f" { return env_or("HOME", "/"); }
+    if name == "r" { return "/"; }
+    if name == "0" {
+        if Dir::exists("/storage/emulated/0") { return "/storage/emulated/0"; }
+        if Dir::exists("/sdcard") { return "/sdcard"; }
+    }
+    return "";
+}
+
+String path_of(String name) {
+    String p = system_path(name);
+    if p.len > 0 { return p; }
+    return made_path(name);
+}
+
+int count_entries(String dir) {
+    switch Dir::list(dir) {
+        Result::Ok(names): { return names.len; }
+        Result::Err(e): { return 0; }
+    }
+    return 0;
+}
+
+int do_list() {
+    cout << ":/   home (the same as ~/ and f:/)\n";
+    String[] sys = "f 0 r".split(" ");
+    for i in 0..sys.len {
+        String p = system_path(sys[i]);
+        if p.len > 0 { cout << sys[i] << ":/  " << p << "\n"; }
+    }
+    String[] ls = read_list().split("\n");
+    for i in 0..ls.len {
+        String ln = ls[i].trim();
+        int sp = ln.find(" ");
+        if sp > 0 { cout << ln.slice(0, sp) << ":/  " << ln.slice(sp + 1, ln.len).trim() << "\n"; }
+    }
+    return 0;
+}
+
+int do_info(String name) {
+    String p = path_of(name);
+    if p.len == 0 { return fail("no drive " + name + " (drive shows them)"); }
+    cout << name << ":/  " << p << "\n";
+    if !Dir::exists(p) { cout << "  the folder is gone\n"; return 1; }
+    cout << "  " << count_entries(p) << " entries\n";
+    return 0;
+}
+
+void write_without(String name, String add) {
+    String out = "";
+    String key = name + " ";
+    String[] ls = read_list().split("\n");
+    for i in 0..ls.len {
+        String ln = ls[i].trim();
+        if ln.len > 0 && !ln.starts_with(key) { out = out + ln + "\n"; }
+    }
+    if add.len > 0 { out = out + name + " " + add + "\n"; }
+    Fs::write_text(list_file(), out);
+}
+
+int do_new(String[] a) {
+    String name = a[2];
+    if !name_ok(name) { return fail("the name is letters, digits and _ (up to 12)"); }
+    if system_path(name).len > 0 || name == "f" || name == "r" || name == "0" { return fail(name + " is a drive of the system and cannot be changed"); }
+    if made_path(name).len > 0 { return fail("the drive " + name + " is there already (drive remove " + name + " first)"); }
+    String path = "";
+    if a.len >= 4 {
+        path = a[3];
+        if !path.starts_with("/") { return fail("the folder must be a full path (it starts with /)"); }
+        if !Dir::exists(path) { return fail(path + " is not a folder (drive new " + name + " makes a new one by itself)"); }
+    } else {
+        path = drives_root() + "/" + name;
+        Dir::make_all(path);
+        if !Dir::exists(path) { return fail("cannot make the folder " + path); }
+    }
+    write_without(name, path);
+    cout << name << ":/ is " << path << "\n";
+    return 0;
+}
+
+void remove_tree(String dir) {
+    switch Dir::list(dir) {
+        Result::Ok(names): {
+            for i in 0..names.len {
+                String p = dir + "/" + names[i];
+                if Dir::exists(p) { remove_tree(p); } else { Fs::remove(p); }
+            }
+        }
+        Result::Err(e): { }
+    }
+    Dir::remove(dir);
+}
+
+// drive remove NAME: the drive goes; the folder stays.  With -d the folder goes too, but only a folder that  drive new  made (in ~/drives)
+int do_remove(String[] a) {
+    String name = a[2];
+    String p = made_path(name);
+    if p.len == 0 { return fail("no drive " + name + " was made"); }
+    bool del = false;
+    for i in 3..a.len { if a[i] == "-d" { del = true; } }
+    String mine = drives_root() + "/";
+    if del && !p.starts_with(mine) { return fail("-d deletes only folders that drive new made in " + drives_root()); }
+    write_without(name, "");
+    if del { remove_tree(p); cout << "removed the drive " << name << " and its folder\n"; return 0; }
+    cout << "removed the drive " << name << " (the folder " << p << " stays)\n";
+    return 0;
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "drive " << drive_version() << "\n"; return 0; }
+    if a.len > 1 && (a[1] == "--help" || a[1] == "-h" || a[1] == "help") {
+        cout << "drive: the drives of Jaric (f:/ 0:/ r:/ and your own)\n";
+        cout << "  drive                       the list         drive NAME            where a drive is, how many entries\n";
+        cout << "  drive new NAME              a new drive with a new folder (in ~/drives)\n";
+        cout << "  drive new NAME PATH         a drive of a folder that is there\n";
+        cout << "  drive remove NAME [-d]      take a drive away (-d: delete its folder too, only a folder that drive new made)\n";
+        return 0;
+    }
+    if a.len == 1 || a[1] == "list" { return do_list(); }
+    if a[1] == "new" && a.len >= 3 { return do_new(a); }
+    if a[1] == "remove" && a.len >= 3 { return do_remove(a); }
+    if a.len == 2 { return do_info(a[1]); }
+    cerr << "usage: drive | drive NAME | drive new NAME [PATH] | drive remove NAME [-d]   (drive --help)\n";
+    return 2;
+}

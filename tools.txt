@@ -18,3 +18,4 @@ neuron|Small AI models on the phone: train a language model, chat with it, make 
 jc|Install and run the programs of Jaric (.jc packages) with permissions: jc install, run, list, perm, remove
 jstore|The store of the programs of Jaric (.jc): list, install, update with a checksum for every download (needs jc)
 jgit|git written in J2K: init, add, commit, status, log, diff, branch, switch; the repositories are the repositories of git, also packed ones (no network yet)
+drive|New drives for Jaric: a new place or a name for a folder (drive, drive new NAME [PATH], drive remove NAME)

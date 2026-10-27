@@ -17,6 +17,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [jgit](tools/jgit/README.md) | git in J2K: `jgit init / add / commit / status / log / diff / branch / switch`; the format of the repository is the one of git, both read each other (packs are read; no network yet) (MPL-2.0) |
 | [jamanager](tools/jamanager/README.md) | the task manager: `ps`, `top`, `mem`, `kill`, `drives`, `cache` (reads /proc) (MPL-2.0) |
 | [jash](tools/jash/README.md) | the settings of your programs in one file `~/.jash` and the command `jash list / get / set / unset / edit / import / reset` (MPL-2.0) |
+| [drive](tools/drive/README.md) | new drives: `drive new NAME [PATH]`, `drive remove NAME`, the list of `f:/ 0:/ r:/` and yours (`~/.jsh_drives`) |
 | [neuron](tools/neuron/README.md) | small AI models on the phone, all in J2K: `neuron train / run / chat / install`; the assistant **xaiorin** (`xr`) runs in the background, answers `xr "question"` and can learn from the shell (off by default) |
 | [python](tools/python/README.md) | Python 3.14 (the official Android ARM64 build) started by a J2K launcher: `python3`, `pip`, ssl, sqlite3 |
 | [yt-dlp](tools/yt-dlp/README.md) | yt-dlp on that Python, for what you may download (mujic `/get ADDRESS` uses it) |
