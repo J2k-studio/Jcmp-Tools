@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 M="$PWD/_out/mujic"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export MUJIC_DIR="$T/m"; mkdir -p "$MUJIC_DIR"
-[ "$("$M" --version)" = "mujic 0.5.0" ] || { echo "mujic test: version"; exit 1; }
+[ "$("$M" --version)" = "mujic 0.6.0" ] || { echo "mujic test: version"; exit 1; }
 "$M" list | grep -q "no songs" || { echo "mujic test: an empty folder"; exit 1; }
 "$M" catalog | grep -q "sneaky-snitch" || { echo "mujic test: catalog"; exit 1; }
 printf 'ID3' > "$MUJIC_DIR/Song One.mp3"; printf 'ID3' > "$MUJIC_DIR/Song Two.mp3"
@@ -37,4 +37,15 @@ echo "$O60" | grep -q "h.wav" && { echo "mujic test: scan: a hidden folder must 
 H2="$T/h2"; mkdir -p "$H2/music"; printf 'ID3' > "$H2/music/Old Song.mp3"
 ( unset MUJIC_DIR; HOME="$H2" "$M" list | grep -q "Old Song" ) || { echo "mujic test: the old folder music is moved"; exit 1; }
 [ -d "$H2/.music" ] && [ ! -d "$H2/music" ] || { echo "mujic test: .music is the folder now"; exit 1; }
+# --add puts the found songs into the list for good (.library); mujic remove takes one out (the file stays); -f deletes the file
+H3="$T/h3"; mkdir -p "$H3/.music"
+( unset MUJIC_DIR; export HOME="$H3"
+  "$M" scan -s 60 --add "$S" 2>&1 | grep -q "3 added to the list" || { echo "mujic test: scan --add"; exit 1; }
+  "$M" list | grep -q "long" || { echo "mujic test: the scanned song is in the list"; exit 1; }
+  "$M" remove long | grep -q "removed long from the list" || { echo "mujic test: remove"; exit 1; }
+  "$M" list | grep -q "long" && { echo "mujic test: long must be out of the list"; exit 1; }
+  [ -f "$S/a/b/long.wav" ] || { echo "mujic test: remove must keep the file"; exit 1; }
+  "$M" remove -f x | grep -q "deleted x" || { echo "mujic test: remove -f"; exit 1; }
+  [ ! -e "$S/a/b/x.flac" ] || { echo "mujic test: remove -f deletes the file"; exit 1; }
+) || exit 1
 echo "mujic tests: ok"

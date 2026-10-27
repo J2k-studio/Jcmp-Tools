@@ -55,6 +55,16 @@ send(b'/pwd\r',0.6)
 check('/pwd', sys.argv[2].encode() in out)
 send(b'\x1b]7777;media;pause\x07',1.0)               # the button of the notification
 check('media pause button', out.count(b'audio;pause')+out.count(b'audio;resume')>=2)
+# /scan puts the songs it finds into the list at once; /remove takes one out (the file stays)
+import struct
+sd=sys.argv[2]+'/../scanui'; os.makedirs(sd,exist_ok=True)
+data=b'\0'*(16000*80)
+open(sd+'/Scanned Tune.wav','wb').write(b'RIFF'+struct.pack('<I',36+len(data))+b'WAVEfmt '+struct.pack('<IHHIIHH',16,1,1,8000,16000,2,16)+b'data'+struct.pack('<I',len(data))+data)
+send(('/scan -s 60 '+sd+'\r').encode(),1.5)
+txt=out.decode('utf8','replace')
+check('/scan puts the song in the list', 'Scanned Tune' in txt and 'new in the list' in txt)
+send(b'/remove scanned\r',0.8)
+check('/remove takes it out and the file stays', 'removed Scanned Tune from the list' in out.decode('utf8','replace') and os.path.exists(sd+'/Scanned Tune.wav'))
 send(b'\x1b',0.8)                                 # Esc on an empty box: leave
 check('Esc leaves', b'?1049l' in out)
 check('sound stopped', b'audio;stop' in out)

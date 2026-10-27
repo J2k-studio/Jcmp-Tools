@@ -46,6 +46,42 @@ String strip_ext(String name) {
 String[] g_files;                       // the file names in the folder
 bool g_files_ready;
 
+// a song of the list is a name in the music folder ("song.mp3", "folder/song.mp3") or, after /scan, a full path ("/storage/emulated/0/Music/song.mp3")
+String abs_of(String name) {
+    if name.starts_with("/") { return name + ""; }
+    return Path::join(music_dir(), name);
+}
+
+String song_title(String name) {                          // what the list shows: no folder of a full path, no extension
+    if !name.starts_with("/") { return strip_ext(name); }
+    int sl = 0 - 1;
+    for i in 0..name.len { if name[i] == '/' { sl = i; } }
+    return strip_ext(name.slice(sl + 1, name.len));
+}
+
+// the songs that /scan added: one full path a line in the file .library of the music folder
+String library_file() { return Path::join(music_dir(), ".library"); }
+
+String[] library_read() {
+    String[] out = arr(16);
+    if !Fs::exists(library_file()) { return out; }
+    switch Fs::read_text(library_file()) {
+        Result::Ok(t): {
+            String[] ls = t.split("\n");
+            for i in 0..ls.len { String ln = ls[i].trim(); if ln.len > 1 && ln.starts_with("/") { out.push(ln + ""); } }
+        }
+        Result::Err(e): { }
+    }
+    return out;
+}
+
+void library_write(String[] lines) {
+    String t = "";
+    for i in 0..lines.len { t = t + lines[i] + "\n"; }
+    Dir::make_all(music_dir());
+    Fs::write_text(library_file(), t);
+}
+
 void load_files() {
     g_files = arr(16);
     g_files_ready = true;
@@ -67,6 +103,8 @@ void load_files() {
             }
         }
     }
+    String[] lib = library_read();                           // the songs that /scan found, still there
+    for i in 0..lib.len { if Fs::exists(lib[i]) { g_files.push(lib[i] + ""); } }
 }
 
 // /mv NAME FOLDER: move a song into a folder of the music folder (made when it is not there); FOLDER "." brings it back
@@ -74,6 +112,7 @@ String move_song(String what, String folder) {
     int n = find_song(what);
     if n < 0 { return "no song like '" + what + "'"; }
     String file = g_files[n];
+    if file.starts_with("/") { return "this song is not in the music folder (it came from /scan): /remove takes it out of the list"; }
     String base = file;
     int slash = -1;
     for i in 0..file.len { if file[i] == '/' { slash = i; } }
@@ -106,7 +145,7 @@ int find_song(String what) {
         if n >= 0 && n < g_files.len { return n; }
     }
     String w = what.lower();
-    for i in 0..g_files.len { if strip_ext(g_files[i]).lower() == w { return i; } }
+    for i in 0..g_files.len { if song_title(g_files[i]).lower() == w { return i; } }
     for i in 0..g_files.len { if g_files[i].lower().contains(w) { return i; } }
     return -1;
 }
@@ -306,7 +345,7 @@ void lyrics_parse(String text) {
 
 bool lyrics_load_for(String file) {
     lyrics_clear();
-    String base = Path::join(music_dir(), strip_ext(file));
+    String base = strip_ext(abs_of(file));
     for i in 0..2 {
         String path = base + ".lrc";
         if i == 1 { path = base + ".txt"; }
@@ -354,7 +393,7 @@ int fetch_lyrics(String file, String query) {
             if pt.len > 0 { plain = i; }
         }
     }
-    String base = Path::join(music_dir(), strip_ext(file));
+    String base = strip_ext(abs_of(file));
     if best >= 0 {
         int item = doc.at(root, best);
         Fs::write_text(base + ".lrc", doc.text(doc.get(item, "syncedLyrics")));
@@ -800,8 +839,8 @@ void play_index(int n) {
     g_play = n;
     g_sel = n;
     lyrics_load_for(g_files[n]);
-    ltitle = strip_ext(g_files[n]);
-    snd_play(Path::join(music_dir(), g_files[n]));
+    ltitle = song_title(g_files[n]);
+    snd_play(abs_of(g_files[n]));
 }
 
 String sgr(String code, String text) { return "\e[" + code + "m" + text + "\e[0m"; }
@@ -822,6 +861,7 @@ void cmd_init() {
     cmd_name.push("stop"); cmd_help.push("stop the sound");
     cmd_name.push("queue"); cmd_help.push("show the songs");
     cmd_name.push("lyrics"); cmd_help.push("show the lyrics  (/lyrics get fetches them from the web)");
+    cmd_name.push("remove"); cmd_help.push("take a song out of the list (the file stays; -f deletes the file):  /remove NAME");
     cmd_name.push("scan"); cmd_help.push("find songs everywhere (home and the storage of the phone), at least SECONDS long: /scan -s 60  [PATH ...]");
     cmd_name.push("dir"); cmd_help.push("browse folders and play a song from any folder  (/dir PATH)");
     cmd_name.push("cd"); cmd_help.push("go to a folder  (/cd PATH;  ~ :/ f: 0: r: work)");
@@ -1095,7 +1135,60 @@ void scan_dir(String dir, int depth, int minsec, int limit) {
 }
 
 // /scan [-s SECONDS] [PATH ...]: look for songs at least SECONDS long (default 60) in the home folder and the storage of the phone, or in the PATHs
+// adds the found songs to the list for good (the file .library); the ones in the music folder are in the list already. Returns how many are new.
+int library_add() {
+    String[] lib = library_read();
+    String mdir = music_dir() + "/";
+    int added = 0;
+    for k in 0..sc_path.len {
+        String p = sc_path[k];
+        if p.starts_with(mdir) { continue; }
+        bool have = false;
+        for q in 0..lib.len { if lib[q] == p { have = true; } }
+        if !have { lib.push(p + ""); added += 1; }
+    }
+    if added > 0 { library_write(lib); }
+    return added;
+}
+
+// loads the list again and finds the song that plays by its name
+void reload_keep() {
+    String keep = "";
+    if g_play >= 0 && g_play < g_files.len { keep = g_files[g_play] + ""; }
+    load_files();
+    g_play = 0 - 1;
+    if keep.len > 0 { g_play = find_song(keep); }
+    if g_sel >= g_files.len { g_sel = g_files.len - 1; }
+    if g_sel < 0 { g_sel = 0; }
+}
+
+// /remove NAME: a song found by /scan leaves the list (the file stays); with -f the file is deleted too. A song of the music folder needs -f (the file is the song).
+String remove_song(int n, bool force) {
+    String name = g_files[n] + "";
+    String title = song_title(name);
+    String path = abs_of(name);
+    if name.starts_with("/") {
+        String[] lib = library_read();
+        String[] keep = arr(16);
+        for i in 0..lib.len { if lib[i] != name { keep.push(lib[i] + ""); } }
+        library_write(keep);
+    } else if !force {
+        return title + " is a file in the music folder: /remove -f " + title + " deletes it";
+    }
+    if force {
+        Fs::remove(path);
+        String b = strip_ext(path);
+        Fs::remove(b + ".lrc");
+        Fs::remove(b + ".txt");
+    }
+    if g_play == n { snd_stop(); }
+    reload_keep();
+    if force { return "deleted " + title; }
+    return "removed " + title + " from the list (the file stays)";
+}
+
 int scan_minsec;
+bool scan_add;
 void scan_collect(String arg) {
     int minsec = 60;
     String[] words = arg.split(" ");
@@ -1104,7 +1197,8 @@ void scan_collect(String arg) {
     while i < words.len {
         String w = words[i].trim();
         if w == "-s" && i + 1 < words.len { minsec = words[i + 1].to_int(); i += 2; continue; }
-        if w.len > 0 { roots.push(expand_path(w)); }
+        if w == "--add" { scan_add = true; i += 1; continue; }
+        if w.len > 0 { roots.push(clean_path(expand_path(w))); }
         i += 1;
     }
     if roots.len == 0 {
@@ -1127,18 +1221,18 @@ void do_scan(String arg) {
     scan_collect(arg);
     int minsec = scan_minsec;
     if sc_path.len == 0 { g_note = "no song of " + str(minsec) + " seconds or more in " + str(sc_dirs) + " folders  (/scan -s 30  looks for shorter ones)"; return; }
-    pk_open(5, "Songs of " + str(minsec) + " seconds or more: " + str(sc_path.len) + " found in " + str(sc_dirs) + " folders (~ = a guess from the size)");
-    for k in 0..sc_path.len {
-        String mark = "";
-        if sc_est[k] { mark = "~"; }
-        String base = sc_path[k];
-        int sl = 0 - 1;
-        for q in 0..base.len { if base[q] == '/' { sl = q; } }
-        String file = base.slice(sl + 1, base.len);
-        String where = base.slice(0, sl + 1);
-        g_pk_show.push(strip_ext(file) + "   " + mark + clock(sc_secs[k] * 1000) + "   " + where);
-        g_pk_val.push(sc_path[k] + "");
+    // the songs go into the list at once (and stay there: /remove NAME takes one out)
+    int added = library_add();
+    String keep = "";
+    if g_play >= 0 && g_play < g_files.len { keep = g_files[g_play] + ""; }
+    load_files();
+    g_play = 0 - 1;
+    if keep.len > 0 { g_play = find_song(keep); }
+    g_view = 0;
+    if added > 0 {
+        for i in 0..g_files.len { if g_files[i] == sc_path[0] { g_sel = i; } }
     }
+    g_note = "scan: " + str(sc_path.len) + " songs of " + str(minsec) + " seconds or more in " + str(sc_dirs) + " folders, " + str(added) + " new in the list  (/remove NAME takes one out)";
 }
 
 // ---- the web search of the Internet Archive, into a picker
@@ -1243,7 +1337,17 @@ void run_command(String line) {
     String arg = "";
     int sp = line.find(" ");
     if sp >= 0 { cmd = line.slice(0, sp); arg = line.slice(sp + 1, line.len).trim(); }
-    if cmd == "scan" { g_note = "scanning ..."; do_scan(arg); }
+    if cmd == "remove" {
+        bool force = false;
+        String what = arg;
+        if what.starts_with("-f ") { force = true; what = what.slice(3, what.len).trim(); }
+        if what.len == 0 { g_note = "/remove NAME   (a number or a part of the name; -f also deletes the file)"; }
+        else {
+            int n = find_song(what);
+            if n < 0 { g_note = "no song like '" + what + "'"; } else { g_note = remove_song(n, force); }
+        }
+    }
+    else if cmd == "scan" { g_note = "scanning ..."; do_scan(arg); }
     else if cmd == "dir" || cmd == "ls" {
         String ep = g_cwd;
         if arg.len > 0 { ep = expand_path(arg); }
@@ -1263,11 +1367,11 @@ void run_command(String line) {
             play_path(pp);
         } else if arg.len > 0 {
             int s = find_song(arg);
-            if s >= 0 { play_index(s); g_note = "playing " + strip_ext(g_files[s]); } else { g_note = "no song like '" + arg + "' (/get fetches songs)"; }
+            if s >= 0 { play_index(s); g_note = "playing " + song_title(g_files[s]); } else { g_note = "no song like '" + arg + "' (/get fetches songs)"; }
         } else if g_files.len == 0 { g_note = "no songs yet: /get";
         } else {
             pk_open(1, "Choose a song");
-            for i in 0..g_files.len { g_pk_show.push(strip_ext(g_files[i])); g_pk_val.push(str(i)); }
+            for i in 0..g_files.len { g_pk_show.push(song_title(g_files[i])); g_pk_val.push(str(i)); }
             g_pk_sel = g_sel;
         }
     } else if cmd == "pause" { snd_pause(); }
@@ -1342,11 +1446,11 @@ void run_words(String words) {
     int first = 0 - 1;
     String w = words.lower();
     for i in 0..g_files.len { if g_files[i].lower().contains(w) { hits += 1; if first < 0 { first = i; } } }
-    if hits == 1 { play_index(first); g_note = "playing " + strip_ext(g_files[first]); }
+    if hits == 1 { play_index(first); g_note = "playing " + song_title(g_files[first]); }
     else if hits == 0 { g_note = "no song like '" + words + "'  -  /get fetches songs, /find searches the web"; }
     else {
         pk_open(1, "Songs with '" + words + "'");
-        for i in 0..g_files.len { if g_files[i].lower().contains(w) { g_pk_show.push(strip_ext(g_files[i])); g_pk_val.push(str(i)); } }
+        for i in 0..g_files.len { if g_files[i].lower().contains(w) { g_pk_show.push(song_title(g_files[i])); g_pk_val.push(str(i)); } }
     }
 }
 
@@ -1363,7 +1467,7 @@ void pk_choose() {
         else { play_path(Path::join(g_cwd, v)); }
         return;
     }
-    if kind == 1 { int s = v.to_int(); play_index(s); g_note = "playing " + strip_ext(g_files[s]); }
+    if kind == 1 { int s = v.to_int(); play_index(s); g_note = "playing " + song_title(g_files[s]); }
     else { fetch_outside(v); }
 }
 
@@ -1392,7 +1496,7 @@ void draw() {
     // now playing
     int pos = cur_pos();
     String title = "nothing is playing";
-    if g_play >= 0 { title = strip_ext(g_files[g_play]); }
+    if g_play >= 0 { title = song_title(g_files[g_play]); }
     String mark = " ■ ";
     if g_state == 1 { mark = " ▶ "; } else if g_state == 2 { mark = " ❙❙ "; }
     f = f + "\e[2;1H" + sgr("1", pad(mark + title, cols));
@@ -1473,7 +1577,7 @@ void draw() {
             if i < n {
                 String m = "    ";
                 if i == g_play { m = "  ▶ "; if g_state == 2 { m = "  ❙ "; } }
-                String line = pad(m + str(i + 1) + ". " + strip_ext(g_files[i]), cols);
+                String line = pad(m + str(i + 1) + ". " + song_title(g_files[i]), cols);
                 if i == g_sel { line = sgr("7", line); } else if i == g_play { line = sgr("1;32", line); }
                 f = f + "\e[" + str(top + r) + ";1H" + line;
             }
@@ -1641,10 +1745,10 @@ int do_list() {
     load_files();
     if g_files.len == 0 { cout << "no songs in " << music_dir() << ".  mujic catalog shows free ones, mujic get NAME fetches.\n"; return 0; }
     for i in 0..g_files.len {
-        String base = Path::join(music_dir(), strip_ext(g_files[i]));
+        String base = strip_ext(abs_of(g_files[i]));
         String mark = "";
         if Fs::exists(base + ".lrc") { mark = "  [lyrics, synced]"; } else if Fs::exists(base + ".txt") { mark = "  [lyrics]"; }
-        cout << "  " << i + 1 << ". " << strip_ext(g_files[i]) << mark << "\n";
+        cout << "  " << i + 1 << ". " << song_title(g_files[i]) << mark << "\n";
     }
     return 0;
 }
@@ -1669,17 +1773,37 @@ int do_scan_cli(String[] a) {
     for i in 2..a.len { arg = arg + a[i] + " "; }
     g_cwd = music_dir();
     scan_collect(arg.trim());
+    int added = 0;
+    if scan_add { added = library_add(); }
     for k in 0..sc_path.len {
         String mark = " ";
         if sc_est[k] { mark = "~"; }
         cout << mark << clock(sc_secs[k] * 1000) << "  " << sc_path[k] << "\n";
     }
-    cerr << sc_path.len << " songs of " << scan_minsec << " seconds or more in " << sc_dirs << " folders\n";
+    cerr << sc_path.len << " songs of " << scan_minsec << " seconds or more in " << sc_dirs << " folders";
+    if scan_add { cerr << ", " << added << " added to the list"; }
+    cerr << "\n";
+    return 0;
+}
+
+// mujic remove [-f] NAME: takes a song out of the list (the file stays; -f deletes it)
+int do_remove_cli(String[] a) {
+    bool force = false;
+    String what = "";
+    for i in 2..a.len {
+        if a[i] == "-f" { force = true; continue; }
+        if what.len > 0 { what = what + " "; }
+        what = what + a[i];
+    }
+    if what.len == 0 { return fail("usage: mujic remove [-f] NAME"); }
+    int n = find_song(what);
+    if n < 0 { return fail("no song like '" + what + "'"); }
+    cout << remove_song(n, force) << "\n";
     return 0;
 }
 
 int main() {
-    String VERSION = "0.5.0";
+    String VERSION = "0.6.0";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
@@ -1703,6 +1827,7 @@ int main() {
     if args.len > 1 {
         String c = args[1];
         if c == "scan" { return do_scan_cli(args); }
+        if c == "remove" { return do_remove_cli(args); }
         if c == "list" { return do_list(); }
         if c == "catalog" { return do_catalog(); }
         if c == "get" { return do_get(args); }

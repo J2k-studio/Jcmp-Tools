@@ -1,5 +1,9 @@
 # mujic changelog
 
+## 0.6.0
+* **Changed:** the songs that `/scan` finds go into the list at once and stay there (the file `.library` in the music folder keeps their paths); the list shows them by name. `mujic scan --add` does the same from the command line.
+* **Added:** `/remove NAME` (and `mujic remove [-f] NAME`) takes a song out of the list; the file stays. A song of the music folder is the file itself, so it needs `-f`, which deletes the file (and its `.lrc` / `.txt`). `/mv` refuses a scanned song (it is not in the music folder).
+
 ## 0.5.0
 * **Added:** `/scan [-s SECONDS] [PATH ...]` (and `mujic scan ...` for scripts): finds songs of at least SECONDS (default 60) in the home folder and the phone storage, or in the PATHs, and shows them in a list to play. The length comes from the header of `.wav` and `.mp3` (also Xing / Info of variable rate) and is a guess from the size (`~`) for other formats.
 * **Changed:** the folder of the songs is hidden, `~/.music`; an old `~/music` is moved there once.
