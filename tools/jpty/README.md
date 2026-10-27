@@ -12,7 +12,7 @@ jpty -w 100 -h 30 /bin/sh        # build: jcmp jpty.jk -o jpty   (jcmp 1.0.0.0 o
 jget tool jpty                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jpty     # with curl (no jget needed)
 ```
-In jsh: `install jpty`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+In jsh: `jc install jpty`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 
 ## A short lesson
 1. Run a shell in a pseudo terminal: `jpty -w 80 -h 24 /bin/sh` (the program must be a full path).

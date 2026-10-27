@@ -24,7 +24,7 @@ Packed repositories (after `git gc` or a `git clone`) are read: the idx and pack
 jget tool jgit                                                       # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jgit     # with curl
 ```
-In jsh: `install jgit`.
+In jsh: `jc install jgit`.
 
 ## A short lesson
 1. `mkdir notes && cd notes`, then `jgit init`. Tell it who you are (`export JGIT_NAME=... JGIT_EMAIL=...`).

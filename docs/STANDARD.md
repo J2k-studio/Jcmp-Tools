@@ -53,7 +53,7 @@ Defaults need no file. A setting is read in this order: the command line, the en
 ## The README of a tool (this order)
 1. `# name: one line of what it is`, then a paragraph and the usage block (every option, as in `--help`).
 2. What it does not do yet (said plainly).
-3. `## Install` with **both** `jget tool NAME` and `curl -fsSL .../install.sh | sh -s NAME`, and `install NAME` in jsh.
+3. `## Install` with **both** `jget tool NAME` and `curl -fsSL .../install.sh | sh -s NAME`, and `jc install NAME` in jsh.
 4. `## A short lesson`: 4 to 6 numbered steps that a new person can follow.
 5. A line `License: ...` (the file `LICENSE` of the tool, or "the license of the repository" when the tool has none of its own), the build line and the test line.
 
@@ -66,4 +66,4 @@ Defaults need no file. A setting is read in this order: the command line, the en
 - [ ] `install-NAME.sh` and the line in `tools.txt` exist; the table of `README.md` links the README of the tool
 
 ## Install, update, remove
-`jc install NAME`, `jc unstall NAME`, `jc update [-n]` (also the jsh built-ins `install`, `unstall`, `update`) all go to `jget tool ...`; `update` compares `versions.txt` (written by `check-standard.sh`) with the installed versions, so a release must run `check-standard.sh` and publish `versions.txt`.
+`jc install NAME`, `jc unstall NAME`, `jc update [-n]` all go to `jget tool ...`; `update` compares `versions.txt` (written by `check-standard.sh`) with the installed versions, so a release must run `check-standard.sh` and publish `versions.txt`.

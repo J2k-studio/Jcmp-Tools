@@ -17,7 +17,7 @@ Later (the plan of Jaric OS): the background programs and the sessions, the cach
 jget tool jamanager                                                  # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jamanager     # with curl
 ```
-In jsh: `install jamanager`.
+In jsh: `jc install jamanager`.
 
 ## A short lesson
 1. Look: `jamanager ps`. The last line says how many programs you can see.

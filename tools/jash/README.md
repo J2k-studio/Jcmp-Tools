@@ -25,7 +25,7 @@ A program reads its settings with `jash get SECTION.KEY`; a script can too: `col
 jget tool jash                                                       # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jash     # with curl
 ```
-In jsh: `install jash`.
+In jsh: `jc install jash`.
 
 ## A short lesson
 1. Set something: `jash set jsh.color_mark sky`, then look: `jash list`.

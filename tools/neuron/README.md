@@ -34,7 +34,7 @@ Settings (`jash set xr.port 7791`): `port` (7790), `temperature` (0.7), `max` (b
 jget tool neuron                                                     # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s neuron     # with curl
 ```
-In jsh: `install neuron`.
+In jsh: `jc install neuron`.
 
 ## A short lesson
 1. Get the sample: write a file `chat.txt` of lines `You: ...` and `Bot: ...` (40 or more lines, the same questions again and again help a small model), or copy `example/chat.txt`.

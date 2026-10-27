@@ -13,7 +13,7 @@ License: MPL-2.0. Build: `JCMP=path sh build.sh` (jcmp 1.1.0.0 or newer). Test: 
 jget tool jvp4                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jvp4     # with curl (no jget needed)
 ```
-In jsh: `install jvp4`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+In jsh: `jc install jvp4`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 
 ## A short lesson
 1. Check the file: `jvp4 info movie.mp4` shows the tracks, the size, the length and the codecs.

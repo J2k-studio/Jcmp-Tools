@@ -51,7 +51,7 @@ Status: a prototype (2026-10-22) written before the usage was designed; the desi
 jget tool makej                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s makej     # with curl (no jget needed)
 ```
-In jsh: `install makej`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+In jsh: `jc install makej`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 
 ## A short lesson
 1. In your project folder: `makej init` writes a starting file called `makej` (a plain text file; `makej init -game` or `-pro` for a game or a bigger project).

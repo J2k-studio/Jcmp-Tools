@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.7
+* **Changed:** installing is done by `jc` only (`jc install NAME`, `jc update [-n]`, `jc unstall NAME`). The built-ins `install`, `update`, `unstall` and `jsh install` are gone; typing them says which `jc` command to use. Hints (`command not found`) and `help` name `jc install`.
+
 ## 0.9.6
 * **Added:** the built-ins `update [-n]` (jsh and every installed tool that has a newer version; `-n` only shows them) and `unstall NAME` (removes a tool); they use `jc` and fall back to `jget tool`. `install all` now means the same as `update`.
 * **Fixed:** the banner said `jsh 0.1`; it and `--version` now show the real version.

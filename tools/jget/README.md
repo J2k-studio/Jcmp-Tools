@@ -40,7 +40,7 @@ jget is written in J2K and needs the compiler `jcmp` (0.9.187 or newer) with its
 jget --install                                                       # a jget you already have puts itself in your commands folder
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jget     # with curl, the first time
 ```
-Update later with `jget --update`. In jsh: `install jget`.
+Update later with `jget --update`. In jsh: `jc install jget`.
 
 ## A short lesson
 1. Fetch a file: `jget https://example.com/file.zip` (a bar shows the progress; `-q` hides it, `-o name` names the file).

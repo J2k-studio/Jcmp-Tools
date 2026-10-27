@@ -22,7 +22,7 @@ An update (the same id) asks again only for permissions that the old version did
 jget tool jc                                                         # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jc     # with curl
 ```
-In jsh: `install jc`.
+In jsh: `jc install jc`.
 
 ## A short lesson
 1. Make a game: `makej init -game`, then `makej pack` writes `_out/game.jc`.

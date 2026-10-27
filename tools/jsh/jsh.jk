@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.9.6"; }
+String jsh_version() { return "0.9.7"; }
 String[] history;
 int last_status;
 int running;
@@ -837,9 +837,9 @@ int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_
             Sys::execve(Path::join(Path::parent(self), "jbox").c(), jav, envp);
         }
         String hint = "";
-        if is_jbox_name(argv[0]) { hint = "  (install jbox)"; }
-        if argv[0] == "jcmp" { hint = "  (install jcmp: the language)"; }
-        if argv[0] == "makej" || argv[0] == "coderin" || argv[0] == "jget" { hint = "  (install " + argv[0] + ")"; }
+        if is_jbox_name(argv[0]) { hint = "  (jc install jbox)"; }
+        if argv[0] == "jcmp" { hint = "  (jc install jcmp: the language)"; }
+        if argv[0] == "makej" || argv[0] == "coderin" || argv[0] == "jget" { hint = "  (jc install " + argv[0] + ")"; }
         cerr << "jsh: " << argv[0] << ": command not found" << hint << "\n";
         Sys::exit(127);
     }
@@ -1350,23 +1350,11 @@ bool builtin(String[] a) {
         } else { cerr << "dir: cannot read " << where << "\n"; bcode = 1; }
         return true;
     }
-    if name == "install" {                                    // install NAME ...: the tools of Jcmp-Tools (jget does the work)
-        String[] jw = arr(a.len + 2);
-        jw.push("jget");
-        jw.push("tool");
-        if a.len == 1 { jw.push("list"); }
-        for i in 1..a.len { jw.push(a[i]); }
-        run_words(jw);
-        bcode = last_status;
-        return true;
-    }
-    if name == "update" || name == "unstall" {                // update [-n]: jsh and the tools that have a newer version;  unstall NAME: remove a tool
-        String[] uw = arr(a.len + 3);
-        if have_program("jc") { uw.push("jc"); } else { uw.push("jget"); uw.push("tool"); }
-        uw.push(name);
-        for i in 1..a.len { uw.push(a[i]); }
-        run_words(uw);
-        bcode = last_status;
+    if name == "install" || name == "update" || name == "unstall" {     // moved to jc: say so (jc install NAME, jc update, jc unstall NAME)
+        String tail = " NAME";
+        if name == "update" { tail = " [-n]"; }
+        cerr << name << ": use  jc " << name << tail << "   (jc is not installed? jget tool jc)\n";
+        bcode = 2;
         return true;
     }
     if name == "test" || name == "[" {
@@ -1587,7 +1575,8 @@ bool builtin(String[] a) {
         cout << "  scripts     if / elif / else / fi    while / until / for ... do ... done    name() { ... }    $(command)  $((1 + 2))\n";
         cout << "  lines       a | b    a > file    a >> file    a < file    a &    a ; b    a && b    a || b    * ? ~ globs\n";
         cout << "  keys        Tab takes the grey text    arrows: history, move    Ctrl-J another line    Ctrl-C cancel    Ctrl-D leave\n";
-        cout << "  tools       install NAME ...  (install alone lists them)   update [-n]  (jsh and the tools that have a newer version)   unstall NAME\n";
+        cout << "  tools       jc install NAME ...  (jc list shows the tools)   jc update [-n]   jc unstall NAME
+";
         cout << "  the app     jaric theme | font | core\n";
         bcode = 0;
         return true;
@@ -2250,18 +2239,8 @@ int main() {
     if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh " << jsh_version() << "\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
-        cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
+        cout << "  jc install NAME ...    install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
         return 0;
-    }
-    if cmdline.len > 1 && cmdline[1] == "install" {                              // jsh install NAME ...
-        running = 1;
-        String[] jw = arr(cmdline.len + 2);
-        jw.push("jget");
-        jw.push("tool");
-        if cmdline.len == 2 { jw.push("list"); }
-        for i in 2..cmdline.len { jw.push(cmdline[i]); }
-        run_words(jw);
-        return last_status;
     }
     if cmdline.len > 1 {                                      // jsh -c "commands"   or   jsh script
         running = 1;

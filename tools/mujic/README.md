@@ -23,7 +23,7 @@ The lyrics come from lrclib.net when you ask; they belong to their authors: keep
 jget tool mujic                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s mujic     # with curl (no jget needed)
 ```
-In jsh: `install mujic`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+In jsh: `jc install mujic`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 
 ## A short lesson
 1. Start: `mujic`. The first time the folder `~/music` is empty: type `/get` and choose a free song from the catalog.

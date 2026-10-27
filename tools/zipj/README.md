@@ -32,7 +32,7 @@ sh test.sh       # needs python3 and gzip
 jget tool zipj                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s zipj     # with curl (no jget needed)
 ```
-In jsh: `install zipj`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+In jsh: `jc install zipj`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 
 ## A short lesson
 1. Pack: `zipj out.zip file1 folder` (folders go in with everything inside).

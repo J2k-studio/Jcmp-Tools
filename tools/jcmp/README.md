@@ -15,7 +15,7 @@ License: the license of the compiler (see its repository); this folder only carr
 jget tool jcmp                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jcmp     # with curl (no jget needed)
 ```
-In jsh: `install jcmp`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
+In jsh: `jc install jcmp`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 
 ## A short lesson
 1. Install the compiler and its library: `jget tool jcmp` (they come as a pair). Check: `jcmp -version`.
