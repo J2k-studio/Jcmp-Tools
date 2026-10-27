@@ -944,7 +944,7 @@ String setting_label(int i) {
     t.push("volume keys = Ctrl / Esc");
     t.push("scrollback lines (later)"); t.push("bell (later)"); t.push("key vibration (later)");
     t.push("start command (later)"); t.push("run scripts from the net");
-    t.push("xr learns from the shell"); t.push("xr runs in the background");
+    t.push("xr learns from the shell"); t.push("xr runs in the background"); t.push("wake lock (CPU awake)");
     return t[i];
 }
 
@@ -973,6 +973,7 @@ String setting_value(int i) {
     if i == 22 { String v = kv_get(setting_cfg(), "run_net", false); if v.len == 0 { v = "ask"; } return v; }
     if i == 23 { String v = kv_get(setting_cfg(), "xr_learn", false); if v.len == 0 { v = "off"; } return v; }
     if i == 24 { String v = kv_get(setting_cfg(), "xr_autostart", false); if v.len == 0 { v = "off"; } return v; }
+    if i == 25 { String v = kv_get(setting_cfg(), "wakelock", false); if v.len == 0 { v = "off"; } return v; }
     String home_rc = getv("HOME") + "/.jshrc";
     String key = "JSH_COLOR_NAME";
     if i == 9 { key = "JSH_COLOR_PATH"; } else if i == 10 { key = "JSH_COLOR_MARK"; } else if i == 11 { key = "JSH_COLOR_ERROR"; }
@@ -1027,6 +1028,7 @@ void setting_change(int i, int dir) {
         else if i == 22 { key = "run_net"; ch.push("ask"); ch.push("never"); ch.push("allow"); }
         else if i == 23 { key = "xr_learn"; ch.push("off"); ch.push("on"); }
         else if i == 24 { key = "xr_autostart"; ch.push("off"); ch.push("on"); }
+        else if i == 25 { key = "wakelock"; ch.push("off"); ch.push("on"); }
         else if i == 18 {
             key = "scrollback";
             int n = cur.to_int();
@@ -1108,7 +1110,7 @@ int[] setting_order() {
     o.push(0 - 1); o.push(0); o.push(1); o.push(2); o.push(3); o.push(4); o.push(5); o.push(6); o.push(7);
     o.push(0 - 2); o.push(8); o.push(9); o.push(10); o.push(11);
     o.push(0 - 3); o.push(17);
-    o.push(0 - 4); o.push(18); o.push(19); o.push(20); o.push(21); o.push(22);
+    o.push(0 - 4); o.push(25); o.push(18); o.push(19); o.push(20); o.push(21); o.push(22);
     o.push(0 - 5); o.push(13);
     o.push(0 - 6); o.push(14); o.push(15); o.push(16);
     o.push(0 - 8); o.push(24); o.push(23);
@@ -1519,6 +1521,14 @@ bool builtin(String[] a) {
             for i in 2..a.len { sa.push(a[i]); }
             if !have_program("jstore") { cout << "the store is not installed:  jget tool jc jstore\n"; }
             else { run_words(sa); bcode = last_status; }
+        } else if a.len >= 2 && a[1] == "keepalive" {
+            cout << "keep the sessions after you swipe the app away (like Termux):\n";
+            cout << "  1. the notification of Jaric must stay (it is the service that holds the shells; do not press its Exit)\n";
+            cout << "  2. let Jaric run in the background: the system screen that opens now (battery optimisation: allow)\n";
+            cout << "  3. on Huawei (EMUI): Settings > Battery > App launch > Jaric > Manage manually > allow auto-launch, secondary launch and run in background;\n";
+            cout << "     and in the list of recent apps, lock Jaric (pull its card down, or the lock icon) so that 'clear all' leaves it\n";
+            cout << "  4. jaric setting > wake lock: the CPU stays awake while sessions run (uses more battery)\n";
+            cout << esc() << "]7777;keepalive" << (char)7;
         } else if a.len >= 2 && a[1] == "assistant" {
             // jaric assistant [question]: talk to the assistant xaiorin (the program xr of the tool neuron)
             String[] xa = arr(2);
@@ -1537,7 +1547,7 @@ bool builtin(String[] a) {
             if a.len >= 2 {
                 String[] known = arr(16);
                 known.push("setting"); known.push("restart"); known.push("theme"); known.push("font"); known.push("video"); known.push("core");
-                known.push("assistant"); known.push("store"); known.push("drives"); known.push("sessions");
+                known.push("assistant"); known.push("keepalive"); known.push("store"); known.push("drives"); known.push("sessions");
                 String best = "";
                 int bestd = 3;
                 for k in 0..known.len {
@@ -1555,6 +1565,7 @@ bool builtin(String[] a) {
             cout << "jaric store [list | install ID | update]   the store of the programs of Jaric (.jc)\n";
             cout << "jaric drives         the drives (f: is home, 0: the phone storage ...)\n";
             cout << "jaric sessions       how the tabs work;  start PROGRAM opens a program in a new tab\n";
+            cout << "jaric keepalive      keep the sessions after the app is swiped away (battery settings of the phone)\n";
             cout << "jaric -restart       start the app again\n";
             cout << "jaric core           call the library of the app (J2K through JNI)\n";
         }
@@ -2226,7 +2237,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.9.4\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.9.5\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.5
+* **Added:** `jaric keepalive` says how to keep the sessions after the app is swiped away from the list (the notification stays, battery optimisation allowed, the settings of Huawei) and opens the system screen for it (the Jaric app 0.0.109). **Added:** the setting "wake lock (CPU awake)" in "terminal and security" (`wakelock = on|off`): the CPU stays awake while the sessions run.
+
 ## 0.9.4
 * **Added:** `pwd` has options: `pwd -p` the real path of the system (`-P` too), `pwd -d` only the drive (`f`), `pwd -help` the usage; an unknown option is an error (exit 2). Before, every option printed the same `f:/`.
 
