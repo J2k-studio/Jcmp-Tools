@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.0
+* **Added (root):** `login root` (or `signin root`) asks the root password (the first time it is made, twice; kept as a salted SHA-256 in `files/.jaric/root`). As root `:/` is the top folder of the app (`:/usr/bin` holds the commands, `:/home` is home), the prompt says `root`, and `JC_ROOT=1` is set for the tools. `logout` (or `signout`) leaves. `root COMMAND ...` does one command as root and reads its words as root (`root cd :/usr/bin`). With jbox 0.8.0 the commands of the system (`usr/bin`, `usr/lib`, `usr/etc`) are changed by root only; reading is free. A rule that the tools keep, not a wall (Android is below it).
+
 ## 0.9.10
 * **Changed:** when the tool `drive` is installed (`jc install drive`) the command `drive` is that program (a new drive can get its own new folder: `drive new NAME`); the built-in stays for a shell without it. The drive list is read again after every `drive`.
 

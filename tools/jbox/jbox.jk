@@ -691,6 +691,31 @@ int do_nproc(String[] a) {
     return 0;
 }
 
+// the commands of the system (usr/bin, usr/lib, usr/etc of the app) are changed by root only: login root, or  root rm ...  in jsh (it sets JC_ROOT=1).
+// A rule that the tools keep, not a wall.
+bool needs_root(String path) {
+    switch Env::get("JC_ROOT") { Option::Some(v): { if v == "1" { return false; } } Option::None: { } }
+    String abs = path;
+    if !abs.starts_with("/") {
+        char buf[512];
+        if Sys::getcwd(@buf, 512) > 0 { abs = Path::join((char^)@buf, path); }
+    }
+    String prefix = "";
+    switch Env::get("PREFIX") { Option::Some(v): { prefix = v; } Option::None: { } }
+    if prefix.len == 0 {
+        switch Env::get("HOME") { Option::Some(h): { prefix = Path::parent(h) + "/usr"; } Option::None: { return false; } }
+    }
+    String[] parts = "bin lib etc".split(" ");
+    for i in 0..parts.len {
+        String dir = prefix + "/" + parts[i];
+        String under = dir + "/";
+        if abs == dir || abs.starts_with(under) { return true; }
+    }
+    return false;
+}
+
+int need_root_fail(String app, String path) { return fail(app, path + ": the commands of the system are changed by root (login root, or  root " + app + " ...)"); }
+
 int do_mkdir(String[] a) {
     bool deep = has_flag(a, 'p');
     String[] ops = operands(a, false);
@@ -738,6 +763,7 @@ int do_rm(String[] a) {
     int rc = 0;
     for i in 0..ops.len {
         String target = ops[i];
+        if needs_root(target) { rc = need_root_fail("rm", target); continue; }
         if target == "/" || target == "." || target == ".." || target.ends_with("/..") || target.ends_with("/.") {
             rc = fail("rm", "refusing to remove '" + target + "'");
             continue;
@@ -795,6 +821,7 @@ int do_cp(String[] a) {
     if ops.len != 2 { return fail("cp", "usage: cp FROM TO   (TO may be a folder; a file is copied byte for byte, also a song or a picture)"); }
     String from = ops[0];
     String to = ops[1];
+    if needs_root(to) { return need_root_fail("cp", to); }
     if Dir::exists(from) { return fail("cp", from + ": is a folder (copy the files in it: cp FOLDER/* TO)"); }
     if Dir::exists(to) { to = Path::join(to, Path::name(from)); }
     String data = "";
@@ -824,6 +851,8 @@ int do_mv(String[] a) {
     String[] ops = operands(a, false);
     if ops.len != 2 { return fail("mv", "usage: mv FROM TO"); }
     String to = ops[1];
+    if needs_root(to) { return need_root_fail("mv", to); }
+    if needs_root(ops[0]) { return need_root_fail("mv", ops[0]); }
     if Dir::exists(to) { to = Path::join(to, Path::name(ops[0])); }
     int rc = 0;
     Result<int, Error> r = Fs::rename(ops[0], to);
@@ -1392,7 +1421,7 @@ int do_install(String[] args) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.7.1\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.8.0\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }

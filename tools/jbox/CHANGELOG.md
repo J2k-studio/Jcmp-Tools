@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.0
+* **Added:** the commands of the system (`usr/bin`, `usr/lib`, `usr/etc` of the app) are changed by root only: `rm`, `mv` and `cp` (into it) refuse unless `JC_ROOT=1`, which jsh sets after `login root` or for `root COMMAND`. Reading is free. A rule that the tools keep, not a wall (Android is below it).
+
 ## 0.7.1
 * **Fixed:** `rm -r` and `rm -R` did nothing for a folder that is not empty (`rm -rf */` left every folder, without a word). Now `rm -r` removes a folder and all that is in it; a symbolic link inside is removed, not followed; `/`, `.` and `..` are refused; `rm` of a folder without `-r` says so (`is a folder (rm -r ...)`) instead of failing silently with `-f`.
 

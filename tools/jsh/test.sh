@@ -7,7 +7,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
 OUT=$(printf 'echo hello world\necho "a  b" | cat\necho one > f.txt\necho two >> f.txt\ncat < f.txt\nfalse\necho status $?\necho x | tr x y | cat\nnosuchprog\ncd /\npwd\nexit 7\n' | "$SH" 2>&1) && rc=0 || rc=$?
-WANT='jsh 0.9.10 (the shell of Jaric): help shows the commands
+WANT='jsh 0.10.0 (the shell of Jaric): help shows the commands
 hello world
 a  b
 one
@@ -24,7 +24,7 @@ T2=$(mktemp -d); trap 'rm -rf "$T" "$T2"' EXIT
 cd "$T2"; touch a.txt b.txt c.log
 printf 'echo "echo in the script"\nexport K=5\necho k=$K\n' > s.jsh
 OUT2=$(printf 'NAME=jao\necho hi $NAME\nalias say=echo\nsay aliased\necho *.txt\nfalse || echo second\ntrue && echo third\necho a ; echo b\nunset NAME\necho [$NAME]\ntype cd\nexit 0\n' | HOME="$T2" "$SH" 2>&1)
-WANT2='jsh 0.9.10 (the shell of Jaric): help shows the commands
+WANT2='jsh 0.10.0 (the shell of Jaric): help shows the commands
 hi jao
 aliased
 a.txt b.txt
@@ -192,3 +192,16 @@ case "$got" in *"f:/jaric|"*"/files/home/jaric|f|pwd "*"where you are"*"rc=2|"*)
 grep -q "pwd: unknown option -x" "$T15/err.txt" || { echo "shell test (step 15): the error of an unknown option"; exit 1; }
 echo "shell test (step 15): ok"
 
+# root: login root makes a password the first time, :/ becomes the top folder of the app, logout leaves, root COMMAND does one command
+T16=$(mktemp -d); mkdir -p "$T16/files/home" "$T16/files/usr/bin"; touch "$T16/files/usr/bin/jsh"
+OUT16=$(cd "$T16/files/home" && printf 'abcd\nabcd\n' | HOME="$T16/files/home" "$SH" -c 'login root; pwd; cd :/usr/bin; pwd; echo [$JC_ROOT]; logout; cd :/; pwd; echo [$JC_ROOT]' 2>&1)
+case "$OUT16" in *"root password set"*"[1]"*"root left"*"f:/"*"[]"*) ;; *) echo "shell test (step 16): login root / logout: $OUT16"; exit 1 ;; esac
+case "$OUT16" in *":/usr/bin"*) ;; *) echo "shell test (step 16): as root the path is :/usr/bin: $OUT16"; exit 1 ;; esac
+[ -f "$T16/files/.jaric/root" ] || { echo "shell test (step 16): the password file"; exit 1; }
+BAD16=$(cd "$T16/files/home" && printf 'nope\n' | HOME="$T16/files/home" "$SH" -c 'root cd :/usr; pwd' 2>&1)
+case "$BAD16" in *"wrong password"*) ;; *) echo "shell test (step 16): a wrong password: $BAD16"; exit 1 ;; esac
+case "$BAD16" in *"/usr"*) echo "shell test (step 16): a wrong password must not enter: $BAD16"; exit 1 ;; esac
+GOOD16=$(cd "$T16/files/home" && printf 'abcd\n' | HOME="$T16/files/home" "$SH" -c 'root cd :/usr/bin; pwd; cd :/; pwd' 2>&1)
+case "$GOOD16" in *"/usr/bin"*"f:/"*) ;; *) echo "shell test (step 16): root COMMAND: $GOOD16"; exit 1 ;; esac
+rm -rf "$T16"
+echo "shell test (step 16): ok"

@@ -41,6 +41,16 @@ mkdir -p "$T/rr/a/b" "$T/rr/real/keep"; echo x > "$T/rr/a/b/f"; ln -s "$T/rr/rea
 "$J" rm -r / >/dev/null 2>&1 && { echo "jbox test: rm -r / must be refused"; exit 1; } || true
 ( cd "$T/rr" && "$J" rm -r . >/dev/null 2>&1 && { echo "jbox test: rm -r . must be refused"; exit 1; } || true )
 "$J" rm -rf "$T/rr/nothing" || { echo "jbox test: rm -rf of nothing must succeed"; exit 1; }
+# the commands of the system are changed by root only (JC_ROOT=1)
+mkdir -p "$T/app/home" "$T/app/usr/bin"; echo x > "$T/app/usr/bin/tool"
+( export PREFIX="$T/app/usr" HOME="$T/app/home"; unset JC_ROOT
+  "$J" rm "$T/app/usr/bin/tool" 2>/dev/null && { echo "jbox test: rm in usr/bin must need root"; exit 1; }
+  "$J" mv "$T/app/usr/bin/tool" "$T/app/home/t" 2>/dev/null && { echo "jbox test: mv out of usr/bin must need root"; exit 1; }
+  "$J" cp "$T/app/home/../usr/bin/tool" "$T/app/usr/bin/tool2" 2>/dev/null && { echo "jbox test: cp into usr/bin must need root"; exit 1; }
+  [ -f "$T/app/usr/bin/tool" ] || { echo "jbox test: the file must be there"; exit 1; }
+  export JC_ROOT=1; "$J" cp "$T/app/usr/bin/tool" "$T/app/usr/bin/tool2" && "$J" rm "$T/app/usr/bin/tool2" || { echo "jbox test: root may change usr/bin"; exit 1; }
+  unset JC_ROOT; echo y > "$T/app/home/f"; "$J" rm "$T/app/home/f" || { echo "jbox test: home is free"; exit 1; }
+)
 echo "jbox test: ok"
 check "$(echo 'a b a' | "$J" sed 's/a/X/g')" "X b X" sed-g
 check "$(echo 'a b a' | "$J" sed 's/a/X/')" "X b a" sed-first

@@ -4,10 +4,11 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.9.10"; }
+String jsh_version() { return "0.10.0"; }
 String[] history;
 int last_status;
 int running;
+int root_on;                                                  // 1 after login root (see the root section)
 String[] envv;                                                // the environment of the shell: "NAME=value" (children get a copy)
 String[] alias_n;
 String[] alias_v;
@@ -633,6 +634,12 @@ bool drive_name_ok(String n) {
 
 // a real path as  X:/rest  (the drive with the longest folder that holds it)
 String drive_form(String real) {
+    if root_on == 1 {                                         // as root the top folder of the app is  :/
+        String top = top_dir();
+        String under = top + "/";
+        if real == top { return ":/"; }
+        if real.starts_with(under) { return ":" + real.slice(top.len, real.len); }
+    }
     drives_load();
     int best = 0 - 1;
     int bestlen = 0 - 1;
@@ -753,11 +760,69 @@ int word_distance(String x, String y) {
     return prev[m];
 }
 
+// ---------------------------------------------------------------- root: the top folder of the app (usr, home ...) for a person who has the password
+// login root / signin root: the password is asked (the first time it is made, twice); then  :/  is the top folder (files of the app: :/usr/bin) and
+// the prompt says root. logout leaves. root COMMAND ... does one command as root (the words are read as root: root cd :/usr/bin). It is a rule
+// that the tools keep (JC_ROOT=1 is set), not a wall: Android is below it.
+
+String top_dir() { return Path::parent(getv("HOME")); }
+String root_file() { return top_dir() + "/.jaric/root"; }
+
+String read_secret(String ask) {                              // a line without echo
+    cout << ask;
+    char t[64];
+    bool tty = Sys::isatty(0) == 0;
+    if tty {
+        Sys::call(29, 0, 21505, (int)@t, 0, 0, 0);
+        t[12] = t[12] & 247;                                  // lflag ECHO (8) off
+        Sys::call(29, 0, 21506, (int)@t, 0, 0, 0);
+    }
+    String pw = Input::line().trim();
+    if tty {
+        t[12] = t[12] | 8;
+        Sys::call(29, 0, 21506, (int)@t, 0, 0, 0);
+        cout << "\n";
+    }
+    return pw;
+}
+
+bool root_login() {
+    String file = root_file();
+    if !Fs::exists(file) {
+        cout << "root has no password yet: make one (at least 4 characters).\n";
+        String p1 = read_secret("new root password: ");
+        if p1.len < 4 { cerr << "login: too short\n"; return false; }
+        String p2 = read_secret("again: ");
+        if p1 != p2 { cerr << "login: the two are not the same\n"; return false; }
+        String salt = str(Time::now_ms());
+        Dir::make_all(Path::parent(file));
+        Fs::write_text(file, salt + " " + Hash::sha256(salt + p1) + "\n");
+        cout << "root password set.\n";
+        return true;
+    }
+    String text = "";
+    switch Fs::read_text(file) { Result::Ok(t): { text = t.trim() + ""; } Result::Err(e): { } }
+    int sp = text.find(" ");
+    if sp <= 0 { cerr << "login: the password file is damaged (" << file << ")\n"; return false; }
+    String salt = text.slice(0, sp);
+    String want = text.slice(sp + 1, text.len).trim();
+    String pw = read_secret("root password: ");
+    if Hash::sha256(salt + pw) != want { cerr << "login: wrong password\n"; return false; }
+    return true;
+}
+
+void root_set(int on) {
+    root_on = on;
+    if on == 1 { setv("JC_ROOT", "1"); } else { unsetv("JC_ROOT"); }
+}
+
 // the start of a word: X:/... or :/... (the drive), expanded; "" when the word does not begin with a drive. n = the length of the part that was taken
 String drive_expand(String w, int^ taken) {
     taken[0] = 0;
-    if w.len >= 2 && w[0] == ':' && w[1] == '/' { taken[0] = 2; return getv("HOME") + "/"; }
-    if w == ":" { taken[0] = 1; return getv("HOME"); }
+    String base = getv("HOME");
+    if root_on == 1 { base = top_dir(); }                                // as root  :/  is the top folder of the app
+    if w.len >= 2 && w[0] == ':' && w[1] == '/' { taken[0] = 2; return base + "/"; }
+    if w == ":" { taken[0] = 1; return base; }
     int k = 0;
     while k < w.len && k < 13 && w[k] != ':' { k += 1; }
     if k == 0 || k >= w.len || w[k] != ':' { return ""; }
@@ -1282,7 +1347,7 @@ bool have_program(String name) {
 
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "login" || n == "signin" || n == "logout" || n == "signout" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
@@ -1415,6 +1480,19 @@ bool builtin(String[] a) {
         if name == "update" { tail = " [-n]"; }
         cerr << name << ": use  jc " << name << tail << "   (jc is not installed? jget tool jc)\n";
         bcode = 2;
+        return true;
+    }
+    if name == "login" || name == "signin" {
+        String who = "root";
+        if a.len > 1 { who = a[1]; }
+        if who != "root" { cerr << name << ": only root can log in here (login root)\n"; bcode = 1; return true; }
+        if root_on == 1 { cout << "you are root already (logout leaves)\n"; bcode = 0; return true; }
+        if root_login() { root_set(1); cout << "root: :/ is now " << top_dir() << "  (try  dir :/  or  cd :/usr/bin ; logout leaves)\n"; bcode = 0; } else { bcode = 1; }
+        return true;
+    }
+    if name == "logout" || name == "signout" {
+        if root_on == 1 { root_set(0); cout << "root left: :/ is home again\n"; } else { cout << "you are not root\n"; }
+        bcode = 0;
         return true;
     }
     if name == "test" || name == "[" {
@@ -2024,6 +2102,16 @@ int run_script_text(String text) {
 void run_words(String[] raw0) {
     String[] raw = raw0;
     if raw.len == 0 { return; }
+    if raw[0] == "root" && raw.len > 1 {                      // root COMMAND ...: one command as root, the words read as root
+        int was = root_on;
+        if was == 0 && !root_login() { last_status = 1; return; }
+        root_set(1);
+        String[] rest = arr(raw.len);
+        for i in 1..raw.len { rest.push(raw[i]); }
+        run_words(rest);
+        root_set(was);
+        return;
+    }
     int fnx = find_fn(raw[0]);
     if fnx >= 0 { call_fn(fnx, raw); return; }
     int al = find_alias(raw[0]);
@@ -2206,7 +2294,9 @@ String prompt_text() {
     String c_err = colour_rgb(getv("JSH_COLOR_ERROR"), "255;95;95");                  // red after a failure (echo $? shows the code)
     String mark = e + "[1;38;2;" + c_mark + "m>" + reset;
     if last_status != 0 { mark = e + "[1;38;2;" + c_err + "m>" + reset; }
-    return e + "[1;38;2;" + c_name + "mjc" + reset + " " + e + "[38;2;" + c_path + "m" + dir + reset + mark + " " + prompt_mark();
+    String who = "jc";
+    if root_on == 1 { who = "root"; c_name = "255;95;95"; }
+    return e + "[1;38;2;" + c_name + "m" + who + reset + " " + e + "[38;2;" + c_path + "m" + dir + reset + mark + " " + prompt_mark();
 }
 
 // commands joined by && and || (the words are already split)
