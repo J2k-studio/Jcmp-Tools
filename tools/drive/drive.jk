@@ -1,7 +1,7 @@
 // drive: the drives of Jaric (f:/ 0:/ r:/ and the ones you make). The list is kept in ~/.jsh_drives, the file that jsh reads.
 #import <stdlib>
 
-String drive_version() { return "0.2.0"; }
+String drive_version() { return "0.3.0"; }
 
 String env_or(String name, String fallback) {
     switch Env::get(name) {
@@ -157,6 +157,56 @@ int count_entries(String dir) {
     return 0;
 }
 
+// ---- paths: drive form  X:/rest  <->  the real path
+// the real path of  :/bin  f:/x  0:/Music  work:/a  ~/b  (a path that starts with / is already real)
+String real_of(String p) {
+    String q = p.trim();
+    String home = env_or("HOME", "/");
+    if q == "~" || q == ":/" || q == ":" { return home + ""; }
+    if q.starts_with("~/") { return Path::join(home, q.slice(2, q.len)); }
+    if q.starts_with(":/") { return Path::join(home, q.slice(2, q.len)); }
+    int colon = q.find(":");
+    if colon > 0 && colon < 13 {
+        String name = q.slice(0, colon) + "";
+        String base = path_of(name);
+        if base.len > 0 {
+            String rest = q.slice(colon + 1, q.len);
+            if rest.len == 0 || rest == "/" { return base + ""; }
+            if rest.starts_with("/") { rest = rest.slice(1, rest.len); }
+            if base == "/" { return "/" + rest; }
+            return Path::join(base, rest);
+        }
+    }
+    return q + "";
+}
+
+// the drive form of a real path: the drive with the longest folder that holds it (:/ for home)
+String drive_of(String real) {
+    String best = "";
+    String bestname = "";
+    String[] names = arr(8);
+    names.push("f"); names.push("0"); names.push("r");
+    String[] ls = read_list().split("\n");
+    for i in 0..ls.len {
+        String ln = ls[i].trim();
+        int sp = ln.find(" ");
+        if sp > 0 { names.push(ln.slice(0, sp) + ""); }
+    }
+    for i in 0..names.len {
+        String root = path_of(names[i]);
+        if root.len == 0 { continue; }
+        String under = root + "/";
+        bool inside = root == "/" || real == root || real.starts_with(under);
+        if inside && root.len > best.len { best = root + ""; bestname = names[i] + ""; }
+    }
+    if bestname.len == 0 { return real + ""; }
+    String rest = real.slice(best.len, real.len);
+    if best == "/" { rest = real; }
+    if rest.len == 0 { rest = "/"; }
+    if bestname == "f" { return ":" + rest; }
+    return bestname + ":" + rest;
+}
+
 int do_list() {
     cout << ":/   home (the same as ~/ and f:/)\n";
     String[] sys = "f 0 r".split(" ");
@@ -288,6 +338,7 @@ int main() {
     if a.len > 1 && (a[1] == "--help" || a[1] == "-h" || a[1] == "help") {
         cout << "drive: the drives of Jaric (f:/ 0:/ r:/ and your own)\n";
         cout << "  drive                       the list         drive NAME            where a drive is, how many entries\n";
+        cout << "  drive -p :/bin              the real path of a path with a drive (-p, -path, -part);   drive -d /real/path   the path with the drive\n";
         cout << "  drive new NAME              a new drive with a new folder (in ~/drives)\n";
         cout << "  drive new NAME PATH         a drive of a folder that is there\n";
         cout << "  drive new NAME 2G           a size (K, M, G; 1.5G) may be given: it is the limit of the drive (shown and checked, not enforced yet)\n";
@@ -296,6 +347,13 @@ int main() {
         return 0;
     }
     if a.len == 1 || a[1] == "list" { return do_list(); }
+    if (a[1] == "-p" || a[1] == "-path" || a[1] == "-part") && a.len >= 3 { cout << real_of(a[2]) << "\n"; return 0; }     // drive -p :/bin  ->  the real path
+    if (a[1] == "-d" || a[1] == "-drive") && a.len >= 3 {                                                          // drive -d /real/path  ->  the drive form
+        String rp = a[2];
+        if !rp.starts_with("/") { rp = Path::join(env_or("PWD", "/"), rp); }
+        cout << drive_of(rp) << "\n";
+        return 0;
+    }
     if a[1] == "new" && a.len >= 3 { return do_new(a); }
     if a[1] == "remove" && a.len >= 3 { return do_remove(a); }
     if a[1] == "size" && a.len >= 4 {                             // drive size NAME 2G   /   drive size NAME none

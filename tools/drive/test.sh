@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 J="$PWD/_out/drive"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home"; mkdir -p "$HOME" "$T/music"
-[ "$("$J" --version)" = "drive 0.2.0" ] || { echo "drive test: version"; exit 1; }
+[ "$("$J" --version)" = "drive 0.3.0" ] || { echo "drive test: version"; exit 1; }
 "$J" | grep -q "^f:/  $HOME" || { echo "drive test: list shows f"; exit 1; }
 "$J" new songs "$T/music" | grep -q "songs:/ is $T/music" || { echo "drive test: new with a folder"; exit 1; }
 "$J" new work >/dev/null; [ -d "$HOME/drives/work" ] || { echo "drive test: new makes a folder"; exit 1; }
@@ -20,6 +20,14 @@ export HOME="$T/home"; mkdir -p "$HOME" "$T/music"
 "$J" remove songs >/dev/null; [ -d "$T/music" ] || { echo "drive test: remove keeps the folder"; exit 1; }
 "$J" remove work -d >/dev/null; [ ! -e "$HOME/drives/work" ] || { echo "drive test: remove -d"; exit 1; }
 "$J" | grep -q "songs\|work" && { echo "drive test: the list must be empty of made drives"; exit 1; }
+# paths
+[ "$("$J" -p :/bin)" = "$HOME/bin" ] || { echo "drive test: -p :/bin"; exit 1; }
+[ "$("$J" -part f:/a/b)" = "$HOME/a/b" ] || { echo "drive test: -part f:"; exit 1; }
+[ "$("$J" -p r:/usr)" = "/usr" ] || { echo "drive test: -p r:"; exit 1; }
+"$J" new pp "$T/music" >/dev/null; [ "$("$J" -p pp:/x.mp3)" = "$T/music/x.mp3" ] || { echo "drive test: -p of a made drive"; exit 1; }
+[ "$("$J" -d "$T/music/x.mp3")" = "pp:/x.mp3" ] || { echo "drive test: -d"; exit 1; }
+[ "$("$J" -d "$HOME/bin")" = ":/bin" ] || { echo "drive test: -d of home"; exit 1; }
+"$J" remove pp >/dev/null
 # sizes
 "$J" new big 2G | grep -q "limit 2.0 GB" || { echo "drive test: new with a size"; exit 1; }
 "$J" | grep -q "^big:/ .*limit 2.0 GB" || { echo "drive test: list shows the limit"; exit 1; }
