@@ -4,6 +4,7 @@
 #import <stdlib>
 using Input;
 
+String jsh_version() { return "0.9.6"; }
 String[] history;
 int last_status;
 int running;
@@ -1221,7 +1222,7 @@ bool have_program(String name) {
 
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
@@ -1356,6 +1357,15 @@ bool builtin(String[] a) {
         if a.len == 1 { jw.push("list"); }
         for i in 1..a.len { jw.push(a[i]); }
         run_words(jw);
+        bcode = last_status;
+        return true;
+    }
+    if name == "update" || name == "unstall" {                // update [-n]: jsh and the tools that have a newer version;  unstall NAME: remove a tool
+        String[] uw = arr(a.len + 3);
+        if have_program("jc") { uw.push("jc"); } else { uw.push("jget"); uw.push("tool"); }
+        uw.push(name);
+        for i in 1..a.len { uw.push(a[i]); }
+        run_words(uw);
         bcode = last_status;
         return true;
     }
@@ -1577,7 +1587,7 @@ bool builtin(String[] a) {
         cout << "  scripts     if / elif / else / fi    while / until / for ... do ... done    name() { ... }    $(command)  $((1 + 2))\n";
         cout << "  lines       a | b    a > file    a >> file    a < file    a &    a ; b    a && b    a || b    * ? ~ globs\n";
         cout << "  keys        Tab takes the grey text    arrows: history, move    Ctrl-J another line    Ctrl-C cancel    Ctrl-D leave\n";
-        cout << "  tools       install NAME ...  (install alone lists them; install all takes every one)\n";
+        cout << "  tools       install NAME ...  (install alone lists them)   update [-n]  (jsh and the tools that have a newer version)   unstall NAME\n";
         cout << "  the app     jaric theme | font | core\n";
         bcode = 0;
         return true;
@@ -2237,7 +2247,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.9.5\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh " << jsh_version() << "\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
@@ -2269,7 +2279,7 @@ int main() {
     actw[0] = (int)onint;
     actw[1] = 268435456;                                          // SA_RESTART
     Sys::call(134, 2, (int)@act, 0, 8, 0, 0);
-    cout << "jsh 0.1 (the shell of Jaric): help shows the commands\n";
+    cout << "jsh " << jsh_version() << " (the shell of Jaric): help shows the commands\n";
     bool tty = Sys::isatty(0) == 0;
     String rc_file = getv("HOME") + "/.jshrc";
     if tty && Fs::exists(rc_file) { run_file(rc_file); }      // the settings: aliases, export, ...

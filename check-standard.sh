@@ -6,6 +6,7 @@ WAIVE_BUILD="jcmp python yt-dlp"          # tools that are made from other thing
 OTHERS="python yt-dlp jcmp"                # programs that are not ours: their --version is their own (no check of dist)
 bad=0
 names="$*"
+all=0; [ -n "$names" ] || all=1
 [ -n "$names" ] || names=$(ls tools)
 for n in $names; do
     case "$n" in _*) continue ;; esac
@@ -37,4 +38,8 @@ for n in $names; do
     fi
     if [ -n "$err" ]; then bad=$((bad+1)); printf "%b\n" "$err"; else echo "ok   $n $ver"; fi
 done
+# versions.txt (NAME VERSION per line): what  jget tool update  compares with; written when every tool was checked
+if [ "$all" = 1 ]; then
+    for n in $(ls tools); do case "$n" in _*) continue ;; esac; [ -f "tools/$n/VERSION" ] && echo "$n $(tr -d ' \n' < tools/$n/VERSION)"; done > versions.txt
+fi
 exit $bad

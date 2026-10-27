@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.6
+* **Added:** the built-ins `update [-n]` (jsh and every installed tool that has a newer version; `-n` only shows them) and `unstall NAME` (removes a tool); they use `jc` and fall back to `jget tool`. `install all` now means the same as `update`.
+* **Fixed:** the banner said `jsh 0.1`; it and `--version` now show the real version.
+
 ## 0.9.5
 * **Added:** `jaric keepalive` says how to keep the sessions after the app is swiped away from the list (the notification stays, battery optimisation allowed, the settings of Huawei) and opens the system screen for it (the Jaric app 0.0.109). **Added:** the setting "wake lock (CPU awake)" in "terminal and security" (`wakelock = on|off`): the CPU stays awake while the sessions run.
 

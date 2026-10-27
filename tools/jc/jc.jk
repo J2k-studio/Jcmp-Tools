@@ -13,7 +13,7 @@
 #import <stdlib>
 #import "zipcore"
 
-String jc_version() { return "0.1.0"; }
+String jc_version() { return "0.2.0"; }
 
 int fail(String msg) {
     cerr << "jc: " << msg << "\n";
@@ -294,15 +294,55 @@ void remove_tree(String dir) {
     Dir::remove(dir);
 }
 
+int run_other(String prog, String[] words) {              // another program of Jaric does the work (jget for tools, jstore for the store)
+    String[] args = arr(words.len + 1);
+    for i in 0..words.len { args.push(words[i]); }
+    Result<int, Error> r = Proc::run(prog, args);
+    if !r.is_ok() { return fail("cannot start " + prog + " (jget tool " + prog + ")"); }
+    return r.take();
+}
+
+bool is_package_name(String what) {                        // FILE.jc or a path: a package; NAME: a tool; ID.with.dots: the store
+    return what.ends_with(".jc") || what.contains("/") || Fs::exists(what);
+}
+
 int main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jc " << jc_version() << "\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
         cout << "jc: install and run the programs of Jaric (.jc packages)\n";
         cout << "  jc info FILE.jc | install FILE.jc [-y] | run ID|FILE.jc [args] | list | perm ID [NAME on|off] | remove ID\n";
+        cout << "  jc install NAME (a tool: jget tool NAME) | install STORE.ID (jstore) | unstall NAME (remove a tool) | update [-n] (jsh and the tools and programs that have an update)\n";
         return 0;
     }
     if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
+    if a[1] == "update" || a[1] == "upgrade" {                 // jsh and every installed tool with a newer version, then the programs of the store
+        String[] w = arr(4);
+        w.push("tool");
+        w.push("update");
+        for i in 2..a.len { w.push(a[i]); }
+        int rc = run_other("jget", w);
+        String[] sw = arr(2);
+        sw.push("update");
+        Result<int, Error> sr = Proc::run("jstore", sw);       // the store is optional: not installed = nothing to do
+        if rc == 0 && sr.is_ok() { rc = sr.take(); }
+        return rc;
+    }
+    if (a[1] == "unstall" || a[1] == "uninstall") && a.len >= 3 {
+        if a[2].contains(".") { return do_remove(a[2]); }
+        String[] w = arr(4);
+        w.push("tool");
+        w.push("unstall");
+        for i in 2..a.len { w.push(a[i]); }
+        return run_other("jget", w);
+    }
+    if a[1] == "install" && a.len >= 3 && !is_package_name(a[2]) {
+        String[] w = arr(a.len + 2);
+        String prog = "jget";
+        if a[2].contains(".") { prog = "jstore"; } else { w.push("tool"); }
+        for i in 2..a.len { w.push(a[i]); }
+        return run_other(prog, w);
+    }
     if a[1] == "install" && a.len >= 3 {
         bool yes = false;
         for i in 3..a.len { if a[i] == "-y" { yes = true; } }

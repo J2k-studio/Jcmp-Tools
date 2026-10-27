@@ -64,3 +64,6 @@ Defaults need no file. A setting is read in this order: the command line, the en
 - [ ] `./check-standard.sh NAME` prints `ok`
 - [ ] the GitHub release has the notes of the section of `CHANGELOG.md` (Added / Changed / Fixed)
 - [ ] `install-NAME.sh` and the line in `tools.txt` exist; the table of `README.md` links the README of the tool
+
+## Install, update, remove
+`jc install NAME`, `jc unstall NAME`, `jc update [-n]` (also the jsh built-ins `install`, `unstall`, `update`) all go to `jget tool ...`; `update` compares `versions.txt` (written by `check-standard.sh`) with the installed versions, so a release must run `check-standard.sh` and publish `versions.txt`.

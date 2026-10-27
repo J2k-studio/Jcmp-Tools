@@ -33,7 +33,7 @@
 #import <deflate>
 using stdlib;
 
-String jget_version() { return "0.8.1"; }
+String jget_version() { return "0.9.0"; }
 String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
 
 int g_quiet;                 // -q: no progress bar
@@ -416,6 +416,8 @@ int usage() {
     err("       jget -O URL                      save it with the name in the address (even in a pipe)\n");
     err("       jget -x URL                      and make the file executable\n");
     err("       jget -m URL ...                  songs from links go to ~/music (or $MUJIC_DIR)\n");
+    err("       jget tool update [-n]            jsh and the installed tools that have a newer version (-n: only the list)\n");
+    err("       jget tool unstall NAME           remove a tool (and the files that came with it)\n");
     err("       jget -sh URL [args]              download a script and run it at once\n");
     err("       jget -jsh URL [args]             the same with jsh (a script of Jaric, first line [#jsh])\n");
     err("       jget -q URL                      without the progress bar\n");
@@ -769,6 +771,109 @@ bool untar_plain(String path, String dir) {
 }
 
 // jget tool list | jget tool NAME ... : the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...), put next to jget, checked with their SHA-256
+// where the files of Jcmp-Tools are: the repository (raw) and the releases; JCMPTOOLS_RAW and JCMPTOOLS_DL name others (a mirror, the tests)
+String tools_raw() {
+    switch Env::get("JCMPTOOLS_RAW") { Option::Some(v): { if v.len > 0 { return v; } } Option::None: { } }
+    return "https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main";
+}
+String tools_dl() {
+    switch Env::get("JCMPTOOLS_DL") { Option::Some(v): { if v.len > 0 { return v; } } Option::None: { } }
+    return "https://github.com/J2k-studio/Jcmp-Tools/releases/download";
+}
+
+// ---- jget tool update / unstall
+// is version a newer than version b (numbers with dots; 2026.10.21 and 3.14.0.3 work too)
+bool tool_ver_newer(String a, String b) {
+    String[] x = a.split(".");
+    String[] y = b.split(".");
+    int n = x.len;
+    if y.len > n { n = y.len; }
+    for i in 0..n {
+        int p = 0;
+        int q = 0;
+        if i < x.len { p = x[i].to_int(); }
+        if i < y.len { q = y[i].to_int(); }
+        if p > q { return true; }
+        if p < q { return false; }
+    }
+    return false;
+}
+
+// the version of an installed tool: the marker .NAME.version that jget wrote, else what NAME --version says; "" when it is not installed
+String tool_installed_version(String dir, String name) {
+    if !Fs::exists(dir + "/" + name) { return ""; }
+    String marker = dir + "/." + name + ".version";
+    if Fs::exists(marker) {
+        switch Fs::read_text(marker) {
+            Result::Ok(t): { if t.trim().len > 0 { return t.trim() + ""; } }
+            Result::Err(e): { }
+        }
+    }
+    String[] va = arr(1);
+    va.push("--version");
+    switch Proc::output(dir + "/" + name, va) {
+        Result::Ok(t): {
+            String[] w = t.trim().split(" ");
+            if w.len >= 2 && w[0] == name { return w[1] + ""; }
+        }
+        Result::Err(e): { }
+    }
+    return "unknown";
+}
+
+// the newest versions of all the tools in one request (versions.txt: lines  NAME VERSION)
+String tool_versions_text(String dir) {
+    String f = dir + "/.versions.txt";
+    if !download(tools_raw() + "/versions.txt", f, true) { return ""; }
+    String t = "";
+    switch Fs::read_text(f) {
+        Result::Ok(x): { t = x; }
+        Result::Err(e): { }
+    }
+    Fs::remove(f);
+    return t;
+}
+
+String tool_latest(String vtext, String name) {
+    String[] ls = vtext.split("\n");
+    for i in 0..ls.len {
+        String[] w = ls[i].trim().split(" ");
+        if w.len >= 2 && w[0] == name { return w[1] + ""; }
+    }
+    return "";
+}
+
+void remove_tree(String path) {
+    if Dir::exists(path) {
+        switch Dir::list(path) {
+            Result::Ok(names): { for i in 0..names.len { remove_tree(path + "/" + names[i]); } }
+            Result::Err(e): { }
+        }
+        Dir::remove(path);
+    } else { Fs::remove(path); }
+}
+
+// jget tool unstall NAME ...: the program of a tool and the files that came with it
+int tool_unstall(String[] av, int at, String dir) {
+    int rc = 0;
+    for k in at..av.len {
+        String name = av[k];
+        if name == "jget" { err("jget: jget does not remove itself (delete the file by hand if you want to)\n"); rc = 1; continue; }
+        if name == "jsh" { err("jget: jsh is the shell: it stays (jget tool update brings it up to date)\n"); rc = 1; continue; }
+        if !Fs::exists(dir + "/" + name) { err("jget: " + name + " is not installed here\n"); rc = 1; continue; }
+        String[] extra = arr(4);
+        if name == "python" { extra.push("python3"); extra.push("pip"); extra.push("pip3"); extra.push("python-android"); }
+        else if name == "neuron" { extra.push("xr"); extra.push("xaiorin"); }
+        else if name == "yt-dlp" { extra.push("yt-dlp.pyz"); }
+        else if name == "jcmp" { extra.push("Library"); extra.push("coderin-extensions"); }
+        for i in 0..extra.len { if Fs::exists(dir + "/" + extra[i]) { remove_tree(dir + "/" + extra[i]); } }
+        remove_tree(dir + "/" + name);
+        Fs::remove(dir + "/." + name + ".version");
+        cout << "removed " << name << nl;
+    }
+    return rc;
+}
+
 int cmd_tool(String[] av, int at) {
     String me = self_path();
     if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
@@ -777,7 +882,7 @@ int cmd_tool(String[] av, int at) {
     for i in 0..me.len { if me[i] == '/' { slash = i; } }
     if slash > 0 { dir = me.slice(0, slash); }                      // the tools go where jget is
     String list = me + ".tools";
-    if !download("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools.txt", list, true) { return 1; }
+    if !download(tools_raw() + "/tools.txt", list, true) { return 1; }
     String text = "";
     switch Fs::read_text(list) {
         Result::Ok(t): { text = t; }
@@ -794,17 +899,51 @@ int cmd_tool(String[] av, int at) {
         if av.len <= at { cout << "jget tool NAME installs one (more than one: jget tool jsh jbox coderin)" << nl; }
         return 0;
     }
-    // `all` is every tool but jget itself
+    if av[at] == "unstall" || av[at] == "uninstall" || av[at] == "remove" { return tool_unstall(av, at + 1, dir); }
+    // `update` (and the old `all`) = jsh and the installed tools that have a newer version; with -n only the list
     String[] wanted = arr(8);
+    bool want_update = false;
+    bool dry = false;
     for k in at..av.len {
-        if av[k] == "all" {
-            String[] tl = text.split("\n");
-            for i in 0..tl.len {
-                if tl[i].len == 0 || tl[i][0] == '#' { continue; }
-                String[] parts = tl[i].split("|");
-                if parts.len >= 2 && parts[0] != "jget" { wanted.push(parts[0]); }
+        if av[k] == "update" || av[k] == "all" { want_update = true; }
+        else if av[k] == "-n" { dry = true; }
+        else { wanted.push(av[k]); }
+    }
+    if want_update {
+        String vtext = tool_versions_text(dir);
+        String[] tl = text.split("\n");
+        int shown = 0;
+        // jsh first, then the others in the order of the list
+        String[] order = arr(16);
+        order.push("jsh");
+        for i in 0..tl.len {
+            if tl[i].len == 0 || tl[i][0] == '#' { continue; }
+            String[] parts = tl[i].split("|");
+            if parts.len >= 2 && parts[0] != "jsh" { order.push(parts[0] + ""); }
+        }
+        for i in 0..order.len {
+            String name = order[i];
+            String have = tool_installed_version(dir, name);
+            if have.len == 0 && name != "jsh" { continue; }                                      // not installed: update does not add tools (jsh is the base)
+            String lat = tool_latest(vtext, name);
+            if lat.len == 0 {                                                                    // no versions.txt: ask the tool itself
+                String lv0 = dir + "/." + name + ".latest";
+                if download(tools_raw() + "/tools/" + name + "/LATEST", lv0, true) {
+                    switch Fs::read_text(lv0) { Result::Ok(t): { lat = t.trim() + ""; } Result::Err(e): { } }
+                    Fs::remove(lv0);
+                }
             }
-        } else { wanted.push(av[k]); }
+            if lat.len == 0 { continue; }
+            bool newer = have.len == 0 || have == "unknown" || tool_ver_newer(lat, have);
+            if !newer { continue; }
+            String from = have;
+            if from.len == 0 { from = "(not installed)"; }
+            cout << name << ": " << from << " -> " << lat << nl;
+            wanted.push(name);
+            shown += 1;
+        }
+        if shown == 0 { cout << "everything is up to date" << nl; return 0; }
+        if dry { cout << "(jget tool update installs them)" << nl; return 0; }
     }
     int rc = 0;
     for k in 0..wanted.len {
@@ -814,7 +953,7 @@ int cmd_tool(String[] av, int at) {
         for i in 0..ls.len { if ls[i].starts_with(name + "|") { known = true; } }
         if !known { err("jget: there is no tool '" + name + "' (jget tool list shows them)\n"); rc = 1; continue; }
         String lv = dir + "/." + name + ".latest";
-        if !download("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools/" + name + "/LATEST", lv, true) { rc = 1; continue; }
+        if !download(tools_raw() + "/tools/" + name + "/LATEST", lv, true) { rc = 1; continue; }
         String ver = "";
         switch Fs::read_text(lv) {
             Result::Ok(t): { ver = t.trim(); }
@@ -822,7 +961,7 @@ int cmd_tool(String[] av, int at) {
         }
         Fs::remove(lv);
         if ver.len == 0 { err("jget: cannot read the newest version of " + name + "\n"); rc = 1; continue; }
-        String base = "https://github.com/J2k-studio/Jcmp-Tools/releases/download/" + name + "-v" + ver;
+        String base = tools_dl() + "/" + name + "-v" + ver;
         String tmp = dir + "/." + name + ".new";
         String sums = dir + "/." + name + ".sums";
         if !download(base + "/SHA256SUMS", sums, true) { rc = 1; continue; }
@@ -874,6 +1013,7 @@ int cmd_tool(String[] av, int at) {
             } else { rc = 1; }
             Fs::remove(sums + ".keep");
         }
+        Fs::write_text(dir + "/." + name + ".version", ver);
         cout << "installed " << name << " " << ver << " in " << dir << nl;
         if name == "jbox" || name == "zipj" || name == "tarj" {                                             // its commands as links next to it
             String[] ja = arr(2);
