@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.9.7"; }
+String jsh_version() { return "0.9.8"; }
 String[] history;
 int last_status;
 int running;
@@ -162,13 +162,66 @@ String[] candidates(String line) {
     return out;
 }
 
+// the history as a tree of letters (a trie): a node keeps its first child, its next brother and the newest history line that goes through it,
+// so the grey text is found by walking the typed letters once (no scan of the whole history on every key)
+int[] t_ch;
+int[] t_kid;
+int[] t_sib;
+int[] t_new;
+bool t_ready;
+int t_done;                                                   // how many history lines are in the tree
+
+int trie_child(int node, int c) {
+    int k = t_kid[node];
+    while k > 0 {
+        if t_ch[k] == c { return k; }
+        k = t_sib[k];
+    }
+    return 0 - 1;
+}
+
+void trie_sync() {                                            // puts the history lines that are not in the tree yet
+    if !t_ready {
+        t_ready = true;
+        t_ch = arr(256); t_kid = arr(256); t_sib = arr(256); t_new = arr(256);
+        t_ch.push(0); t_kid.push(0); t_sib.push(0); t_new.push(0 - 1);       // node 0: the root
+    }
+    while t_done < history.len {
+        String h = history[t_done];
+        int node = 0;
+        for q in 0..h.len {
+            int c = h[q];
+            int k = trie_child(node, c);
+            if k < 0 {
+                k = t_ch.len;
+                t_ch.push(c); t_kid.push(0); t_sib.push(t_kid[node]); t_new.push(0 - 1);
+                t_kid[node] = k;
+            }
+            t_new[k] = t_done;
+            node = k;
+        }
+        t_done += 1;
+    }
+}
+
 // the grey text after the cursor: the newest history line that continues the line, else the first completion
 String suggestion_for(String line) {
     if line.len == 0 { return ""; }
-    int i = history.len - 1;
-    while i >= 0 {
-        if history[i].len > line.len && history[i].starts_with(line) { return history[i].slice(line.len, history[i].len); }
-        i -= 1;
+    trie_sync();
+    int node = 0;
+    for q in 0..line.len {
+        node = trie_child(node, line[q]);
+        if node < 0 { break; }
+    }
+    if node > 0 && t_new[node] >= 0 {
+        String h = history[t_new[node]];
+        if h.len > line.len { return h.slice(line.len, h.len); }
+        // the newest line through this node is the typed line itself: an older, longer one may continue it
+        int i = t_new[node] - 1;
+        while i >= 0 {
+            if history[i].len > line.len && history[i].starts_with(line) { return history[i].slice(line.len, history[i].len); }
+            i -= 1;
+        }
     }
     String[] c = candidates(line);
     if c.len == 0 { return ""; }

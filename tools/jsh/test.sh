@@ -7,7 +7,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
 OUT=$(printf 'echo hello world\necho "a  b" | cat\necho one > f.txt\necho two >> f.txt\ncat < f.txt\nfalse\necho status $?\necho x | tr x y | cat\nnosuchprog\ncd /\npwd\nexit 7\n' | "$SH" 2>&1) && rc=0 || rc=$?
-WANT='jsh 0.9.7 (the shell of Jaric): help shows the commands
+WANT='jsh 0.9.8 (the shell of Jaric): help shows the commands
 hello world
 a  b
 one
@@ -24,7 +24,7 @@ T2=$(mktemp -d); trap 'rm -rf "$T" "$T2"' EXIT
 cd "$T2"; touch a.txt b.txt c.log
 printf 'echo "echo in the script"\nexport K=5\necho k=$K\n' > s.jsh
 OUT2=$(printf 'NAME=jao\necho hi $NAME\nalias say=echo\nsay aliased\necho *.txt\nfalse || echo second\ntrue && echo third\necho a ; echo b\nunset NAME\necho [$NAME]\ntype cd\nexit 0\n' | HOME="$T2" "$SH" 2>&1)
-WANT2='jsh 0.9.7 (the shell of Jaric): help shows the commands
+WANT2='jsh 0.9.8 (the shell of Jaric): help shows the commands
 hi jao
 aliased
 a.txt b.txt
@@ -85,6 +85,7 @@ got=$(HOME="$T3" PATH="$T3:$PATH" "$SH" h8.jsh 2>&1 | tr '\n' '|'); [ "$got" = "
 echo "shell test (step 8): ok"
 python3 "$ROOT/setting_test.py" "$SH" 2>/dev/null || { echo "shell test (step 9): jaric setting"; exit 1; }
 echo "shell test (step 9): ok"
+python3 "$ROOT/ghost_test.py" "$SH" >/dev/null 2>&1 || { echo "shell test (ghost): the grey text from the history tree"; exit 1; }
 python3 "$ROOT/wrap_test.py" "$SH" >/dev/null 2>&1 || { echo "shell test (step 10): a long line and the arrows"; exit 1; }
 echo "shell test (step 10): ok"
 # step 11: the first line of a script ([#jsh], #jsh, #!jsh, none), the arguments $1 $# $0, a settings file of jash is not run

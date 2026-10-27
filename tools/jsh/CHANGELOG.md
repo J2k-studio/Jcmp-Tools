@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.8
+* **Changed:** the grey text (the guess of the rest of the line) is found in a tree of letters (a trie) built from the history, not by scanning the whole history on every key. The result is the same: the newest line that continues what you typed.
+* **Added:** `ghost_test.py` (a pseudo terminal test of the grey text).
+
 ## 0.9.7
 * **Changed:** installing is done by `jc` only (`jc install NAME`, `jc update [-n]`, `jc unstall NAME`). The built-ins `install`, `update`, `unstall` and `jsh install` are gone; typing them says which `jc` command to use. Hints (`command not found`) and `help` name `jc install`.
 
