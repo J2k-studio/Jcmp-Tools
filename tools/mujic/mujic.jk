@@ -766,7 +766,7 @@ int next_event(int wait_ms) {
 int g_sel;                              // the song under the cursor
 int g_play;                             // the song that plays (-1: none)
 bool g_quit;
-int g_view;                             // 0 the songs, 1 the lyrics
+int g_view;                             // 0 the songs, 1 the lyrics, 2 the output of !command
 
 // the song after the current one (shuffle, repeat); -1 when the list ends
 int next_song(int dir) {
@@ -815,6 +815,9 @@ void cmd_init() {
     cmd_name.push("stop"); cmd_help.push("stop the sound");
     cmd_name.push("queue"); cmd_help.push("show the songs");
     cmd_name.push("lyrics"); cmd_help.push("show the lyrics  (/lyrics get fetches them from the web)");
+    cmd_name.push("dir"); cmd_help.push("browse folders and play a song from any folder  (/dir PATH)");
+    cmd_name.push("cd"); cmd_help.push("go to a folder  (/cd PATH;  ~ :/ f: 0: r: work)");
+    cmd_name.push("pwd"); cmd_help.push("the folder you are in;  !command runs a shell command there");
     cmd_name.push("get"); cmd_help.push("fetch a song: choose from the catalog, or give a name, an address, archive:ID (a YouTube / TikTok address needs yt-dlp)");
     cmd_name.push("find"); cmd_help.push("search the Internet Archive  (/find words)");
     cmd_name.push("import"); cmd_help.push("copy a song or a folder into the music folder  (/import PATH)");
@@ -837,7 +840,7 @@ String g_note;                          // one line under the panel: what happen
 
 // ---- a picker: a list to choose from (arrows, type to narrow, Enter, Esc)
 bool g_pk_on;
-int g_pk_kind;                          // 1 songs, 2 catalog, 3 archive results
+int g_pk_kind;                          // 1 songs, 2 catalog, 3 archive results, 4 folders
 String g_pk_title;
 String[] g_pk_show;
 String[] g_pk_val;
@@ -875,6 +878,98 @@ int pk_count() {
     int c = 0;
     for i in 0..g_pk_show.len { if pk_match(i) { c += 1; } }
     return c;
+}
+
+// ---- the folders and the shell: mujic is a small terminal (/dir /cd /pwd, !command, a song by its path)
+String g_cwd;                           // the folder that  /dir  shows and  !command  runs in
+String[] g_out;                         // the lines the last  !command  printed (view 3 of Tab)
+
+// a path as the user types it: ~ and :/ are home, f: 0: r: are the drives, a relative path starts in g_cwd
+String expand_path(String p) {
+    String home = "/";
+    switch Env::get("HOME") { Option::Some(v): { home = v; } Option::None: { } }
+    String q = p.trim();
+    if q == "~" || q == ":/" || q == ":" { return home + ""; }
+    if q.starts_with("~/") { return Path::join(home, q.slice(2, q.len)); }
+    if q.starts_with(":/") { return Path::join(home, q.slice(2, q.len)); }
+    if q.starts_with("f:") { return Path::join(home, q.slice(2, q.len)); }
+    if q.starts_with("0:") {
+        String sd = "/storage/emulated/0";
+        if !Dir::exists(sd) { sd = "/sdcard"; }
+        return Path::join(sd, q.slice(2, q.len));
+    }
+    if q.starts_with("r:") { return "/" + q.slice(2, q.len); }
+    if q.starts_with("/") { return q + ""; }
+    return Path::join(g_cwd, q);
+}
+
+// the real folder of a path with .. and . taken out (cd and the picker use it)
+String clean_path(String p) {
+    String[] parts = p.split("/");
+    String[] keep = arr(16);
+    for i in 0..parts.len {
+        if parts[i].len == 0 || parts[i] == "." { continue; }
+        if parts[i] == ".." { if keep.len > 0 { keep.pop(); } continue; }
+        keep.push(parts[i] + "");
+    }
+    String out = "";
+    for i in 0..keep.len { out = out + "/" + keep[i]; }
+    if out.len == 0 { return "/"; }
+    return out;
+}
+
+void play_path(String full) {
+    g_play = 0 - 1;
+    lyrics_clear();
+    String base = full;
+    int sl = 0 - 1;
+    for i in 0..full.len { if full[i] == '/' { sl = i; } }
+    if sl >= 0 { base = full.slice(sl + 1, full.len); }
+    ltitle = strip_ext(base);
+    snd_play(full);
+    g_note = "playing " + ltitle + "   (" + full + ")";
+}
+
+void dir_picker(String dir) {
+    g_cwd = clean_path(dir);
+    pk_open(4, g_cwd);
+    g_pk_show.push(".."); g_pk_val.push("..");
+    switch Dir::list(g_cwd) {
+        Result::Ok(names): {
+            names.sort();
+            for i in 0..names.len {
+                if names[i].len > 0 && names[i][0] == '.' { continue; }
+                if Dir::exists(Path::join(g_cwd, names[i])) { g_pk_show.push(names[i] + "/"); g_pk_val.push(names[i] + "/"); }
+            }
+            for i in 0..names.len {
+                String full = Path::join(g_cwd, names[i]);
+                bool folder = Dir::exists(full);
+                if is_audio(names[i]) && !folder { g_pk_show.push(names[i] + ""); g_pk_val.push(names[i] + ""); }
+            }
+        }
+        Result::Err(e): { g_note = "cannot read " + g_cwd; g_pk_on = false; }
+    }
+    if g_pk_show.len > 1 { g_pk_sel = 1; }                    // the first real entry; ".." is one up
+}
+
+// !command: run it with the shell in g_cwd, keep the lines to show (jsh when it is there, so drives like 0:/ work)
+void shell_line(String cmdline) {
+    String sh = "sh";
+    if have_program("jsh") { sh = "jsh"; }
+    String[] a = arr(4);
+    a.push("-c");
+    a.push("cd '" + g_cwd + "' && " + cmdline);
+    g_out = arr(32);
+    g_out.push("$ " + cmdline);
+    switch Proc::output(sh, a) {
+        Result::Ok(t): {
+            String[] ls = t.split("\n");
+            for i in 0..ls.len { g_out.push(ls[i] + ""); }
+        }
+        Result::Err(e): { g_out.push("cannot run " + sh); }
+    }
+    g_view = 2;
+    g_note = "output of: " + cmdline + "   (Tab: songs / lyrics / output)";
 }
 
 // ---- the web search of the Internet Archive, into a picker
@@ -979,8 +1074,24 @@ void run_command(String line) {
     String arg = "";
     int sp = line.find(" ");
     if sp >= 0 { cmd = line.slice(0, sp); arg = line.slice(sp + 1, line.len).trim(); }
-    if cmd == "play" {
-        if arg.len > 0 {
+    if cmd == "dir" || cmd == "ls" {
+        String ep = g_cwd;
+        if arg.len > 0 { ep = expand_path(arg); }
+        bool is_dir = Dir::exists(ep);
+        bool there = Fs::exists(ep);
+        if arg.len > 0 && there && !is_dir { play_path(ep); } else { dir_picker(ep); }
+    } else if cmd == "cd" {
+        String target = music_dir();
+        if arg.len > 0 { target = expand_path(arg); }
+        if Dir::exists(target) { g_cwd = clean_path(target); g_note = "in " + g_cwd; } else { g_note = "no folder " + target; }
+    } else if cmd == "pwd" { g_note = g_cwd + "";
+    } else if cmd == "play" {
+        String pp = expand_path(arg);
+        bool pathy = arg.contains("/") || arg.starts_with("~") || arg.contains(":");
+        bool pfile = Fs::exists(pp) && !Dir::exists(pp);
+        if arg.len > 0 && pathy && pfile {
+            play_path(pp);
+        } else if arg.len > 0 {
             int s = find_song(arg);
             if s >= 0 { play_index(s); g_note = "playing " + strip_ext(g_files[s]); } else { g_note = "no song like '" + arg + "' (/get fetches songs)"; }
         } else if g_files.len == 0 { g_note = "no songs yet: /get";
@@ -1052,6 +1163,11 @@ void run_command(String line) {
 // plain words: one song that matches plays at once, several open the picker, none: say so
 void run_words(String words) {
     cmd_init();
+    if words.starts_with("!") { shell_line(words.slice(1, words.len).trim()); return; }
+    String w1 = words;
+    int fsp = words.find(" ");
+    if fsp > 0 { w1 = words.slice(0, fsp); }
+    if w1 == "dir" || w1 == "ls" || w1 == "cd" || w1 == "pwd" { run_command(words); return; }
     int hits = 0;
     int first = 0 - 1;
     String w = words.lower();
@@ -1070,6 +1186,12 @@ void pk_choose() {
     String v = g_pk_val[i];
     int kind = g_pk_kind;
     g_pk_on = false;
+    if kind == 4 {
+        if v == ".." { dir_picker(Path::join(g_cwd, "..")); }
+        else if v.ends_with("/") { dir_picker(Path::join(g_cwd, v)); }
+        else { play_path(Path::join(g_cwd, v)); }
+        return;
+    }
     if kind == 1 { int s = v.to_int(); play_index(s); g_note = "playing " + strip_ext(g_files[s]); }
     else { fetch_outside(v); }
 }
@@ -1138,6 +1260,15 @@ void draw() {
         }
         f = f + "\e[" + str(bottom - 1) + ";1H" + sgr("2", pad("  type to narrow:  " + g_pk_filter + "   (" + str(n) + " of " + str(g_pk_show.len) + ")", cols));
         f = f + "\e[" + str(bottom) + ";1H" + sgr("2", pad("  up/down choose   Enter select   Esc close", cols));
+    } else if g_view == 2 {
+        int total = g_out.len;
+        int from = total - ph;
+        if from < 0 { from = 0; }
+        if total == 0 { f = f + "\e[" + str(top) + ";1H" + sgr("2", pad("  no output yet:  !command  runs a shell command in " + g_cwd, cols)); }
+        for r in 0..ph {
+            int i = from + r;
+            if i < total { f = f + "\e[" + str(top + r) + ";1H" + pad(" " + fit(g_out[i], cols - 2), cols); }
+        }
     } else if g_view == 1 && lcount > 0 {
         int cur = lyrics_at(pos + 200);
         int start = 0;
@@ -1225,6 +1356,8 @@ int do_player(String start) {
     lyrics_clear();
     g_msg = "";
     g_note = "";
+    g_out = arr(8);
+    g_cwd = music_dir();
     g_play = 0 - 1;
     g_sel = 0;
     g_view = 0;
@@ -1273,7 +1406,7 @@ int do_player(String start) {
                 else if ev == ' ' { if g_state == 0 && g_play < 0 { if g_files.len > 0 { play_index(g_sel); } } else { snd_pause(); } }
                 else if ev == 259 { snd_seek(10000); }
                 else if ev == 260 { snd_seek(0 - 10000); }
-                else if ev == 9 { g_view = 1 - g_view; }
+                else if ev == 9 { g_view = (g_view + 1) % 3; }
                 else if ev == 14 { run_command("next"); }
                 else if ev == 16 { run_command("prev"); }
             } else {
@@ -1358,7 +1491,7 @@ int do_lyrics(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.3.3";
+    String VERSION = "0.4.0";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here

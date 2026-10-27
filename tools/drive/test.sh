@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 J="$PWD/_out/drive"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home"; mkdir -p "$HOME" "$T/music"
-[ "$("$J" --version)" = "drive 0.1.0" ] || { echo "drive test: version"; exit 1; }
+[ "$("$J" --version)" = "drive 0.2.0" ] || { echo "drive test: version"; exit 1; }
 "$J" | grep -q "^f:/  $HOME" || { echo "drive test: list shows f"; exit 1; }
 "$J" new songs "$T/music" | grep -q "songs:/ is $T/music" || { echo "drive test: new with a folder"; exit 1; }
 "$J" new work >/dev/null; [ -d "$HOME/drives/work" ] || { echo "drive test: new makes a folder"; exit 1; }
@@ -20,4 +20,15 @@ export HOME="$T/home"; mkdir -p "$HOME" "$T/music"
 "$J" remove songs >/dev/null; [ -d "$T/music" ] || { echo "drive test: remove keeps the folder"; exit 1; }
 "$J" remove work -d >/dev/null; [ ! -e "$HOME/drives/work" ] || { echo "drive test: remove -d"; exit 1; }
 "$J" | grep -q "songs\|work" && { echo "drive test: the list must be empty of made drives"; exit 1; }
+# sizes
+"$J" new big 2G | grep -q "limit 2.0 GB" || { echo "drive test: new with a size"; exit 1; }
+"$J" | grep -q "^big:/ .*limit 2.0 GB" || { echo "drive test: list shows the limit"; exit 1; }
+dd if=/dev/zero of="$HOME/drives/big/f" bs=1024 count=100 2>/dev/null
+"$J" size big 50K >/dev/null; "$J" big | grep -q "over the limit" || { echo "drive test: over the limit"; exit 1; }
+"$J" check >/dev/null 2>&1 && { echo "drive test: check must fail when a drive is over"; exit 1; }
+"$J" size big 1.5M >/dev/null; "$J" big | grep -q "used 100 KB of 1.5 MB" || { echo "drive test: used of limit"; "$J" big; exit 1; }
+"$J" check >/dev/null || { echo "drive test: check ok"; exit 1; }
+"$J" size big none >/dev/null; "$J" big | grep -q "no limit" || { echo "drive test: no limit"; exit 1; }
+"$J" size big 12x >/dev/null 2>&1 && { echo "drive test: a bad size"; exit 1; }
+"$J" remove big -d >/dev/null; [ ! -s "$HOME/.jsh_drive_sizes" ] || { echo "drive test: remove clears the limit"; exit 1; }
 echo "drive tests: ok"

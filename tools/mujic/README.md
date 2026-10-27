@@ -18,6 +18,9 @@ Sound: in the Jaric app the app plays (mp3, ogg, m4a, flac, wav); elsewhere `ter
 License: MPL-2.0. Build: `JCMP=path sh build.sh` (jcmp 1.1.0.0 or newer). Test: `sh test.sh` (python3).
 The lyrics come from lrclib.net when you ask; they belong to their authors: keep them for your own use.
 
+## Folders and the shell
+`/dir` (or just `dir` / `ls`) browses folders and plays a song from any of them; `/cd PATH`, `/pwd`; `!ls` or `!any command` runs in that folder and its output shows on the third view (Tab). Paths accept `~`, `:/`, `f:`, `0:/Music`, `r:`.
+
 ## Install
 ```
 jget tool mujic                                                        # with jget

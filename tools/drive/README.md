@@ -7,9 +7,11 @@ drive                       the list
 drive songs                 where a drive is, how many entries it holds
 drive new work              a new drive with a new folder (~/drives/work)
 drive new songs /storage/emulated/0/Music     a drive of a folder that is there
+drive new work 2G              a drive with a size limit (K, M, G)
+drive size work 500M|none    change or clear the limit;   drive check   the drives with a limit, and what they use
 drive remove work -d        take it away; -d: delete its folder too (only a folder that drive new made)
 ```
-A name is letters, digits and `_` (up to 12). `f`, `0` and `r` belong to the system.
+A limit is shown and checked (`drive work` says "used 120 MB of 2.0 GB"); it is not enforced by the system yet. A name is letters, digits and `_` (up to 12). `f`, `0` and `r` belong to the system.
 
 ## Install
 ```

@@ -1,5 +1,9 @@
 # mujic changelog
 
+## 0.4.0
+* **Added:** mujic is a small terminal. `/dir [PATH]` (or `dir`, `ls` typed alone) opens a picker of folders and songs: Enter on a folder goes in (`..` goes up), Enter on a song plays it from where it is; `/dir FILE` and `/play PATH` play a song by its path; `/cd PATH`, `/pwd`; `~`, `:/`, `f:`, `0:`, `r:` work in paths. `!command` runs a shell command in that folder (jsh when it is installed, so drives work) and shows the lines in a third view (Tab: songs, lyrics, output).
+* **Changed:** Tab now cycles songs, lyrics, output. The test `ui_test.py` covers `/dir`, entering a folder, playing by path, `!command` and `/pwd`.
+
 ## 0.3.3
 * `mujic -session [arguments]`: in the Jaric app the player opens in a tab of its own and the shell stays free (elsewhere it runs here as before).
 
