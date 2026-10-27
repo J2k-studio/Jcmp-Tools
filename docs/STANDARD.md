@@ -67,3 +67,6 @@ Defaults need no file. A setting is read in this order: the command line, the en
 
 ## Install, update, remove
 `jc install NAME`, `jc unstall NAME`, `jc update [-n]` all go to `jget tool ...`; `update` compares `versions.txt` (written by `check-standard.sh`) with the installed versions, so a release must run `check-standard.sh` and publish `versions.txt`.
+
+## The guide of a tool
+A README is the front page; a tool with more than a few commands also has a **guide**: a section `## Commands` in the README, or a file `docs/GUIDE.md`, that goes through **every command and option with an example**, shows a step by step lesson for each big feature (for example an Android app with `makej init -apk`), and has a table of the error messages and what to do. `check-standard.sh` prints a note for a tool that has neither. (Written so far: makej.)

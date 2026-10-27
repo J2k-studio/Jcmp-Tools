@@ -46,6 +46,9 @@ int main() {
 
 Status: a prototype (2026-10-22) written before the usage was designed; the design and its open questions are in [docs/usage-design.md](docs/usage-design.md). Nothing about the commands or the build file is final.
 
+## The guide
+[docs/GUIDE.md](docs/GUIDE.md) goes through every command with examples: `makej init -pro | -game | -apk | -ai`, building and running, **an Android app step by step (`makej init -apk`, `makej apk`: what to install, the `manifest.toml`, the icon, signing, and what each error means)**, packages for Jaric (`makej pack`), the game lessons and the AI project.
+
 ## Install
 ```
 jget tool makej                                                        # with jget

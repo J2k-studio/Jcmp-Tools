@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.1
+* **Added:** `docs/GUIDE.md`, a detailed guide of every command: the `init` variants, build and run, an Android app step by step (tools to install, `android.jar`, `manifest.toml` line by line, icon, signing, install, a table of the error messages), `makej pack` / `dist`, the game lessons and the AI project. The README points to it.
+
 ## 0.9.0
 * **Added:** `makej init -apk` (and `makej -apk`) starts an Android app project: the game project of `-game` with `os = "android"` in `manifest.toml`. Before, `-apk` was not known and it wrote a bare `makej` file only. At the end it lists the tools that `makej apk` needs and that are still missing (aapt2 ecj d8 zipalign apksigner keytool, android.jar).
 

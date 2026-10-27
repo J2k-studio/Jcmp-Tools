@@ -25,6 +25,8 @@ for n in $names; do
         grep -q "jget tool .*$n" "$d/README.md" || add "README.md does not show  jget tool $n"
         grep -q "install.sh | sh -s .*$n" "$d/README.md" || add "README.md does not show the curl install of $n"
         grep -q '^## A short lesson' "$d/README.md" || add "README.md has no section '## A short lesson'"
+        # a tool with several commands needs a guide: a section '## Commands' or a file docs/GUIDE.md (only a note for now: the older tools are being written)
+        if ! grep -q '^## Commands' "$d/README.md" && [ ! -f "$d/docs/GUIDE.md" ]; then echo "note  $n: no '## Commands' section and no docs/GUIDE.md (every command and option with an example)"; fi
         grep -qi 'license' "$d/README.md" || add "README.md does not name the license"
     fi
     grep -q "^$n|" tools.txt || add "not in tools.txt"
