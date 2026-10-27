@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; export J2K_PATH="${J2K_PATH:-$HOME/Jcmp/build/libs}"; sh b
 J="$PWD/_out/jgit"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export JGIT_NAME="Tester" JGIT_EMAIL="t@example.org" HOME="$T/home"; mkdir -p "$HOME"
-[ "$("$J" --version)" = "jgit 0.3.0" ] || { echo "jgit test: version"; exit 1; }
+[ "$("$J" --version)" = "jgit 0.3.1" ] || { echo "jgit test: version"; exit 1; }
 cd "$T"; "$J" init r1 > /dev/null; cd r1
 "$J" status > /dev/null 2>&1 && true
 mkdir -p src/deep; echo hello > a.txt; echo world > src/b.txt; printf '#!/bin/sh\necho x\n' > src/run.sh; chmod 755 src/run.sh; head -c 3000 /dev/urandom > bin.dat; echo deep > src/deep/c.txt
@@ -76,6 +76,13 @@ fi
   "$J" commit -m first | grep -q "author: Ann Lee <ann@example.org>" || { echo "jgit test: commit uses the login"; exit 1; }
   "$J" log | grep -q "Author: Ann Lee <ann@example.org>" || { echo "jgit test: log shows the login"; exit 1; }
   "$J" login --name Bob --email nomail >/dev/null 2>&1 && { echo "jgit test: a bad email"; exit 1; }
+  true
+) || exit 1
+# login outside a repository (it must not need one), also written -login
+(
+  unset JGIT_NAME JGIT_EMAIL; export HOME="$T/home4"; mkdir -p "$HOME"; cd "$HOME"
+  "$J" -login --name Cy --email cy@example.org | grep -q "Cy" || { echo "jgit test: login outside a repository"; exit 1; }
+  grep -q "name = Cy" "$HOME/.jgit/user" || { echo "jgit test: -login file"; exit 1; }
   true
 ) || exit 1
 echo "jgit tests: ok"

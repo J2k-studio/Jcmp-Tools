@@ -1,5 +1,8 @@
 # jgit changelog
 
+## 0.3.1
+* **Fixed:** `jgit login` outside a repository stopped with `panic: the String is null` (the path of the repository was not set yet); it works anywhere now. `jgit -login` and `--login` are accepted like `login`.
+
 ## 0.3.0
 * **Added:** `jgit login` asks your name and email once and keeps them in `~/.jgit/user` (`jgit login --name N --email E` asks nothing). `jgit commit` at a terminal asks the same when it does not know who you are; without a terminal it says `run jgit login`. The commit prints `author: NAME <EMAIL>` so you see who it was made as, and `jgit log` shows it.
 * **Changed:** the identity comes from `JGIT_NAME` / `JGIT_EMAIL`, then the repository `config`, then `~/.jgit/user` (jgit login), then `~/.gitconfig`. Before, a `~/.gitconfig` that was already on the phone (for example the one of another git) was used without a word, so commits were made as that person.

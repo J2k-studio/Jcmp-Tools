@@ -9,7 +9,7 @@
 #import <stdlib>
 #import <deflate>
 
-String jgit_version() { return "0.3.0"; }
+String jgit_version() { return "0.3.1"; }
 
 int fail(String msg) {
     cerr << "jgit: " << msg << "\n";
@@ -627,7 +627,8 @@ String who(String key, String envname) {
         Option::Some(v): { if v.len > 0 { return v; } }
         Option::None: { }
     }
-    String v = config_value(read_text_file(g_git + "/config"), "user", key);
+    String v = "";
+    if g_git.len > 0 { v = config_value(read_text_file(g_git + "/config"), "user", key); }      // outside a repository g_git is empty
     if v.len > 0 { return v; }
     String home = home_dir();
     v = config_value(read_text_file(home + "/.jgit/user"), "user", key);          // written by  jgit login
@@ -978,13 +979,14 @@ int do_diff() {
 
 int main() {
     String[] a = Env::args();
+    g_git = "";
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jgit " << jgit_version() << "\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
         cout << "jgit: git in J2K (the repositories are the repositories of git)\n";
         cout << "  jgit login | init [DIR] | add PATH... | commit -m \"text\" | status | log [-n N] | diff | cat HASH|REF | branch [NAME] | switch NAME\n";
         return 0;
     }
-    if a[1] == "login" { return do_login(a); }
+    if a[1] == "login" || a[1] == "-login" || a[1] == "--login" { return do_login(a); }
     if a[1] == "init" { return do_init(a); }
     if !find_repo() { return fail("this is not a repository (jgit init)"); }
     if a[1] == "add" { return do_add(a); }
