@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.9.8"; }
+String jsh_version() { return "0.9.9"; }
 String[] history;
 int last_status;
 int running;
@@ -278,6 +278,13 @@ void redraw(String prompt, String line, int cursor) {
     int endw = pw + lw;
     if cursor == line.len {
         String ghost = suggestion_for(line);
+        int room = cols - 1 - (endw % cols);                       // the grey text stays on the row of the cursor: a long one would wrap and scroll the screen
+        if cols_of(ghost, 0, ghost.len) > room {
+            int cut = 0;
+            while cut < ghost.len && cols_of(ghost, 0, cut + 1) <= room { cut += 1; }
+            while cut > 0 && cut < ghost.len && ghost[cut] >= 128 && ghost[cut] < 192 { cut -= 1; }     // not in the middle of a letter
+            ghost = ghost.slice(0, cut);
+        }
         if ghost.len > 0 {
             cout << esc() << "[38;2;110;110;110m" << ghost << esc() << "[0m";
             endw += cols_of(ghost, 0, ghost.len);

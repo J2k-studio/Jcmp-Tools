@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.9
+* **Fixed:** a long grey guess (a long old line of the history) wrapped over the end of the row and every key scrolled the screen and printed the line again and again; the grey text is now cut to the room that is left on the row (Tab still takes the whole guess).
+
 ## 0.9.8
 * **Changed:** the grey text (the guess of the rest of the line) is found in a tree of letters (a trie) built from the history, not by scanning the whole history on every key. The result is the same: the newest line that continues what you typed.
 * **Added:** `ghost_test.py` (a pseudo terminal test of the grey text).
