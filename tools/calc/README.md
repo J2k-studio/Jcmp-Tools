@@ -7,7 +7,7 @@ calc "1 + 2 * 3"           7
 calc 0xff xor 0x0f         240   and the same number in hex, binary, octal
 calc "7/2"                 3.5   (8/2 is 4, 7//2 is 3)
 calc "sqrt(2) * pi"
-calc                       a prompt: x = 5, x * 2, ans + 1; an empty line leaves
+calc                       a prompt: x = 5, x * 2, ans + 1; exit, quit or Ctrl-D leaves (an empty line only shows the prompt again)
 calc -q "255 & 0x0f"       only the value (for scripts)
 ```
 Numbers: `255 0xff 0b1111_1111 0o377 16#ff 3.14 1e3 1_000`. Operators: `+ - * / // % mod **` (power), `<< >>`, `< <= > >= == !=`, `and &`, `or |`, `xor`, `not ~`. In J2K `^` is a pointer, so the bit xor is the word `xor`. Names: `pi e tau ans` and your own (`x = 5`). Functions: `sqrt cbrt sin cos tan asin acos atan atan2 sinh cosh tanh exp ln log log2 abs floor ceil round trunc min max pow hypot gcd lcm fact popcount bswap deg rad` (`calc --help` lists them).

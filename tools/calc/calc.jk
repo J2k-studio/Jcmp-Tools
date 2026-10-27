@@ -3,7 +3,7 @@
 #import <stdlib>
 #import <math>
 
-String calc_version() { return "0.1.0"; }
+String calc_version() { return "0.1.1"; }
 
 // ---- the result of the last parse: an integer or a double
 int r_i;
@@ -405,12 +405,14 @@ String to_base(int v, int base, int bits) {              // v as an unsigned num
     return out;
 }
 
-String group4(String bin) {                              // 11111111 -> 1111 1111
+String group4(String bin) {                              // 11111111 -> 1111_1111, 10110 -> 0001_0110 (whole groups of four)
+    String padded = bin + "";
+    while padded.len % 4 != 0 { padded = "0" + padded; }
     String out = "";
-    int n = bin.len;
+    int n = padded.len;
     for i in 0..n {
         if i > 0 && (n - i) % 4 == 0 { out.push('_'); }
-        out.push(bin[i]);
+        out.push(padded[i]);
     }
     return out;
 }
@@ -492,8 +494,21 @@ int eval_line(String line, bool quiet) {
     return 0;
 }
 
+// a line from the standard input; eof is set when the input ended (Ctrl-D, the end of a pipe)
+String read_line(bool^ eof) {
+    String out = "";
+    char one[2];
+    while true {
+        int n = Sys::read(0, @one, 1);
+        if n <= 0 { eof[0] = true; return out; }
+        if one[0] == 10 { return out; }
+        if one[0] != 13 { out.push(one[0]); }
+    }
+    return out;
+}
+
 void help() {
-    cout << "calc: a calculator.   calc \"EXPRESSION\"   |   calc   (a prompt; an empty line leaves)\n";
+    cout << "calc: a calculator.   calc \"EXPRESSION\"   |   calc   (a prompt: exit, quit or Ctrl-D leaves)\n";
     cout << "  numbers   255  0xff  0b1111_1111  0o377  16#ff  3.14  1e3        names   pi e tau ans   x = 5\n";
     cout << "  operators + - * / // % ** (power)   << >>   < <= > >= == !=   and & | or xor not ~   ( )   (7/2 is 3.5, 8/2 is 4, 7//2 is 3)\n";
     cout << "  functions sqrt cbrt sin cos tan asin acos atan atan2 sinh cosh tanh exp ln log log2 abs floor ceil round trunc min max pow hypot gcd lcm fact popcount bswap deg rad\n";
@@ -514,12 +529,15 @@ int main() {
     }
     if expr.len > 0 { return eval_line(expr, quiet); }
     bool tty = Sys::isatty(0) == 0;
-    if tty { cout << "calc " << calc_version() << "  (calc --help; an empty line leaves)\n"; }
+    if tty { cout << "calc " << calc_version() << "  (calc --help; exit, quit or Ctrl-D leaves)\n"; }
     int rc = 0;
     while true {
         if tty { cout << "calc> "; }
-        String line = Input::line().trim();
-        if line.len == 0 || line == "exit" || line == "quit" { break; }
+        bool eof = false;
+        String line = read_line(@eof).trim();
+        if eof && line.len == 0 { if tty { cout << "\n"; } break; }
+        if line == "exit" || line == "quit" || line == "q" { break; }
+        if line.len == 0 { continue; }                       // an empty line only shows the prompt again
         rc = eval_line(line, quiet);
     }
     return rc;

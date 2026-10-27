@@ -4,7 +4,7 @@ set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 J="$PWD/_out/calc"
 chk() { [ "$("$J" -q "$1" 2>&1)" = "$2" ] || { echo "calc test: $1 gave '$("$J" -q "$1" 2>&1)', wanted '$2'"; exit 1; }; }
-[ "$("$J" --version)" = "calc 0.1.0" ] || { echo "calc test: version"; exit 1; }
+[ "$("$J" --version)" = "calc 0.1.1" ] || { echo "calc test: version"; exit 1; }
 chk "1 + 2 * 3" 7
 chk "(1 + 2) * 3" 9
 chk "0xff xor 0x0f" 240
@@ -39,6 +39,7 @@ chk "abs(0 - 7)" 7
 "$J" 255 | grep -q "hex  0xff" || { echo "calc test: hex"; exit 1; }
 "$J" 255 | grep -q "bin  0b1111_1111" || { echo "calc test: bin"; exit 1; }
 "$J" -1 | grep -q "hex  0xffffffffffffffff" || { echo "calc test: negative in hex"; exit 1; }
+"$J" 22 | grep -q "bin  0b0001_0110" || { echo "calc test: binary in whole groups of four"; exit 1; }
 # errors
 "$J" "1/0" >/dev/null 2>&1 && { echo "calc test: 1/0 must fail"; exit 1; }
 "$J" "(1+2" >/dev/null 2>&1 && { echo "calc test: a missing ) must fail"; exit 1; }
@@ -46,4 +47,6 @@ chk "abs(0 - 7)" 7
 "$J" "sqrt(0-1)" >/dev/null 2>&1 && { echo "calc test: sqrt of a negative must fail"; exit 1; }
 # the prompt: variables and ans, an empty line leaves
 [ "$(printf 'x = 5\nx * 2\nans + 1\n\n' | "$J" -q)" = "$(printf '5\n10\n11')" ] || { echo "calc test: variables and ans"; exit 1; }
+# an empty line does not leave the prompt; exit does
+[ "$(printf '1+1\n\n\n2+2\nexit\n9\n' | "$J" -q)" = "$(printf '2\n4')" ] || { echo "calc test: empty lines and exit"; exit 1; }
 echo "calc tests: ok"
