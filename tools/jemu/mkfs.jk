@@ -1,0 +1,51 @@
+// jfs_mkfs: makes a disk image of the file system of Jaric OS (JFS, the first one: flat, files in one run each) from the files of a folder.
+//   jfs_mkfs IMAGE FOLDER [SECTORS]
+// Layout (sectors of 512 bytes): 0 = the super block ("J2FS", version 1, number of files, first data sector); 1 .. 8 = the directory, 64 entries of 64 bytes
+// (name 48 bytes with zeros at the end, first sector 8 bytes, size in bytes 8 bytes, little endian); 9 .. = the data, each file starts at a sector.
+#import <stdlib>
+
+void put64(String img, int at, int v) {
+    for k in 0..8 { img[at + k] = (char)((v >> (k * 8)) & 255); }
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len < 3 { cerr << "usage: jfs_mkfs IMAGE FOLDER [SECTORS]\n"; return 2; }
+    Result<String[], Error> lr = Dir::list(a[2]);
+    if !lr.is_ok() { cerr << "jfs_mkfs: cannot read the folder " << a[2] << "\n"; return 1; }
+    String[] names = lr.take();
+    names.sort();
+    String img = "";
+    for i in 0..9 * 512 { img.push((char)0); }                  // super block and directory
+    int next = 9;                                                // the next free sector
+    int count = 0;
+    String data = "";
+    for i in 0..names.len {
+        String p = a[2] + "/" + names[i];
+        if Dir::exists(p) || names[i].len == 0 || names[i].len > 47 || count >= 64 { continue; }
+        Result<String, Error> fr = Fs::read_bytes(p);
+        if !fr.is_ok() { continue; }
+        String body = fr.take();
+        int at = 512 + count * 64;
+        for k in 0..names[i].len { img[at + k] = names[i][k]; }
+        put64(img, at + 48, next);
+        put64(img, at + 56, body.len);
+        data = data + body;
+        int pad = (512 - body.len % 512) % 512;
+        for k in 0..pad { data.push((char)0); }
+        next += (body.len + 511) / 512;
+        count += 1;
+    }
+    img[0] = 'J'; img[1] = '2'; img[2] = 'F'; img[3] = 'S';
+    img[4] = 1;
+    put64(img, 8, count);
+    put64(img, 16, 9);
+    img = img + data;
+    int sectors = img.len / 512;
+    if a.len >= 4 && a[3].to_int() > sectors { sectors = a[3].to_int(); }
+    while img.len < sectors * 512 { img.push((char)0); }
+    Result<int, Error> w = Fs::write_bytes(a[1], img);
+    if !w.is_ok() { cerr << "jfs_mkfs: cannot write " << a[1] << "\n"; return 1; }
+    cout << a[1] << ": " << count << " files, " << sectors << " sectors\n";
+    return 0;
+}

@@ -1,0 +1,153 @@
+#!library
+// K7: a console. The kernel reads what you type from the UART (the keyboard of the machine), echoes it, and runs a few commands of its own on the JFS disk:
+// ls, cat NAME, echo TEXT, help, exit. It is the first time Jaric OS answers to a person. (jsh on top of it is the next step: it needs the Linux calls
+// open / read / write / exit ... in a process, K7b.) Texts are numbers of eight letters (a raw file has no data segment).
+char sbuf[4608];
+char fbuf[4096];
+char line[128];
+char name[48];
+int nfiles;
+int llen;
+
+naked void start() {
+    x28 = 0x4010_0000;
+    call kmain;
+}
+
+void putc(int c) {
+    char^ uart = (char^)0x09000000;
+    uart[0] = (char)c;
+}
+
+int getc() {                                   // waits for a key: the flag register says when one is there
+    int^ uart = (int^)0x09000000;
+    int fr = uart[3];                          // UARTFR is at 0x18
+    while (fr & 16) != 0 { fr = uart[3]; }
+    return uart[0] & 255;
+}
+
+void say(int w) {
+    for k in 0..8 {
+        int c = (w >> (k * 8)) & 255;
+        if c == 0 { return; }
+        putc(c);
+    }
+}
+
+void kputs(char^ s) {
+    int i = 0;
+    while s[i] != 0 { putc(s[i]); i += 1; }
+}
+
+bool disk_io(int cmd, int sector, int addr, int count) {
+    int^ dev = (int^)0x0A000000;
+    dev[1] = sector;
+    dev[2] = addr;
+    dev[3] = count;
+    dev[0] = cmd;
+    int st = dev[4];
+    return st == 0;
+}
+
+int rd64(char^ p) {
+    int v = 0;
+    for k in 0..8 { v = v | ((p[k] & 255) << (k * 8)); }
+    return v;
+}
+
+bool fs_mount() {
+    if !disk_io(1, 0, (int)@sbuf, 9) { return false; }
+    if sbuf[0] != 'J' || sbuf[1] != '2' || sbuf[2] != 'F' || sbuf[3] != 'S' { return false; }
+    nfiles = rd64(@sbuf[8]);
+    return true;
+}
+
+bool same(char^ a, char^ b) {
+    int i = 0;
+    while a[i] != 0 && b[i] != 0 { if a[i] != b[i] { return false; } i += 1; }
+    return a[i] == b[i];
+}
+
+void fs_ls() {
+    for i in 0..nfiles {
+        kputs(@sbuf[512 + i * 64]);
+        putc(10);
+    }
+}
+
+void fs_cat(char^ nm) {
+    for i in 0..nfiles {
+        char^ e = @sbuf[512 + i * 64];
+        if same(e, nm) {
+            int start = rd64(@e[48]);
+            int size = rd64(@e[56]);
+            int sectors = (size + 511) / 512;
+            if sectors > 8 { sectors = 8; }
+            if !disk_io(1, start, (int)@fbuf, sectors) { say(0x7272652064616572); say(0x726f); putc(10); return; }
+            for k in 0..size { putc(fbuf[k]); }
+            return;
+        }
+    }
+    say(0x2068637573206f6e); say(0x656c6966); putc(10);
+}
+
+// the first word of the line packed into a number (up to eight letters)
+int first_word() {
+    int w = 0;
+    int i = 0;
+    while i < 8 && i < llen && line[i] != 32 { w = w | ((line[i] & 255) << (i * 8)); i += 1; }
+    return w;
+}
+
+// where the arguments start (after the first word and the spaces)
+int args_at() {
+    int i = 0;
+    while i < llen && line[i] != 32 { i += 1; }
+    while i < llen && line[i] == 32 { i += 1; }
+    return i;
+}
+
+// reads a line with an echo; false at the end of the input
+bool read_line() {
+    llen = 0;
+    while true {
+        int c = getc();
+        if c == 4 { return false; }
+        if c == 10 || c == 13 { putc(10); line[llen] = 0; return true; }
+        if (c == 127 || c == 8) { if llen > 0 { llen -= 1; putc(8); putc(32); putc(8); } continue; }
+        if llen < 120 { line[llen] = (char)c; llen += 1; putc(c); }
+    }
+    return false;
+}
+
+void kmain() {
+    bool ok = fs_mount();
+    say(0x534f20636972614a); say(0x374b20);
+    putc(10);
+    if !ok { say(0x6b736964206f6e); putc(10); }
+    while true {
+        say(0x203e6a);
+        if !read_line() { break; }
+        int w = first_word();
+        if w == 0x736c { fs_ls(); }                                // ls
+        else if w == 0x746163 {                                    // cat NAME
+            int a = args_at();
+            int n = 0;
+            while a + n < llen && n < 47 { name[n] = line[a + n]; n += 1; }
+            name[n] = 0;
+            fs_cat(@name);
+        }
+        else if w == 0x6f686365 {                                  // echo TEXT
+            int a2 = args_at();
+            for k in a2..llen { putc(line[k]); }
+            putc(10);
+        }
+        else if w == 0x706c6568 { say(0x20746163202c736c); say(0x6365202c454d414e); say(0x2c54584554206f68); say(0x65202c706c656820); say(0x746978); putc(10); }
+        else if w == 0x74697865 { break; }                         // exit
+        else if w != 0 { say(0x3f); putc(10); }                    // ?
+    }
+    say(0x657962); putc(10);
+    char^ stop = (char^)0x09100000;
+    stop[0] = 0;
+    while true { }
+}

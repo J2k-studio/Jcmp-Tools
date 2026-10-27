@@ -20,3 +20,4 @@ jstore|The store of the programs of Jaric (.jc): list, install, update with a ch
 jgit|git written in J2K: init, add, commit, status, log, diff, branch, switch; the repositories are the repositories of git, also packed ones (no network yet)
 drive|New drives for Jaric: a new place or a name for a folder (drive, drive new NAME [PATH], drive remove NAME)
 calc|A calculator for the terminal: sums, hex, binary, xor and, or, shifts, functions, variables (calc "0xff xor 0x0f")
+jemu|A machine for ARM64 programs and for Jaric OS: jemu os starts the operating system of Jaric (a console on a disk made of a folder)

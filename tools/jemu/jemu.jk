@@ -1,0 +1,1546 @@
+// jemu: runs a Linux ARM64 program (a static ELF such as jcmp writes) by interpreting its instructions. M1: the integer instructions and the
+// Linux system calls that those programs use. Usage: jemu PROGRAM [arguments]. It is the core of Jaric (docs/android-app-plan.md): it uses
+// only the library and Sys:: calls, nothing of the host except the system calls that a guest asks for.
+#import <stdlib>
+
+// ---------------------------------------------------------------- the guest memory: a few regions of host memory
+int[] reg_start;
+int[] reg_size;
+int[] reg_host;
+int last_reg;
+int next_map;                                   // where the next mmap goes in the guest address space
+int brk_base;
+int brk_now;
+int brk_end;
+
+int pc;
+int next_pc;
+int^ X;                                         // x0 .. x30
+int sp;
+int fn;                                         // the flags N Z C V
+int fz;
+int fc;
+int fv;
+int done;
+int exit_code;
+int icount;
+int tpidr;                                      // the thread register (msr / mrs)
+int^ VL;                                        // v0 .. v31: the low and the high 64 bits
+int^ VH;
+int excl_addr;                                  // ldxr / stxr
+// ---- system mode (jemu --system KERNEL.elf): the kernel starts at EL1, the user programs run at EL0; svc, exception vectors, eret, system registers, a UART
+bool sysmode;
+int el;                                         // the exception level now: 0 user, 1 kernel
+int sp_el0;                                     // the stack pointers: sp is the one of the level that runs
+int sp_el1;
+int vbar;                                       // VBAR_EL1: the table of the exception vectors
+int elr;                                        // ELR_EL1: where eret goes
+int spsr;                                       // SPSR_EL1: the state saved at the exception
+int esr;                                        // ESR_EL1: what happened
+int far;                                        // FAR_EL1: the address of a fault
+int sctlr;
+int tpidr_el1;
+int daif;                                       // the mask bits D A I F (bits 9 8 7 6)
+int timer_ctl;                                  // CNTV_CTL_EL0: bit 0 enable, bit 1 mask
+int timer_cmp;                                  // the compare value, in instructions
+int ttbr0;                                      // the page tables (MMU): TTBR0_EL1 for the addresses that start with 16 zero bits, TTBR1_EL1 for 16 one bits
+int ttbr1;
+int tcr;
+int mair;
+bool aborted;                                   // a memory access raised an exception: step() goes on at the vector
+int^ tlb;                                       // 64 entries of 3: the page (| 1), the physical page, the attributes
+int rx_byte;                                    // the UART: the next byte from the standard input (0x04 at the end of it)
+bool rx_have;
+int disk_fd;                                    // the disk image (jemu --system KERNEL --disk FILE): a block device at 0x0A00_0000
+int disk_sectors;
+int disk_sector;                                // the registers of the device
+int disk_addr;
+int disk_count;
+int disk_status;
+int kshift;                                     // --shift N: the kernel image is loaded N bytes higher than its ELF says (its code does not depend on the place)
+int max_steps;                                  // a kernel that runs away is stopped
+
+// jemu --system on a terminal: the keys go to the machine one by one and the terminal does not echo them (the console of the kernel echoes)
+char tty_saved[64];
+bool tty_changed;
+
+void tty_raw_on() {
+    if Sys::isatty(0) != 0 { return; }
+    char t[64];
+    Sys::call(29, 0, 21505, (int)@t, 0, 0, 0);                // TCGETS
+    for i in 0..64 { tty_saved[i] = t[i]; }
+    t[12] = t[12] & 244;                                      // lflag: ECHO (8) and ICANON (2) off, ISIG stays (Ctrl-C ends jemu)
+    Sys::call(29, 0, 21506, (int)@t, 0, 0, 0);                // TCSETS
+    tty_changed = true;
+}
+
+void tty_restore() {
+    if !tty_changed { return; }
+    tty_changed = false;
+    Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
+}
+
+String jemu_version() { return "0.1.0"; }
+
+void die(String msg, int code) {
+    tty_restore();
+    cerr << "jemu: " << msg << "\n";
+    Sys::exit(code);
+}
+
+String hex(int v) {
+    String digits = "0123456789abcdef";
+    String r = "";
+    for i in 0..16 {
+        int d = (v >> (60 - i * 4)) & 15;
+        r.push(digits[d]);
+    }
+    return r;
+}
+
+void add_region(int start, int size) {
+    int h = (int)Mem::alloc(size);
+    Mem::set((char^)h, 0, size);
+    reg_start.push(start);
+    reg_size.push(size);
+    reg_host.push(h);
+}
+
+// the host address of guest memory [addr, addr+len), or 0
+int host_of(int addr, int len) {
+    int k = last_reg;
+    int off = addr - reg_start[k];
+    if off >= 0 && off + len <= reg_size[k] { return reg_host[k] + off; }
+    for i in 0..reg_start.len {
+        off = addr - reg_start[i];
+        if off >= 0 && off + len <= reg_size[i] { last_reg = i; return reg_host[i] + off; }
+    }
+    return 0;
+}
+
+void fault(int addr, String what) {
+    tty_restore();
+    cerr << "jemu: segmentation fault (" << what << " at 0x" << hex(addr) << ", pc=0x" << hex(pc) << ")\n";
+    Sys::exit(139);
+}
+
+int disk_do(int cmd) {                          // 1 read, 2 write: count sectors of 512 bytes between the disk and the guest memory at disk_addr
+    disk_status = 1;
+    if disk_fd < 0 || disk_count < 1 || disk_sector < 0 || disk_sector + disk_count > disk_sectors { return 0; }
+    int len = disk_count * 512;
+    int h = host_of(disk_addr, len);
+    if h == 0 { return 0; }
+    int r = 0 - 1;
+    if cmd == 1 { r = Sys::call(67, disk_fd, h, len, disk_sector * 512, 0, 0); }          // pread64
+    if cmd == 2 { r = Sys::call(68, disk_fd, h, len, disk_sector * 512, 0, 0); }          // pwrite64
+    if r == len { disk_status = 0; }
+    return 0;
+}
+
+int uart_ld(int addr) {
+    if addr >= 0x0A000000 {                     // the disk: STATUS (0x20), SIZE in sectors (0x28)
+        int doff = addr - 0x0A000000;
+        if doff == 0x20 { return disk_status; }
+        if doff == 0x28 { return disk_sectors; }
+        return 0;
+    }
+    int off = addr - 0x09000000;
+    if off == 0x18 {                            // UARTFR: bit 4 = nothing to read, bit 7 = the transmitter is empty. A read of this register waits for a key (the machine has nothing else to do)
+        if !rx_have {
+            char one[2];
+            int n = Sys::read(0, @one, 1);
+            if n <= 0 { rx_byte = 4; } else { rx_byte = one[0] & 255; }
+            rx_have = true;
+        }
+        return 0x80;
+    }
+    if off == 0 {                               // UARTDR: the byte
+        int b = rx_byte;
+        rx_have = false;
+        return b;
+    }
+    return 0;
+}
+
+void mmio_st(int addr, int v) {
+    if addr >= 0x0A000000 {                     // the disk: SECTOR 0x08, ADDR 0x10, COUNT 0x18, CMD 0x00 (1 read, 2 write: done at once)
+        int doff = addr - 0x0A000000;
+        if doff == 0x08 { disk_sector = v; }
+        else if doff == 0x10 { disk_addr = v; }
+        else if doff == 0x18 { disk_count = v; }
+        else if doff == 0x00 { disk_do(v); }
+        return;
+    }
+    if addr == 0x09000000 {                     // UARTDR: a character to the screen
+        char one[2];
+        one[0] = (char)(v & 255);
+        Sys::write(1, @one, 1);
+    } else if addr == 0x09100000 {              // the end of the test (like the test finisher of QEMU): the value is the exit code
+        done = 1;
+        exit_code = v & 255;
+    }
+}
+
+int ld(int addr, int size) {
+    if mmu_on() { addr = xlate(addr, 0); if addr < 0 { return 0; } }
+    if sysmode && addr >= 0x09000000 && addr < 0x0A001000 { return uart_ld(addr); }
+    int h = host_of(addr, size);
+    if h == 0 { fault(addr, "read"); }
+    if size == 8 { int^ p = (int^)h; return p[0]; }
+    if size == 4 { u32^ p = (u32^)h; return (int)p[0]; }
+    char^ c = (char^)h;
+    if size == 2 { return (c[0] & 255) | ((c[1] & 255) << 8); }
+    return c[0] & 255;
+}
+
+void st(int addr, int size, int v) {
+    if mmu_on() { addr = xlate(addr, 1); if addr < 0 { return; } }
+    if sysmode && addr >= 0x09000000 && addr < 0x0A001000 { mmio_st(addr, v); return; }
+    int h = host_of(addr, size);
+    if h == 0 { fault(addr, "write"); }
+    if size == 8 { int^ p = (int^)h; p[0] = v; return; }
+    if size == 4 { u32^ p = (u32^)h; p[0] = (u32)(v & 4294967295); return; }
+    char^ c = (char^)h;
+    c[0] = (char)(v & 255);
+    if size == 2 { c[1] = (char)((v >> 8) & 255); }
+}
+
+// ---------------------------------------------------------------- small helpers
+int mask32(int v) { return v & 4294967295; }
+int sx(int v, int bits) { return (v << (64 - bits)) >> (64 - bits); }
+int lsr(int v, int n) {
+    if n == 0 { return v; }
+    return (v >> n) & ((1 << (64 - n)) - 1);
+}
+int ror(int v, int n, int bits) {
+    n = n % bits;
+    if n == 0 { return v; }
+    if bits == 32 {
+        v = mask32(v);
+        return mask32((v >> n) | (v << (32 - n)));
+    }
+    return lsr(v, n) | (v << (64 - n));
+}
+bool ult(int a, int b) { return (a xor (1 << 63)) < (b xor (1 << 63)); }
+
+int getx(int r, int sf) {                      // register r (31 = zero)
+    if r == 31 { return 0; }
+    if sf == 0 { return mask32(X[r]); }
+    return X[r];
+}
+int getsp(int r, int sf) {                     // register r (31 = sp)
+    if r == 31 { if sf == 0 { return mask32(sp); } return sp; }
+    return getx(r, sf);
+}
+void setx(int r, int v, int sf) {
+    if r == 31 { return; }
+    if sf == 0 { v = mask32(v); }
+    X[r] = v;
+}
+void setsp(int r, int v, int sf) {
+    if r == 31 { if sf == 0 { v = mask32(v); } sp = v; return; }
+    setx(r, v, sf);
+}
+
+bool cond_ok(int c) {
+    bool r = false;
+    int k = c >> 1;
+    if k == 0 { r = fz == 1; }
+    else if k == 1 { r = fc == 1; }
+    else if k == 2 { r = fn == 1; }
+    else if k == 3 { r = fv == 1; }
+    else if k == 4 { r = fc == 1 && fz == 0; }
+    else if k == 5 { r = fn == fv; }
+    else if k == 6 { r = fn == fv && fz == 0; }
+    else { r = true; }
+    if (c & 1) == 1 && c != 15 { r = !r; }
+    return r;
+}
+
+// a + b + carry, with the flags when setf (sf = 1: 64 bits)
+int addc(int a, int b, int carry_in, int sf, bool setf) {
+    int r = 0;
+    if sf == 1 {
+        r = a + b + carry_in;
+        if setf {
+            fn = (r >> 63) & 1;
+            fz = 0; if r == 0 { fz = 1; }
+            int s1 = a + b;
+            int c1 = 0; if ult(s1, a) { c1 = 1; }
+            int c2 = 0; if ult(r, s1) { c2 = 1; }
+            fc = c1 | c2;
+            fv = 0;
+            if ((a xor r) & (b xor r)) < 0 { fv = 1; }
+        }
+    } else {
+        a = mask32(a);
+        b = mask32(b);
+        int full = a + b + carry_in;
+        r = mask32(full);
+        if setf {
+            fn = (r >> 31) & 1;
+            fz = 0; if r == 0 { fz = 1; }
+            fc = (full >> 32) & 1;
+            fv = 0;
+            if ((((a xor r) & (b xor r)) >> 31) & 1) == 1 { fv = 1; }
+        }
+    }
+    return r;
+}
+
+int g_wmask;
+int g_tmask;
+// DecodeBitMasks of the architecture: g_wmask and g_tmask (for a logical immediate only wmask is used)
+void bit_masks(int n, int imms, int immr, int datasize) {
+    int len = 0;
+    int t = (n << 6) | ((imms xor 63) & 63);
+    for i in 0..7 { if ((t >> (6 - i)) & 1) == 1 { len = 6 - i; break; } }
+    int esize = 1 << len;
+    int levels = esize - 1;
+    int s = imms & levels;
+    int r = immr & levels;
+    int diff = (s - r) & levels;
+    int welem = (1 << (s + 1)) - 1;
+    if s + 1 == 64 { welem = 0 - 1; }
+    int telem = (1 << (diff + 1)) - 1;
+    if diff + 1 == 64 { telem = 0 - 1; }
+    int w = welem;
+    if esize < 64 {
+        if r != 0 { w = ((welem >> r) | (welem << (esize - r))) & ((1 << esize) - 1); }
+    } else {
+        w = ror(welem, r, 64);
+    }
+    int wm = 0;
+    int tm = 0;
+    int k = 0;
+    while k < 64 { wm = wm | (w << k); tm = tm | (telem << k); k += esize; }
+    if datasize == 32 { wm = mask32(wm); tm = mask32(tm); }
+    g_wmask = wm;
+    g_tmask = tm;
+}
+
+// the second operand of a shifted register: type 0 lsl, 1 lsr, 2 asr, 3 ror
+int shifted(int rm, int type, int amt, int sf) {
+    int v = getx(rm, sf);
+    if amt == 0 { return v; }
+    if sf == 0 {
+        if type == 0 { return mask32(v << amt); }
+        if type == 1 { return v >> amt; }
+        if type == 2 { return mask32(sx(v, 32) >> amt); }
+        return ror(v, amt, 32);
+    }
+    if type == 0 { return v << amt; }
+    if type == 1 { return lsr(v, amt); }
+    if type == 2 { return v >> amt; }
+    return ror(v, amt, 64);
+}
+
+// the second operand of an extended register
+int extended(int rm, int option, int shift, int sf) {
+    int v = getx(rm, 1);
+    int e = v;
+    if option == 0 { e = v & 255; }
+    else if option == 1 { e = v & 65535; }
+    else if option == 2 { e = mask32(v); }
+    else if option == 4 { e = sx(v, 8); }
+    else if option == 5 { e = sx(v, 16); }
+    else if option == 6 { e = sx(v, 32); }
+    e = e << shift;
+    if sf == 0 { e = mask32(e); }
+    return e;
+}
+
+int umulh(int a, int b) {
+    int a0 = a & 4294967295;
+    int a1 = lsr(a, 32);
+    int b0 = b & 4294967295;
+    int b1 = lsr(b, 32);
+    int p00 = a0 * b0;
+    int p01 = a0 * b1;
+    int p10 = a1 * b0;
+    int p11 = a1 * b1;
+    int mid = lsr(p00, 32) + (p01 & 4294967295) + (p10 & 4294967295);
+    return p11 + lsr(p01, 32) + lsr(p10, 32) + lsr(mid, 32);
+}
+
+int udiv64(int a, int b) { return (int)((u64)a / (u64)b); }
+
+// ---------------------------------------------------------------- floating point (scalar): single = 0, double = 1
+double s_to_d(int sb) {
+    int sign = (sb >> 31) & 1;
+    int e = (sb >> 23) & 255;
+    int m = sb & 0x7FFFFF;
+    int bits = 0;
+    if e == 255 { bits = (sign << 63) | (0x7FF << 52) | (m << 29); }
+    else if e == 0 {
+        if m == 0 { bits = sign << 63; }
+        else {
+            double v = (double)m * Math::from_bits(0x36A0000000000000);          // m * 2^-149
+            if sign == 1 { v = 0.0 - v; }
+            return v;
+        }
+    } else { bits = (sign << 63) | ((e - 127 + 1023) << 52) | (m << 29); }
+    return Math::from_bits(bits);
+}
+int d_to_s(double d) {
+    float f = (float)d;
+    double back = (double)f;
+    int db = Math::to_bits(back);
+    int sign = (db >> 63) & 1;
+    int e = (db >> 52) & 0x7FF;
+    int m = db & 0xFFFFFFFFFFFFF;
+    if e == 0x7FF {
+        if m == 0 { return (sign << 31) | (255 << 23); }
+        return (sign << 31) | (255 << 23) | (1 << 22) | (m >> 29);
+    }
+    if e == 0 { return sign << 31; }
+    int ex = e - 1023 + 127;
+    if ex >= 255 { return (sign << 31) | (255 << 23); }
+    if ex <= 0 {
+        int shift = 926 - e;
+        if shift > 63 { return sign << 31; }
+        return (sign << 31) | ((((1 << 52) | m) >> shift) & 0x7FFFFF);
+    }
+    return (sign << 31) | (ex << 23) | (m >> 29);
+}
+double fget(int r, int type) {
+    if type == 1 { return Math::from_bits(VL[r]); }
+    return s_to_d(VL[r] & 4294967295);
+}
+void fset(int r, double v, int type) {
+    VH[r] = 0;
+    if type == 1 { VL[r] = Math::to_bits(v); } else { VL[r] = d_to_s(v); }
+}
+bool fnan(double a) { return a != a; }
+
+double ftrunc(double d) {
+    if fnan(d) { return d; }
+    if d >= 4503599627370496.0 || d <= 0.0 - 4503599627370496.0 { return d; }
+    double t = (double)((int)d);
+    if t == 0.0 && d < 0.0 { return 0.0 - 0.0; }
+    return t;
+}
+double ffloor(double d) {
+    double t = ftrunc(d);
+    if t > d { t = t - 1.0; }
+    return t;
+}
+double fceil(double d) {
+    double t = ftrunc(d);
+    if t < d { t = t + 1.0; }
+    return t;
+}
+double fround_even(double d) {
+    double f = ffloor(d);
+    double diff = d - f;
+    if diff < 0.5 { return f; }
+    if diff > 0.5 { return f + 1.0; }
+    double half = f / 2.0;
+    if ftrunc(half) == half { return f; }
+    return f + 1.0;
+}
+double fround_away(double d) {
+    if d >= 0.0 { return ffloor(d + 0.5); }
+    return 0.0 - ffloor(0.0 - d + 0.5);
+}
+
+int f_to_int(double d, int sf, bool unsigned_) {      // fcvtz[su]: toward zero, saturating
+    if fnan(d) { return 0; }
+    if unsigned_ {
+        if d <= 0.0 { return 0; }
+        if sf == 0 { if d >= 4294967296.0 { return 4294967295; } return (int)d; }
+        if d >= 18446744073709551616.0 { return 0 - 1; }
+        if d >= 9223372036854775808.0 { return ((int)(d - 9223372036854775808.0)) + (1 << 63); }
+        return (int)d;
+    }
+    if sf == 0 {
+        if d >= 2147483648.0 { return 2147483647; }
+        if d <= 0.0 - 2147483648.0 { return mask32(0 - 2147483648); }
+        return mask32((int)d);
+    }
+    if d >= 9223372036854775808.0 { return (1 << 63) - 1; }
+    if d <= 0.0 - 9223372036854775808.0 { return 1 << 63; }
+    return (int)d;
+}
+
+// the scalar floating-point loads and stores use the same addressing as the integer ones: size and opc say the width
+void fp_loadstore(int w, int addr) {
+    int size = (w >> 30) & 3;
+    int opc = (w >> 22) & 3;
+    int rt = w & 31;
+    int bytes = 1 << size;
+    if opc >= 2 { bytes = 16; }
+    bool load = (opc & 1) == 1;
+    if load {
+        if bytes == 16 { VL[rt] = ld(addr, 8); VH[rt] = ld(addr + 8, 8); }
+        else { VL[rt] = ld(addr, bytes); VH[rt] = 0; }
+    } else {
+        if bytes == 16 { st(addr, 8, VL[rt]); st(addr + 8, 8, VH[rt]); }
+        else { st(addr, bytes, VL[rt]); }
+    }
+}
+
+// fcmp: the flags
+void fcompare(double a, double b) {
+    if fnan(a) || fnan(b) { fn = 0; fz = 0; fc = 1; fv = 1; }
+    else if a == b { fn = 0; fz = 1; fc = 1; fv = 0; }
+    else if a < b { fn = 1; fz = 0; fc = 0; fv = 0; }
+    else { fn = 0; fz = 0; fc = 1; fv = 0; }
+}
+
+void do_fp(int w) {
+    int type = (w >> 22) & 3;                         // 0 single, 1 double
+    int rn = (w >> 5) & 31;
+    int rd = w & 31;
+    int rm = (w >> 16) & 31;
+    int t1 = type & 1;
+    if ((w >> 21) & 1) == 0 && ((w >> 24) & 1) == 0 {
+        bad(w, "fixed-point conversion");
+        return;
+    }
+    if ((w >> 24) & 1) == 1 {                         // fmadd, fmsub, fnmadd, fnmsub
+        int ra = (w >> 10) & 31;
+        int o1 = (w >> 21) & 1;
+        int o0 = (w >> 15) & 1;
+        double n = fget(rn, t1);
+        double m = fget(rm, t1);
+        double a = fget(ra, t1);
+        double r = 0.0;
+        if o1 == 0 && o0 == 0 { r = a + n * m; }
+        else if o1 == 0 && o0 == 1 { r = a - n * m; }
+        else if o1 == 1 && o0 == 0 { r = (0.0 - a) - n * m; }
+        else { r = (0.0 - a) + n * m; }
+        fset(rd, r, t1);
+        return;
+    }
+    int low = (w >> 10) & 0x3FF;                      // bits 15:10
+    if (w & 0x7C00) == 0x4000 {                       // one source: bits 14:10 = 10000
+        int opcode = (w >> 15) & 63;
+        double v = fget(rn, t1);
+        if opcode == 0 { VL[rd] = VL[rn]; VH[rd] = 0; if t1 == 0 { VL[rd] = VL[rn] & 4294967295; } return; }       // fmov
+        if opcode == 1 {                                                                                             // fabs
+            if t1 == 1 { VL[rd] = VL[rn] & 9223372036854775807; } else { VL[rd] = VL[rn] & 2147483647; }
+            VH[rd] = 0;
+            return;
+        }
+        if opcode == 2 {                                                                                             // fneg
+            if t1 == 1 { VL[rd] = VL[rn] xor (1 << 63); } else { VL[rd] = (VL[rn] xor (1 << 31)) & 4294967295; }
+            VH[rd] = 0;
+            return;
+        }
+        if opcode == 3 { fset(rd, Math::sqrt(v), t1); return; }                                                    // fsqrt
+        if opcode == 4 { fset(rd, v, 0); return; }                                                                 // fcvt to single
+        if opcode == 5 { fset(rd, v, 1); return; }                                                                 // fcvt to double
+        if opcode == 8 { fset(rd, fround_even(v), t1); return; }                                                    // frintn
+        if opcode == 9 { fset(rd, fceil(v), t1); return; }                                                          // frintp
+        if opcode == 10 { fset(rd, ffloor(v), t1); return; }                                                        // frintm
+        if opcode == 11 { fset(rd, ftrunc(v), t1); return; }                                                        // frintz
+        if opcode == 12 { fset(rd, fround_away(v), t1); return; }                                                   // frinta
+        if opcode == 14 || opcode == 15 { fset(rd, fround_even(v), t1); return; }                                   // frintx, frinti
+        bad(w, "floating point, one source");
+        return;
+    }
+    if (w & 0xFC00) == 0x0000 {                       // conversions between integer and floating point: bits 15:10 = 000000
+        int sf = (w >> 31) & 1;
+        int rmode = (w >> 19) & 3;
+        int opcode = (w >> 16) & 7;
+        if opcode == 2 || opcode == 3 {               // scvtf, ucvtf
+            int x = getx(rn, sf);
+            double d = 0.0;
+            if opcode == 2 { if sf == 0 { d = (double)sx(x, 32); } else { d = (double)x; } }
+            else {
+                if sf == 0 { d = (double)x; }
+                else if x >= 0 { d = (double)x; }
+                else { d = (double)((x >> 1) & 9223372036854775807 | (x & 1)) * 2.0; }
+            }
+            fset(rd, d, t1);
+            return;
+        }
+        if opcode == 6 || opcode == 7 {               // fmov between the general registers and the floating-point ones
+            if rmode == 1 {                           // the high half of a 128-bit register
+                if opcode == 6 { setx(rd, VH[rn], 1); } else { VH[rd] = getx(rn, 1); }
+                return;
+            }
+            if opcode == 6 { if sf == 1 { setx(rd, VL[rn], 1); } else { setx(rd, VL[rn] & 4294967295, 0); } }
+            else { VL[rd] = getx(rn, sf); VH[rd] = 0; if sf == 0 { VL[rd] = VL[rd] & 4294967295; } }
+            return;
+        }
+        if opcode == 0 || opcode == 1 || opcode == 4 {                     // fcvt[nmpza][su]
+            double d = fget(rn, t1);
+            if rmode == 0 && opcode != 4 { d = fround_even(d); }
+            else if rmode == 1 { d = fceil(d); }
+            else if rmode == 2 { d = ffloor(d); }
+            else if opcode == 4 { d = fround_away(d); }
+            setx(rd, f_to_int(d, sf, opcode == 1), sf);
+            return;
+        }
+        bad(w, "floating point conversion");
+        return;
+    }
+    if (w & 0xFC00) == 0x2000 {                       // fcmp, fcmpe (bits 13:10 = 1000)
+        double a = fget(rn, t1);
+        double b = 0.0;
+        if ((w >> 3) & 1) == 0 { b = fget(rm, t1); }
+        fcompare(a, b);
+        return;
+    }
+    if (w & 0xE00) == 0x200 && (w & 0x100) == 0 && false { return; }
+    if (w & 0x1C00) == 0x1000 {                       // fmov immediate (bits 12:10 = 100): the 8 bits are in 20:13
+        int imm8 = (w >> 13) & 255;
+        int a = (imm8 >> 7) & 1;
+        int b = (imm8 >> 6) & 1;
+        if t1 == 1 {
+            int rep8 = 0;
+            if b == 1 { rep8 = 255 << 2; }
+            int e = ((1 - b) << 10) | rep8 | ((imm8 >> 4) & 3);
+            VL[rd] = (a << 63) | (e << 52) | ((imm8 & 15) << 48);
+        } else {
+            int rep5 = 0;
+            if b == 1 { rep5 = 31 << 2; }
+            int e = ((1 - b) << 7) | rep5 | ((imm8 >> 4) & 3);
+            VL[rd] = (a << 31) | (e << 23) | ((imm8 & 15) << 19);
+        }
+        VH[rd] = 0;
+        return;
+    }
+    if (w & 0xC00) == 0x800 {                         // two sources (bits 11:10 = 10)
+        int opcode = (w >> 12) & 15;
+        double a = fget(rn, t1);
+        double b = fget(rm, t1);
+        double r = 0.0;
+        if opcode == 0 { r = a * b; }
+        else if opcode == 1 { r = a / b; }
+        else if opcode == 2 { r = a + b; }
+        else if opcode == 3 { r = a - b; }
+        else if opcode == 4 || opcode == 6 { if fnan(a) { r = b; } else if fnan(b) { r = a; } else if a > b { r = a; } else { r = b; } }
+        else if opcode == 5 || opcode == 7 { if fnan(a) { r = b; } else if fnan(b) { r = a; } else if a < b { r = a; } else { r = b; } }
+        else if opcode == 8 { r = 0.0 - (a * b); }
+        fset(rd, r, t1);
+        return;
+    }
+    if (w & 0xC00) == 0xC00 {                         // fcsel
+        int cond = (w >> 12) & 15;
+        int src = rm;
+        if cond_ok(cond) { src = rn; }
+        VL[rd] = VL[src];
+        VH[rd] = 0;
+        return;
+    }
+    if (w & 0xC00) == 0x400 {                         // fccmp, fccmpe
+        int cond = (w >> 12) & 15;
+        if cond_ok(cond) { fcompare(fget(rn, t1), fget(rm, t1)); }
+        else {
+            int nzcv = w & 15;
+            fn = (nzcv >> 3) & 1; fz = (nzcv >> 2) & 1; fc = (nzcv >> 1) & 1; fv = nzcv & 1;
+        }
+        return;
+    }
+    bad(w, "floating point");
+}
+
+// ---------------------------------------------------------------- system mode: exceptions and system registers
+int sr_key(int op0, int op1, int crn, int crm, int op2) { return (op0 << 14) | (op1 << 11) | (crn << 7) | (crm << 3) | op2; }
+
+int pstate_now() { return (el << 2) | 1 | (fn << 31) | (fz << 30) | (fc << 29) | (fv << 28) | (daif & 0x3C0); }
+
+// an exception to EL1: kind 0 = synchronous. The vector: 0x200 from EL1 (with SP_EL1), 0x400 from EL0 (AArch64).
+void take_exception(int kind, int ec, int iss, int ret_pc, int fault_addr) {
+    esr = (ec << 26) | (1 << 25) | (iss & 0x1FFFFFF);
+    far = fault_addr;
+    spsr = pstate_now();
+    elr = ret_pc;
+    int offset = 0x200;
+    if el == 0 { offset = 0x400; sp_el0 = sp; sp = sp_el1; }
+    el = 1;
+    daif = 0x3C0;                               // an exception masks the others until the handler lets them in
+    next_pc = vbar + offset + kind * 0x80;
+}
+
+// the timer: when the compare value has come and the I bit is clear, an interrupt (kind 1: vector +0x80) is taken before the next instruction
+bool timer_due() { return (timer_ctl & 3) == 1 && icount >= timer_cmp; }
+
+bool check_irq() {
+    if (daif & 0x80) != 0 { return false; }
+    if !timer_due() { return false; }
+    take_exception(1, 0, 0, pc, 0);             // the return address is the instruction that did not run
+    return true;
+}
+
+void do_eret() {
+    int target = (spsr >> 2) & 3;
+    fn = (spsr >> 31) & 1; fz = (spsr >> 30) & 1; fc = (spsr >> 29) & 1; fv = (spsr >> 28) & 1;
+    daif = spsr & 0x3C0;
+    if target == 0 && el == 1 { sp_el1 = sp; sp = sp_el0; }
+    if target == 1 && el == 0 { return; }       // eret at EL0 does nothing here
+    el = target;
+    next_pc = elr;
+}
+
+int sysreg_read(int key) {
+    if key == sr_key(3, 0, 12, 0, 0) { return vbar; }
+    if key == sr_key(3, 0, 4, 0, 1) { return elr; }
+    if key == sr_key(3, 0, 4, 0, 0) { return spsr; }
+    if key == sr_key(3, 0, 5, 2, 0) { return esr; }
+    if key == sr_key(3, 0, 6, 0, 0) { return far; }
+    if key == sr_key(3, 0, 4, 1, 0) { if el == 1 { return sp_el0; } return sp; }
+    if key == sr_key(3, 0, 4, 2, 2) { return el << 2; }                       // CurrentEL
+    if key == sr_key(3, 3, 4, 2, 1) { return daif; }
+    if key == sr_key(3, 0, 1, 0, 0) { return sctlr; }
+    if key == sr_key(3, 0, 2, 0, 0) { return ttbr0; }
+    if key == sr_key(3, 0, 2, 0, 1) { return ttbr1; }
+    if key == sr_key(3, 0, 2, 0, 2) { return tcr; }
+    if key == sr_key(3, 0, 10, 2, 0) { return mair; }
+    if key == sr_key(3, 3, 13, 0, 2) { return tpidr; }                         // TPIDR_EL0
+    if key == sr_key(3, 0, 13, 0, 4) { return tpidr_el1; }
+    if key == sr_key(3, 3, 14, 0, 2) { return icount; }                        // CNTVCT_EL0: a counter, the number of instructions
+    if key == sr_key(3, 3, 14, 0, 0) { return 1000000; }                       // CNTFRQ_EL0
+    if key == sr_key(3, 3, 14, 3, 1) { int c = timer_ctl & 3; if timer_due() { c = c | 4; } return c; }     // CNTV_CTL_EL0 (bit 2: the timer has come)
+    if key == sr_key(3, 3, 14, 3, 0) { return timer_cmp - icount; }            // CNTV_TVAL_EL0
+    if key == sr_key(3, 3, 14, 3, 2) { return timer_cmp; }                     // CNTV_CVAL_EL0
+    if key == sr_key(3, 0, 0, 0, 5) { return 0; }                              // MPIDR_EL1: the first CPU
+    return 0;
+}
+
+void sysreg_write(int key, int v) {
+    if key == sr_key(3, 0, 12, 0, 0) { vbar = v; }
+    else if key == sr_key(3, 0, 4, 0, 1) { elr = v; }
+    else if key == sr_key(3, 0, 4, 0, 0) { spsr = v; }
+    else if key == sr_key(3, 0, 5, 2, 0) { esr = v; }
+    else if key == sr_key(3, 0, 6, 0, 0) { far = v; }
+    else if key == sr_key(3, 0, 4, 1, 0) { if el == 1 { sp_el0 = v; } else { sp = v; } }
+    else if key == sr_key(3, 3, 4, 2, 1) { daif = v & 0x3C0; }
+    else if key == sr_key(3, 3, 14, 3, 1) { timer_ctl = v & 3; }
+    else if key == sr_key(3, 3, 14, 3, 0) { timer_cmp = icount + sx(v, 32); }
+    else if key == sr_key(3, 3, 14, 3, 2) { timer_cmp = v; }
+    else if key == sr_key(3, 0, 1, 0, 0) { sctlr = v; tlb_flush(); }
+    else if key == sr_key(3, 0, 2, 0, 0) { ttbr0 = v; tlb_flush(); }
+    else if key == sr_key(3, 0, 2, 0, 1) { ttbr1 = v; tlb_flush(); }
+    else if key == sr_key(3, 0, 2, 0, 2) { tcr = v; }
+    else if key == sr_key(3, 0, 10, 2, 0) { mair = v; }
+    else if key == sr_key(3, 3, 13, 0, 2) { tpidr = v; }
+    else if key == sr_key(3, 0, 13, 0, 4) { tpidr_el1 = v; }
+}
+
+// ---------------------------------------------------------------- the MMU: 4 KB pages, 48-bit addresses, 4 levels (blocks of 1 GB and 2 MB), AP / UXN / PXN, the access flag
+bool mmu_on() { return sysmode && (sctlr & 1) != 0; }
+void tlb_flush() { for i in 0..192 { tlb[i] = 0; } }
+
+// the exception of a failed translation. kind: 0 read, 1 write, 2 fetch. code: the fault status (4 + level translation, 8 + level access flag, 12 + level permission)
+int mmu_fault(int va, int kind, int code) {
+    int ec = 0x25;
+    if kind == 2 { ec = 0x21; if el == 0 { ec = 0x20; } }
+    else if el == 0 { ec = 0x24; }
+    int iss = code;
+    if kind == 1 { iss = iss | 64; }
+    take_exception(0, ec, iss, pc, va);
+    aborted = true;
+    return 0 - 1;
+}
+
+int phys64(int pa) {
+    int h = host_of(pa, 8);
+    if h == 0 { return 0; }
+    int^ p = (int^)h;
+    return p[0];
+}
+
+// the physical address of va for an access of this kind, or -1 after the exception was raised
+int xlate(int va, int kind) {
+    int page = va & ~4095;
+    int slot = (va >> 12) & 63;
+    int pa_page = 0;
+    int at = 0;
+    if tlb[slot * 3] == (page | 1) {
+        pa_page = tlb[slot * 3 + 1];
+        at = tlb[slot * 3 + 2];
+    } else {
+        int top = va >> 48;
+        if top != 0 && top != 0 - 1 { return mmu_fault(va, kind, 4); }
+        int base = ttbr0;
+        if top != 0 { base = ttbr1; }
+        base = base & 0xFFFFFFFFF000;
+        int level = 0;
+        int leaf = 0;
+        while level < 4 {
+            int idx = (va >> (39 - 9 * level)) & 511;
+            int desc = phys64(base + idx * 8);
+            if (desc & 1) == 0 { return mmu_fault(va, kind, 4 + level); }
+            if level < 3 && (desc & 3) == 3 { base = desc & 0xFFFFFFFFF000; level += 1; continue; }
+            if level == 3 && (desc & 3) != 3 { return mmu_fault(va, kind, 4 + level); }
+            if level == 0 || (level < 3 && (desc & 3) != 1) { return mmu_fault(va, kind, 4 + level); }
+            leaf = desc;
+            break;
+        }
+        if (leaf & 1024) == 0 { return mmu_fault(va, kind, 8 + level); }          // the access flag
+        int bsize = 4096;
+        if level == 1 { bsize = 1073741824; } else if level == 2 { bsize = 2097152; }
+        int full = (leaf & 0xFFFFFFFFF000 & ~(bsize - 1)) | (va & (bsize - 1));
+        pa_page = full & ~4095;
+        at = ((leaf >> 6) & 3) | (((leaf >> 53) & 1) << 2) | (((leaf >> 54) & 1) << 3) | (level << 4);
+        tlb[slot * 3] = page | 1;
+        tlb[slot * 3 + 1] = pa_page;
+        tlb[slot * 3 + 2] = at;
+    }
+    int ap = at & 3;
+    int lvl = (at >> 4) & 3;
+    bool bad = false;
+    if kind == 2 {
+        if el == 0 { bad = ((at >> 3) & 1) == 1 || ap == 0 || ap == 2; } else { bad = ((at >> 2) & 1) == 1; }
+    } else if el == 0 {
+        bad = ap == 0 || ap == 2 || (kind == 1 && ap == 3);
+    } else {
+        bad = kind == 1 && (ap == 2 || ap == 3);
+    }
+    if bad { return mmu_fault(va, kind, 12 + lvl); }
+    return pa_page | (va & 4095);
+}
+
+// ---------------------------------------------------------------- the system calls (Linux ARM64)
+void syscall_guest() {
+    int nr = X[8];
+    int a0 = X[0];
+    int a1 = X[1];
+    int a2 = X[2];
+    int a3 = X[3];
+    int ret = 0 - 38;                                   // ENOSYS
+    if nr == 93 || nr == 94 { done = 1; exit_code = a0 & 255; return; }
+    if nr == 64 || nr == 63 {                           // write, read: the buffer is guest memory
+        int len1 = a2;
+        if len1 < 1 { len1 = 1; }
+        int h = host_of(a1, len1);
+        if h == 0 && a2 > 0 { ret = 0 - 14; } else { ret = Sys::call(nr, a0, h, a2, 0, 0, 0); }
+    } else if nr == 56 {                                // openat(dirfd, path, flags, mode)
+        int h = host_of(a1, 1);
+        if h == 0 { ret = 0 - 14; } else { ret = Sys::call(56, a0, h, a2, a3, 0, 0); }
+    } else if nr == 57 { ret = Sys::call(57, a0, 0, 0, 0, 0, 0); }
+    else if nr == 62 { ret = Sys::call(62, a0, a1, a2, 0, 0, 0); }
+    else if nr == 80 { ret = Sys::call(80, a0, host_of(a1, 128), 0, 0, 0, 0); }                     // fstat
+    else if nr == 79 { ret = Sys::call(79, a0, host_of(a1, 1), host_of(a2, 128), a3, 0, 0); }      // newfstatat
+    else if nr == 29 { ret = Sys::call(29, a0, a1, host_of(a2, 64), 0, 0, 0); }                    // ioctl with a structure
+    else if nr == 113 { ret = Sys::call(113, a0, host_of(a1, 16), 0, 0, 0, 0); }                   // clock_gettime
+    else if nr == 169 { ret = Sys::call(169, host_of(a0, 16), 0, 0, 0, 0, 0); }                    // gettimeofday
+    else if nr == 160 { ret = Sys::call(160, host_of(a0, 390), 0, 0, 0, 0, 0); }                   // uname
+    else if nr == 101 { ret = Sys::call(101, host_of(a0, 16), 0, 0, 0, 0, 0); }                    // nanosleep
+    else if nr == 17 { ret = Sys::call(17, host_of(a0, a1), a1, 0, 0, 0, 0); }                     // getcwd
+    else if nr == 214 {                                 // brk
+        if a0 >= brk_base && a0 <= brk_end { brk_now = a0; }
+        ret = brk_now;
+    } else if nr == 222 {                               // mmap(addr, length, prot, flags, fd, offset): anonymous memory only
+        int len = (a1 + 4095) & ~4095;
+        int at = next_map;
+        next_map = next_map + len + 4096;
+        add_region(at, len);
+        ret = at;
+    } else if nr == 215 || nr == 226 || nr == 134 || nr == 135 || nr == 132 || nr == 98 || nr == 233 { ret = 0; }
+    else if nr == 172 || nr == 178 { ret = Sys::call(172, 0, 0, 0, 0, 0, 0); }
+    else if nr == 174 || nr == 175 || nr == 176 || nr == 177 { ret = 0; }
+    else {
+        cerr << "jemu: system call " << nr << " is not supported yet (pc=0x" << hex(pc) << ")\n";
+    }
+    X[0] = ret;
+}
+
+// ---------------------------------------------------------------- one instruction
+void bad(int w, String what) {
+    cerr << "jemu: instruction 0x" << hex(w) << " at 0x" << hex(pc) << " is not supported yet (" << what << ")\n";
+    Sys::exit(132);
+}
+
+void do_pcrel(int w) {
+    int rd = w & 31;
+    int immlo = (w >> 29) & 3;
+    int immhi = (w >> 5) & 0x7FFFF;
+    int imm = sx((immhi << 2) | immlo, 21);
+    if ((w >> 31) & 1) == 0 { setx(rd, pc + imm, 1); }
+    else { setx(rd, (pc & ~4095) + (imm << 12), 1); }
+}
+
+void do_addsub_imm(int w) {
+    int sf = (w >> 31) & 1;
+    int sub = (w >> 30) & 1;
+    int s = (w >> 29) & 1;
+    int imm = (w >> 10) & 4095;
+    if ((w >> 22) & 1) == 1 { imm = imm << 12; }
+    int rn = (w >> 5) & 31;
+    int rd = w & 31;
+    int a = getsp(rn, sf);
+    int b = imm;
+    int carry_in = 0;
+    if sub == 1 { b = ~imm; carry_in = 1; if sf == 0 { b = mask32(b); } }
+    int r = addc(a, b, carry_in, sf, s == 1);
+    if s == 1 { setx(rd, r, sf); } else { setsp(rd, r, sf); }
+}
+
+void do_logic_imm(int w) {
+    int sf = (w >> 31) & 1;
+    int opc = (w >> 29) & 3;
+    int n = (w >> 22) & 1;
+    int immr = (w >> 16) & 63;
+    int imms = (w >> 10) & 63;
+    int rn = (w >> 5) & 31;
+    int rd = w & 31;
+    int ds = 32;
+    if sf == 1 { ds = 64; }
+    bit_masks(n, imms, immr, ds);
+    int a = getx(rn, sf);
+    int r = 0;
+    if opc == 0 || opc == 3 { r = a & g_wmask; }
+    else if opc == 1 { r = a | g_wmask; }
+    else { r = a xor g_wmask; }
+    if opc == 3 {
+        fn = (r >> (ds - 1)) & 1;
+        fz = 0; if r == 0 { fz = 1; }
+        fc = 0;
+        fv = 0;
+        setx(rd, r, sf);
+    } else { setsp(rd, r, sf); }
+}
+
+void do_movewide(int w) {
+    int sf = (w >> 31) & 1;
+    int opc = (w >> 29) & 3;
+    int hw = (w >> 21) & 3;
+    int imm = (w >> 5) & 65535;
+    int rd = w & 31;
+    int sh = hw * 16;
+    if opc == 0 { setx(rd, ~(imm << sh), sf); }
+    else if opc == 2 { setx(rd, imm << sh, sf); }
+    else if opc == 3 {
+        int old = getx(rd, sf);
+        setx(rd, (old & ~(65535 << sh)) | (imm << sh), sf);
+    } else { bad(w, "move wide"); }
+}
+
+void do_bitfield(int w) {
+    int sf = (w >> 31) & 1;
+    int opc = (w >> 29) & 3;
+    int n = (w >> 22) & 1;
+    int immr = (w >> 16) & 63;
+    int imms = (w >> 10) & 63;
+    int rn = (w >> 5) & 31;
+    int rd = w & 31;
+    int ds = 32;
+    if sf == 1 { ds = 64; }
+    bit_masks(n, imms, immr, ds);
+    int src = getx(rn, sf);
+    int bot = ror(src, immr, ds) & g_wmask;
+    int dst = getx(rd, sf);
+    int r = 0;
+    if opc == 0 {                                       // sbfm
+        int signbit = (src >> imms) & 1;
+        int top = 0;
+        if signbit == 1 { if ds == 64 { top = 0 - 1; } else { top = 4294967295; } }
+        r = (top & ~g_tmask) | (bot & g_tmask);
+    } else if opc == 2 {                                // ubfm
+        r = bot & g_tmask;
+    } else {                                            // bfm
+        int merged = (dst & ~g_wmask) | (bot & g_wmask);
+        r = (dst & ~g_tmask) | (merged & g_tmask);
+    }
+    setx(rd, r, sf);
+}
+
+void do_extract(int w) {
+    int sf = (w >> 31) & 1;
+    int rm = (w >> 16) & 31;
+    int lsb = (w >> 10) & 63;
+    int rn = (w >> 5) & 31;
+    int rd = w & 31;
+    int hi = getx(rn, sf);
+    int lo = getx(rm, sf);
+    int r = 0;
+    if sf == 1 {
+        if lsb == 0 { r = lo; } else { r = lsr(lo, lsb) | (hi << (64 - lsb)); }
+    } else {
+        int both = (hi << 32) | lo;
+        r = mask32(lsr(both, lsb));
+    }
+    setx(rd, r, sf);
+}
+
+void do_branch_misc(int w) {
+    if (w & 0x7C000000) == 0x14000000 {                 // b, bl
+        int imm = sx(w & 0x3FFFFFF, 26) * 4;
+        if ((w >> 31) & 1) == 1 { X[30] = pc + 4; }
+        next_pc = pc + imm;
+        return;
+    }
+    if (w & 0xFF000010) == 0x54000000 {                 // b.cond
+        if cond_ok(w & 15) { next_pc = pc + sx((w >> 5) & 0x7FFFF, 19) * 4; }
+        return;
+    }
+    if (w & 0x7E000000) == 0x34000000 {                 // cbz, cbnz
+        int sf = (w >> 31) & 1;
+        int v = getx(w & 31, sf);
+        bool zero = v == 0;
+        if ((w >> 24) & 1) == 1 { zero = !zero; }
+        if zero { next_pc = pc + sx((w >> 5) & 0x7FFFF, 19) * 4; }
+        return;
+    }
+    if (w & 0x7E000000) == 0x36000000 {                 // tbz, tbnz
+        int bit = (((w >> 31) & 1) << 5) | ((w >> 19) & 31);
+        int v = 0;
+        if (w & 31) != 31 { v = X[w & 31]; }
+        bool set = ((v >> bit) & 1) == 1;
+        if ((w >> 24) & 1) == 1 { set = !set; }
+        if set { next_pc = pc + sx((w >> 5) & 0x3FFF, 14) * 4; }
+        return;
+    }
+    if (w & 0xFFFFFC1F) == 0xD61F0000 {                 // br
+        next_pc = X[(w >> 5) & 31];
+        return;
+    }
+    if (w & 0xFFFFFC1F) == 0xD63F0000 {                 // blr
+        int target = X[(w >> 5) & 31];
+        X[30] = pc + 4;
+        next_pc = target;
+        return;
+    }
+    if (w & 0xFFFFFC1F) == 0xD65F0000 {                 // ret
+        next_pc = X[(w >> 5) & 31];
+        return;
+    }
+    if (w & 0xFFE0001F) == 0xD4000001 {                 // svc
+        if sysmode { take_exception(0, 0x15, (w >> 5) & 0xFFFF, pc + 4, 0); return; }
+        syscall_guest();
+        return;
+    }
+    if w == 0xD69F03E0 && sysmode { do_eret(); return; }                    // eret
+    if (w & 0xFFE0001F) == 0xD4400000 && sysmode { done = 1; exit_code = (w >> 5) & 255; return; }    // hlt #n: the machine stops (exit code n)
+    if (w & 0xFFFFF0DF) == 0xD50340DF && sysmode {      // msr daifset, #n / msr daifclr, #n
+        int bits = ((w >> 8) & 15) << 6;
+        if (w & 0x20) != 0 { daif = daif & ~bits; } else { daif = daif | bits; }
+        return;
+    }
+    if w == 0xD503207F && sysmode {                     // wfi: the clock jumps to the timer when it is on (nothing else can wake the machine yet)
+        if (timer_ctl & 3) == 1 && icount < timer_cmp { icount = timer_cmp; }
+        return;
+    }
+    if (w & 0xFFF80000) == 0xD5080000 && sysmode { tlb_flush(); return; }         // tlbi, ic, dc (sys instructions): the TLB is emptied
+    if (w & 0xFFFFF01F) == 0xD503201F { return; }       // nop and the other hints
+    if (w & 0xFFFFF000) == 0xD5033000 { return; }       // dmb, dsb, isb, clrex
+    if (w & 0xFFF00000) == 0xD5100000 && sysmode { sysreg_write((w >> 5) & 0xFFFF, getx(w & 31, 1)); return; }
+    if (w & 0xFFF00000) == 0xD5300000 && sysmode { setx(w & 31, sysreg_read((w >> 5) & 0xFFFF), 1); return; }
+    if (w & 0xFFF00000) == 0xD5100000 { tpidr = getx(w & 31, 1); return; }      // msr: the thread register is kept, the others are ignored
+    if (w & 0xFFF00000) == 0xD5300000 {                 // mrs: the thread register, a counter (the number of instructions), the others 0
+        int crn = (w >> 12) & 15;
+        int v = 0;
+        if crn == 13 { v = tpidr; } else if crn == 14 { v = icount; }
+        setx(w & 31, v, 1);
+        return;
+    }
+    bad(w, "branch or system");
+}
+
+void do_loadstore(int w) {
+    int vbit = (w >> 26) & 1;
+    // exclusive and acquire / release (ldxr, stxr, ldaxr, stlxr, ldar, stlr): one thread, so the monitor always succeeds
+    if (w & 0x3F000000) == 0x08000000 && vbit == 0 {
+        int size = (w >> 30) & 3;
+        int o2 = (w >> 23) & 1;
+        int load = (w >> 22) & 1;
+        int o1 = (w >> 21) & 1;
+        int rs = (w >> 16) & 31;
+        int rn = (w >> 5) & 31;
+        int rt = w & 31;
+        if o1 == 1 { bad(w, "pair exclusive"); }
+        int addr = getsp(rn, 1);
+        int bytes = 1 << size;
+        int sfx = 0;
+        if size == 3 { sfx = 1; }
+        if load == 1 { setx(rt, ld(addr, bytes), sfx); }
+        else {
+            st(addr, bytes, getx(rt, sfx));
+            if o2 == 0 { setx(rs, 0, 0); }
+        }
+        return;
+    }
+    // load register (literal)
+    if (w & 0x3B000000) == 0x18000000 && vbit == 1 {
+        int opc = (w >> 30) & 3;
+        int rt = w & 31;
+        int addr = pc + sx((w >> 5) & 0x7FFFF, 19) * 4;
+        if opc == 0 { VL[rt] = ld(addr, 4); VH[rt] = 0; }
+        else if opc == 1 { VL[rt] = ld(addr, 8); VH[rt] = 0; }
+        else { VL[rt] = ld(addr, 8); VH[rt] = ld(addr + 8, 8); }
+        return;
+    }
+    if (w & 0x3B000000) == 0x18000000 {
+        int opc = (w >> 30) & 3;
+        int rt = w & 31;
+        int addr = pc + sx((w >> 5) & 0x7FFFF, 19) * 4;
+        if opc == 0 { setx(rt, ld(addr, 4), 0); }
+        else if opc == 1 { setx(rt, ld(addr, 8), 1); }
+        else if opc == 2 { setx(rt, sx(ld(addr, 4), 32), 1); }
+        else { bad(w, "prefetch literal"); }
+        return;
+    }
+    // load / store pair
+    if (w & 0x3A000000) == 0x28000000 {
+        int opc = (w >> 30) & 3;
+        int idx = (w >> 23) & 3;
+        int load = (w >> 22) & 1;
+        int rt2 = (w >> 10) & 31;
+        int rn = (w >> 5) & 31;
+        int rt = w & 31;
+        int size = 4;
+        if opc == 2 { size = 8; }
+        if vbit == 1 { size = 4 << opc; }                // s, d or q
+        int imm = sx((w >> 15) & 127, 7) * size;
+        int base = getsp(rn, 1);
+        int addr = base;
+        if idx != 1 { addr = base + imm; }
+        int sfp = 0;
+        if size == 8 { sfp = 1; }
+        if vbit == 1 {
+            if load == 1 {
+                if size == 16 { VL[rt] = ld(addr, 8); VH[rt] = ld(addr + 8, 8); VL[rt2] = ld(addr + 16, 8); VH[rt2] = ld(addr + 24, 8); }
+                else { VL[rt] = ld(addr, size); VH[rt] = 0; VL[rt2] = ld(addr + size, size); VH[rt2] = 0; }
+            } else {
+                if size == 16 { st(addr, 8, VL[rt]); st(addr + 8, 8, VH[rt]); st(addr + 16, 8, VL[rt2]); st(addr + 24, 8, VH[rt2]); }
+                else { st(addr, size, VL[rt]); st(addr + size, size, VL[rt2]); }
+            }
+            if idx == 1 { setsp(rn, base + imm, 1); }
+            if idx == 3 { setsp(rn, addr, 1); }
+            return;
+        }
+        if load == 1 {
+            if opc == 1 {
+                setx(rt, sx(ld(addr, 4), 32), 1);
+                setx(rt2, sx(ld(addr + 4, 4), 32), 1);
+            } else {
+                setx(rt, ld(addr, size), sfp);
+                setx(rt2, ld(addr + size, size), sfp);
+            }
+        } else {
+            st(addr, size, getx(rt, sfp));
+            st(addr + size, size, getx(rt2, sfp));
+        }
+        if idx == 1 { setsp(rn, base + imm, 1); }
+        if idx == 3 { setsp(rn, addr, 1); }
+        return;
+    }
+    // load / store register
+    int size = (w >> 30) & 3;
+    int opc = (w >> 22) & 3;
+    int rn = (w >> 5) & 31;
+    int rt = w & 31;
+    int base = getsp(rn, 1);
+    int addr = base;
+    int wb = 0;
+    int newbase = 0;
+    int scale = size;
+    if vbit == 1 && opc >= 2 { scale = 4; }
+    if (w & 0x3B000000) == 0x39000000 {                 // unsigned offset
+        addr = base + (((w >> 10) & 4095) << scale);
+    } else if (w & 0x3B000000) == 0x38000000 {          // the other forms
+        if ((w >> 21) & 1) == 1 {                       // register offset
+            int option = (w >> 13) & 7;
+            int shift = 0;
+            if ((w >> 12) & 1) == 1 { shift = scale; }
+            addr = base + extended((w >> 16) & 31, option, shift, 1);
+        } else {
+            int imm9 = sx((w >> 12) & 511, 9);
+            int kind = (w >> 10) & 3;
+            if kind == 0 { addr = base + imm9; }
+            else if kind == 1 { addr = base; wb = 1; newbase = base + imm9; }
+            else if kind == 3 { addr = base + imm9; wb = 2; newbase = addr; }
+            else { bad(w, "unprivileged load / store"); }
+        }
+    } else { bad(w, "load / store form"); return; }
+    if vbit == 1 {
+        fp_loadstore(w, addr);
+        if wb != 0 { setsp(rn, newbase, 1); }
+        return;
+    }
+    int bytes = 1 << size;
+    if opc == 0 {
+        int sfs = 0;
+        if size == 3 { sfs = 1; }
+        st(addr, bytes, getx(rt, sfs));
+    } else if opc == 1 {
+        int sfl = 0;
+        if size == 3 { sfl = 1; }
+        setx(rt, ld(addr, bytes), sfl);
+    } else {
+        if size == 3 { return; }                        // prfm: nothing to do
+        int v = sx(ld(addr, bytes), 8 << size);
+        int sfr = 0;
+        if opc == 2 { sfr = 1; }
+        setx(rt, v, sfr);
+    }
+    if wb != 0 { setsp(rn, newbase, 1); }
+}
+
+void do_dp_register(int w) {
+    int sf = (w >> 31) & 1;
+    int rm = (w >> 16) & 31;
+    int rn = (w >> 5) & 31;
+    int rd = w & 31;
+    int ds = 32;
+    if sf == 1 { ds = 64; }
+    // logical (shifted register)
+    if (w & 0x1F000000) == 0x0A000000 {
+        int opc = (w >> 29) & 3;
+        int type = (w >> 22) & 3;
+        int inv = (w >> 21) & 1;
+        int amt = (w >> 10) & 63;
+        int b = shifted(rm, type, amt, sf);
+        if inv == 1 { b = ~b; if sf == 0 { b = mask32(b); } }
+        int a = getx(rn, sf);
+        int r = 0;
+        if opc == 0 || opc == 3 { r = a & b; } else if opc == 1 { r = a | b; } else { r = a xor b; }
+        if opc == 3 {
+            fn = (r >> (ds - 1)) & 1;
+            fz = 0; if r == 0 { fz = 1; }
+            fc = 0;
+            fv = 0;
+        }
+        setx(rd, r, sf);
+        return;
+    }
+    // add / subtract (shifted or extended register)
+    if (w & 0x1F000000) == 0x0B000000 {
+        int sub = (w >> 30) & 1;
+        int s = (w >> 29) & 1;
+        int ext = (w >> 21) & 1;
+        int b = 0;
+        int a = 0;
+        if ext == 0 {
+            b = shifted(rm, (w >> 22) & 3, (w >> 10) & 63, sf);
+            a = getx(rn, sf);
+        } else {
+            b = extended(rm, (w >> 13) & 7, (w >> 10) & 7, sf);
+            a = getsp(rn, sf);
+        }
+        int carry_in = 0;
+        if sub == 1 { b = ~b; carry_in = 1; if sf == 0 { b = mask32(b); } }
+        int r = addc(a, b, carry_in, sf, s == 1);
+        if s == 0 && ext == 1 { setsp(rd, r, sf); } else { setx(rd, r, sf); }
+        return;
+    }
+    // add / subtract with carry
+    if (w & 0x1FE00000) == 0x1A000000 {
+        int sub = (w >> 30) & 1;
+        int s = (w >> 29) & 1;
+        int b = getx(rm, sf);
+        if sub == 1 { b = ~b; if sf == 0 { b = mask32(b); } }
+        setx(rd, addc(getx(rn, sf), b, fc, sf, s == 1), sf);
+        return;
+    }
+    // conditional compare
+    if (w & 0x1FE00000) == 0x1A400000 {
+        int sub = (w >> 30) & 1;
+        int cond = (w >> 12) & 15;
+        int b = 0;
+        if ((w >> 11) & 1) == 1 { b = rm; } else { b = getx(rm, sf); }
+        int a = getx(rn, sf);
+        if cond_ok(cond) {
+            int carry_in = 0;
+            if sub == 1 { b = ~b; carry_in = 1; if sf == 0 { b = mask32(b); } }
+            addc(a, b, carry_in, sf, true);
+        } else {
+            int nzcv = w & 15;
+            fn = (nzcv >> 3) & 1;
+            fz = (nzcv >> 2) & 1;
+            fc = (nzcv >> 1) & 1;
+            fv = nzcv & 1;
+        }
+        return;
+    }
+    // conditional select
+    if (w & 0x1FE00000) == 0x1A800000 {
+        int op = (w >> 30) & 1;
+        int o2 = (w >> 10) & 1;
+        int cond = (w >> 12) & 15;
+        int r = 0;
+        if cond_ok(cond) { r = getx(rn, sf); }
+        else {
+            int m = getx(rm, sf);
+            if op == 0 && o2 == 0 { r = m; }
+            else if op == 0 && o2 == 1 { r = m + 1; }
+            else if op == 1 && o2 == 0 { r = ~m; }
+            else { r = 0 - m; }
+        }
+        setx(rd, r, sf);
+        return;
+    }
+    // data processing, 3 sources
+    if (w & 0x1F000000) == 0x1B000000 {
+        int op31 = (w >> 21) & 7;
+        int o0 = (w >> 15) & 1;
+        int ra = (w >> 10) & 31;
+        int a = getx(rn, sf);
+        int b = getx(rm, sf);
+        int c = getx(ra, sf);
+        if op31 == 0 {                                  // madd, msub
+            if o0 == 0 { setx(rd, c + a * b, sf); } else { setx(rd, c - a * b, sf); }
+        } else if op31 == 1 {                           // smaddl, smsubl
+            int p = sx(mask32(a), 32) * sx(mask32(b), 32);
+            if o0 == 0 { setx(rd, getx(ra, 1) + p, 1); } else { setx(rd, getx(ra, 1) - p, 1); }
+        } else if op31 == 5 {                           // umaddl, umsubl
+            int p = mask32(a) * mask32(b);
+            if o0 == 0 { setx(rd, getx(ra, 1) + p, 1); } else { setx(rd, getx(ra, 1) - p, 1); }
+        } else if op31 == 6 {                           // umulh
+            setx(rd, umulh(getx(rn, 1), getx(rm, 1)), 1);
+        } else if op31 == 2 {                           // smulh
+            int x = getx(rn, 1);
+            int y = getx(rm, 1);
+            int hi = umulh(x, y);
+            if x < 0 { hi = hi - y; }
+            if y < 0 { hi = hi - x; }
+            setx(rd, hi, 1);
+        } else { bad(w, "multiply"); }
+        return;
+    }
+    // data processing, 1 and 2 sources (bits 28:21 = 11010110)
+    if ((w >> 21) & 255) == 214 {
+        int bit30 = (w >> 30) & 1;
+        int opcode = (w >> 10) & 63;
+        int a = getx(rn, sf);
+        int b = getx(rm, sf);
+        if bit30 == 0 {
+            if opcode == 2 {                            // udiv
+                if b == 0 { setx(rd, 0, sf); }
+                else if sf == 1 { setx(rd, udiv64(a, b), 1); }
+                else { setx(rd, mask32(a) / mask32(b), 0); }
+            } else if opcode == 3 {                     // sdiv
+                if b == 0 { setx(rd, 0, sf); }
+                else if sf == 1 {
+                    if a == (1 << 63) && b == 0 - 1 { setx(rd, a, 1); } else { setx(rd, a / b, 1); }
+                } else { setx(rd, sx(a, 32) / sx(b, 32), 0); }
+            } else if opcode >= 8 && opcode <= 11 {     // lslv, lsrv, asrv, rorv
+                int amt = b % ds;
+                setx(rd, shifted(rn, opcode - 8, amt, sf), sf);
+            } else { bad(w, "two-source"); }
+        } else {
+            if opcode == 0 {                            // rbit
+                int r = 0;
+                for i in 0..ds { if ((a >> i) & 1) == 1 { r = r | (1 << (ds - 1 - i)); } }
+                setx(rd, r, sf);
+            } else if (opcode == 2 && sf == 0) || (opcode == 3 && sf == 1) {     // rev
+                int r = 0;
+                int nb = ds / 8;
+                for i in 0..nb { r = r | (((a >> (8 * i)) & 255) << (8 * (nb - 1 - i))); }
+                setx(rd, r, sf);
+            } else if opcode == 5 {                     // cls
+                int n = 0;
+                int sign = (a >> (ds - 1)) & 1;
+                for i in 1..ds { if ((a >> (ds - 1 - i)) & 1) == sign { n += 1; } else { break; } }
+                setx(rd, n, sf);
+            } else if opcode == 4 {                     // clz
+                int n = 0;
+                for i in 0..ds { if ((a >> (ds - 1 - i)) & 1) == 0 { n += 1; } else { break; } }
+                setx(rd, n, sf);
+            } else { bad(w, "one-source"); }
+        }
+        return;
+    }
+    bad(w, "data processing, register");
+}
+
+int fetch(int at) {
+    if mmu_on() {
+        int pa = xlate(at, 2);
+        if pa < 0 { return 0; }
+        at = pa;
+    }
+    int h = host_of(at, 4);
+    if h == 0 { fault(at, "fetch"); }
+    u32^ p = (u32^)h;
+    return (int)p[0];
+}
+
+void step() {
+    if sysmode { if check_irq() { pc = next_pc; } }
+    int w = 0;
+    if sysmode {
+        w = fetch(pc);
+        if aborted { aborted = false; pc = next_pc; return; }
+    } else { w = ld(pc, 4); }
+    next_pc = pc + 4;
+    icount += 1;
+    int op0 = (w >> 25) & 15;
+    if (op0 >> 1) == 4 {                                // 100x: data processing, immediate
+        int opi = (w >> 23) & 7;
+        if opi <= 1 { do_pcrel(w); }
+        else if opi == 2 { do_addsub_imm(w); }
+        else if opi == 4 { do_logic_imm(w); }
+        else if opi == 5 { do_movewide(w); }
+        else if opi == 6 { do_bitfield(w); }
+        else if opi == 7 { do_extract(w); }
+        else { bad(w, "immediate"); }
+    }
+    else if (op0 >> 1) == 5 { do_branch_misc(w); }      // 101x: branches and system
+    else if (op0 & 5) == 4 { do_loadstore(w); }         // x1x0: loads and stores
+    else if (op0 & 7) == 5 { do_dp_register(w); }       // x101: data processing, register
+    else if (w & 0x7E000000) == 0x1E000000 { do_fp(w); }                  // scalar floating point
+    else { bad(w, "vector instruction"); }
+    if aborted { aborted = false; }                       // a failed access: next_pc is the vector (the instruction is tried again after eret)
+    pc = next_pc;
+}
+
+// ---------------------------------------------------------------- the ELF program
+int rd32(char^ b, int at) { return (b[at] & 255) | ((b[at + 1] & 255) << 8) | ((b[at + 2] & 255) << 16) | ((b[at + 3] & 255) << 24); }
+int rd64(char^ b, int at) { return rd32(b, at) | (rd32(b, at + 4) << 32); }
+
+int main() {
+    String[] args = Env::args();
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jemu " << jemu_version() << "\n"; return 0; }
+    if args.len > 1 && (args[1] == "--help" || args[1] == "-h" || args[1] == "help") {
+        cout << "jemu: a machine that runs programs for ARM64 and, in system mode, kernels (Jaric OS)\n";
+        cout << "  jemu os [FOLDER]                 start Jaric OS: the files of FOLDER (default ~/.jemu-os) are its disk; type ls, cat NAME, echo TEXT, help, exit\n";
+        cout << "  jemu PROGRAM [arguments]         run a Linux ARM64 program (the Linux calls are answered by the host)\n";
+        cout << "  jemu --system KERNEL.elf [--disk IMAGE] [--shift N] [--steps N]    run a kernel on the machine (EL0 / EL1, MMU, timer, a UART, a disk)\n";
+        return 0;
+    }
+    if args.len > 1 && args[1] == "os" {                       // jemu os [FOLDER]: the kernel and mkfs come next to this program (jemu-kernel, jemu-mkfs)
+        char sbuf[512];
+        int sn = Sys::readlink("/proc/self/exe".c(), @sbuf, 511);
+        if sn <= 0 { die("cannot find where jemu is", 1); }
+        sbuf[sn] = 0;
+        String self = (char^)@sbuf;
+        String dir = Path::parent(self);
+        String kernel = Path::join(dir, "jemu-kernel");
+        String mkfs = Path::join(dir, "jemu-mkfs");
+        if !Fs::exists(kernel) || !Fs::exists(mkfs) { die("jemu-kernel and jemu-mkfs must be next to jemu (jc install jemu brings them)", 1); }
+        String home = ".";
+        switch Env::get("HOME") { Option::Some(h): { if h.len > 0 { home = h; } } Option::None: { } }
+        String folder = Path::join(home, ".jemu-os");
+        if args.len > 2 { folder = args[2]; }
+        if !Dir::exists(folder) {
+            Dir::make_all(folder);
+            Fs::write_text(Path::join(folder, "hello.txt"), "hello from the disk of Jaric OS\n");
+            Fs::write_text(Path::join(folder, "readme.txt"), "Jaric OS: type ls, cat hello.txt, help. The files of this folder are the disk.\n");
+        }
+        String tmp = "/tmp";
+        switch Env::get("TMPDIR") { Option::Some(t): { if t.len > 0 { tmp = t; } } Option::None: { } }
+        String img = Path::join(tmp, "jemu-os.img");
+        String[] ma = arr(4);
+        ma.push(img); ma.push(folder); ma.push("128");
+        Result<int, Error> mr = Proc::run(mkfs, ma);
+        if !mr.is_ok() || mr.take() != 0 { die("could not make the disk image from " + folder, 1); }
+        cout << "Jaric OS: the disk is the files of " << folder << "  (exit leaves, Ctrl-C stops the machine)\n";
+        String[] na = arr(6);
+        na.push("jemu"); na.push("--system"); na.push(kernel); na.push("--disk"); na.push(img);
+        args = na;
+    }
+    if args.len < 2 { cerr << "usage: jemu PROGRAM [arguments]       jemu --system KERNEL.elf [--steps N] [--disk IMAGE] [--shift N]   (system mode: EL0/EL1, vectors, a UART at 0x09000000, exit device at 0x09100000, a disk at 0x0A000000)\n"; return 2; }
+    if args[1] == "--system" {
+        if args.len < 3 { cerr << "usage: jemu --system KERNEL.elf [--steps N]\n"; return 2; }
+        sysmode = true;
+        max_steps = 200000000;
+        disk_fd = 0 - 1;
+        int ai = 3;
+        while ai + 1 < args.len {
+            if args[ai] == "--steps" { max_steps = args[ai + 1].to_int(); }
+            if args[ai] == "--shift" { kshift = args[ai + 1].to_int(); }
+            if args[ai] == "--disk" {
+                char^ dp = args[ai + 1].c();
+                disk_fd = Sys::call(56, 0 - 100, (int)dp, 2, 0, 0, 0);                  // openat(AT_FDCWD, path, O_RDWR)
+                if disk_fd < 0 { die("cannot open the disk " + args[ai + 1], 1); }
+                Result<int, Error> dsz = Fs::size(args[ai + 1]);
+                if dsz.is_ok() { disk_sectors = dsz.take() / 512; }
+            }
+            ai += 2;
+        }
+        args.remove(1);                                  // the program is args[1] now
+    }
+    reg_start = arr(16);
+    reg_size = arr(16);
+    reg_host = arr(16);
+    X = (int^)Mem::alloc(8 * 32);
+    VL = (int^)Mem::alloc(8 * 32);
+    VH = (int^)Mem::alloc(8 * 32);
+    for i in 0..32 { X[i] = 0; VL[i] = 0; VH[i] = 0; }
+    // the file
+    String path = args[1];
+    Result<int, Error> sz = Fs::size(path);
+    if !sz.is_ok() { die("cannot read " + path, 1); }
+    int fsize = sz.take();
+    char^ file = (char^)Mem::alloc(fsize + 16);
+    int fd = Sys::open_read(path.c());
+    int got = 0;
+    while got < fsize { int n = Sys::read(fd, file + got, fsize - got); if n <= 0 { break; } got += n; }
+    Sys::close(fd);
+    if got < 64 || file[0] != 127 || file[1] != 'E' || file[2] != 'L' || file[3] != 'F' { die(path + " is not an ELF program", 1); }
+    if (file[18] & 255) != 183 { die("it is not an ARM64 program", 1); }
+    int entry = rd64(file, 24) + kshift;
+    int phoff = rd64(file, 32);
+    int phentsize = (file[54] & 255) | ((file[55] & 255) << 8);
+    int phnum = (file[56] & 255) | ((file[57] & 255) << 8);
+    int top = 0;
+    for i in 0..phnum {
+        int ph = phoff + i * phentsize;
+        if rd32(file, ph) != 1 { continue; }                       // PT_LOAD
+        int off = rd64(file, ph + 8);
+        int vaddr = rd64(file, ph + 16) + kshift;
+        int filesz = rd64(file, ph + 32);
+        int memsz = rd64(file, ph + 40);
+        int start = vaddr & ~4095;
+        int end = (vaddr + memsz + 4095) & ~4095;
+        add_region(start, end - start);
+        if filesz > 0 { Mem::copy((char^)host_of(vaddr, filesz), file + off, filesz); }
+        if end > top { top = end; }
+    }
+    Mem::free(file);
+    // the heap (brk), the memory for mmap, the stack
+    brk_base = top + 65536;
+    brk_now = brk_base;
+    brk_end = brk_base + 4194304;
+    add_region(brk_base, 4194304);
+    next_map = 1073741824;
+    int stack_top = 2147352576;
+    int stack_size = 8388608;
+    add_region(stack_top - stack_size, stack_size);
+    if sysmode {                                         // a kernel: it starts at EL1 with a stack of RAM; no argv
+        tty_raw_on();
+        tlb = (int^)Mem::alloc(8 * 192);
+        tlb_flush();
+        add_region(0x40000000, 67108864);                // the RAM of the machine: 64 MB at 1 GB
+        el = 1;
+        sp_el1 = stack_top - 4096;
+        sp = sp_el1;
+        pc = entry;
+        while done == 0 {
+            step();
+            if icount >= max_steps { tty_restore(); cerr << "jemu: stopped after " << icount << " instructions (--steps N)\n"; return 124; }
+        }
+        tty_restore();
+        return exit_code;
+    }
+    // argc, argv, envp on the stack
+    int na = args.len - 1;
+    int strs = stack_top - 65536;
+    int n_env = 0;
+    while Sys::arg(Sys::argc() + 1 + n_env) != null { n_env += 1; }
+    int words = 1 + na + 1 + n_env + 1;
+    int sp0 = (strs - words * 8 - 4096) & ~15;
+    int at = sp0;
+    st(at, 8, na);
+    at += 8;
+    int sp_str = strs;
+    for i in 0..na {
+        String a = args[i + 1];
+        st(at, 8, sp_str);
+        at += 8;
+        Mem::copy((char^)host_of(sp_str, a.len + 1), a.c(), a.len + 1);
+        sp_str += (a.len + 8) & ~7;
+    }
+    st(at, 8, 0);
+    at += 8;
+    for i in 0..n_env {
+        char^ e = Sys::arg(Sys::argc() + 1 + i);
+        int len = 0;
+        while e[len] != 0 { len += 1; }
+        st(at, 8, sp_str);
+        at += 8;
+        Mem::copy((char^)host_of(sp_str, len + 1), e, len + 1);
+        sp_str += (len + 8) & ~7;
+    }
+    st(at, 8, 0);
+    sp = sp0;
+    pc = entry;
+    while done == 0 { step(); }
+    return exit_code;
+}

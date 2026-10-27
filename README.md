@@ -19,6 +19,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [jash](tools/jash/README.md) | the settings of your programs in one file `~/.jash` and the command `jash list / get / set / unset / edit / import / reset` (MPL-2.0) |
 | [drive](tools/drive/README.md) | new drives: `drive new NAME [PATH]`, `drive remove NAME`, the list of `f:/ 0:/ r:/` and yours (`~/.jsh_drives`) |
 | [calc](tools/calc/README.md) | a calculator: sums, hex / binary / octal, `xor and or`, shifts, functions, variables (`calc "0xff xor 0x0f"`) |
+| [jemu](tools/jemu/README.md) | a machine for ARM64 programs and for Jaric OS: `jemu os` starts the operating system (a console on a disk made of a folder), `jemu PROGRAM` runs an ARM64 program |
 | [neuron](tools/neuron/README.md) | small AI models on the phone, all in J2K: `neuron train / run / chat / install`; the assistant **xaiorin** (`xr`) runs in the background, answers `xr "question"` and can learn from the shell (off by default) |
 | [python](tools/python/README.md) | Python 3.14 (the official Android ARM64 build) started by a J2K launcher: `python3`, `pip`, ssl, sqlite3 |
 | [yt-dlp](tools/yt-dlp/README.md) | yt-dlp on that Python, for what you may download (mujic `/get ADDRESS` uses it) |

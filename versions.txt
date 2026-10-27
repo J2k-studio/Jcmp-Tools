@@ -6,6 +6,7 @@ jash 0.1.0
 jbox 0.8.0
 jc 0.2.0
 jcmp 1.2.0.0
+jemu 0.1.0
 jget 0.9.1
 jgit 0.3.1
 jpty 0.1.1
