@@ -33,6 +33,14 @@ hi" tee
 "$J" false && { echo "jbox test: false must fail"; exit 1; } || true
 check "$(printf 'a\n\nb\n' | "$J" nl | tr -d ' ' | tr '\n' ,)" "1a,,2b," nl
 check "$(printf 'a\nb\nc\n' | "$J" tac | tr '\n' ,)" "c,b,a," tac
+# rm -r: a folder with everything in it; a symbolic link is removed, not followed; / . .. refused; a folder without -r refused
+mkdir -p "$T/rr/a/b" "$T/rr/real/keep"; echo x > "$T/rr/a/b/f"; ln -s "$T/rr/real" "$T/rr/a/lnk"
+( cd "$T/rr" && "$J" rm a 2>/dev/null && { echo "jbox test: rm of a folder without -r must fail"; exit 1; } || true )
+( cd "$T/rr" && "$J" rm -rf a )
+[ ! -e "$T/rr/a" ] && [ -d "$T/rr/real/keep" ] || { echo "jbox test: rm -r (the link must not be followed)"; exit 1; }
+"$J" rm -r / >/dev/null 2>&1 && { echo "jbox test: rm -r / must be refused"; exit 1; } || true
+( cd "$T/rr" && "$J" rm -r . >/dev/null 2>&1 && { echo "jbox test: rm -r . must be refused"; exit 1; } || true )
+"$J" rm -rf "$T/rr/nothing" || { echo "jbox test: rm -rf of nothing must succeed"; exit 1; }
 echo "jbox test: ok"
 check "$(echo 'a b a' | "$J" sed 's/a/X/g')" "X b X" sed-g
 check "$(echo 'a b a' | "$J" sed 's/a/X/')" "X b a" sed-first

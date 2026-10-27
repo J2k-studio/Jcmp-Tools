@@ -2,7 +2,7 @@ coderin 0.4.2
 drive 0.3.1
 jamanager 0.1.0
 jash 0.1.0
-jbox 0.7.0
+jbox 0.7.1
 jc 0.2.0
 jcmp 1.2.0.0
 jget 0.9.1

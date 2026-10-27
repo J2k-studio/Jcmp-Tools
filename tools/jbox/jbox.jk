@@ -707,17 +707,54 @@ int do_mkdir(String[] a) {
     return rc;
 }
 
+bool is_link(String p) {                                  // a symbolic link: readlink works on it
+    char buf[8];
+    return Sys::readlink(p.c(), @buf, 8) >= 0;
+}
+
+// rm -r: a folder and everything in it (symbolic links are removed, not followed)
+int remove_tree(String dir) {
+    int rc = 0;
+    switch Dir::list(dir) {
+        Result::Ok(names): {
+            for i in 0..names.len {
+                String p = Path::join(dir, names[i]);
+                bool sub = Dir::exists(p) && !is_link(p);
+                if sub { if remove_tree(p) != 0 { rc = 1; } }
+                else { switch Fs::remove(p) { Result::Ok(v): rc = rc; Result::Err(e): rc = 1; } }
+            }
+        }
+        Result::Err(e): rc = 1;
+    }
+    switch Dir::remove(dir) { Result::Ok(v): rc = rc; Result::Err(e): rc = 1; }
+    return rc;
+}
+
 int do_rm(String[] a) {
     bool force = has_flag(a, 'f');
+    bool deep = has_flag(a, 'r') || has_flag(a, 'R');
     String[] ops = operands(a, false);
     if ops.len == 0 && !force { return fail("rm", "a file name is needed"); }
     int rc = 0;
     for i in 0..ops.len {
-        Result<int, Error> r = Fs::remove(ops[i]);
-        if Dir::exists(ops[i]) { r = Dir::remove(ops[i]); }
+        String target = ops[i];
+        if target == "/" || target == "." || target == ".." || target.ends_with("/..") || target.ends_with("/.") {
+            rc = fail("rm", "refusing to remove '" + target + "'");
+            continue;
+        }
+        bool is_dir = Dir::exists(target);
+        if is_dir && !deep {
+            if !force { rc = fail("rm", target + ": is a folder (rm -r removes a folder and what is in it)"); }
+            continue;
+        }
+        if is_dir {
+            if remove_tree(target) != 0 && !force { rc = fail("rm", target + ": could not remove everything"); }
+            continue;
+        }
+        Result<int, Error> r = Fs::remove(target);
         switch r {
             Result::Ok(v): rc = rc;
-            Result::Err(e): if !force { rc = fail("rm", ops[i] + ": " + e.message); }
+            Result::Err(e): if !force { rc = fail("rm", target + ": " + e.message); }
         }
     }
     return rc;
@@ -1355,7 +1392,7 @@ int do_install(String[] args) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.7.0\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.7.1\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
