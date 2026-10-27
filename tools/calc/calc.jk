@@ -1,0 +1,526 @@
+// calc: a calculator for the terminal. Whole numbers are 64 bit (hex 0x, binary 0b, octal 0o, 16#ff), numbers with a point are doubles.
+// calc "1 + 2 * 3"      calc 0xff xor 0x0f      calc            (a prompt: type lines, an empty line leaves)
+#import <stdlib>
+#import <math>
+
+String calc_version() { return "0.1.0"; }
+
+// ---- the result of the last parse: an integer or a double
+int r_i;
+double r_d;
+bool r_f;                               // true: the value is r_d
+
+String src;                             // the line being read
+int pos;
+String err;                             // the message of the first error ("" = none)
+String[] var_name;
+int[] var_i;
+double[] var_d;
+bool[] var_f;
+bool vars_ready;
+int ans_i;
+double ans_d;
+bool ans_f;
+
+void fail_at(String msg) { if err.len == 0 { err = msg + ""; } }
+
+void set_int(int v) { r_i = v; r_f = false; }
+void set_dbl(double v) { r_d = v; r_f = true; }
+double as_d() { if r_f { return r_d; } return (double)r_i; }
+int as_i() { if r_f { return (int)r_d; } return r_i; }
+
+void skip_ws() { while pos < src.len && (src[pos] == ' ' || src[pos] == 9) { pos += 1; } }
+
+bool word_is(String w) {                // the word w is next (and not the start of a longer name)
+    skip_ws();
+    if pos + w.len > src.len { return false; }
+    for k in 0..w.len { if src[pos + k] != w[k] { return false; } }
+    if pos + w.len < src.len {
+        char c = src[pos + w.len];
+        bool more = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+        if more { return false; }
+    }
+    return true;
+}
+
+bool op_is(String o) {                  // the operator o is next
+    skip_ws();
+    if pos + o.len > src.len { return false; }
+    for k in 0..o.len { if src[pos + k] != o[k] { return false; } }
+    return true;
+}
+
+int digit_val(char c) {
+    if c >= '0' && c <= '9' { return c - '0'; }
+    if c >= 'a' && c <= 'z' { return c - 'a' + 10; }
+    if c >= 'A' && c <= 'Z' { return c - 'A' + 10; }
+    return 99;
+}
+
+bool is_name_start(char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'; }
+bool is_name_char(char c) { return is_name_start(c) || (c >= '0' && c <= '9'); }
+
+// ---- numbers
+void parse_number() {
+    int start = pos;
+    int base = 10;
+    if pos + 1 < src.len && src[pos] == '0' && (src[pos + 1] == 'x' || src[pos + 1] == 'X') { base = 16; pos += 2; }
+    else if pos + 1 < src.len && src[pos] == '0' && (src[pos + 1] == 'b' || src[pos + 1] == 'B') { base = 2; pos += 2; }
+    else if pos + 1 < src.len && src[pos] == '0' && (src[pos + 1] == 'o' || src[pos + 1] == 'O') { base = 8; pos += 2; }
+    if base != 10 {
+        int v = 0;
+        int n = 0;
+        while pos < src.len && (digit_val(src[pos]) < base || src[pos] == '_') {
+            if src[pos] != '_' { v = v * base + digit_val(src[pos]); n += 1; }
+            pos += 1;
+        }
+        if n == 0 { fail_at("a number is missing after the prefix"); }
+        set_int(v);
+        return;
+    }
+    // decimal digits; 16#ff names the base first
+    int v = 0;
+    bool dot = false;
+    bool expo = false;
+    while pos < src.len {
+        char c = src[pos];
+        if c >= '0' && c <= '9' { v = v * 10 + (c - '0'); pos += 1; }
+        else if c == '_' { pos += 1; }
+        else if c == '.' && !dot && pos + 1 < src.len && src[pos + 1] >= '0' && src[pos + 1] <= '9' { dot = true; pos += 1; }
+        else if (c == 'e' || c == 'E') && !expo && pos + 1 < src.len && ((src[pos + 1] >= '0' && src[pos + 1] <= '9') || ((src[pos + 1] == '-' || src[pos + 1] == '+') && pos + 2 < src.len && src[pos + 2] >= '0' && src[pos + 2] <= '9')) {
+            expo = true; dot = true; pos += 2;
+        }
+        else { break; }
+    }
+    if pos < src.len && src[pos] == '#' && !dot && v >= 2 && v <= 36 {
+        int b = v;
+        pos += 1;
+        int w = 0;
+        int n = 0;
+        while pos < src.len && (digit_val(src[pos]) < b || src[pos] == '_') {
+            if src[pos] != '_' { w = w * b + digit_val(src[pos]); n += 1; }
+            pos += 1;
+        }
+        if n == 0 { fail_at("digits are missing after " + str(b) + "#"); }
+        set_int(w);
+        return;
+    }
+    String text = "";
+    for k in start..pos { if src[k] != '_' { text.push(src[k]); } }
+    if dot { set_dbl(text.to_double()); } else { set_int(text.to_int()); }
+}
+
+// ---- names: constants, variables, functions
+int find_var(String n) {
+    for i in 0..var_name.len { if var_name[i] == n { return i; } }
+    return 0 - 1;
+}
+
+void set_var(String n, bool f, int i, double d) {
+    int k = find_var(n);
+    if k < 0 { var_name.push(n + ""); var_i.push(i); var_d.push(d); var_f.push(f); return; }
+    var_i[k] = i; var_d[k] = d; var_f[k] = f;
+}
+
+int gcd_i(int a, int b) {
+    if a < 0 { a = 0 - a; }
+    if b < 0 { b = 0 - b; }
+    while b != 0 { int t = a % b; a = b; b = t; }
+    return a;
+}
+
+void call_function(String n) {
+    // arguments: expr, expr ...
+    double a0 = 0.0; double a1 = 0.0; int i0 = 0; int i1 = 0; bool f0 = false; bool f1 = false;
+    int argc = 0;
+    skip_ws();
+    if pos < src.len && src[pos] == ')' { pos += 1; }
+    else {
+        while true {
+            parse_or();
+            if err.len > 0 { return; }
+            if argc == 0 { a0 = as_d(); i0 = as_i(); f0 = r_f; }
+            if argc == 1 { a1 = as_d(); i1 = as_i(); f1 = r_f; }
+            argc += 1;
+            skip_ws();
+            if pos < src.len && src[pos] == ',' { pos += 1; continue; }
+            if pos < src.len && src[pos] == ')' { pos += 1; break; }
+            fail_at("a ) or a , is missing in the call of " + n);
+            return;
+        }
+    }
+    if n == "sqrt" { if a0 < 0.0 { fail_at("sqrt of a negative number"); return; } set_dbl(Math::sqrt(a0)); }
+    else if n == "cbrt" { set_dbl(Math::cbrt(a0)); }
+    else if n == "sin" { set_dbl(Math::sin(a0)); }
+    else if n == "cos" { set_dbl(Math::cos(a0)); }
+    else if n == "tan" { set_dbl(Math::tan(a0)); }
+    else if n == "asin" { set_dbl(Math::asin(a0)); }
+    else if n == "acos" { set_dbl(Math::acos(a0)); }
+    else if n == "atan" { set_dbl(Math::atan(a0)); }
+    else if n == "atan2" { set_dbl(Math::atan2(a0, a1)); }
+    else if n == "sinh" { set_dbl(Math::sinh(a0)); }
+    else if n == "cosh" { set_dbl(Math::cosh(a0)); }
+    else if n == "tanh" { set_dbl(Math::tanh(a0)); }
+    else if n == "exp" { set_dbl(Math::exp(a0)); }
+    else if n == "ln" { if a0 <= 0.0 { fail_at("ln needs a positive number"); return; } set_dbl(Math::log(a0)); }
+    else if n == "log" || n == "log10" { if a0 <= 0.0 { fail_at("log needs a positive number"); return; } set_dbl(Math::log10(a0)); }
+    else if n == "log2" { if a0 <= 0.0 { fail_at("log2 needs a positive number"); return; } set_dbl(Math::log2(a0)); }
+    else if n == "abs" { if f0 { set_dbl(Math::abs(a0)); } else { if i0 < 0 { set_int(0 - i0); } else { set_int(i0); } } }
+    else if n == "floor" { set_int((int)Math::floor(a0)); }
+    else if n == "ceil" { set_int((int)Math::ceil(a0)); }
+    else if n == "round" { set_int((int)Math::round(a0)); }
+    else if n == "trunc" { set_int((int)Math::trunc(a0)); }
+    else if n == "deg" { set_dbl(Math::degrees(a0)); }
+    else if n == "rad" { set_dbl(Math::radians(a0)); }
+    else if n == "pow" { set_dbl(Math::pow(a0, a1)); }
+    else if n == "hypot" { set_dbl(Math::hypot(a0, a1)); }
+    else if n == "min" { if a0 < a1 { if f0 { set_dbl(a0); } else { set_int(i0); } } else { if f1 { set_dbl(a1); } else { set_int(i1); } } }
+    else if n == "max" { if a0 > a1 { if f0 { set_dbl(a0); } else { set_int(i0); } } else { if f1 { set_dbl(a1); } else { set_int(i1); } } }
+    else if n == "gcd" { set_int(gcd_i(i0, i1)); }
+    else if n == "lcm" { int g = gcd_i(i0, i1); if g == 0 { set_int(0); } else { int l = i0 / g * i1; if l < 0 { l = 0 - l; } set_int(l); } }
+    else if n == "fact" {
+        if i0 < 0 || i0 > 20 { fail_at("fact is for 0 .. 20 (bigger does not fit in 64 bits)"); return; }
+        int p = 1;
+        for k in 2..i0 + 1 { p = p * k; }
+        set_int(p);
+    }
+    else if n == "popcount" { int c = 0; int x = i0; for k in 0..64 { c += (x >> k) & 1; } set_int(c); }
+    else if n == "bswap" { int x = i0; int y = 0; for k in 0..8 { y = (y << 8) | ((x >> (k * 8)) & 255); } set_int(y); }
+    else { fail_at("no function " + n); }
+}
+
+void parse_primary() {
+    skip_ws();
+    if pos >= src.len { fail_at("the line ends too early"); return; }
+    char c = src[pos];
+    if c == '(' {
+        pos += 1;
+        parse_or();
+        if err.len > 0 { return; }
+        skip_ws();
+        if pos < src.len && src[pos] == ')' { pos += 1; } else { fail_at("a ) is missing"); }
+        return;
+    }
+    if (c >= '0' && c <= '9') || (c == '.' && pos + 1 < src.len && src[pos + 1] >= '0' && src[pos + 1] <= '9') {
+        parse_number();
+        return;
+    }
+    if is_name_start(c) {
+        int start = pos;
+        while pos < src.len && is_name_char(src[pos]) { pos += 1; }
+        String n = src.slice(start, pos);
+        skip_ws();
+        if pos < src.len && src[pos] == '(' { pos += 1; call_function(n); return; }
+        if n == "pi" { set_dbl(Math::pi()); return; }
+        if n == "tau" { set_dbl(Math::tau()); return; }
+        if n == "e" { set_dbl(Math::e()); return; }
+        if n == "true" { set_int(1); return; }
+        if n == "false" { set_int(0); return; }
+        if n == "ans" { if ans_f { set_dbl(ans_d); } else { set_int(ans_i); } return; }
+        int k = find_var(n);
+        if k < 0 { fail_at("no name " + n + " (x = 5 makes a variable)"); return; }
+        if var_f[k] { set_dbl(var_d[k]); } else { set_int(var_i[k]); }
+        return;
+    }
+    fail_at("unexpected '" + src.slice(pos, pos + 1) + "'");
+}
+
+void parse_unary() {
+    skip_ws();
+    if pos < src.len && src[pos] == '-' { pos += 1; parse_unary(); if err.len > 0 { return; } if r_f { set_dbl(0.0 - r_d); } else { set_int(0 - r_i); } return; }
+    if pos < src.len && src[pos] == '+' { pos += 1; parse_unary(); return; }
+    if pos < src.len && src[pos] == '~' { pos += 1; parse_unary(); if err.len > 0 { return; } set_int(~as_i()); return; }
+    if word_is("not") { pos += 3; parse_unary(); if err.len > 0 { return; } set_int(~as_i()); return; }
+    parse_power();
+}
+
+void parse_power() {                    // ** binds tighter than the signs on its left and goes to the right
+    parse_primary();
+    if err.len > 0 { return; }
+    if op_is("**") {
+        pos += 2;
+        bool lf = r_f; double ld = r_d; int li = r_i;
+        parse_unary();
+        if err.len > 0 { return; }
+        if !lf && !r_f && r_i >= 0 {
+            int p = 1;
+            for k in 0..r_i { p = p * li; }
+            set_int(p);
+        } else {
+            double base = (double)li;
+            if lf { base = ld; }
+            set_dbl(Math::pow(base, as_d()));
+        }
+    }
+}
+
+void parse_mul() {
+    parse_unary();
+    while err.len == 0 {
+        skip_ws();
+        if pos >= src.len { return; }
+        bool lf = r_f; double ld = r_d; int li = r_i;
+        bool is_pow = op_is("**");
+        bool is_fd = op_is("//");
+        bool is_mul = op_is("*");
+        bool is_div = op_is("/");
+        bool is_pc = op_is("%");
+        bool is_modw = word_is("mod");
+        if is_pow { return; }
+        if is_fd {
+            pos += 2; parse_unary(); if err.len > 0 { return; }
+            if !lf && !r_f { if r_i == 0 { fail_at("division by zero"); return; } int q = li / r_i; if (li % r_i != 0) && ((li < 0) != (r_i < 0)) { q -= 1; } set_int(q); }
+            else { double dv = as_d(); if dv == 0.0 { fail_at("division by zero"); return; } double base = (double)li; if lf { base = ld; } set_int((int)Math::floor(base / dv)); }
+        } else if is_mul {
+            pos += 1; parse_unary(); if err.len > 0 { return; }
+            if !lf && !r_f { set_int(li * r_i); } else { double base = (double)li; if lf { base = ld; } set_dbl(base * as_d()); }
+        } else if is_div {
+            pos += 1; parse_unary(); if err.len > 0 { return; }
+            if !lf && !r_f {
+                if r_i == 0 { fail_at("division by zero"); return; }
+                if li % r_i == 0 { set_int(li / r_i); } else { set_dbl((double)li / (double)r_i); }
+            } else {
+                double dv = as_d(); if dv == 0.0 { fail_at("division by zero"); return; }
+                double base = (double)li; if lf { base = ld; }
+                set_dbl(base / dv);
+            }
+        } else if is_pc || is_modw {
+            if is_pc { pos += 1; } else { pos += 3; }
+            parse_unary(); if err.len > 0 { return; }
+            if !lf && !r_f { if r_i == 0 { fail_at("division by zero"); return; } set_int(li % r_i); }
+            else { double base = (double)li; if lf { base = ld; } double dv = as_d(); if dv == 0.0 { fail_at("division by zero"); return; } set_dbl(Math::fmod(base, dv)); }
+        } else { return; }
+    }
+}
+
+void parse_add() {
+    parse_mul();
+    while err.len == 0 {
+        skip_ws();
+        if pos >= src.len { return; }
+        bool lf = r_f; double ld = r_d; int li = r_i;
+        bool plus = op_is("+");
+        bool minus = op_is("-");
+        if !plus && !minus { return; }
+        pos += 1;
+        parse_mul();
+        if err.len > 0 { return; }
+        if !lf && !r_f { if plus { set_int(li + r_i); } else { set_int(li - r_i); } }
+        else { double base = (double)li; if lf { base = ld; } if plus { set_dbl(base + as_d()); } else { set_dbl(base - as_d()); } }
+    }
+}
+
+void parse_shift() {
+    parse_add();
+    while err.len == 0 {
+        int li = as_i();
+        if op_is("<<") { pos += 2; parse_add(); if err.len > 0 { return; } set_int(li << as_i()); }
+        else if op_is(">>") { pos += 2; parse_add(); if err.len > 0 { return; } set_int(li >> as_i()); }
+        else { return; }
+    }
+}
+
+void parse_cmp() {
+    parse_shift();
+    while err.len == 0 {
+        double ld = as_d();
+        bool le = op_is("<=");
+        bool ge = op_is(">=");
+        bool lt = op_is("<");
+        bool gt = op_is(">");
+        bool shl = op_is("<<");
+        bool shr = op_is(">>");
+        bool eq = op_is("==");
+        bool ne = op_is("!=");
+        int kind = 0;
+        if le { kind = 1; } else if ge { kind = 2; } else if lt && !shl { kind = 3; } else if gt && !shr { kind = 4; } else if eq { kind = 5; } else if ne { kind = 6; }
+        if kind == 0 { return; }
+        if kind <= 2 || kind >= 5 { pos += 2; } else { pos += 1; }
+        parse_shift();
+        if err.len > 0 { return; }
+        double rd = as_d();
+        bool t = false;
+        if kind == 1 { t = ld <= rd; } else if kind == 2 { t = ld >= rd; } else if kind == 3 { t = ld < rd; } else if kind == 4 { t = ld > rd; } else if kind == 5 { t = ld == rd; } else { t = ld != rd; }
+        if t { set_int(1); } else { set_int(0); }
+    }
+}
+
+void parse_and() {
+    parse_cmp();
+    while err.len == 0 {
+        int li = as_i();
+        bool w_and = word_is("and");
+        bool amp = op_is("&");
+        bool amp2 = op_is("&&");
+        if w_and { pos += 3; }
+        else if amp { pos += 1; if amp2 { pos += 1; } }
+        else { return; }
+        parse_cmp();
+        if err.len > 0 { return; }
+        set_int(li & as_i());
+    }
+}
+
+void parse_xor() {
+    parse_and();
+    while err.len == 0 {
+        int li = as_i();
+        if word_is("xor") { pos += 3; parse_and(); if err.len > 0 { return; } set_int(li xor as_i()); }
+        else { return; }
+    }
+}
+
+void parse_or() {
+    parse_xor();
+    while err.len == 0 {
+        int li = as_i();
+        bool w_or = word_is("or");
+        bool bar = op_is("|");
+        bool bar2 = op_is("||");
+        if w_or { pos += 2; }
+        else if bar { pos += 1; if bar2 { pos += 1; } }
+        else { return; }
+        parse_xor();
+        if err.len > 0 { return; }
+        set_int(li | as_i());
+    }
+}
+
+// ---- output
+String to_base(int v, int base, int bits) {              // v as an unsigned number of 64 bits in this base
+    if v == 0 { return "0"; }
+    String digits = "0123456789abcdef";
+    String out = "";
+    int shift = 4;
+    if base == 2 { shift = 1; }
+    if base == 8 { shift = 3; }
+    int x = v;
+    int count = 0;
+    while count < 64 && x != 0 {
+        int d = x & (base - 1);
+        out = digits.slice(d, d + 1) + out;
+        x = (x >> shift) & ((1 << (64 - shift)) - 1);   // a shift that does not copy the sign
+        count += shift;
+    }
+    return out;
+}
+
+String group4(String bin) {                              // 11111111 -> 1111 1111
+    String out = "";
+    int n = bin.len;
+    for i in 0..n {
+        if i > 0 && (n - i) % 4 == 0 { out.push('_'); }
+        out.push(bin[i]);
+    }
+    return out;
+}
+
+// a double with up to 12 digits after the point, no zeros at the end; big and small numbers get e+N
+String fmt_double(double d) {
+    if d != d { return "nan"; }
+    if d > 1e300 { return "inf"; }
+    if d < 0.0 - 1e300 { return "-inf"; }
+    String sign = "";
+    if d < 0.0 { sign = "-"; d = 0.0 - d; }
+    if d == 0.0 { return "0"; }
+    int e10 = 0;
+    if d >= 1e15 || d < 1e-5 {
+        while d >= 10.0 { d = d / 10.0; e10 += 1; }
+        while d < 1.0 { d = d * 10.0; e10 -= 1; }
+    }
+    d = d + 0.0000000000005;
+    int ip = (int)Math::floor(d);
+    double frac = d - (double)ip;
+    String f = "";
+    for k in 0..12 {
+        frac = frac * 10.0;
+        int dg = (int)frac;
+        f.push((char)('0' + dg));
+        frac = frac - (double)dg;
+    }
+    while f.len > 0 && f[f.len - 1] == '0' { f.pop(); }
+    String out = sign + str(ip);
+    if f.len > 0 { out = out + "." + f; }
+    if e10 != 0 { if e10 > 0 { out = out + "e+" + str(e10); } else { out = out + "e" + str(e10); } }
+    return out;
+}
+
+void show_result(bool quiet) {
+    if r_f {
+        cout << fmt_double(r_d) << "\n";
+        return;
+    }
+    if quiet { cout << r_i << "\n"; return; }
+    cout << r_i << "\n";
+    cout << "  hex  0x" << to_base(r_i, 16, 64) << "\n";
+    cout << "  bin  0b" << group4(to_base(r_i, 2, 64)) << "\n";
+    cout << "  oct  0o" << to_base(r_i, 8, 64) << "\n";
+}
+
+// one line: "x = expr" makes a variable, anything else is shown
+int eval_line(String line, bool quiet) {
+    src = line + "";
+    pos = 0;
+    err = "";
+    skip_ws();
+    if src.len == 0 { return 0; }
+    // NAME = expr
+    int p = pos;
+    if is_name_start(src[p]) {
+        int q = p;
+        while q < src.len && is_name_char(src[q]) { q += 1; }
+        int w = q;
+        while w < src.len && (src[w] == ' ' || src[w] == 9) { w += 1; }
+        if w < src.len && src[w] == '=' && !(w + 1 < src.len && src[w + 1] == '=') {
+            String name = src.slice(p, q);
+            pos = w + 1;
+            parse_or();
+            skip_ws();
+            if err.len == 0 && pos < src.len { fail_at("unexpected '" + src.slice(pos, pos + 1) + "'"); }
+            if err.len > 0 { cerr << "calc: " << err << "\n"; return 1; }
+            set_var(name, r_f, r_i, r_d);
+            show_result(quiet);
+            return 0;
+        }
+    }
+    parse_or();
+    skip_ws();
+    if err.len == 0 && pos < src.len { fail_at("unexpected '" + src.slice(pos, pos + 1) + "'"); }
+    if err.len > 0 { cerr << "calc: " << err << "\n"; return 1; }
+    ans_f = r_f; ans_i = r_i; ans_d = r_d;
+    show_result(quiet);
+    return 0;
+}
+
+void help() {
+    cout << "calc: a calculator.   calc \"EXPRESSION\"   |   calc   (a prompt; an empty line leaves)\n";
+    cout << "  numbers   255  0xff  0b1111_1111  0o377  16#ff  3.14  1e3        names   pi e tau ans   x = 5\n";
+    cout << "  operators + - * / // % ** (power)   << >>   < <= > >= == !=   and & | or xor not ~   ( )   (7/2 is 3.5, 8/2 is 4, 7//2 is 3)\n";
+    cout << "  functions sqrt cbrt sin cos tan asin acos atan atan2 sinh cosh tanh exp ln log log2 abs floor ceil round trunc min max pow hypot gcd lcm fact popcount bswap deg rad\n";
+    cout << "  a whole number is shown in decimal, hex, binary and octal.   -q  only the value\n";
+}
+
+int main() {
+    String[] a = Env::args();
+    var_name = arr(8); var_i = arr(8); var_d = arr(8); var_f = arr(8);
+    bool quiet = false;
+    String expr = "";
+    for i in 1..a.len {
+        if a[i] == "--version" || a[i] == "-V" { cout << "calc " << calc_version() << "\n"; return 0; }
+        if a[i] == "--help" || a[i] == "-h" || a[i] == "-help" || a[i] == "help" { help(); return 0; }
+        if a[i] == "-q" { quiet = true; continue; }
+        if expr.len > 0 { expr = expr + " "; }
+        expr = expr + a[i];
+    }
+    if expr.len > 0 { return eval_line(expr, quiet); }
+    bool tty = Sys::isatty(0) == 0;
+    if tty { cout << "calc " << calc_version() << "  (calc --help; an empty line leaves)\n"; }
+    int rc = 0;
+    while true {
+        if tty { cout << "calc> "; }
+        String line = Input::line().trim();
+        if line.len == 0 || line == "exit" || line == "quit" { break; }
+        rc = eval_line(line, quiet);
+    }
+    return rc;
+}

@@ -19,3 +19,4 @@ jc|Install and run the programs of Jaric (.jc packages) with permissions: jc ins
 jstore|The store of the programs of Jaric (.jc): list, install, update with a checksum for every download (needs jc)
 jgit|git written in J2K: init, add, commit, status, log, diff, branch, switch; the repositories are the repositories of git, also packed ones (no network yet)
 drive|New drives for Jaric: a new place or a name for a folder (drive, drive new NAME [PATH], drive remove NAME)
+calc|A calculator for the terminal: sums, hex, binary, xor and, or, shifts, functions, variables (calc "0xff xor 0x0f")

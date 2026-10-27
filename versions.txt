@@ -1,3 +1,4 @@
+calc 0.1.0
 coderin 0.4.2
 drive 0.3.1
 jamanager 0.1.0
