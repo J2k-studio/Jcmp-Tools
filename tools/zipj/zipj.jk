@@ -206,7 +206,12 @@ int do_zipj(String[] a) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && args[1] == "--version" { cout << "zipj 0.1.0\n"; return 0; }
+    if args.len > 1 && args[1] == "--version" { cout << "zipj 0.1.1\n"; return 0; }
+    if args.len > 1 && (args[1] == "--help" || args[1] == "-h") {
+        cout << "zipj OUT.zip FILES-OR-FOLDERS... [-p] [-P PASSWORD] [-q]    make a zip file (folders go in with everything inside; -p asks for a password)\n";
+        cout << "unj FILE.zip [-f] [-o FOLDER] [-p PASSWORD] [-l] [-q] [names...]    open one (-f into a folder named like the file, -l only list)\n";
+        return 0;
+    }
     if args.len > 1 && args[1] == "--install" {
         String self = "";
         self.append((char^)Sys::arg(0));

@@ -1253,14 +1253,33 @@ bool builtin(String[] a) {
         }
         return true;
     }
-    if name == "pwd" {                                           // pwd: the drive and the path (f:/jaric); pwd -P: the real path
+    if name == "pwd" {                                           // pwd: the drive and the path (f:/jaric); -p the real path; -d the drive; -help
+        bcode = 0;
+        bool physical = false;
+        bool drive_only = false;
+        for k in 1..a.len {
+            if a[k] == "-p" || a[k] == "-P" { physical = true; }
+            else if a[k] == "-d" { drive_only = true; }
+            else if a[k] == "-help" || a[k] == "--help" || a[k] == "-h" {
+                cout << "pwd           where you are, with the drive:  f:/jaric\n";
+                cout << "pwd -p        the real path of the system:  /data/user/0/.../home/jaric\n";
+                cout << "pwd -d        only the drive:  f      (drive lists them, drive new makes more)\n";
+                return true;
+            } else { cerr << "pwd: unknown option " << a[k] << "  (pwd -help)\n"; bcode = 2; return true; }
+        }
         char buf[512];
         if Sys::getcwd(@buf, 512) > 0 {
             String real = (char^)@buf;
-            bool physical = a.len > 1 && a[1] == "-P";
-            if physical { cout << real << "\n"; } else { cout << drive_form_full(real) << "\n"; }
+            if physical { cout << real << "\n"; }
+            else {
+                String shown = drive_form_full(real);
+                if drive_only {
+                    int colon = shown.find(":");
+                    if colon > 0 { shown = shown.slice(0, colon); }
+                }
+                cout << shown << "\n";
+            }
         }
-        bcode = 0;
         return true;
     }
     if name == "echo" {
@@ -2207,7 +2226,7 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.9.3\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh 0.9.4\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
         cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
         cout << "  jsh install NAME ...   install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";

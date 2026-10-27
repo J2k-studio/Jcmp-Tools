@@ -4,6 +4,14 @@
 # This file is the whole tool: the library of makej is inside it and is written to a cache folder at the first run.
 MAKEJ_VERSION=@VERSION@
 case "${1:-}" in --version|-version) echo "makej $MAKEJ_VERSION"; exit 0 ;; esac
+case "${1:-}" in -h|--help|help)
+    echo "makej: a build tool for J2K projects (the build file is the file makej in the folder)"
+    echo "  makej [target] [-v] [-n] [-j N]     build (-n: only show, -v: say more, -j: many jobs; -j alone = all cores)"
+    echo "  makej list | clean | install FOLDER | run | test"
+    echo "  makej init [-pro NAME | -game | -ai]     start a project;   makej apk | pack | dist | targets   (for games)"
+    echo "  makej --version"
+    exit 0 ;;
+esac
 case "${1:-}" in -pro|-game|-ai) first=$1; shift; set -- init "$first" "$@" ;; esac
 # makej is built with jcmp 1.2.0.0 or newer (its library uses forms that older compilers do not know: they stop with "unknown escape sequence")
 need_jcmp() {

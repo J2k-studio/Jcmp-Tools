@@ -59,3 +59,5 @@ In jsh: `install makej`. Both check the SHA-256 of the file before anything is i
 3. `makej` builds everything that changed, `makej list` shows the targets, `makej -n` shows what would run without running it.
 4. Many cores: `makej -j` builds the targets together and draws a bar for each job (`makej -j 4` uses four).
 5. `makej clean` removes the results, `makej install FOLDER` builds and copies them.
+
+License: the license of the repository (the file `LICENSE` at the root of Jcmp-Tools).

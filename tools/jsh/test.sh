@@ -183,4 +183,11 @@ if got[:2] != ['f:/', 'f:/jaric']:
     print(got); sys.exit(1)
 PY
 echo "shell test (step 14): ok"
+# step 15: pwd options: -p the real path, -d the drive, -help; an unknown option is an error
+T15=$(mktemp -d); mkdir -p "$T15/files/home/jaric"
+printf 'cd jaric\npwd\npwd -p\npwd -d\npwd -help\npwd -x\necho rc=$?\n' > "$T15/p.jsh"
+got=$(cd "$T15/files/home" && HOME="$T15/files/home" PREFIX="$T15/usr" "$SH" "$T15/p.jsh" 2>"$T15/err.txt" | tr '\n' '|')
+case "$got" in *"f:/jaric|"*"/files/home/jaric|f|pwd "*"where you are"*"rc=2|"*) ;; *) echo "shell test (step 15): pwd options: $got"; exit 1 ;; esac
+grep -q "pwd: unknown option -x" "$T15/err.txt" || { echo "shell test (step 15): the error of an unknown option"; exit 1; }
+echo "shell test (step 15): ok"
 

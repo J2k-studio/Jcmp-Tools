@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.9
+* **Fixed:** `makej --help` (and `-h`, `help`) prints the usage and exits 0 (it looked for the build file).
+* The README names the license (the one of the repository).
+
 ## 0.8.8
 * **Added:** the manifest of a game project has a line `permissions = ["audio"]` (what the package asks for; `jc install` shows it and asks once; the names are in the comment). Install a package with the tool `jc`: `jc install _out/game.jc`, `jc run game`.
 

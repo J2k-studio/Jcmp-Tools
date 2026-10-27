@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.1
+* **Added:** `build.sh`; the README has the install lines (jget and curl), a short lesson and the license line, as the standard of the tools asks.
+
 ## 0.8.0
 * **Added (security):** the policy for scripts from the net, `jget -sh` and `-jsh`: setting `run_net` in `etc/config.local` (`jaric setting`, section "terminal and security", now a working item): `ask` (default) shows the size and the first 20 lines at a terminal and asks `Run it? [y/N]`; without a terminal (a script that calls jget) nothing can be asked and it runs as before; `never` refuses; `allow` runs at once. `JGET_CONFIG` names another config file (tests).
 

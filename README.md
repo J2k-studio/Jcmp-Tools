@@ -22,7 +22,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [yt-dlp](tools/yt-dlp/README.md) | yt-dlp on that Python, for what you may download (mujic `/get ADDRESS` uses it) |
 | [jvp4](tools/jvp4/README.md) | a video player made only of J2K (own container reader and decoders; today `jvp4 info FILE`) |
 | [jpty](tools/jpty/README.md) | run a program on a pseudo terminal (for apps and tests) (MPL-2.0) |
-| jcmp | the compiler and its library, as a tool: `jget tool jcmp` |
+| [jcmp](tools/jcmp/README.md) | the compiler and its library, as a tool: `jget tool jcmp` (always the newest release; makej and the other tools need 1.2.0.0 or newer) |
 
 ## Install
 

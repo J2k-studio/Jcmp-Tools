@@ -326,7 +326,14 @@ int do_gzj(String[] a) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && args[1] == "--version" { cout << "tarj 0.1.0\n"; return 0; }
+    if args.len > 1 && args[1] == "--version" { cout << "tarj 0.1.1\n"; return 0; }
+    if args.len > 1 && (args[1] == "--help" || args[1] == "-h") {
+        cout << "tarj c OUT.tar[.gz] files...    make an archive (.gz or .tgz in the name: also gzip)\n";
+        cout << "tarj x FILE [-o DIR] [-q]       extract (a .gz inside is found by itself)\n";
+        cout << "tarj t FILE                     list the names\n";
+        cout << "gzj FILE | gzj -d FILE.gz | gzj -c FILE    pack / unpack one file with gzip (-k keeps the original)\n";
+        return 0;
+    }
     if args.len > 1 && args[1] == "--install" {
         String self = "";
         self.append((char^)Sys::arg(0));

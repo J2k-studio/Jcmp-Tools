@@ -34,3 +34,19 @@ jget is written in J2K and needs the compiler `jcmp` (0.9.187 or newer) with its
 ## Tools of Jcmp-Tools
 
 `jget tool list` shows them and `jget tool coderin` (or several: `jget tool jsh jbox makej`) puts them next to jget, after a check of their SHA-256. No curl and no `sh` script are needed, so it works inside the Jaric app too.
+
+## Install
+```
+jget --install                                                       # a jget you already have puts itself in your commands folder
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jget     # with curl, the first time
+```
+Update later with `jget --update`. In jsh: `install jget`.
+
+## A short lesson
+1. Fetch a file: `jget https://example.com/file.zip` (a bar shows the progress; `-q` hides it, `-o name` names the file).
+2. See the tools: `jget tool list`; get one: `jget tool mujic` (more than one: `jget tool jsh jbox jc`).
+3. Libraries of the language: `jget -li list`, `jget -li install deflate`, then `#import <deflate>`.
+4. Open an archive: `jget untar FILE.tar.gz`.
+5. A script from the net: `jget -sh URL` or `jget -jsh URL` shows the first lines and asks before it runs (`jaric setting`: run scripts from the net).
+
+License: the license of the repository (the file `LICENSE` at the root of Jcmp-Tools). Build: `J2K_PATH=path sh build.sh` (the library deflate). Test: `sh test.sh`.
