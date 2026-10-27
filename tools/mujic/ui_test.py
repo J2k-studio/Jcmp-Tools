@@ -53,6 +53,8 @@ send(b'!echo hello-from-shell\r',1.5)
 check('!command shows its output', 'hello-from-shell' in out.decode('utf8','replace'))
 send(b'/pwd\r',0.6)
 check('/pwd', sys.argv[2].encode() in out)
+send(b'\x1b]7777;media;pause\x07',1.0)               # the button of the notification
+check('media pause button', out.count(b'audio;pause')+out.count(b'audio;resume')>=2)
 send(b'\x1b',0.8)                                 # Esc on an empty box: leave
 check('Esc leaves', b'?1049l' in out)
 check('sound stopped', b'audio;stop' in out)

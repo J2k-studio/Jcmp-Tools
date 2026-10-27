@@ -714,6 +714,8 @@ int read_byte(int wait_ms) {
 
 // one event: a key code (a letter is its code, 13 Enter, 27 Esc, 257 up 258 down 259 right 260 left, 3 Ctrl-C), -1 nothing came, -9 the input ended.
 // A message of the app (ESC ] 7777 ; pos ; ms ; state ; length BEL) is taken here and gives -1.
+String g_media;                         // "prev" / "pause" / "next" from the notification, done in the loop
+
 int next_event(int wait_ms) {
     int c = read_byte(wait_ms);
     if c >= 194 && c < 248 {                                       // a letter that is not ASCII (Thai ...): the code point + 100000
@@ -756,6 +758,7 @@ int next_event(int wait_ms) {
             int len = p[4].to_int();
             g_pos = p[2].to_int(); g_pos_at = now(); g_len = len;
             if st == 0 && g_state == 1 && now() - g_pos_at >= 0 { g_state = 0; } else if st == 1 { g_state = 1; } else if st == 2 { g_state = 2; }
+        } else if p.len >= 3 && p[0] == "7777" && p[1] == "media" { g_media = p[2] + "";          // a button of the notification of the app: prev, pause, next
         } else if p.len >= 3 && p[0] == "7777" && p[1] == "audio-error" { g_msg = p[2] + ""; g_state = 0; }
         return -1;
     }
@@ -1356,6 +1359,7 @@ int do_player(String start) {
     lyrics_clear();
     g_msg = "";
     g_note = "";
+    g_media = "";
     g_out = arr(8);
     g_cwd = music_dir();
     g_play = 0 - 1;
@@ -1447,6 +1451,7 @@ int do_player(String start) {
                 else if (ev >= 32 && ev < 127) || ev >= 128 && ev < 257 || ev >= 100000 { in_insert(key_text(ev)); }
             }
         }
+        if g_media.len > 0 { String mk = g_media + ""; g_media = ""; run_command(mk); }
         int tnow = now();
         if tnow - last_poll >= 700 { snd_poll(); last_poll = tnow; }
         // the song ended: the next one
@@ -1491,7 +1496,7 @@ int do_lyrics(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.4.0";
+    String VERSION = "0.4.1";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here

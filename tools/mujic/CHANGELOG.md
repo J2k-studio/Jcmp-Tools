@@ -1,5 +1,8 @@
 # mujic changelog
 
+## 0.4.1
+* **Added:** the buttons of the notification of the Jaric app (previous, pause, next) work: the app sends `7777;media;prev|pause|next` and mujic runs the same as `/prev`, `/pause`, `/next`.
+
 ## 0.4.0
 * **Added:** mujic is a small terminal. `/dir [PATH]` (or `dir`, `ls` typed alone) opens a picker of folders and songs: Enter on a folder goes in (`..` goes up), Enter on a song plays it from where it is; `/dir FILE` and `/play PATH` play a song by its path; `/cd PATH`, `/pwd`; `~`, `:/`, `f:`, `0:`, `r:` work in paths. `!command` runs a shell command in that folder (jsh when it is installed, so drives work) and shows the lines in a third view (Tab: songs, lyrics, output).
 * **Changed:** Tab now cycles songs, lyrics, output. The test `ui_test.py` covers `/dir`, entering a folder, playing by path, `!command` and `/pwd`.
