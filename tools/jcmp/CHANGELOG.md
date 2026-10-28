@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.1.0
+See the CHANGELOG of Jcmp.
+
 ## 1.2.0.0
 * **Added (the compiler):** inheritance (`struct Dog : Animal`, `virtual` / `override`), `-dyn` dynamic executables (native GPU: OpenGL ES, Vulkan), `-j N` many cores and `-progress FILE`, `Fs::read.text / bytes / lines`, `Cpu::inst` with `s0 d0 w0 v0` register names, the loop rotation pass (`-norot` switches it off).
 * **Fixed:** a `bool` field of a struct used 8 bytes instead of 1.
