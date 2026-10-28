@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2
+* **Added:** `makej doc [LIBRARY]`: lists the installed libraries, or shows the comment at the top of a library file (its API and examples); needs no compiler.
+* **Fixed:** none.
+
 ## 0.9.1
 * **Added:** `docs/GUIDE.md`, a detailed guide of every command: the `init` variants, build and run, an Android app step by step (tools to install, `android.jar`, `manifest.toml` line by line, icon, signing, install, a table of the error messages), `makej pack` / `dist`, the game lessons and the AI project. The README points to it.
 

@@ -7,7 +7,7 @@ case "${1:-}" in --version|-version) echo "makej $MAKEJ_VERSION"; exit 0 ;; esac
 case "${1:-}" in -h|--help|help)
     echo "makej: a build tool for J2K projects (the build file is the file makej in the folder)"
     echo "  makej [target] [-v] [-n] [-j N]     build (-n: only show, -v: say more, -j: many jobs; -j alone = all cores)"
-    echo "  makej list | clean | install FOLDER | run | test"
+    echo "  makej list | clean | install FOLDER | run | test | doc [LIBRARY]"
     echo "  makej init [-pro NAME | -game | -apk | -ai]     start a project (-apk: an Android app);   makej apk | pack | dist | targets   (for games)"
     echo "  makej --version"
     exit 0 ;;
@@ -34,6 +34,27 @@ need_jcmp() {
         exit 2
     fi
 }
+# makej doc [NAME]: the documentation of a library = the comment at the top of its file (no jcmp needed); without NAME: the libraries that are installed
+if [ "${1:-}" = "doc" ]; then
+    dirs=$(printf '%s' "${J2K_PATH:-}" | tr ':' ' '); dirs="$dirs $HOME/.j2k/Library"
+    jb=$(command -v jcmp 2>/dev/null); [ -n "$jb" ] && dirs="$dirs $(dirname "$(readlink -f "$jb")")/Library"
+    if [ -z "${2:-}" ]; then
+        for d in $dirs; do
+            for f in "$d"/*.j; do
+                [ -f "$f" ] || continue
+                printf '%-12s %s\n' "$(basename "$f" .j)" "$(head -1 "$f" | sed 's|^// *||; s|   *#import.*||')"
+            done
+        done | sort -u
+        exit 0
+    fi
+    for d in $dirs; do
+        if [ -f "$d/$2.j" ]; then
+            sed -n '/^\/\//!q;p' "$d/$2.j" | sed 's|^// \{0,1\}||'
+            exit 0
+        fi
+    done
+    echo "makej doc: no library '$2' is installed (jc lib install $2)" >&2; exit 2
+fi
 case "${1:-}" in --version|-version|-h|--help|help) ;; *) need_jcmp ;; esac
 home="${MAKEJ_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/makej/$MAKEJ_VERSION}"
 if [ ! -f "$home/makej_file.jk" ]; then

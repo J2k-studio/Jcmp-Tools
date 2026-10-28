@@ -71,5 +71,9 @@ fi
 cd "$T" && mkdir ap && cd ap && "$MK" init -apk 2>&1 | grep -q "Android app project" || { echo "init -apk"; exit 1; }
 [ -f makej ] && [ -f manifest.toml ] && [ -f src/main.jk ] && grep -q '^os = "android"' manifest.toml || { echo "init -apk makes the project with os = android"; exit 1; }
 cd "$T" && mkdir ap2 && cd ap2 && "$MK" -apk >/dev/null && grep -q '^os = "android"' manifest.toml || { echo "makej -apk"; exit 1; }
+# makej doc: the comment at the top of a library
+J2K_PATH="$HOME/Jcmp/build/libs" "$MK" doc | grep -q "^gamej" || { echo "doc list"; exit 1; }
+J2K_PATH="$HOME/Jcmp/build/libs" "$MK" doc gamej | grep -q "Game" || { echo "doc NAME"; exit 1; }
+"$MK" doc no_such_lib_xyz >/dev/null 2>&1 && { echo "doc of a missing library must fail"; exit 1; }
 cd "$ROOT"
 echo "makej tests (game): ok"
