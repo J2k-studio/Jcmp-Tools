@@ -10,6 +10,18 @@ int win_h;
 int win_app;                           // the app in the window, -1 when there is none
 int surf_h;                            // the height of the surface of the window
 
+// the surface of the window goes into the picture of the desktop
+void gpu_copy_win(int sh) {
+    if gpu_on == 1 { gpu_go(3, 0x41000000, rootW, win_x, win_y + 36, 0x41400000, 540, 0, 0, 540, sh); return; }
+    u32^ root = (u32^)0x41000000;
+    u32^ s32 = (u32^)0x41400000;
+    for y in 0..sh {
+        int ro = (win_y + 36 + y) * rootW + win_x;
+        int so = y * 540;
+        for x in 0..540 { root[ro + x] = s32[so + x]; }
+    }
+}
+
 void to_root() {
     sfb = 0x41000000;
     p32 = (u32^)sfb;
@@ -47,11 +59,7 @@ void composite() {
     u32^ root = (u32^)0x41000000;
     u32^ s32 = (u32^)0x41400000;
     int sh = surf_h;
-    for y in 0..sh {
-        int ro = (win_y + 36 + y) * rootW + win_x;
-        int so = y * 540;
-        for x in 0..540 { root[ro + x] = s32[so + x]; }
-    }
+    gpu_copy_win(sh);
     int keep_w = scrW;
     int keep_h = scrH;
     int keep_s = sfb;
@@ -72,11 +80,7 @@ void composite() {
     rrect(win_x + win_w - 40, win_y + 6, 28, 24, 8, rgb(200, 70, 80));
     glyph(win_x + win_w - 35, win_y + 7, 120, 1, rgb(255, 255, 255));
     // the surface again (the frame went over its edge by a few dots)
-    for y in 0..sh {
-        int ro = (win_y + 36 + y) * rootW + win_x;
-        int so = y * 540;
-        for x in 0..540 { root[ro + x] = s32[so + x]; }
-    }
+    gpu_copy_win(sh);
     taskbar();
     scrW = keep_w;
     scrH = keep_h;

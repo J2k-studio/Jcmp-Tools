@@ -1,5 +1,8 @@
 # jaric-os changelog
 
+## 0.13.0
+* **Added (a 2D accelerator, much faster screen):** the machine has a device at `0x0E000000` that fills rectangles, paints the wallpaper and copies pictures at the speed of the phone; the system uses it for rectangles, rounded rectangles, the wallpaper, the scroll of the terminal and the windows of the desktop. A tap that took about a second to show its result now shows it in 0.04 to 0.15 seconds.
+
 ## 0.12.0
 * **Changed (the memory is dynamic):** the machine gets as much memory as Android can give: half of `MemAvailable` when it starts (64 MB at least, 1 GB at most; `JARIC_RAM_MB` sets it by hand). The memory is mapped and not touched, so Android gives the pages only when the system uses them. The start log tests it at three places, the programs get their frames from all of it, and a program that asks for more than there is gets ENOMEM; the home card, About and the control panel show the real size.
 

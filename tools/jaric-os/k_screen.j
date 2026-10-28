@@ -8,6 +8,7 @@ int gdirty;
 int shown;
 int g_ram;                             // the memory of the machine in MB (the machine says)
 int ram_top;                           // the end of the memory (an address)
+int gpu_on;                            // 1 when the machine has the 2D accelerator (the rectangles, the wallpaper and the copies are done by the host)
 int at_home;                           // 1 while the system waits at the home screen (the back key there puts the app in the background)
 int sfb;                               // where the picture is that is drawn on now: the screen, or the surface of a window of the desktop
 int desk_ctx;                          // 1 while an app runs in a window of the desktop
@@ -57,14 +58,25 @@ void draw_cell(int col, int row, int c, int cur, int k) {
 }
 
 void scroll_up() {
-    int^ fb = (int^)sfb;
-    int words = scrW * (vrows - 1) * 20 / 2;          // the rows that stay, two dots in a word
-    int from = scrW * 20 / 2;
-    int top = scrW * roff * 20 / 2;
-    for i in 0..words { fb[top + i] = fb[top + i + from]; }
     int bg = 20 | (10 << 8) | (8 << 16) | (255 << 24);
-    int two = bg | (bg << 32);
-    for i in words..(scrW * vrows * 20 / 2) { fb[top + i] = two; }
+    int top = roff * 20;                                // the first row of dots of the letters
+    if gpu_on == 1 {
+        int^ g = (int^)0x0E000000;
+        g[1] = sfb; g[2] = scrW; g[3] = 0; g[4] = top; g[5] = sfb; g[6] = scrW; g[7] = 0; g[8] = top + 20; g[9] = scrW; g[10] = (vrows - 1) * 20;
+        g[0] = 3;
+        g[16] = 1;                                      // the rows that stay go up by one row of letters
+        g[1] = sfb; g[2] = scrW; g[3] = 0; g[4] = top + (vrows - 1) * 20; g[5] = scrW; g[6] = 20; g[7] = bg; g[8] = scrW; g[9] = scrH; g[10] = 0;
+        g[0] = 1;
+        g[16] = 1;                                      // the last row is empty
+    } else {
+        int^ fb = (int^)sfb;
+        int words = scrW * (vrows - 1) * 20 / 2;
+        int from = scrW * 20 / 2;
+        int topw = scrW * roff * 20 / 2;
+        for i in 0..words { fb[topw + i] = fb[topw + i + from]; }
+        int two = bg | (bg << 32);
+        for i in words..(scrW * vrows * 20 / 2) { fb[topw + i] = two; }
+    }
     for i in 0..(cols * (vrows - 1)) { gcells[i] = gcells[i + cols]; gcol[i] = gcol[i + cols]; }
     for i in (cols * (vrows - 1))..(cols * vrows) { gcells[i] = (char)32; gcol[i] = (char)0; }
 }
@@ -272,6 +284,8 @@ void screen_start() {
             vrows = maxrows;
             fontsize = size;
             sready = 1;
+            int^ gg = (int^)0x0E000000;
+            if gg[0] == 1 { gpu_on = 1; }
             return;
         }
     }

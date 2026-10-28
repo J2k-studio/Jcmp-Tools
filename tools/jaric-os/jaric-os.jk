@@ -92,7 +92,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.12.0"; }
+String jemu_version() { return "0.13.0"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -333,6 +333,77 @@ int disk_do(int cmd) {                          // 1 read, 2 write: count sector
     if cmd == 2 { r = Sys::call(68, disk_fd, h, len, disk_sector * 512, 0, 0); }          // pwrite64
     if r == len { disk_status = 0; }
     return 0;
+}
+
+// ---- the 2D accelerator at 0x0E000000: the system writes the arguments (registers 0x08 ...) and the operation (0x00), a write to 0x80 does it. The host does it at the speed of the phone (the system draws pixel by pixel in the machine: a whole screen took a second).
+// Operations: 1 fill (base, stride, x, y, w, h, colour, clip w, clip h), 2 wallpaper (base, stride, w, h), 3 copy (dst, dst stride, dx, dy, src, src stride, sx, sy, w, h).
+int gp[16];
+
+void gpu_exec() {
+    int op = gp[0];
+    if op == 1 {
+        int base = gp[1];
+        int stride = gp[2];
+        int x = gp[3];
+        int y = gp[4];
+        int w = gp[5];
+        int h = gp[6];
+        int c = gp[7];
+        int cw = gp[8];
+        int ch = gp[9];
+        int x0 = x;
+        int y0 = y;
+        if x0 < 0 { x0 = 0; }
+        if y0 < 0 { y0 = 0; }
+        int x1 = x + w;
+        int y1 = y + h;
+        if x1 > cw { x1 = cw; }
+        if y1 > ch { y1 = ch; }
+        if x1 <= x0 || y1 <= y0 { return; }
+        int hp = host_of(base + (y0 * stride + x0) * 4, ((y1 - y0 - 1) * stride + (x1 - x0)) * 4);
+        if hp == 0 { return; }
+        u32^ p = (u32^)hp;
+        u32 cv = (u32)c;
+        for yy in 0..(y1 - y0) {
+            int row = yy * stride;
+            for xx in 0..(x1 - x0) { p[row + xx] = cv; }
+        }
+    } else if op == 2 {
+        int base = gp[1];
+        int stride = gp[2];
+        int w = gp[3];
+        int h = gp[4];
+        int hp = host_of(base, ((h - 1) * stride + w) * 4);
+        if hp == 0 { return; }
+        u32^ p = (u32^)hp;
+        for yy in 0..h {
+            int c = (24 + yy / 14) | ((10 + yy / 50) << 8) | ((8 + yy / 90) << 16) | (255 << 24);
+            u32 cv = (u32)c;
+            int row = yy * stride;
+            for xx in 0..w { p[row + xx] = cv; }
+        }
+    } else if op == 3 {
+        int dst = gp[1];
+        int ds = gp[2];
+        int dx = gp[3];
+        int dy = gp[4];
+        int src = gp[5];
+        int ss = gp[6];
+        int sx = gp[7];
+        int sy = gp[8];
+        int w = gp[9];
+        int h = gp[10];
+        int dp = host_of(dst + (dy * ds + dx) * 4, ((h - 1) * ds + w) * 4);
+        int sph = host_of(src + (sy * ss + sx) * 4, ((h - 1) * ss + w) * 4);
+        if dp == 0 || sph == 0 { return; }
+        u32^ d = (u32^)dp;
+        u32^ s = (u32^)sph;
+        for yy in 0..h {
+            int drow = yy * ds;
+            int srow = yy * ss;
+            for xx in 0..w { d[drow + xx] = s[srow + xx]; }
+        }
+    }
 }
 
 // ---- the host call device at 0x0D000000: CMD 0x00 (where the command text is, in the memory of the guest), OUT 0x08 (where the answer goes, 4 KB), GO 0x10 (a write does it), STATUS 0x18 (0 = ok).
@@ -620,6 +691,7 @@ void host_poll() {
 }
 
 int uart_ld(int addr) {
+    if addr >= 0x0E000000 { return 1; }                           // the accelerator is there (the register 0 reads 1)
     if addr >= 0x0D000000 {
         int hoff = addr - 0x0D000000;
         if hoff == 0x18 { return hc_status; }
@@ -685,6 +757,12 @@ int uart_ld(int addr) {
 }
 
 void mmio_st(int addr, int v) {
+    if addr >= 0x0E000000 {
+        int goff = addr - 0x0E000000;
+        if goff == 0x80 { gpu_exec(); }
+        else if goff < 0x80 { gp[goff / 8] = v; }
+        return;
+    }
     if addr >= 0x0D000000 {
         int hoff = addr - 0x0D000000;
         if hoff == 0x00 { hc_cmd = v; }
@@ -732,7 +810,7 @@ void mmio_st(int addr, int v) {
 
 int ld(int addr, int size) {
     if mmu_on() { addr = xlate(addr, 0); if addr < 0 { return 0; } }
-    if sysmode && addr >= 0x09000000 && addr < 0x0D001000 { return uart_ld(addr); }
+    if sysmode && addr >= 0x09000000 && addr < 0x0E001000 { return uart_ld(addr); }
     int h = host_of(addr, size);
     if h == 0 { fault(addr, "read"); }
     if size == 8 { int^ p = (int^)h; return p[0]; }
@@ -744,7 +822,7 @@ int ld(int addr, int size) {
 
 void st(int addr, int size, int v) {
     if mmu_on() { addr = xlate(addr, 1); if addr < 0 { return; } }
-    if sysmode && addr >= 0x09000000 && addr < 0x0D001000 { mmio_st(addr, v); return; }
+    if sysmode && addr >= 0x09000000 && addr < 0x0E001000 { mmio_st(addr, v); return; }
     int h = host_of(addr, size);
     if h == 0 { fault(addr, "write"); }
     if size == 8 { int^ p = (int^)h; p[0] = v; return; }

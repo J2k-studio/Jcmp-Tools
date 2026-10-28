@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.12.0" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.13.0" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -101,4 +101,8 @@ command grep -q "runtime error" "$T/panel.out" && { echo "jaric-os test: the con
 # the memory is what Android gives (JARIC_RAM_MB, or half of MemAvailable): the system tests it at three places and uses it for the programs
 OUTM=$(printf 'exit\n' | JARIC_RAM_MB=256 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033')
 case "$OUTM" in *"Memory   256 MB from Android"*) ;; *) echo "jaric-os test: the memory of the machine follows JARIC_RAM_MB: $OUTM"; exit 1 ;; esac
+# the accelerator: the picture after a tap on the Power icon (the card) is there in a short time (it took a second when the machine drew pixel by pixel)
+START=$(date +%s%N)
+{ sleep 1; printf '\033]7777;touch;D;230;430;0\007\033]7777;touch;U;230;430;0\007'; sleep 1; printf '\033]7777;gfx-closed\007'; sleep 1; } | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" > "$T/gpu.out" 2>&1 || true
+command grep -q "gfx;present" "$T/gpu.out" || { echo "jaric-os test: no picture"; exit 1; }
 echo "jaric-os tests: ok"

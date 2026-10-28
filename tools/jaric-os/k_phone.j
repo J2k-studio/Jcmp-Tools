@@ -18,7 +18,7 @@ int tap_y;
 
 int rgb(int r, int g, int b) { return b | (g << 8) | (r << 16) | (255 << 24); }
 
-void fill(int x, int y, int w, int h, int c) {
+void fill_sw(int x, int y, int w, int h, int c) {
     for yy in y..(y + h) {
         if yy >= 0 && yy < scrH {
             int base = yy * scrW;
@@ -27,7 +27,7 @@ void fill(int x, int y, int w, int h, int c) {
     }
 }
 
-void rrect(int x, int y, int w, int h, int r, int c) {
+void rrect_sw(int x, int y, int w, int h, int r, int c) {
     for yy in y..(y + h) {
         if yy >= 0 && yy < scrH {
             int dy = 0;
@@ -47,11 +47,48 @@ void rrect(int x, int y, int w, int h, int r, int c) {
 }
 
 // the page behind everything: dark blue that gets lighter downwards
-void wallpaper() {
+void wallpaper_sw() {
     for y in 0..scrH {
         int c = rgb(8 + y / 90, 10 + y / 50, 24 + y / 14);
         int base = y * scrW;
         for x in 0..scrW { p32[base + x] = (u32)c; }
+    }
+}
+
+
+// the 2D accelerator (at 0x0E000000): one write per rectangle instead of a loop of the machine
+void gpu_go(int op, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8, int a9, int a10) {
+    int^ g = (int^)0x0E000000;
+    g[1] = a1; g[2] = a2; g[3] = a3; g[4] = a4; g[5] = a5; g[6] = a6; g[7] = a7; g[8] = a8; g[9] = a9; g[10] = a10;
+    g[0] = op;
+    g[16] = 1;
+}
+
+void fill(int x, int y, int w, int h, int c) {
+    if gpu_on == 0 { fill_sw(x, y, w, h, c); return; }
+    gpu_go(1, sfb, scrW, x, y, w, h, c, scrW, scrH, 0);
+}
+
+void wallpaper() {
+    if gpu_on == 0 { wallpaper_sw(); return; }
+    gpu_go(2, sfb, scrW, scrW, scrH, 0, 0, 0, 0, 0, 0);
+}
+
+// a rounded rectangle: the middle is one rectangle, each row of the two round ends is one rectangle (the width comes from the circle)
+void rrect(int x, int y, int w, int h, int r, int c) {
+    if gpu_on == 0 { rrect_sw(x, y, w, h, r, c); return; }
+    int rr = r;
+    if rr * 2 > h { rr = h >> 1; }
+    if rr * 2 > w { rr = w >> 1; }
+    fill(x, y + rr, w, h - 2 * rr, c);
+    for i in 0..rr {
+        int dy = rr - 1 - i;
+        int m = 0;
+        while (m + 1) * (m + 1) + dy * dy <= rr * rr { m += 1; }
+        if m > rr - 1 { m = rr - 1; }
+        int inset = rr - 1 - m;
+        fill(x + inset, y + i, w - 2 * inset, 1, c);
+        fill(x + inset, y + h - 1 - i, w - 2 * inset, 1, c);
     }
 }
 
