@@ -13,9 +13,8 @@ curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.
 The Jaric app already has it inside; `jc update` brings a newer one.
 
 ```
-jaric-os                     the start screen (a ring of light, "Jaric OS", "powered by Jaric"), then the system on the disk ~/.jaric-os
+jaric-os                     the system looks at the machine, writes what it finds (CPU, timer, memory, disk, screen) and waits for your commands; the disk is ~/.jaric-os
 jaric-os FOLDER              the same, with the files of FOLDER as the disk
-jaric-os boot                only the start screen, live in the Jaric app
 jaric-os --version | --help
 ```
 

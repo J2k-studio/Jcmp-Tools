@@ -2,6 +2,9 @@
 
 ## 0.3.0
 * **Changed (a real screen, like the screen of a virtual machine):** the system itself draws its letters on the screen (a picture of 540 x 960 dots, a smooth font read from the file `jaric-os-font` of its disk); the machine only shows the picture, as the screen of a virtual machine does. `ls` does not list the files of the system.
+* **Changed (the start is a log, not a picture):** no drawn start screen any more; the system looks at the machine and writes what it finds, line by line, in colours: `[ OK ] CPU ARM64, exception level 1`, the counter, a timer tick (really waited for), memory (written and read back), the disk (sectors), the files (JFS), the screen, the input. A failed check shows `[FAIL]`. Then `Jaric OS is ready.` and the prompt.
+* **Removed:** `jaric-os boot` and the file `jaric-os-boot`.
+* **Fixed (jemu core):** the timer state bit (ISTATUS) is set when the time has come even when the interrupt is masked, as in the hardware.
 * **Fixed:** a touch on the screen printed code (the messages of the app were taken for keys); they are dropped now.
 
 ## 0.2.0

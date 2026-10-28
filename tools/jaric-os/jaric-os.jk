@@ -864,7 +864,8 @@ void take_exception(int kind, int ec, int iss, int ret_pc, int fault_addr) {
 }
 
 // the timer: when the compare value has come and the I bit is clear, an interrupt (kind 1: vector +0x80) is taken before the next instruction
-bool timer_due() { return (timer_ctl & 3) == 1 && icount >= timer_cmp; }
+bool timer_met() { return (timer_ctl & 1) == 1 && icount >= timer_cmp; }                 // the state bit (ISTATUS): the time has come, also when the interrupt is masked
+bool timer_due() { return (timer_ctl & 3) == 1 && icount >= timer_cmp; }                  // the interrupt: enabled, not masked, and the time has come
 
 bool check_irq() {
     if (daif & 0x80) != 0 { return false; }
@@ -901,7 +902,7 @@ int sysreg_read(int key) {
     if key == sr_key(3, 0, 13, 0, 4) { return tpidr_el1; }
     if key == sr_key(3, 3, 14, 0, 2) { return icount; }                        // CNTVCT_EL0: a counter, the number of instructions
     if key == sr_key(3, 3, 14, 0, 0) { return 1000000; }                       // CNTFRQ_EL0
-    if key == sr_key(3, 3, 14, 3, 1) { int c = timer_ctl & 3; if timer_due() { c = c | 4; } return c; }     // CNTV_CTL_EL0 (bit 2: the timer has come)
+    if key == sr_key(3, 3, 14, 3, 1) { int c = timer_ctl & 3; if timer_met() { c = c | 4; } return c; }     // CNTV_CTL_EL0 (bit 2: the timer has come)
     if key == sr_key(3, 3, 14, 3, 0) { return timer_cmp - icount; }            // CNTV_TVAL_EL0
     if key == sr_key(3, 3, 14, 3, 2) { return timer_cmp; }                     // CNTV_CVAL_EL0
     if key == sr_key(3, 0, 0, 0, 5) { return 0; }                              // MPIDR_EL1: the first CPU
@@ -1599,25 +1600,18 @@ int main() {
     if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jaric-os " << jemu_version() << "\n"; return 0; }
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h" || args[1] == "help") {
         cout << "jaric-os: Jaric OS, the operating system of the Jaric project, in a machine inside the app\n";
-        cout << "  jaric-os                  start Jaric OS: the start screen (a ring of light, Jaric OS, powered by Jaric), then the system on the disk ~/.jaric-os\n";
+        cout << "  jaric-os                  start Jaric OS: it looks at the machine (CPU, timer, memory, disk, screen), writes what it finds, then waits for your commands; the disk is the folder ~/.jaric-os\n";
         cout << "  jaric-os FOLDER           the same, with the files of FOLDER as the disk\n";
-        cout << "  jaric-os boot             only the start screen, live in the Jaric app\n";
         cout << "  jaric-os --version | --help\n";
         cout << "Inside: ls, cat NAME, echo TEXT, help, exit (Ctrl-C stops the machine). Update it with  jc update  (jc install jaric-os).\n";
         return 0;
     }
     switch Env::get("JEMU_TRACE") { Option::Some(v): { if v.len > 0 { trace_calls = true; } } Option::None: { } }
     if !dev && args.len > 1 && (args[1] == "--system" || args[1].len > 1 && args[1][0] == '-') { die("jaric-os runs Jaric OS only (jaric-os --help)", 2); }
-    if args.len == 1 || args[1] == "os" || (!dev && args[1] != "boot") {   // jaric-os [FOLDER]: the kernel and mkfs come next to this program (jaric-os-kernel, jaric-os-mkfs)
+    if args.len == 1 || args[1] == "os" || !dev {   // jaric-os [FOLDER]: the kernel and mkfs come next to this program (jaric-os-kernel, jaric-os-mkfs)
         char sbuf[512];
         int sn = Sys::readlink("/proc/self/exe".c(), @sbuf, 511);
         if sn <= 0 { die("cannot find where jaric-os is", 1); }
-        if args.len == 1 {                                     // the start screen first (a failure of it does not stop the system)
-            sbuf[sn] = 0;
-            String[] bo = arr(2);
-            bo.push("boot");
-            Proc::run((char^)@sbuf, bo);
-        }
         sbuf[sn] = 0;
         String self = (char^)@sbuf;
         String dir = Path::parent(self);
@@ -1654,20 +1648,6 @@ int main() {
             na.push("--gfx"); na.push(Path::join(tmp, "jaric-os-screen.bgra"));
         }
         args = na;
-    }
-    if args.len > 1 && args[1] == "boot" {                     // jemu boot: the start screen of Jaric OS, live in the Jaric app (the kernel jaric-os-boot comes next to this program)
-        char bbuf[512];
-        int bn = Sys::readlink("/proc/self/exe".c(), @bbuf, 511);
-        if bn <= 0 { die("cannot find where jaric-os is", 1); }
-        bbuf[bn] = 0;
-        String bself = (char^)@bbuf;
-        String bkernel = Path::join(Path::parent(bself), "jaric-os-boot");
-        if !Fs::exists(bkernel) { die("jaric-os-boot must be next to jaric-os (jc install jaric-os brings it)", 1); }
-        String btmp = "/tmp";
-        switch Env::get("TMPDIR") { Option::Some(t): { if t.len > 0 { btmp = t; } } Option::None: { } }
-        String[] ba = arr(6);
-        ba.push("jemu"); ba.push("--system"); ba.push(bkernel); ba.push("--gfx"); ba.push(Path::join(btmp, "jaric-os-screen.bgra"));
-        args = ba;
     }
     if args.len < 2 { cerr << "usage: jemu PROGRAM [arguments]       jemu --system KERNEL.elf [--steps N] [--disk IMAGE] [--shift N]   (system mode: EL0/EL1, vectors, a UART at 0x09000000, exit device at 0x09100000, a disk at 0x0A000000)\n"; return 2; }
     if args[1] == "--system" {

@@ -21,15 +21,25 @@ void uputc(int c) {
 
 // ---- the screen. When the machine has one (the register WIDTH of the screen is not 0) the system draws its letters on it: a picture of 540 x 960 dots at 0x41000000, 54 x 48 cells of 10 x 20 dots;
 // the letters are a smooth font (8 bits of cover for each dot) that the system reads from the file jaric-os-font of its disk. The machine shows the picture (FLUSH) when the system waits for a key.
-int scr;                               // 1 when the screen is there and the font is loaded
+int scr;                            
 int cx;
 int cy;
 int gdirty;
-int shown;                             // 1 when the cursor is drawn
-char gcells[2600];                     // the letters on the screen: 54 columns, 48 rows
-char^ fnt;                             // the font: cell width, cell height, first letter, number of letters, then the letters (cell width * cell height bytes each)
+int shown;
+int fsok;
+int fgc;                            
+char gcol[2600];                          
+char gcells[2600];                  
+char^ fnt;                          
 
-void draw_cell(int col, int row, int c, int cur) {
+void draw_cell(int col, int row, int c, int cur, int k) {
+    int pb = 255;
+    int pg = 228;
+    int pr = 200;
+    if k == 1 { pb = 130; pg = 225; pr = 110; }
+    if k == 2 { pb = 170; pg = 150; pr = 125; }
+    if k == 3 { pb = 100; pg = 100; pr = 240; }
+    if k == 4 { pb = 255; pg = 190; pr = 100; }
     char^ fb = (char^)0x41000000;
     int g = 4 + (c - 32) * 200;
     if c < 32 || c > 126 { g = 4; }
@@ -38,9 +48,9 @@ void draw_cell(int col, int row, int c, int cur) {
         for gx in 0..10 {
             int a = fnt[g + gy * 10 + gx] & 255;
             if cur == 1 { a = 255 - a; if a < 90 { a = 90; } }
-            fb[o] = (char)(20 + (235 * a) / 255);
-            fb[o + 1] = (char)(10 + (218 * a) / 255);
-            fb[o + 2] = (char)(8 + (192 * a) / 255);
+            fb[o] = (char)(20 + ((pb - 20) * a) / 255);
+            fb[o + 1] = (char)(10 + ((pg - 10) * a) / 255);
+            fb[o + 2] = (char)(8 + ((pr - 8) * a) / 255);
             fb[o + 3] = (char)255;
             o += 4;
         }
@@ -49,13 +59,13 @@ void draw_cell(int col, int row, int c, int cur) {
 
 void scroll_up() {
     int^ fb = (int^)0x41000000;
-    int words = 540 * 940 / 2;                       // 47 rows of 20 dots, two dots in a word
+    int words = 540 * 940 / 2;                    
     int from = 540 * 20 / 2;
     for i in 0..words { fb[i] = fb[i + from]; }
     int bg = 20 | (10 << 8) | (8 << 16) | (255 << 24);
     int two = bg | (bg << 32);
     for i in words..(540 * 960 / 2) { fb[i] = two; }
-    for i in 0..(54 * 47) { gcells[i] = gcells[i + 54]; }
+    for i in 0..(54 * 47) { gcells[i] = gcells[i + 54]; gcol[i] = gcol[i + 54]; }
     for i in (54 * 47)..(54 * 48) { gcells[i] = (char)32; }
     cy = 47;
 }
@@ -68,7 +78,7 @@ void newline() {
 
 void putc(int c) {
     if scr == 0 { uputc(c); return; }
-    if shown == 1 { draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 0); shown = 0; }
+    if shown == 1 { draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 0, gcol[cy * 54 + cx]); shown = 0; }
     gdirty = 1;
     if c == 10 { newline(); return; }
     if c == 13 { cx = 0; return; }
@@ -76,7 +86,8 @@ void putc(int c) {
     if c < 32 || c > 126 { return; }
     if cx >= 54 { newline(); }
     gcells[cy * 54 + cx] = (char)c;
-    draw_cell(cx, cy, c, 0);
+    gcol[cy * 54 + cx] = (char)fgc;
+    draw_cell(cx, cy, c, 0, fgc);
     cx += 1;
 }
 
@@ -84,17 +95,17 @@ void putc(int c) {
 void screen_show() {
     if scr == 0 || gdirty == 0 { return; }
     if cx >= 54 { newline(); }
-    draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 1);
+    draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 1, 0);
     shown = 1;
     int^ fb = (int^)0x0B000000;
     fb[3] = 1;
     gdirty = 0;
 }
 
-int getc() {                                   // waits for a key: the flag register says when one is there
+int getc() {                                
     screen_show();
     int^ uart = (int^)0x09000000;
-    int fr = uart[3];                          // UARTFR is at 0x18
+    int fr = uart[3];                       
     while (fr & 16) != 0 { fr = uart[3]; }
     return uart[0] & 255;
 }
@@ -144,7 +155,7 @@ bool same(char^ a, char^ b) {
 void fs_ls() {
     for i in 0..nfiles {
         char^ e = @sbuf[512 + i * 64];
-        if e[0] == 'j' && e[1] == 'a' && e[2] == 'r' && e[3] == 'i' && e[4] == 'c' && e[5] == '-' { continue; }      // the files of the system (the font) are not listed
+        if e[0] == 'j' && e[1] == 'a' && e[2] == 'r' && e[3] == 'i' && e[4] == 'c' && e[5] == '-' { continue; }   
         kputs(e);
         putc(10);
     }
@@ -216,7 +227,7 @@ void screen_start() {
             int bg = 20 | (10 << 8) | (8 << 16) | (255 << 24);
             int two = bg | (bg << 32);
             for p in 0..(540 * 960 / 2) { px[p] = two; }
-            for p in 0..(54 * 48) { gcells[p] = (char)32; }
+            for p in 0..(54 * 48) { gcells[p] = (char)32; gcol[p] = (char)0; }
             fb[0] = 0x41000000;
             scr = 1;
             return;
@@ -224,32 +235,94 @@ void screen_start() {
     }
 }
 
-void kmain() {
-    bool ok = fs_mount();
-    if ok { screen_start(); }
-    say(0x534f20636972614a); say(0x374b20);
+
+// ---- the start: the system looks at what the machine has and writes what it finds (each line is shown at once)
+void putnum(int v) {
+    if v >= 10 { putnum(v / 10); }
+    putc(48 + v % 10);
+}
+
+void logline() {
     putc(10);
-    if !ok { say(0x6b736964206f6e); putc(10); }
+    gdirty = 1;
+    screen_show();
+}
+
+void tag(bool good) {
+    if good { fgc = 1; say(0x205d204b4f205b); }
+    else { fgc = 3; say(0x205d4c4941465b); }
+    fgc = 0;
+}
+
+void boot_log() {
+    fgc = 4; say(0x534f20636972614a); say(0x332e3020); fgc = 2; say(0x7265776f70202020); say(0x614a207962206465); say(0x636972); fgc = 0;
+    logline();
+    logline();
+    int el = Sys::s3_0_c4_c2_2 >> 2;
+    tag(el == 1); say(0x2020202020555043); say(0x202c34364d524120); say(0x6f69747065637865); say(0x206c6576656c206e); putnum(el);
+    logline();
+    int fq = Sys::s3_3_c14_c0_0;
+    int c0 = Sys::s3_3_c14_c0_2;
+    int spin = 0;
+    while spin < 100 { spin += 1; }
+    int c1 = Sys::s3_3_c14_c0_2;
+    tag(c1 > c0 && fq > 0); say(0x207265746e756f43); say(0x20); putnum(fq / 1000); say(0x7572202c7a486b20); say(0x676e696e6e);
+    logline();
+    Sys::s3_3_c14_c3_0 = 2000;
+    Sys::s3_3_c14_c3_1 = 3;                 // enabled, the interrupt masked: the state bit is read by polling
+    int waits = 0;
+    while (Sys::s3_3_c14_c3_1 & 4) == 0 && waits < 100000 { waits += 1; }
+    bool fired = (Sys::s3_3_c14_c3_1 & 4) != 0;
+    Sys::s3_3_c14_c3_1 = 0;
+    tag(fired); say(0x20202072656d6954); say(0x206b636974206120); say(0x73656d6f63);
+    logline();
+    int^ m = (int^)0x43FFFFF0;
+    m[0] = 0x5a5a5a5a5a5a5a5a;
+    int^ m2 = (int^)0x42000000;
+    m2[0] = 0x1234;
+    bool ram_ok = m[0] == 0x5a5a5a5a5a5a5a5a && m2[0] == 0x1234;
+    tag(ram_ok); say(0x202079726f6d654d); say(0x202c424d20343620); say(0x6e61206574697277); say(0x6220646165722064); say(0x6b6361);
+    logline();
+    int^ dev = (int^)0x0A000000;
+    int dsec = dev[5];
+    tag(dsec > 0); say(0x202020206b736944); say(0x20); putnum(dsec); say(0x73726f7463657320);
+    logline();
+    bool ok = fsok == 1;
+    tag(ok); say(0x20202073656c6946); say(0x202c53464a20); putnum(nfiles); say(0x73656c696620);
+    logline();
+    tag(scr == 1); say(0x20206e6565726353); say(0x3920782030343520); say(0x6f6f6d73202c3036); say(0x746e6f66206874);
+    logline();
+    tag(true); say(0x2020207475706e49); say(0x72616f6279656b20); say(0x6f7420646e612064); say(0x6f72662820686375); say(0x706120656874206d); say(0x2970);
+    logline();
+    logline();
+    fgc = 1; say(0x534f20636972614a); say(0x6461657220736920); say(0x2e79); fgc = 2; say(0x6820657079542020); say(0x2e706c65); fgc = 0;
+    logline();
+}
+
+void kmain() {
+    fsok = 0;
+    if fs_mount() { fsok = 1; screen_start(); }
+    boot_log();
     while true {
         say(0x203e6a);
         if !read_line() { break; }
         int w = first_word();
-        if w == 0x736c { fs_ls(); }                                // ls
-        else if w == 0x746163 {                                    // cat NAME
+        if w == 0x736c { fs_ls(); }                             
+        else if w == 0x746163 {                                 
             int a = args_at();
             int n = 0;
             while a + n < llen && n < 47 { name[n] = line[a + n]; n += 1; }
             name[n] = 0;
             fs_cat(@name);
         }
-        else if w == 0x6f686365 {                                  // echo TEXT
+        else if w == 0x6f686365 {                               
             int a2 = args_at();
             for k in a2..llen { putc(line[k]); }
             putc(10);
         }
         else if w == 0x706c6568 { say(0x20746163202c736c); say(0x6365202c454d414e); say(0x2c54584554206f68); say(0x65202c706c656820); say(0x746978); putc(10); }
-        else if w == 0x74697865 { break; }                         // exit
-        else if w != 0 { say(0x3f); putc(10); }                    // ?
+        else if w == 0x74697865 { break; }                      
+        else if w != 0 { say(0x3f); putc(10); }                 
     }
     say(0x657962); putc(10);
     gdirty = 1;
