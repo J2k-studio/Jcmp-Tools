@@ -1,5 +1,8 @@
 # jaric-os changelog
 
+## 0.12.0
+* **Changed (the memory is dynamic):** the machine gets as much memory as Android can give: half of `MemAvailable` when it starts (64 MB at least, 1 GB at most; `JARIC_RAM_MB` sets it by hand). The memory is mapped and not touched, so Android gives the pages only when the system uses them. The start log tests it at three places, the programs get their frames from all of it, and a program that asks for more than there is gets ENOMEM; the home card, About and the control panel show the real size.
+
 ## 0.11.1
 * **Changed (the back key of the phone):** it does not turn Jaric OS off any more. In an app, the control panel or a card it does what the back button of the app does (it goes back); in the Terminal app it goes home; a program that runs is closed; at the home screen the app goes to the background and the system goes on (the Power icon turns the machine off).
 

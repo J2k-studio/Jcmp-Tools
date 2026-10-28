@@ -45,7 +45,7 @@ void control_panel() {
     panel_line(px, ly + 72, 0x73746942, 0, 64, 0);
     panel_line(px, ly + 108, 0x6c6576654c, 0, g_el, 0x302065726f63 );
     int used = (scrW * scrH * 4) / 1048576;
-    panel_line(px, ly + 144, 0x79726f6d654d, 0, 64, 0x6c61746f7420424d );
+    panel_line(px, ly + 144, 0x79726f6d654d, 0, g_ram, 0x6c61746f7420424d );
     panel_line(px, ly + 180, 0x65727574636950, 0, used, 0x424d );
     panel_line(px, ly + 216, 0x6874646957, 0, scrW, 0x73746f64 );
     panel_line(px, ly + 252, 0x746867696548, 0, scrH, 0x73746f64 );

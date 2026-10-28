@@ -6,6 +6,8 @@ int cx;
 int cy;
 int gdirty;
 int shown;
+int g_ram;                             // the memory of the machine in MB (the machine says)
+int ram_top;                           // the end of the memory (an address)
 int at_home;                           // 1 while the system waits at the home screen (the back key there puts the app in the background)
 int sfb;                               // where the picture is that is drawn on now: the screen, or the surface of a window of the desktop
 int desk_ctx;                          // 1 while an app runs in a window of the desktop

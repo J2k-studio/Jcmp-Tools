@@ -92,7 +92,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.11.1"; }
+String jemu_version() { return "0.12.0"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -108,6 +108,21 @@ String hex(int v) {
         r.push(digits[d]);
     }
     return r;
+}
+
+int ram_mb;                                      // the memory of the machine: as much as Android gives (JARIC_RAM_MB, set by the app from what is free), 64 MB at least
+
+// the memory of the machine: mapped, not touched: Android gives the pages when the system uses them
+void add_ram(int start, int size) {
+    int h = Sys::call(222, 0, size, 3, 0x4022, 0 - 1, 0);                       // mmap(PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE)
+    if h < 0 && size > 67108864 {
+        ram_mb = 64;
+        size = 67108864;
+        h = Sys::call(222, 0, size, 3, 0x4022, 0 - 1, 0);
+    }
+    reg_start.push(start);
+    reg_size.push(size);
+    reg_host.push(h);
 }
 
 void add_region(int start, int size) {
@@ -613,6 +628,7 @@ int uart_ld(int addr) {
     if addr >= 0x0C000000 {
         int toff = addr - 0x0C000000;
         if toff == 0x00 { return touch_seq; }
+        if toff == 0x38 { return ram_mb; }                                    // the memory of the machine in MB
         if toff == 0x30 { int hv = home_flag; home_flag = 0; return hv; }
         if toff == 0x28 { host_poll(); return touch_seq; }                    // a program that asks for the touch: the input is looked at (without waiting) first
         if toff == 0x08 { return touch_x; }
@@ -2072,7 +2088,25 @@ int main() {
         tty_raw_on();
         tlb = (int^)Mem::alloc(8 * 192);
         tlb_flush();
-        add_region(0x40000000, 67108864);                // the RAM of the machine: 64 MB at 1 GB
+        ram_mb = 64;
+        bool ram_set = false;
+        switch Env::get("JARIC_RAM_MB") { Option::Some(v): { int rv = 0; for q in 0..v.len { rv = rv * 10 + (v[q] - '0'); } if rv >= 64 && rv <= 1024 { ram_mb = rv; ram_set = true; } } Option::None: { } }
+        if !ram_set {                                           // as much as Android can give now: half of what is free (MemAvailable), 64 MB at least, 1 GB at most
+            Result<String, Error> mr = Fs::read_text("/proc/meminfo");
+            if mr.is_ok() {
+                String mt = mr.take();
+                int mp = 0;
+                while mp + 12 < mt.len && !(mt[mp] == 'A' && mt[mp + 1] == 'v' && mt[mp + 2] == 'a' && mt[mp + 3] == 'i' && mt[mp + 4] == 'l' && mt[mp + 5] == 'a' && mt[mp + 6] == 'b') { mp += 1; }
+                while mp < mt.len && (mt[mp] < '0' || mt[mp] > '9') { mp += 1; }
+                int kb = 0;
+                while mp < mt.len && mt[mp] >= '0' && mt[mp] <= '9' { kb = kb * 10 + (mt[mp] - '0'); mp += 1; }
+                int mb = kb / 2048;
+                if mb < 64 { mb = 64; }
+                if mb > 1024 { mb = 1024; }
+                ram_mb = mb;
+            }
+        }
+        add_ram(0x40000000, ram_mb * 1048576);           // the RAM of the machine at 1 GB: what Android gives
         el = 1;
         sp_el1 = stack_top - 4096;
         sp = sp_el1;

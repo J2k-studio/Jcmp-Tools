@@ -63,14 +63,18 @@ void boot_log() {
     Sys::s3_3_c14_c3_1 = 0;
     stamp(); tag(fired); say(0x20202072656d6954); say(0x206b636974206120); say(0x73656d6f63);
     logline();
+    int^ rg = (int^)0x0C000000;
+    g_ram = rg[7];                                      // the register 0x38: the memory of the machine in MB
+    if g_ram < 64 { g_ram = 64; }
+    ram_top = 0x40000000 + (g_ram << 20);
     int^ m1 = (int^)0x42000000;
-    int^ m2 = (int^)0x43000000;
-    int^ m3 = (int^)0x43FFFFF0;
+    int^ m2 = (int^)(0x40000000 + ((g_ram >> 1) << 20) + 64);
+    int^ m3 = (int^)(ram_top - 16);
     m1[0] = 0x5a5a5a5a5a5a5a5a;
     m2[0] = 0x3c3c3c3c3c3c3c3c;
     m3[0] = 0x1234567812345678;
     bool ram_ok = m1[0] == 0x5a5a5a5a5a5a5a5a && m2[0] == 0x3c3c3c3c3c3c3c3c && m3[0] == 0x1234567812345678;
-    stamp(); tag(ram_ok); say(0x202079726f6d654d); say(0x202c424d20343620); say(0x6120646574736574); say(0x2065657268742074); say(0x736563616c70);
+    stamp(); tag(ram_ok); say(0x202079726f6d654d); say(0x20); putnum(g_ram); say(0x6d6f726620424d20); say(0x64696f72646e4120); say(0x646574736574202c); say(0x6572687420746120); say(0x736563616c702065);
     logline();
     stamp(); tag(true); say(0x2020202054524155); say(0x656c6f736e6f6320); say(0x796461657220);
     logline();

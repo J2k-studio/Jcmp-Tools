@@ -25,7 +25,10 @@ void zero_page(int pa) {
     for i in 0..512 { p[i] = 0; }
 }
 
+int p_oom;                             // 1 when the memory is used up: the calls that ask for more say so
+
 int alloc_frame() {
+    if next_frame + 8192 > ram_top - 1048576 { p_oom = 1; return 0x43000000; }          // the memory is used up: one frame is given again and again, the call that wants more fails
     int f = next_frame;
     zero_page(f);
     next_frame += 4096;
@@ -338,14 +341,15 @@ void svc_dispatch(int^ f) {
         int len = (a1 + 4095) & ~4095;
         map_range(p_mmap, len);
         f[0] = p_mmap;
+        if p_oom == 1 { f[0] = 0 - 12; }                                  // ENOMEM
         p_mmap = p_mmap + len + 4096;
     } else if nr == 215 { f[0] = 0;                                    // munmap
     } else if nr == 214 {                                              // brk
         if a0 == 0 { f[0] = p_brk; }
         else {
             if a0 > p_brk { map_range(p_brk, a0 - p_brk); }
-            p_brk = a0;
-            f[0] = a0;
+            if p_oom == 1 { f[0] = p_brk; }                                   // not given: the old end
+            else { p_brk = a0; f[0] = a0; }
         }
     } else if nr == 172 || nr == 173 || nr == 174 || nr == 175 || nr == 176 || nr == 177 { f[0] = 1;
     } else if nr == 113 {                                              // clock_gettime
@@ -381,6 +385,7 @@ int run_program(char^ nm) {
     if size == 0 { return 0 - 1; }
     Sys::vbar_el1 = (int)vectors;
     next_frame = 0x43100000;
+    p_oom = 0;
     build_tables(0x40800000);                                          // the tables of the kernel
     build_tables(0x40820000);                                          // the tables of the program
     p_entry = elf_load(0x40900000);
