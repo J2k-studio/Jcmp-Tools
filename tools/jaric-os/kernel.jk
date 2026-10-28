@@ -14,12 +14,85 @@ naked void start() {
     call kmain;
 }
 
-void putc(int c) {
+void uputc(int c) {
     char^ uart = (char^)0x09000000;
     uart[0] = (char)c;
 }
 
+// ---- the screen. When the machine has one (the register WIDTH of the screen is not 0) the system draws its letters on it: a picture of 540 x 960 dots at 0x41000000, 54 x 48 cells of 10 x 20 dots;
+// the letters are a smooth font (8 bits of cover for each dot) that the system reads from the file jaric-os-font of its disk. The machine shows the picture (FLUSH) when the system waits for a key.
+int scr;                               // 1 when the screen is there and the font is loaded
+int cx;
+int cy;
+int gdirty;
+int shown;                             // 1 when the cursor is drawn
+char gcells[2600];                     // the letters on the screen: 54 columns, 48 rows
+char^ fnt;                             // the font: cell width, cell height, first letter, number of letters, then the letters (cell width * cell height bytes each)
+
+void draw_cell(int col, int row, int c, int cur) {
+    char^ fb = (char^)0x41000000;
+    int g = 4 + (c - 32) * 200;
+    if c < 32 || c > 126 { g = 4; }
+    for gy in 0..20 {
+        int o = ((row * 20 + gy) * 540 + col * 10) * 4;
+        for gx in 0..10 {
+            int a = fnt[g + gy * 10 + gx] & 255;
+            if cur == 1 { a = 255 - a; if a < 90 { a = 90; } }
+            fb[o] = (char)(20 + (235 * a) / 255);
+            fb[o + 1] = (char)(10 + (218 * a) / 255);
+            fb[o + 2] = (char)(8 + (192 * a) / 255);
+            fb[o + 3] = (char)255;
+            o += 4;
+        }
+    }
+}
+
+void scroll_up() {
+    int^ fb = (int^)0x41000000;
+    int words = 540 * 940 / 2;                       // 47 rows of 20 dots, two dots in a word
+    int from = 540 * 20 / 2;
+    for i in 0..words { fb[i] = fb[i + from]; }
+    int bg = 20 | (10 << 8) | (8 << 16) | (255 << 24);
+    int two = bg | (bg << 32);
+    for i in words..(540 * 960 / 2) { fb[i] = two; }
+    for i in 0..(54 * 47) { gcells[i] = gcells[i + 54]; }
+    for i in (54 * 47)..(54 * 48) { gcells[i] = (char)32; }
+    cy = 47;
+}
+
+void newline() {
+    cx = 0;
+    cy += 1;
+    if cy >= 48 { scroll_up(); }
+}
+
+void putc(int c) {
+    if scr == 0 { uputc(c); return; }
+    if shown == 1 { draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 0); shown = 0; }
+    gdirty = 1;
+    if c == 10 { newline(); return; }
+    if c == 13 { cx = 0; return; }
+    if c == 8 { if cx > 0 { cx -= 1; } return; }
+    if c < 32 || c > 126 { return; }
+    if cx >= 54 { newline(); }
+    gcells[cy * 54 + cx] = (char)c;
+    draw_cell(cx, cy, c, 0);
+    cx += 1;
+}
+
+// the picture is shown (with the cursor) before the system waits for a key
+void screen_show() {
+    if scr == 0 || gdirty == 0 { return; }
+    if cx >= 54 { newline(); }
+    draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 1);
+    shown = 1;
+    int^ fb = (int^)0x0B000000;
+    fb[3] = 1;
+    gdirty = 0;
+}
+
 int getc() {                                   // waits for a key: the flag register says when one is there
+    screen_show();
     int^ uart = (int^)0x09000000;
     int fr = uart[3];                          // UARTFR is at 0x18
     while (fr & 16) != 0 { fr = uart[3]; }
@@ -70,7 +143,9 @@ bool same(char^ a, char^ b) {
 
 void fs_ls() {
     for i in 0..nfiles {
-        kputs(@sbuf[512 + i * 64]);
+        char^ e = @sbuf[512 + i * 64];
+        if e[0] == 'j' && e[1] == 'a' && e[2] == 'r' && e[3] == 'i' && e[4] == 'c' && e[5] == '-' { continue; }      // the files of the system (the font) are not listed
+        kputs(e);
         putc(10);
     }
 }
@@ -120,8 +195,38 @@ bool read_line() {
     return false;
 }
 
+// the font: the file jaric-os-font of the disk, read to 0x42100000; the screen is on when it is there
+void screen_start() {
+    int^ fb = (int^)0x0B000000;
+    if fb[1] != 540 || fb[2] != 960 { return; }
+    char nm[16];
+    nm[0] = 'j'; nm[1] = 'a'; nm[2] = 'r'; nm[3] = 'i'; nm[4] = 'c'; nm[5] = '-'; nm[6] = 'o'; nm[7] = 's'; nm[8] = '-'; nm[9] = 'f'; nm[10] = 'o'; nm[11] = 'n'; nm[12] = 't'; nm[13] = 0;
+    for i in 0..nfiles {
+        char^ e = @sbuf[512 + i * 64];
+        int k = 0;
+        while nm[k] != 0 && e[k] == nm[k] { k += 1; }
+        if nm[k] == 0 && e[k] == 0 {
+            int start = rd64(@e[48]);
+            int size = rd64(@e[56]);
+            if size < 4 || size > 60000 { return; }
+            if !disk_io(1, start, 0x42100000, (size + 511) / 512) { return; }
+            fnt = (char^)0x42100000;
+            if (fnt[0] & 255) != 10 || (fnt[1] & 255) != 20 { return; }
+            int^ px = (int^)0x41000000;
+            int bg = 20 | (10 << 8) | (8 << 16) | (255 << 24);
+            int two = bg | (bg << 32);
+            for p in 0..(540 * 960 / 2) { px[p] = two; }
+            for p in 0..(54 * 48) { gcells[p] = (char)32; }
+            fb[0] = 0x41000000;
+            scr = 1;
+            return;
+        }
+    }
+}
+
 void kmain() {
     bool ok = fs_mount();
+    if ok { screen_start(); }
     say(0x534f20636972614a); say(0x374b20);
     putc(10);
     if !ok { say(0x6b736964206f6e); putc(10); }
@@ -147,6 +252,8 @@ void kmain() {
         else if w != 0 { say(0x3f); putc(10); }                    // ?
     }
     say(0x657962); putc(10);
+    gdirty = 1;
+    screen_show();
     char^ stop = (char^)0x09100000;
     stop[0] = 0;
     while true { }

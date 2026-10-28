@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.2.0" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.3.0" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -28,5 +28,6 @@ case "$OUTB" in *"]7777;gfx;open;360;640;"*"]7777;gfx;present"*) ;; *) echo "jar
 # in the Jaric app (JARIC is set) the system has a text screen of its own: the picture is sent to the app and the letters of the kernel are on it
 OUTT=$(printf 'ls\nexit\n' | JARIC=1 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033\007')
 case "$OUTT" in *"]7777;gfx;open;540;960;"*) ;; *) echo "jaric-os test: the text screen"; exit 1 ;; esac
+case "$OUTT" in *"j> "*) echo "jaric-os test: the letters must be on the screen, not in the terminal"; exit 1 ;; esac
 [ "$(wc -c < "$T/jaric-os-screen.bgra")" = 2073600 ] || { echo "jaric-os test: the text screen file"; exit 1; }
 echo "jaric-os tests: ok"

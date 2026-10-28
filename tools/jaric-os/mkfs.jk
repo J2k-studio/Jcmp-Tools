@@ -10,24 +10,35 @@ void put64(String img, int at, int v) {
 
 int main() {
     String[] a = Env::args();
-    if a.len < 3 { cerr << "usage: jfs_mkfs IMAGE FOLDER [SECTORS]\n"; return 2; }
+    if a.len < 3 { cerr << "usage: jfs_mkfs IMAGE FOLDER [SECTORS [FILE...]]\n"; return 2; }
     Result<String[], Error> lr = Dir::list(a[2]);
     if !lr.is_ok() { cerr << "jfs_mkfs: cannot read the folder " << a[2] << "\n"; return 1; }
     String[] names = lr.take();
     names.sort();
+    String[] allp = arr(70);
+    String[] alln = arr(70);
+    for i in 0..names.len { allp.push(a[2] + "/" + names[i]); alln.push(names[i]); }
+    for e in 4..a.len {                                          // more files (full paths): they are put in the disk under their own names
+        int sl = 0;
+        for k in 0..a[e].len { if a[e][k] == '/' { sl = k + 1; } }
+        String nm = "";
+        for k in sl..a[e].len { nm.push(a[e][k]); }
+        allp.push(a[e]);
+        alln.push(nm);
+    }
     String img = "";
     for i in 0..9 * 512 { img.push((char)0); }                  // super block and directory
     int next = 9;                                                // the next free sector
     int count = 0;
     String data = "";
-    for i in 0..names.len {
-        String p = a[2] + "/" + names[i];
-        if Dir::exists(p) || names[i].len == 0 || names[i].len > 47 || count >= 64 { continue; }
+    for i in 0..alln.len {
+        String p = allp[i];
+        if Dir::exists(p) || alln[i].len == 0 || alln[i].len > 47 || count >= 64 { continue; }
         Result<String, Error> fr = Fs::read_bytes(p);
         if !fr.is_ok() { continue; }
         String body = fr.take();
         int at = 512 + count * 64;
-        for k in 0..names[i].len { img[at + k] = names[i][k]; }
+        for k in 0..alln[i].len { img[at + k] = alln[i][k]; }
         put64(img, at + 48, next);
         put64(img, at + 56, body.len);
         data = data + body;

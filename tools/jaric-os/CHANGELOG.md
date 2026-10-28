@@ -1,5 +1,9 @@
 # jaric-os changelog
 
+## 0.3.0
+* **Changed (a real screen, like the screen of a virtual machine):** the system itself draws its letters on the screen (a picture of 540 x 960 dots, a smooth font read from the file `jaric-os-font` of its disk); the machine only shows the picture, as the screen of a virtual machine does. `ls` does not list the files of the system.
+* **Fixed:** a touch on the screen printed code (the messages of the app were taken for keys); they are dropped now.
+
 ## 0.2.0
 * **Added (a screen of its own):** in the Jaric app (`JARIC` is set) Jaric OS has its own full screen: the letters the system writes are drawn with a smooth font (the file `jaric-os-font`, made by `mkfont.py` from a mono font of the phone) on a picture of 540 x 960 dots that the app shows over the terminal; the keys (screen keyboard, OTG keyboard) go to the system. A cursor shows where you type.
 * **Fixed:** typing in the system did nothing in the app (the keys had no way in).
