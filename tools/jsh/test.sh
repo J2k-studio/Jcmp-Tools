@@ -7,7 +7,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
 OUT=$(printf 'echo hello world\necho "a  b" | cat\necho one > f.txt\necho two >> f.txt\ncat < f.txt\nfalse\necho status $?\necho x | tr x y | cat\nnosuchprog\ncd /\npwd\nexit 7\n' | "$SH" 2>&1) && rc=0 || rc=$?
-WANT='jsh 0.10.1 (the shell of Jaric): help shows the commands
+WANT='jsh 0.10.2 (the shell of Jaric): help shows the commands
 hello world
 a  b
 one
@@ -24,7 +24,7 @@ T2=$(mktemp -d); trap 'rm -rf "$T" "$T2"' EXIT
 cd "$T2"; touch a.txt b.txt c.log
 printf 'echo "echo in the script"\nexport K=5\necho k=$K\n' > s.jsh
 OUT2=$(printf 'NAME=jao\necho hi $NAME\nalias say=echo\nsay aliased\necho *.txt\nfalse || echo second\ntrue && echo third\necho a ; echo b\nunset NAME\necho [$NAME]\ntype cd\nexit 0\n' | HOME="$T2" "$SH" 2>&1)
-WANT2='jsh 0.10.1 (the shell of Jaric): help shows the commands
+WANT2='jsh 0.10.2 (the shell of Jaric): help shows the commands
 hi jao
 aliased
 a.txt b.txt
@@ -215,3 +215,13 @@ NEW16=$(cd "$T16/files/home" && printf 'newpw\n' | HOME="$T16/files/home" "$SH" 
 case "$NEW16" in *"root: :/ is now"*) ;; *) echo "shell test (step 16): the new password: $NEW16"; exit 1 ;; esac
 rm -rf "$T16"
 echo "shell test (step 16): ok"
+# step 17: ./script.jsh runs only with the execute right; the message tells to chmod; arguments reach the script
+T17=$(mktemp -d); printf '[#jsh]\necho hi $1 $#\n' > "$T17/a.jsh"
+R17=$(cd "$T17" && "$SH" -c './a.jsh x; echo rc=$?' 2>&1) || true
+case "$R17" in *"permission denied (chmod +x ./a.jsh)"*"rc=126"*) ;; *) echo "shell test (step 17): no execute right: $R17"; exit 1 ;; esac
+R17=$(cd "$T17" && chmod +x a.jsh && "$SH" -c './a.jsh ana b; echo rc=$?' 2>&1) || true
+case "$R17" in *"hi ana 2"*"rc=0"*) ;; *) echo "shell test (step 17): ./a.jsh: $R17"; exit 1 ;; esac
+R17=$(cd "$T17" && "$SH" -c './nofile; echo rc=$?' 2>&1) || true
+case "$R17" in *"command not found"*"rc=127"*) ;; *) echo "shell test (step 17): a missing file: $R17"; exit 1 ;; esac
+rm -rf "$T17"
+echo "shell test (step 17): ok"

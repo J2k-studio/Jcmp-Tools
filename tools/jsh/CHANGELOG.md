@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.2
+* **Added:** `./script.jsh` (or `dir/script.jsh`) runs a jsh script: the file needs the execute right (`chmod +x`), else jsh says `permission denied (chmod +x NAME)`; arguments become `$1 $2 ... $#`. A script is a file ending in `.jsh` or with `[#jsh]`, `#jsh` or `#!jsh` on the first line.
+* **Fixed:** none.
+
 ## 0.10.1
 * **Changed:** as root the prompt keeps the name `jc` and turns it red (it said `root` in 0.10.0).
 * **Added:** `login` (or `signin`) without a name asks `login:` and then the password, like a Unix login; `login root` skips the first question. An unknown name is refused (`no user 'bob'`; root is the only user with a password for now). `passwd` changes the root password (the old one is asked first).

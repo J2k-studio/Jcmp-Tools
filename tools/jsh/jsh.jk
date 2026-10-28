@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.10.1"; }
+String jsh_version() { return "0.10.2"; }
 String[] history;
 int last_status;
 int running;
@@ -1354,8 +1354,47 @@ bool is_jbox_name(String n) {
         || n == "cp" || n == "mv" || n == "grep" || n == "sort" || n == "uniq" || n == "tee" || n == "seq" || n == "basename"
         || n == "dirname" || n == "kill" || n == "sleep" || n == "clear" || n == "true" || n == "false";
 }
+// the mode bits of a file (-1 when it is not there); 0x8000 = a regular file, 0x49 = the three execute bits
+int file_mode_of(String path) {
+    char sb[128];
+    for q in 0..128 { sb[q] = 0; }
+    if Sys::stat(path.c(), @sb) < 0 { return -1; }
+    return (sb[16] & 255) | ((sb[17] & 255) << 8) | ((sb[18] & 255) << 16);
+}
+
+// a jsh script: the name ends in .jsh, or the first line is [#jsh], #jsh or #!jsh
+bool looks_like_jsh(String path) {
+    if path.ends_with(".jsh") { return true; }
+    Result<String, Error> r = Fs::read_text(path);
+    if r.is_err() { return false; }
+    String text = r.take();
+    int nl = text.find("\n");
+    String first = text;
+    if nl >= 0 { first = text.slice(0, nl); }
+    first = first.trim();
+    return first == "[#jsh]" || first == "#jsh" || first == "#!jsh";
+}
+
 bool builtin(String[] a) {
     String name = a[0];
+    // ./script.jsh or dir/script.jsh: run it here, when it has the execute right (chmod +x NAME)
+    bool has_slash = false;
+    for q in 0..name.len { if name[q] == '/' { has_slash = true; } }
+    if has_slash {
+        int fm = file_mode_of(name);
+        if fm >= 0 && (fm & 61440) == 32768 && looks_like_jsh(name) {
+            if (fm & 73) == 0 {
+                cerr << "jsh: " << name << ": permission denied (chmod +x " << name << ")\n";
+                bcode = 126;
+                return true;
+            }
+            for i in 1..a.len { if i < 10 { setv(str(i), a[i]); } }
+            setv("#", str(a.len - 1));
+            setv("0", name);
+            bcode = run_file(name);
+            return true;
+        }
+    }
     if name == "exit" {
         running = 0;
         bcode = last_status;

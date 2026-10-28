@@ -10,7 +10,7 @@ jcmp 1.2.1.0
 jget 1.0.0
 jgit 0.3.1
 jpty 0.1.1
-jsh 0.10.1
+jsh 0.10.2
 jstore 0.2.0
 jvp4 0.1.0
 makej 0.9.2
