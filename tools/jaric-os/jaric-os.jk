@@ -91,7 +91,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.4.0"; }
+String jemu_version() { return "0.5.0"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -339,6 +339,10 @@ void touch_message(char^ m) {
         touch_seq += 1;
         return;
     }
+    char^ gc = "7777;gfx-closed";                                    // the back key of the app closed the screen: the machine is turned off
+    int q = 0;
+    while gc[q] != 0 && m[q] == gc[q] { q += 1; }
+    if gc[q] == 0 { done = 1; exit_code = 0; return; }
     char^ pre = "7777;touch;";
     int i = 0;
     while pre[i] != 0 { if m[i] != pre[i] { return; } i += 1; }
@@ -432,6 +436,12 @@ void mmio_st(int addr, int v) {
         else if foff == 0x08 { fb_w = v; }
         else if foff == 0x10 { fb_h = v; }
         else if foff == 0x18 { fb_flush(); }
+        else if foff == 0x20 {                                  // KEYBOARD: the system asks the app to show (1) or hide (0) its keyboard
+            String kb = "\x1b]7777;gfx;keys;";
+            if v != 0 { kb.append("on"); } else { kb.append("off"); }
+            kb.append("\x07");
+            Sys::write(1, kb.c(), kb.len);
+        }
         return;
     }
     if addr >= 0x0A000000 && addr < 0x0B000000 {                     // the disk: SECTOR 0x08, ADDR 0x10, COUNT 0x18, CMD 0x00 (1 read, 2 write: done at once)

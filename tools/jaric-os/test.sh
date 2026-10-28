@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.4.0" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.5.0" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -28,6 +28,10 @@ case "$OUTT" in *"j> "*) echo "jaric-os test: the letters must be on the screen,
 [ "$(wc -c < "$T/jaric-os-screen.bgra")" = 2073600 ] || { echo "jaric-os test: the text screen file"; exit 1; }
 # the log is on the terminal first (one line for each check), then the screen is used; the picture follows the height the app says is seen
 case "$OUTT" in *"CPU"*"Counter"*"Timer"*"Memory"*"Disk"*"Files"*"Screen"*"Touch"*"is ready"*) ;; *) echo "jaric-os test: the log of the start is not on the terminal: $OUTT"; exit 1 ;; esac
-printf 'ls\n\033]7777;gfx-view;500\007ls\nexit\n' | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" >/dev/null 2>&1
+printf '\033]7777;gfx-view;500\007' | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" >/dev/null 2>&1 || true
 [ "$(wc -c < "$T/jaric-os-screen.bgra")" = $((540*1160*4)) ] || { echo "jaric-os test: the size of the picture follows JARIC_SCREEN"; exit 1; }
+# the phone: the home screen has the apps of the system and the .jc packages of the disk; a tap on the Terminal icon opens the console and asks for the keyboard
+printf 'x' > "$T/disk/photos.jc"
+{ sleep 1; printf '\033]7777;touch;D;100;1000;0\007\033]7777;touch;U;100;1000;0\007'; sleep 1; printf 'ls\r'; sleep 1; printf '\033]7777;gfx-closed\007'; sleep 1; } | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033\007' > "$T/phone.out" || true
+command grep -q "gfx;keys;on" "$T/phone.out" || { echo "jaric-os test: the Terminal icon did not ask for the keyboard"; cat "$T/phone.out" | head -5; exit 1; }
 echo "jaric-os tests: ok"

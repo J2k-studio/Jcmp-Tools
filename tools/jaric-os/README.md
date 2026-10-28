@@ -1,6 +1,6 @@
 # jaric-os: Jaric OS in the Jaric app
 
-`jaric-os` starts **Jaric OS**, the operating system of the Jaric project (written in J2K), on a small machine inside the app. It is the internal tool of the app: the app brings a version, and `jc update` puts a newer one over it.
+`jaric-os` starts **Jaric OS**, a phone with a home screen (the .jc packages of the disk are the apps),, the operating system of the Jaric project (written in J2K), on a small machine inside the app. It is the internal tool of the app: the app brings a version, and `jc update` puts a newer one over it.
 
 ## Install
 

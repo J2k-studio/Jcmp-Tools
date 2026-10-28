@@ -1,5 +1,10 @@
 # jaric-os changelog
 
+## 0.5.0
+* **Added (a phone, not a console):** after the log the system shows a home screen: a dark blue wallpaper, a status line with the uptime, a card about the machine, a grid of icons for the `.jc` packages found on the disk (name from the file, a coloured icon with its first letter) and the Power icon, a dock with Terminal, Files, Clock and About, and a home bar. A tap opens an app; `< Home` at the top (or a tap at the bottom edge) goes back.
+* **Added (apps of the system):** Terminal (the console, with the keyboard that comes only here), Files (the files of the disk with their sizes), Clock (the time since start), About (what the start found), Power (turns the machine off). A `.jc` package opens a card with its name and size; running the program of a package comes next (the system must read the zip and start the program on the screen).
+* **Added (devices):** the screen has a KEYBOARD register (the app shows or hides its keyboard); the back key of the app turns the machine off.
+
 ## 0.4.0
 * **Changed (the log is on the terminal):** the start writes one line for each check on the terminal, like the start of Linux but short: `[ seconds ] [ OK ] CPU ... core 0`, counter, timer, memory (three places), UART, disk, files, font, screen, touch, input; green `[ OK ]`, red `[FAIL]`. When it is done the system moves to its own screen.
 * **Fixed (full screen):** the picture is 540 dots wide and as high as the phone (the app says it in `JARIC_SCREEN`): no bars; the keyboard does not shrink it any more: the part that is seen is cut, the system is told the seen height (`gfx-view`) and keeps the cursor in sight.
