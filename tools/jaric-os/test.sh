@@ -3,13 +3,13 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.3.0" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.4.0" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
 printf 'first file\n' > "$T/disk/a.txt"; printf 'second\n' > "$T/disk/b.txt"
 OUT=$(printf 'ls\ncat a.txt\necho hello there\nexit\n' | "$B/jaric-os" "$T/disk" 2>&1)
-case "$OUT" in *"Jaric OS 0.3"*"[ OK ] CPU"*"[ OK ] Timer"*"j> ls"*"a.txt"*"b.txt"*"first file"*"hello there"*"bye"*) ;; *) echo "jaric-os test: jemu os: $OUT"; exit 1 ;; esac
+case "$OUT" in *"Jaric OS 0.3"*"CPU"*"Timer"*"Memory"*"j> ls"*"a.txt"*"b.txt"*"first file"*"hello there"*"bye"*) ;; *) echo "jaric-os test: jemu os: $OUT"; exit 1 ;; esac
 # no folder given: ~/.jaric-os is made with two small files
 OUT2=$(printf 'ls\nexit\n' | "$B/jaric-os" 2>&1)
 case "$OUT2" in *"hello.txt"*"readme.txt"*) ;; *) echo "jaric-os test: the default folder: $OUT2"; exit 1 ;; esac
@@ -26,4 +26,8 @@ OUTT=$(printf 'ls\nexit\n' | JARIC=1 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033\
 case "$OUTT" in *"]7777;gfx;open;540;960;"*) ;; *) echo "jaric-os test: the text screen"; exit 1 ;; esac
 case "$OUTT" in *"j> "*) echo "jaric-os test: the letters must be on the screen, not in the terminal"; exit 1 ;; esac
 [ "$(wc -c < "$T/jaric-os-screen.bgra")" = 2073600 ] || { echo "jaric-os test: the text screen file"; exit 1; }
+# the log is on the terminal first (one line for each check), then the screen is used; the picture follows the height the app says is seen
+case "$OUTT" in *"CPU"*"Counter"*"Timer"*"Memory"*"Disk"*"Files"*"Screen"*"Touch"*"is ready"*) ;; *) echo "jaric-os test: the log of the start is not on the terminal: $OUTT"; exit 1 ;; esac
+printf 'ls\n\033]7777;gfx-view;500\007ls\nexit\n' | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" >/dev/null 2>&1
+[ "$(wc -c < "$T/jaric-os-screen.bgra")" = $((540*1160*4)) ] || { echo "jaric-os test: the size of the picture follows JARIC_SCREEN"; exit 1; }
 echo "jaric-os tests: ok"

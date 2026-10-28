@@ -91,7 +91,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.3.0"; }
+String jemu_version() { return "0.4.0"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -249,6 +249,7 @@ void gfx_present(char^ src, int w, int h, bool slow) {
         gfx_fd = Sys::call(56, 0 - 100, (int)gfx_path, 66, 420, 0, 0);                 // openat(O_RDWR | O_CREAT)
         String open = "\x1b]7777;gfx;open;" + str(w) + ";" + str(h) + ";";
         open.append(gfx_path);
+        open.append(";fill");
         open.append("\x07");
         Sys::write(1, open.c(), open.len);
         gfx_opened = true;
@@ -318,15 +319,73 @@ int disk_do(int cmd) {                          // 1 read, 2 write: count sector
     return 0;
 }
 
+// ---- the touch device at 0x0C000000: SEQ 0x00 (counts the events), X 0x08, Y 0x10 (dots of the screen), STATE 0x18 (1 down, 2 move, 3 up), ID 0x20 (the finger)
+int touch_seq;
+int touch_x;
+int touch_y;
+int touch_state;
+int touch_id;
+
+// the message of the app  7777;touch;D|M|U;x;y;id
+void touch_message(char^ m) {
+    char^ vw = "7777;gfx-view;";                                     // the app says how many dots of the picture are seen (the keyboard hides a part): state 4, Y = the height
+    int j = 0;
+    while vw[j] != 0 && m[j] == vw[j] { j += 1; }
+    if vw[j] == 0 {
+        int hv = 0;
+        while (m[j] & 255) >= 48 && (m[j] & 255) <= 57 { hv = hv * 10 + (m[j] & 255) - 48; j += 1; }
+        touch_y = hv;
+        touch_state = 4;
+        touch_seq += 1;
+        return;
+    }
+    char^ pre = "7777;touch;";
+    int i = 0;
+    while pre[i] != 0 { if m[i] != pre[i] { return; } i += 1; }
+    int st = 0;
+    if m[i] == 'D' { st = 1; } else if m[i] == 'M' { st = 2; } else if m[i] == 'U' { st = 3; } else { return; }
+    i += 2;
+    int f = 0;
+    int v = 0;
+    int xs = 0;
+    int ys = 0;
+    int ids = 0;
+    while true {
+        int c = m[i] & 255;
+        if c >= 48 && c <= 57 { v = v * 10 + c - 48; }
+        else {
+            if f == 0 { xs = v; } else if f == 1 { ys = v; } else { ids = v; }
+            f += 1;
+            v = 0;
+            if c == 0 { break; }
+        }
+        i += 1;
+    }
+    touch_x = xs;
+    touch_y = ys;
+    touch_id = ids;
+    touch_state = st;
+    touch_seq += 1;
+}
+
 int uart_ld(int addr) {
-    if addr >= 0x0B000000 {                     // the screen: the registers can be read back
+    if addr >= 0x0C000000 {
+        int toff = addr - 0x0C000000;
+        if toff == 0x00 { return touch_seq; }
+        if toff == 0x08 { return touch_x; }
+        if toff == 0x10 { return touch_y; }
+        if toff == 0x18 { return touch_state; }
+        if toff == 0x20 { return touch_id; }
+        return 0;
+    }
+    if addr >= 0x0B000000 && addr < 0x0C000000 {                     // the screen: the registers can be read back
         int foff = addr - 0x0B000000;
         if foff == 0x00 { return fb_addr; }
         if foff == 0x08 { return fb_w; }
         if foff == 0x10 { return fb_h; }
         return 0;
     }
-    if addr >= 0x0A000000 {                     // the disk: STATUS (0x20), SIZE in sectors (0x28)
+    if addr >= 0x0A000000 && addr < 0x0B000000 {                     // the disk: STATUS (0x20), SIZE in sectors (0x28)
         int doff = addr - 0x0A000000;
         if doff == 0x20 { return disk_status; }
         if doff == 0x28 { return disk_sectors; }
@@ -342,9 +401,14 @@ int uart_ld(int addr) {
             if n > 0 && (one[0] & 255) == 27 {                       // a message of the app (ESC ] ... BEL, a touch) is no key: it is read to its end and dropped
                 int n2 = Sys::read(0, @one, 1);
                 if n2 > 0 && (one[0] & 255) == 93 {
+                    char msg[64];
+                    int ml = 0;
                     int m = Sys::read(0, @one, 1);
-                    while m > 0 && (one[0] & 255) != 7 { m = Sys::read(0, @one, 1); }
-                    n = Sys::read(0, @one, 1);
+                    while m > 0 && (one[0] & 255) != 7 { if ml < 63 { msg[ml] = one[0]; ml += 1; } m = Sys::read(0, @one, 1); }
+                    msg[ml] = 0;
+                    touch_message(@msg);
+                    rx_have = false;
+                    return 0x90;                                       // no key: the touch is in the registers of the touch device; the system looks at them
                 } else if n2 > 0 { rx_byte = 27; rx_pending = one[0] & 255; rx_has_pending = true; rx_have = true; return 0x80; }
             }
             if n <= 0 { rx_byte = 4; } else { rx_byte = one[0] & 255; }
@@ -361,6 +425,7 @@ int uart_ld(int addr) {
 }
 
 void mmio_st(int addr, int v) {
+    if addr >= 0x0C000000 { return; }
     if addr >= 0x0B000000 {                     // the screen: ADDR 0x00, WIDTH 0x08, HEIGHT 0x10, FLUSH 0x18
         int foff = addr - 0x0B000000;
         if foff == 0x00 { fb_addr = v; }
@@ -369,7 +434,7 @@ void mmio_st(int addr, int v) {
         else if foff == 0x18 { fb_flush(); }
         return;
     }
-    if addr >= 0x0A000000 {                     // the disk: SECTOR 0x08, ADDR 0x10, COUNT 0x18, CMD 0x00 (1 read, 2 write: done at once)
+    if addr >= 0x0A000000 && addr < 0x0B000000 {                     // the disk: SECTOR 0x08, ADDR 0x10, COUNT 0x18, CMD 0x00 (1 read, 2 write: done at once)
         int doff = addr - 0x0A000000;
         if doff == 0x08 { disk_sector = v; }
         else if doff == 0x10 { disk_addr = v; }
@@ -390,7 +455,7 @@ void mmio_st(int addr, int v) {
 
 int ld(int addr, int size) {
     if mmu_on() { addr = xlate(addr, 0); if addr < 0 { return 0; } }
-    if sysmode && addr >= 0x09000000 && addr < 0x0B001000 { return uart_ld(addr); }
+    if sysmode && addr >= 0x09000000 && addr < 0x0C001000 { return uart_ld(addr); }
     int h = host_of(addr, size);
     if h == 0 { fault(addr, "read"); }
     if size == 8 { int^ p = (int^)h; return p[0]; }
@@ -402,7 +467,7 @@ int ld(int addr, int size) {
 
 void st(int addr, int size, int v) {
     if mmu_on() { addr = xlate(addr, 1); if addr < 0 { return; } }
-    if sysmode && addr >= 0x09000000 && addr < 0x0B001000 { mmio_st(addr, v); return; }
+    if sysmode && addr >= 0x09000000 && addr < 0x0C001000 { mmio_st(addr, v); return; }
     int h = host_of(addr, size);
     if h == 0 { fault(addr, "write"); }
     if size == 8 { int^ p = (int^)h; p[0] = v; return; }
@@ -1659,7 +1724,15 @@ int main() {
         while ai + 1 < args.len {
             if args[ai] == "--steps" { max_steps = args[ai + 1].to_int(); }
             if args[ai] == "--shift" { kshift = args[ai + 1].to_int(); }
-            if args[ai] == "--gfx" { gfx_path = args[ai + 1].c(); fb_w = 540; fb_h = 960; }          // the machine has a screen: the system can draw on it (540 x 960)
+            if args[ai] == "--gfx" {
+                gfx_path = args[ai + 1].c();
+                fb_w = 540;
+                fb_h = 960;
+                switch Env::get("JARIC_SCREEN") {                         // the app says how big the picture is that fills its screen: 540xHEIGHT
+                    Option::Some(v): { int xp = 0; for q in 0..v.len { if v[q] == 'x' { xp = q + 1; } } if xp > 0 { int hv = 0; for q in xp..v.len { hv = hv * 10 + (v[q] - '0'); } if hv >= 480 && hv <= 1400 { fb_h = hv; } } }
+                    Option::None: { }
+                }
+            }          // the machine has a screen: the system can draw on it (540 x 960)
             if args[ai] == "--font" { text_start(args[ai + 1].c()); }
             if args[ai] == "--screen" { screen_path = args[ai + 1].c(); }
             if args[ai] == "--disk" {

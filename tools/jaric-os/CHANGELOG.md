@@ -1,5 +1,10 @@
 # jaric-os changelog
 
+## 0.4.0
+* **Changed (the log is on the terminal):** the start writes one line for each check on the terminal, like the start of Linux but short: `[ seconds ] [ OK ] CPU ... core 0`, counter, timer, memory (three places), UART, disk, files, font, screen, touch, input; green `[ OK ]`, red `[FAIL]`. When it is done the system moves to its own screen.
+* **Fixed (full screen):** the picture is 540 dots wide and as high as the phone (the app says it in `JARIC_SCREEN`): no bars; the keyboard does not shrink it any more: the part that is seen is cut, the system is told the seen height (`gfx-view`) and keeps the cursor in sight.
+* **Fixed:** code printed when a key was held (only plain letters go to the system).
+
 ## 0.3.0
 * **Changed (a real screen, like the screen of a virtual machine):** the system itself draws its letters on the screen (a picture of 540 x 960 dots, a smooth font read from the file `jaric-os-font` of its disk); the machine only shows the picture, as the screen of a virtual machine does. `ls` does not list the files of the system.
 * **Changed (the start is a log, not a picture):** no drawn start screen any more; the system looks at the machine and writes what it finds, line by line, in colours: `[ OK ] CPU ARM64, exception level 1`, the counter, a timer tick (really waited for), memory (written and read back), the disk (sectors), the files (JFS), the screen, the input. A failed check shows `[FAIL]`. Then `Jaric OS is ready.` and the prompt.
