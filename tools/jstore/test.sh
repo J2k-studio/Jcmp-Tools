@@ -23,7 +23,7 @@ g = make('game', '2.0', '["audio", "files"]')
 open(f'{t}/index.txt', 'w').write(f'# a test index\napp.hello 1.0 {t}/hello-1.0.jc {a1} - Hello program\napp.hello 1.1 {t}/hello-1.1.jc {a2} - Hello program\napp.game 2.0 {t}/game-2.0.jc {g} files,audio A Game\napp.bad 1.0 {t}/hello-1.0.jc {"0"*64} - Bad checksum\n')
 PY
 export JSTORE_INDEX="$T/index.txt"
-[ "$("$J" --version)" = "jstore 0.1.0" ] || { echo "jstore test: version"; exit 1; }
+[ "$("$J" --version)" = "jstore 0.2.0" ] || { echo "jstore test: version"; exit 1; }
 out=$("$J" list)
 echo "$out" | grep -q "app.hello  1.1  Hello program   \[no permissions\]" || { echo "jstore test: list: $out"; exit 1; }
 echo "$out" | grep -q "app.game  2.0  A Game   \[files,audio\]" || { echo "jstore test: list perms"; exit 1; }
@@ -48,4 +48,8 @@ jc install "$T/hello-1.0.jc" -y > /dev/null
 [ "$(jc run app.hello)" = "hello 1.1" ] || { echo "jstore test: the update was not installed"; exit 1; }
 "$J" update | grep -q "up to date" || { echo "jstore test: up to date"; exit 1; }
 "$J" remove app.game > /dev/null; "$J" list | grep -q "^\* app.game" && { echo "jstore test: remove"; exit 1; }
+# lines (for other programs) and get (a package into a folder, checked, no jc)
+"$J" lines | grep -q "^app.hello	" || { echo "jstore test: lines"; exit 1; }
+mkdir -p "$T/dl"; "$J" get app.hello "$T/dl" > /dev/null || { echo "jstore test: get"; exit 1; }
+[ -s "$T/dl/app.hello.jc" ] || { echo "jstore test: get saved nothing"; exit 1; }
 echo "jstore tests: ok"

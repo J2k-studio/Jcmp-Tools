@@ -11,7 +11,7 @@
 // Needs the tools jget (download) and jc (install). Design: docs/security.md of the Jaric project.
 #import <stdlib>
 
-String jstore_version() { return "0.1.0"; }
+String jstore_version() { return "0.2.0"; }
 
 int fail(String msg) {
     cerr << "jstore: " << msg << "\n";
@@ -175,6 +175,43 @@ int install_one(int i, bool yes) {
     return r.take();
 }
 
+// jstore lines: one line for each program, for other programs to read: ID, VERSION, NAME, separated by a tab
+int do_lines() {
+    if !load_index() { return fail("no index could be read (JSTORE_INDEX)"); }
+    for i in 0..g_id.len { cout << g_id[i] << "\t" << g_ver[i] << "\t" << g_name[i] << "\n"; }
+    return 0;
+}
+
+// jstore get ID FOLDER: download the package, check its SHA-256, and put it in FOLDER as ID.jc (jc is not used: for a system that keeps its packages in a folder of its own)
+int do_get(String[] a) {
+    if a.len < 4 { return fail("usage: jstore get ID FOLDER"); }
+    if !load_index() { return fail("no index could be read"); }
+    int i = find_id(a[2]);
+    if i < 0 { return fail("no program '" + a[2] + "' in the store (jstore list)"); }
+    String pkg = fetch(g_url[i], g_id[i] + ".jc");
+    if pkg.len == 0 { return fail("cannot download " + g_url[i]); }
+    String have = "";
+    switch Sha256::file(pkg) {
+        Result::Ok(h): { have = h; }
+        Result::Err(e): { have = ""; }
+    }
+    if have != g_sum[i] {
+        Fs::remove(pkg);
+        return fail("the checksum of " + g_id[i] + " does not match the index (" + have + "): nothing saved");
+    }
+    String dest = a[3] + "/" + g_id[i] + ".jc";
+    switch Fs::read_bytes(pkg) {
+        Result::Ok(b): {
+            Result<int, Error> w = Fs::write_bytes(dest, b);
+            Fs::remove(pkg);
+            if !w.is_ok() { return fail("cannot write " + dest); }
+        }
+        Result::Err(e): { Fs::remove(pkg); return fail("cannot read the download"); }
+    }
+    cout << "saved " << dest << "\n";
+    return 0;
+}
+
 int do_install(String[] a) {
     if a.len < 3 { return fail("usage: jstore install ID [-y]"); }
     bool yes = false;
@@ -218,11 +255,15 @@ int main() {
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
         cout << "jstore: the store of the programs of Jaric (.jc)\n";
         cout << "  jstore list [WORD] | info ID | install ID [-y] | update [-y] | remove ID\n";
+        cout << "  jstore lines                  one line for each program: ID, VERSION, NAME (tab separated)\n";
+        cout << "  jstore get ID FOLDER          download and check a package and save it as FOLDER/ID.jc (no install)\n";
         return 0;
     }
     if a[1] == "list" { return do_list(a); }
     if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
     if a[1] == "install" { return do_install(a); }
+    if a[1] == "lines" { return do_lines(); }
+    if a[1] == "get" { return do_get(a); }
     if a[1] == "update" { return do_update(a); }
     if a[1] == "remove" && a.len >= 3 { return do_remove(a[2]); }
     cerr << "jstore: unknown command '" << a[1] << "' (jstore help)\n";

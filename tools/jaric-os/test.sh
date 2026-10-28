@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.5.0" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.6.0" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -34,4 +34,18 @@ printf '\033]7777;gfx-view;500\007' | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os
 printf 'x' > "$T/disk/photos.jc"
 { sleep 1; printf '\033]7777;touch;D;100;1000;0\007\033]7777;touch;U;100;1000;0\007'; sleep 1; printf 'ls\r'; sleep 1; printf '\033]7777;gfx-closed\007'; sleep 1; } | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033\007' > "$T/phone.out" || true
 command grep -q "gfx;keys;on" "$T/phone.out" || { echo "jaric-os test: the Terminal icon did not ask for the keyboard"; cat "$T/phone.out" | head -5; exit 1; }
+# the store: a tap on the Store icon asks the host for the list (jstore lines), a tap on Install gets the package (jstore get) and the disk is made again; the package is a file of the folder
+mkdir -p "$T/fakebin"
+cat > "$T/fakebin/jstore" <<'SH'
+#!/bin/sh
+case "$1" in
+  lines) printf 'app.demo\t1.0.0\tDemo app\n' ;;
+  get) printf 'PK demo' > "$3/$2.jc"; echo "saved" ;;
+esac
+SH
+chmod +x "$T/fakebin/jstore"
+rm -f "$T/disk/photos.jc"
+{ sleep 1; printf '\033]7777;touch;D;330;990;0\007\033]7777;touch;U;330;990;0\007'; sleep 2; printf '\033]7777;touch;D;450;131;0\007\033]7777;touch;U;450;131;0\007'; sleep 3; printf '\033]7777;gfx-closed\007'; sleep 1; } | PATH="$T/fakebin:$PATH" JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" > "$T/store.out" 2>&1 || true
+[ -s "$T/disk/app.demo.jc" ] || { echo "jaric-os test: the store did not put the package in the folder"; exit 1; }
+command grep -q "runtime error" "$T/store.out" && { echo "jaric-os test: the store crashed"; exit 1; }
 echo "jaric-os tests: ok"

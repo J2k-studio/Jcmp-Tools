@@ -1,5 +1,10 @@
 # jaric-os changelog
 
+## 0.6.0
+* **Added (the store):** the Store app (in the dock): it asks the host for the programs of jstore (`jstore lines`), shows them with a button (Install / Got it); a tap on Install downloads the package into the folder of the disk (`jstore get`, checked with its SHA-256), the disk is made again and read again, and the new app is on the home screen at once. The system reaches the host only through a host call device (`list`, `get ID`, `remount`; nothing else).
+* **Changed:** the disk has room for packages: 4096 sectors (2 MB) at least. The apps of the system in the dock are Terminal, Files, Store and About; Clock moved to the home screen.
+* **Needs:** the tool `jstore` 0.2.0 (`jc install jstore`; the Jaric app brings it).
+
 ## 0.5.0
 * **Added (a phone, not a console):** after the log the system shows a home screen: a dark blue wallpaper, a status line with the uptime, a card about the machine, a grid of icons for the `.jc` packages found on the disk (name from the file, a coloured icon with its first letter) and the Power icon, a dock with Terminal, Files, Clock and About, and a home bar. A tap opens an app; `< Home` at the top (or a tap at the bottom edge) goes back.
 * **Added (apps of the system):** Terminal (the console, with the keyboard that comes only here), Files (the files of the disk with their sizes), Clock (the time since start), About (what the start found), Power (turns the machine off). A `.jc` package opens a card with its name and size; running the program of a package comes next (the system must read the zip and start the program on the screen).

@@ -556,8 +556,9 @@ void build_apps() {
     napps = 0;
     addapp(0, 0x6c616e696d726554, 0, 0);
     addapp(1, 0x73656c6946, 0, 0);
-    addapp(2, 0x6b636f6c43, 0, 0);
+    addapp(6, 0x65726f7453, 0, 0);
     addapp(3, 0x74756f6241, 0, 0);
+    addapp(2, 0x6b636f6c43, 0, 0);
     addapp(5, 0x7265776f50, 0, 0);
     for i in 0..nfiles {
         char^ e = @sbuf[512 + i * 64];
@@ -628,7 +629,7 @@ void draw_home() {
         draw_icon(cell_x + 23, 390 + row * 160, a, 88);
         label(cell_x + 67, 390 + row * 160 + 98, a);
     }
-    if napps <= 5 {
+    if napps <= 6 {
         t8(28 + 0, 600, 0x6120636a2e206f4e, 1, rgb(150, 175, 215)); t8(28 + 80, 600, 0x74206e6f20737070, 1, rgb(150, 175, 215)); t8(28 + 160, 600, 0x206b736964206568, 1, rgb(150, 175, 215)); t8(28 + 240, 600, 0x2e746579, 1, rgb(150, 175, 215));
         t8(28 + 0, 626, 0x6170206120747550, 1, rgb(150, 175, 215)); t8(28 + 80, 626, 0x6e28206567616b63, 1, rgb(150, 175, 215)); t8(28 + 160, 626, 0x2029636a2e656d61, 1, rgb(150, 175, 215)); t8(28 + 240, 626, 0x656874206e69, 1, rgb(150, 175, 215));
         t8(28 + 0, 652, 0x6f207265646c6f66, 1, rgb(150, 175, 215)); t8(28 + 80, 652, 0x7973206568742066, 1, rgb(150, 175, 215)); t8(28 + 160, 652, 0x2f7e203a6d657473, 1, rgb(150, 175, 215)); t8(28 + 240, 652, 0x6f2d636972616a2e, 1, rgb(150, 175, 215)); t8(28 + 320, 652, 0x73, 1, rgb(150, 175, 215));
@@ -781,6 +782,152 @@ void app_jc(int app) {
     app_wait_home();
 }
 
+
+// ---- the store: the programs of jstore. The system asks the host (the host call device) for the list, and for a package to be put on the disk; then it reads the disk again.
+char hcmd[100];
+int soff[16];                          // where each line of the list starts in the answer (at 0x42200000)
+int snum;
+
+// asks the host: the command is in hcmd; the answer is at 0x42200000; returns the status (0 = ok)
+int hostcall_do() {
+    int^ hc = (int^)0x0D000000;
+    hc[0] = (int)@hcmd;
+    hc[1] = 0x42200000;
+    hc[2] = 1;
+    return hc[3];
+}
+
+void hc_text(int w0, int w1) {
+    for k in 0..8 { hcmd[k] = (char)((w0 >> (k * 8)) & 255); }
+    for k in 0..8 { hcmd[8 + k] = (char)((w1 >> (k * 8)) & 255); }
+    hcmd[16] = 0;
+}
+
+// the id of the package on a line: the letters up to the first tab
+int line_end(char^ p, int from) {
+    int i = from;
+    while p[i] != 0 && p[i] != 10 { i += 1; }
+    return i;
+}
+
+bool have_pkg(char^ p, int from) {                    // is the file ID.jc on the disk
+    int idl = 0;
+    while p[from + idl] != 9 && p[from + idl] != 0 && p[from + idl] != 10 { idl += 1; }
+    for i in 0..nfiles {
+        char^ e = @sbuf[512 + i * 64];
+        int k = 0;
+        while k < idl && e[k] == p[from + k] { k += 1; }
+        if k == idl && e[k] == '.' && e[k + 1] == 'j' && e[k + 2] == 'c' && e[k + 3] == 0 { return true; }
+    }
+    return false;
+}
+
+void store_draw(int msg0, int msg1) {
+    wallpaper();
+    draw_bar(0x65726f7453, 0);
+    char^ ans = (char^)0x42200000;
+    snum = 0;
+    int pos = 0;
+    while ans[pos] != 0 && snum < 12 {
+        soff[snum] = pos;
+        snum += 1;
+        pos = line_end(ans, pos);
+        if ans[pos] == 10 { pos += 1; }
+    }
+    for i in 0..snum {
+        int y = 96 + i * 78;
+        rrect(16, y, 508, 70, 18, rgb(26, 36, 66));
+        int p = soff[i];
+        int tabs = 0;
+        int ver = 0;
+        int nm = 0;
+        int j = p;
+        while ans[j] != 0 && ans[j] != 10 {
+            if ans[j] == 9 { tabs += 1; if tabs == 1 { ver = j + 1; } if tabs == 2 { nm = j + 1; } }
+            j += 1;
+        }
+        int e = line_end(ans, p);
+        int l = 0;
+        while nm > 0 && nm + l < e && l < 24 { tb[l] = ans[nm + l]; l += 1; }
+        tb[l] = 0;
+        text(32, y + 10, @tb, 1, rgb(235, 242, 255));
+        int vl = 0;
+        while ver > 0 && ans[ver + vl] != 9 && vl < 10 { tb[vl] = ans[ver + vl]; vl += 1; }
+        tb[vl] = 0;
+        text(32, y + 38, @tb, 1, rgb(150, 175, 215));
+        if have_pkg(ans, p) {
+            rrect(392, y + 14, 116, 42, 21, rgb(60, 90, 80));
+            t8(408 + 0, y + 25, 0x746920746f47, 1, rgb(190, 235, 210));
+        } else {
+            rrect(392, y + 14, 116, 42, 21, rgb(70, 150, 255));
+            t8(408 + 0, y + 25, 0x6c6c6174736e49, 1, rgb(255, 255, 255));
+        }
+    }
+    if snum == 0 { t8(28 + 0, 110, 0x20676e6968746f4e, 1, rgb(150, 175, 215)); t8(28 + 80, 110, 0x2e776f6873206f74, 1, rgb(150, 175, 215)); }
+    if msg0 != 0 { t8(28, scrH - 120, msg0, 1, rgb(255, 215, 120)); t8(108, scrH - 120, msg1, 1, rgb(255, 215, 120)); }
+    present();
+}
+
+void store_message(char^ ans) {                       // the answer of the host as a line of text at the bottom
+    int l = 0;
+    while ans[l] != 0 && ans[l] != 10 && l < 50 { tb[l] = ans[l]; l += 1; }
+    tb[l] = 0;
+    fill(0, scrH - 130, 540, 40, rgb(12, 18, 40));
+    text(28, scrH - 120, @tb, 1, rgb(255, 215, 120));
+    present();
+}
+
+void app_store() {
+    char^ ans = (char^)0x42200000;
+    ans[0] = 0;
+    wallpaper();
+    draw_bar(0x65726f7453, 0);
+    t8(28 + 0, 120, 0x7420676e696b7341, 1, rgb(150, 175, 215)); t8(28 + 80, 120, 0x65726f7473206568, 1, rgb(150, 175, 215)); t8(28 + 160, 120, 0x2e2e2e20, 1, rgb(150, 175, 215));
+    present();
+    hc_text(0x7473696c, 0);
+    int st = hostcall_do();
+    if st != 0 {
+        wallpaper();
+        draw_bar(0x65726f7453, 0);
+        store_message(ans);
+        app_wait_home();
+        return;
+    }
+    store_draw(0, 0);
+    while true {
+        int r = wait_event();
+        if r != 1 { continue; }
+        if is_home_tap() { return; }
+        int i = (tap_y - 96) / 78;
+        if tap_y < 96 || i >= snum || tap_x < 380 { continue; }
+        int p = soff[i];
+        if have_pkg(ans, p) { continue; }
+        // install: "get ID"
+        hc_text(0x20746567, 0);
+        int idl = 0;
+        while ans[p + idl] != 9 && ans[p + idl] != 0 && idl < 80 { hcmd[4 + idl] = ans[p + idl]; idl += 1; }
+        hcmd[4 + idl] = 0;
+        char^ keep = (char^)0x42210000;                // the list is kept: the answer of the host goes over it
+        for k in 0..4000 { keep[k] = ans[k]; }
+        fill(0, scrH - 130, 540, 40, rgb(12, 18, 40));
+        t8(28 + 0, scrH - 120, 0x64616f6c6e776f44, 1, rgb(255, 215, 120)); t8(28 + 80, scrH - 120, 0x2e2e2e20676e69, 1, rgb(255, 215, 120));
+        present();
+        int gs = hostcall_do();
+        if gs != 0 {
+            store_message(ans);
+            for k in 0..4000 { ans[k] = keep[k]; }
+            continue;
+        }
+        hc_text(0x746e756f6d6572, 0);
+        hostcall_do();
+        // the disk has new files: read it again
+        if fs_mount() { fsok = 1; }
+        build_apps();
+        for k in 0..4000 { ans[k] = keep[k]; }
+        store_draw(0x64656c6c6174736e49, 0);
+    }
+}
+
 // ---- the terminal app: the console of before, on the screen under the bar; the back button (or a tap at the bottom edge) goes home
 void term_redraw() {
     wallpaper();
@@ -867,6 +1014,7 @@ void phone() {
         else if kd == 3 { app_about(); }
         else if kd == 4 { app_jc(app); }
         else if kd == 5 { power_off(); }
+        else if kd == 6 { app_store(); }
     }
 }
 

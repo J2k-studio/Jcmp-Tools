@@ -91,7 +91,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.5.0"; }
+String jemu_version() { return "0.6.0"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -319,6 +319,92 @@ int disk_do(int cmd) {                          // 1 read, 2 write: count sector
     return 0;
 }
 
+// ---- the host call device at 0x0D000000: CMD 0x00 (where the command text is, in the memory of the guest), OUT 0x08 (where the answer goes, 4 KB), GO 0x10 (a write does it), STATUS 0x18 (0 = ok).
+// The commands: "list" (the programs of the store: id, version, name, tab separated), "get ID" (download the package ID into the folder of the disk), "remount" (the disk gets the files of the folder again).
+// It is how the system reaches the network and the folder of the phone: only these commands are done, nothing else.
+String hc_folder;
+String hc_img;
+String hc_mkfs;
+String hc_font;
+int hc_cmd;
+int hc_out;
+int hc_status;
+
+void hc_reimage() {
+    String tmpimg = hc_img + ".new";
+    String[] ma = arr(6);
+    String f1 = tmpimg + "";
+    String f2 = hc_folder + "";
+    ma.push(f1); ma.push(f2); ma.push("4096");
+    if hc_font.len > 0 { String f3 = hc_font + ""; ma.push(f3); }
+    String mk = hc_mkfs + "";
+    switch Proc::output(mk, ma) { Result::Ok(o): { } Result::Err(e): { hc_status = 1; return; } }
+    // the new image is read with the calls of the system (a pattern variable that holds 2 MB of text crashed the runtime) and written over the disk
+    Result<int, Error> szr = Fs::size(tmpimg);
+    if !szr.is_ok() { hc_status = 1; Fs::remove(tmpimg); return; }
+    int n = szr.take();
+    int ifd = Sys::call(56, 0 - 100, (int)tmpimg.c(), 0, 0, 0, 0);                      // openat(O_RDONLY)
+    if ifd < 0 || n <= 0 || disk_fd < 0 { hc_status = 1; Fs::remove(tmpimg); return; }
+    char^ big = (char^)Mem::alloc(n + 16);
+    int got = 0;
+    while got < n {
+        int r = Sys::call(63, ifd, (int)big + got, n - got, 0, 0, 0);                    // read
+        if r <= 0 { break; }
+        got += r;
+    }
+    Sys::call(57, ifd, 0, 0, 0, 0, 0);
+    if got == n {
+        Sys::call(68, disk_fd, (int)big, n, 0, 0, 0);                                    // pwrite64: the image file of the disk gets the new files
+        disk_sectors = n / 512;
+    } else { hc_status = 1; }
+    Mem::free(big);
+    Fs::remove(tmpimg);
+}
+
+void hostcall() {
+    int h = host_of(hc_cmd, 96);
+    hc_status = 0;
+    if h == 0 { hc_status = 2; return; }
+    char^ p = (char^)h;
+    String c = "";
+    int i = 0;
+    while i < 95 && p[i] != 0 { c.push(p[i]); i += 1; }
+    String text = "";
+    if c == "list" {
+        String[] a = arr(2);
+        a.push("lines");
+        switch Proc::output("jstore", a) { Result::Ok(o): { text = o; } Result::Err(e): { hc_status = 127; text = "jstore is not installed (jc install jstore)"; } }
+    } else if c.len > 4 && c[0] == 'g' && c[1] == 'e' && c[2] == 't' && c[3] == ' ' {
+        String id = "";
+        bool clean = true;
+        for k in 4..c.len {
+            int ch = c[k] & 255;
+            bool okc = (ch >= 48 && ch <= 57) || (ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122) || ch == 46 || ch == 45 || ch == 95;
+            if !okc { clean = false; }
+            id.push((char)ch);
+        }
+        if !clean { hc_status = 3; return; }
+        String[] a = arr(4);
+        String fld = hc_folder + "";
+        a.push("get"); a.push(id); a.push(fld);
+        switch Proc::output("jstore", a) { Result::Ok(o): { text = o; } Result::Err(e): { hc_status = 127; text = "jstore is not installed (jc install jstore)"; } }
+        String savedp = Path::join(hc_folder, id + ".jc");
+        if hc_status == 0 && !Fs::exists(savedp) { hc_status = 1; text = "the download failed"; }
+    } else if c == "remount" {
+        hc_reimage();
+    } else {
+        hc_status = 3;
+    }
+    int oh = host_of(hc_out, 4096);
+    if oh != 0 {
+        char^ q = (char^)oh;
+        int n = text.len;
+        if n > 4000 { n = 4000; }
+        for k in 0..n { q[k] = text[k]; }
+        q[n] = 0;
+    }
+}
+
 // ---- the touch device at 0x0C000000: SEQ 0x00 (counts the events), X 0x08, Y 0x10 (dots of the screen), STATE 0x18 (1 down, 2 move, 3 up), ID 0x20 (the finger)
 int touch_seq;
 int touch_x;
@@ -373,6 +459,11 @@ void touch_message(char^ m) {
 }
 
 int uart_ld(int addr) {
+    if addr >= 0x0D000000 {
+        int hoff = addr - 0x0D000000;
+        if hoff == 0x18 { return hc_status; }
+        return 0;
+    }
     if addr >= 0x0C000000 {
         int toff = addr - 0x0C000000;
         if toff == 0x00 { return touch_seq; }
@@ -429,6 +520,13 @@ int uart_ld(int addr) {
 }
 
 void mmio_st(int addr, int v) {
+    if addr >= 0x0D000000 {
+        int hoff = addr - 0x0D000000;
+        if hoff == 0x00 { hc_cmd = v; }
+        else if hoff == 0x08 { hc_out = v; }
+        else if hoff == 0x10 { hostcall(); }
+        return;
+    }
     if addr >= 0x0C000000 { return; }
     if addr >= 0x0B000000 {                     // the screen: ADDR 0x00, WIDTH 0x08, HEIGHT 0x10, FLUSH 0x18
         int foff = addr - 0x0B000000;
@@ -465,7 +563,7 @@ void mmio_st(int addr, int v) {
 
 int ld(int addr, int size) {
     if mmu_on() { addr = xlate(addr, 0); if addr < 0 { return 0; } }
-    if sysmode && addr >= 0x09000000 && addr < 0x0C001000 { return uart_ld(addr); }
+    if sysmode && addr >= 0x09000000 && addr < 0x0D001000 { return uart_ld(addr); }
     int h = host_of(addr, size);
     if h == 0 { fault(addr, "read"); }
     if size == 8 { int^ p = (int^)h; return p[0]; }
@@ -477,7 +575,7 @@ int ld(int addr, int size) {
 
 void st(int addr, int size, int v) {
     if mmu_on() { addr = xlate(addr, 1); if addr < 0 { return; } }
-    if sysmode && addr >= 0x09000000 && addr < 0x0C001000 { mmio_st(addr, v); return; }
+    if sysmode && addr >= 0x09000000 && addr < 0x0D001000 { mmio_st(addr, v); return; }
     int h = host_of(addr, size);
     if h == 0 { fault(addr, "write"); }
     if size == 8 { int^ p = (int^)h; p[0] = v; return; }
@@ -1709,10 +1807,15 @@ int main() {
         switch Env::get("TMPDIR") { Option::Some(t): { if t.len > 0 { tmp = t; } } Option::None: { } }
         String img = Path::join(tmp, "jaric-os.img");
         String[] ma = arr(6);
-        ma.push(img); ma.push(folder); ma.push("128");
+        ma.push(img); ma.push(folder); ma.push("4096");
         if Fs::exists(Path::join(dir, "jaric-os-font")) { ma.push(Path::join(dir, "jaric-os-font")); }       // the font is a file of the disk
         Result<int, Error> mr = Proc::run(mkfs, ma);
         if !mr.is_ok() || mr.take() != 0 { die("could not make the disk image from " + folder, 1); }
+        hc_folder = folder + "";                           // copies: the locals of this block go away, the host call device needs these for the whole run
+        hc_img = img + "";
+        hc_mkfs = mkfs + "";
+        hc_font = Path::join(dir, "jaric-os-font") + "";
+        if !Fs::exists(hc_font) { hc_font = ""; }
         cout << "Jaric OS: the disk is the files of " << folder << "  (exit leaves, Ctrl-C stops the machine)\n";
         String[] na = arr(12);
         na.push("jemu"); na.push("--system"); na.push(kernel); na.push("--disk"); na.push(img);
