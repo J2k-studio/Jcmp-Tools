@@ -1,5 +1,9 @@
 # jaric-os changelog
 
+## 0.2.0
+* **Added (a screen of its own):** in the Jaric app (`JARIC` is set) Jaric OS has its own full screen: the letters the system writes are drawn with a smooth font (the file `jaric-os-font`, made by `mkfont.py` from a mono font of the phone) on a picture of 540 x 960 dots that the app shows over the terminal; the keys (screen keyboard, OTG keyboard) go to the system. A cursor shows where you type.
+* **Fixed:** typing in the system did nothing in the app (the keys had no way in).
+
 ## 0.1.0 (the tool jemu 0.2.0 became jaric-os)
 * **Changed:** the tool is Jaric OS only and its command is `jaric-os`: `jaric-os` (the start screen, then the system), `jaric-os FOLDER`, `jaric-os boot`. The emulator parts (`jemu PROGRAM`, `--system`) need `JARIC_OS_DEV=1` (for developers). The disk folder is `~/.jaric-os`; the files are `jaric-os-kernel`, `jaric-os-mkfs`, `jaric-os-boot`.
 * **Added:** the Jaric app brings `jaric-os` inside (an internal tool): `jc update` puts a newer one over it.

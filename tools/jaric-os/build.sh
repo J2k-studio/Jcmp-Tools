@@ -7,4 +7,5 @@ mkdir -p _out
 "${JCMP:-jcmp}" kernel.jk -o _out/jaric-os-kernel
 "${JCMP:-jcmp}" mkfs.jk -o _out/jaric-os-mkfs
 "${JCMP:-jcmp}" boot.jk -o _out/jaric-os-boot
+cp jaric-os-font _out/jaric-os-font
 echo "built _out/jaric-os _out/jaric-os-kernel _out/jaric-os-mkfs _out/jaric-os-boot"
