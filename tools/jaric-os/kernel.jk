@@ -556,7 +556,7 @@ void build_apps() {
     napps = 0;
     addapp(0, 0x6c616e696d726554, 0, 0);
     addapp(1, 0x73656c6946, 0, 0);
-    addapp(6, 0x65726f7453, 0, 0);
+    addapp(6, 0x65726f74736a, 0, 0);
     addapp(3, 0x74756f6241, 0, 0);
     addapp(2, 0x6b636f6c43, 0, 0);
     addapp(5, 0x7265776f50, 0, 0);
@@ -824,7 +824,7 @@ bool have_pkg(char^ p, int from) {                    // is the file ID.jc on th
 
 void store_draw(int msg0, int msg1) {
     wallpaper();
-    draw_bar(0x65726f7453, 0);
+    draw_bar(0x65726f74736a, 0);
     char^ ans = (char^)0x42200000;
     snum = 0;
     int pos = 0;
@@ -881,14 +881,14 @@ void app_store() {
     char^ ans = (char^)0x42200000;
     ans[0] = 0;
     wallpaper();
-    draw_bar(0x65726f7453, 0);
+    draw_bar(0x65726f74736a, 0);
     t8(28 + 0, 120, 0x7420676e696b7341, 1, rgb(150, 175, 215)); t8(28 + 80, 120, 0x65726f7473206568, 1, rgb(150, 175, 215)); t8(28 + 160, 120, 0x2e2e2e20, 1, rgb(150, 175, 215));
     present();
     hc_text(0x7473696c, 0);
     int st = hostcall_do();
     if st != 0 {
         wallpaper();
-        draw_bar(0x65726f7453, 0);
+        draw_bar(0x65726f74736a, 0);
         store_message(ans);
         app_wait_home();
         return;
@@ -918,14 +918,96 @@ void app_store() {
             for k in 0..4000 { ans[k] = keep[k]; }
             continue;
         }
-        hc_text(0x746e756f6d6572, 0);
-        hostcall_do();
-        // the disk has new files: read it again
-        if fs_mount() { fsok = 1; }
-        build_apps();
+        disk_reload();
         for k in 0..4000 { ans[k] = keep[k]; }
         store_draw(0x64656c6c6174736e49, 0);
     }
+}
+
+// the disk has new files (the host made the image again): read it again and rebuild the apps
+void disk_reload() {
+    hc_text(0x746e756f6d6572, 0);
+    hostcall_do();
+    if fs_mount() { fsok = 1; }
+    build_apps();
+}
+
+// the id after "install" / "remove" in the line: copied to hcmd after the 4 or 7 letters that are there
+int js_id(int a, int at) {
+    int n = 0;
+    while a + n < llen && line[a + n] != 32 && n < 80 { hcmd[at + n] = line[a + n]; n += 1; }
+    hcmd[at + n] = 0;
+    return n;
+}
+
+// the command jstore of the console: the same store as the app and as the tool of the terminal of the phone
+void js_command() {
+    int a = args_at();
+    char^ ans = (char^)0x42200000;
+    int w = 0;
+    int i = 0;
+    while a + i < llen && line[a + i] != 32 && i < 8 { w = w | ((line[a + i] & 255) << (i * 8)); i += 1; }
+    int b = a + i;
+    while b < llen && line[b] == 32 { b += 1; }
+    if w == 0x7473696c {
+        ans[0] = 0;
+        hc_text(0x7473696c, 0);
+        int st = hostcall_do();
+        if st != 0 { kputs(ans); putc(10); return; }
+        int pos = 0;
+        while ans[pos] != 0 {
+            int e = pos;
+            while ans[e] != 0 && ans[e] != 10 { e += 1; }
+            if have_pkg(ans, pos) { putc(42); } else { putc(32); }
+            putc(32);
+            for k in pos..e { if ans[k] == 9 { putc(32); putc(32); } else { putc(ans[k] & 255); } }
+            putc(10);
+            pos = e;
+            if ans[pos] == 10 { pos += 1; }
+        }
+    } else if w == 0x6c6c6174736e69 || w == 0x746567 {
+        hc_text(0x20746567, 0);
+        int n = js_id(b, 4);
+        if n == 0 { say(0x6a203a6567617375); say(0x6e692065726f7473); say(0x4449206c6c617473); putc(10); return; }
+        say(0x64616f6c6e776f64); say(0x2e2e2e20676e69); putc(10);
+        int st = hostcall_do();
+        if st != 0 { kputs(ans); putc(10); return; }
+        disk_reload();
+        say(0x656c6c6174736e69); say(0x7369207469202c64); say(0x20656874206e6f20); say(0x72637320656d6f68); say(0x6e6565); putc(10);
+    } else if w == 0x65766f6d6572 {
+        hc_text(0x2065766f6d6572, 0);
+        int n = js_id(b, 7);
+        if n == 0 { say(0x6a203a6567617375); say(0x65722065726f7473); say(0x44492065766f6d); putc(10); return; }
+        int st = hostcall_do();
+        if st != 0 { kputs(ans); putc(10); return; }
+        disk_reload();
+        say(0x6465766f6d6572); putc(10);
+    } else {
+        say(0x6c2065726f74736a); say(0x6e69207c20747369); say(0x4449206c6c617473); say(0x766f6d6572207c20); say(0x44492065); putc(10);
+    }
+}
+
+// one line of the console; false = leave (exit)
+bool run_command() {
+    int w = first_word();
+    if w == 0x736c { fs_ls(); }
+    else if w == 0x746163 {
+        int a = args_at();
+        int n = 0;
+        while a + n < llen && n < 47 { name[n] = line[a + n]; n += 1; }
+        name[n] = 0;
+        fs_cat(@name);
+    }
+    else if w == 0x6f686365 {
+        int a2 = args_at();
+        for k in a2..llen { putc(line[k]); }
+        putc(10);
+    }
+    else if w == 0x65726f74736a { js_command(); }
+    else if w == 0x706c6568 { say(0x20746163202c736c); say(0x6365202c454d414e); say(0x2c54584554206f68); say(0x2065726f74736a20); say(0x6c6568202c2e2e2e); say(0x74697865202c70); putc(10); }
+    else if w == 0x74697865 { return false; }
+    else if w != 0 { say(0x3f); putc(10); }
+    return true;
 }
 
 // ---- the terminal app: the console of before, on the screen under the bar; the back button (or a tap at the bottom edge) goes home
@@ -953,23 +1035,7 @@ void app_terminal() {
         say(0x203e6a);
         bool got = read_line();
         if gohome == 1 || !got { break; }
-        int w = first_word();
-        if w == 0x736c { fs_ls(); }
-        else if w == 0x746163 {
-            int a = args_at();
-            int n = 0;
-            while a + n < llen && n < 47 { name[n] = line[a + n]; n += 1; }
-            name[n] = 0;
-            fs_cat(@name);
-        }
-        else if w == 0x6f686365 {
-            int a2 = args_at();
-            for k in a2..llen { putc(line[k]); }
-            putc(10);
-        }
-        else if w == 0x706c6568 { say(0x20746163202c736c); say(0x6365202c454d414e); say(0x2c54584554206f68); say(0x65202c706c656820); say(0x746978); putc(10); }
-        else if w == 0x74697865 { break; }
-        else if w != 0 { say(0x3f); putc(10); }
+        if !run_command() { break; }
     }
     if shown == 1 { draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 0, gcol[cy * 54 + cx]); shown = 0; }
     keyboard(0);
@@ -1029,23 +1095,7 @@ void kmain() {
     while true {
         say(0x203e6a);
         if !read_line() { break; }
-        int w = first_word();
-        if w == 0x736c { fs_ls(); }
-        else if w == 0x746163 {
-            int a = args_at();
-            int n = 0;
-            while a + n < llen && n < 47 { name[n] = line[a + n]; n += 1; }
-            name[n] = 0;
-            fs_cat(@name);
-        }
-        else if w == 0x6f686365 {
-            int a2 = args_at();
-            for k in a2..llen { putc(line[k]); }
-            putc(10);
-        }
-        else if w == 0x706c6568 { say(0x20746163202c736c); say(0x6365202c454d414e); say(0x2c54584554206f68); say(0x65202c706c656820); say(0x746978); putc(10); }
-        else if w == 0x74697865 { break; }
-        else if w != 0 { say(0x3f); putc(10); }
+        if !run_command() { break; }
     }
     say(0x657962); putc(10);
     char^ stop = (char^)0x09100000;

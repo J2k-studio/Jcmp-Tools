@@ -91,7 +91,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.6.0"; }
+String jemu_version() { return "0.7.0"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -320,7 +320,7 @@ int disk_do(int cmd) {                          // 1 read, 2 write: count sector
 }
 
 // ---- the host call device at 0x0D000000: CMD 0x00 (where the command text is, in the memory of the guest), OUT 0x08 (where the answer goes, 4 KB), GO 0x10 (a write does it), STATUS 0x18 (0 = ok).
-// The commands: "list" (the programs of the store: id, version, name, tab separated), "get ID" (download the package ID into the folder of the disk), "remount" (the disk gets the files of the folder again).
+// The commands: "list" (the programs of the store: id, version, name, tab separated), "get ID" (download the package ID into the folder of the disk), "remove ID" (delete it from the folder), "remount" (the disk gets the files of the folder again).
 // It is how the system reaches the network and the folder of the phone: only these commands are done, nothing else.
 String hc_folder;
 String hc_img;
@@ -390,6 +390,18 @@ void hostcall() {
         switch Proc::output("jstore", a) { Result::Ok(o): { text = o; } Result::Err(e): { hc_status = 127; text = "jstore is not installed (jc install jstore)"; } }
         String savedp = Path::join(hc_folder, id + ".jc");
         if hc_status == 0 && !Fs::exists(savedp) { hc_status = 1; text = "the download failed"; }
+    } else if c.len > 7 && c[0] == 'r' && c[1] == 'e' && c[2] == 'm' && c[3] == 'o' && c[4] == 'v' && c[5] == 'e' && c[6] == ' ' {
+        String rid = "";
+        bool rclean = true;
+        for k in 7..c.len {
+            int ch = c[k] & 255;
+            bool okc = (ch >= 48 && ch <= 57) || (ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122) || ch == 46 || ch == 45 || ch == 95;
+            if !okc { rclean = false; }
+            rid.push((char)ch);
+        }
+        if !rclean { hc_status = 3; return; }
+        String rpath = Path::join(hc_folder, rid + ".jc");
+        if Fs::exists(rpath) { Fs::remove(rpath); } else { hc_status = 1; text = "it is not installed"; }
     } else if c == "remount" {
         hc_reimage();
     } else {

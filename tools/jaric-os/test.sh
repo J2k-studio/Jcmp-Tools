@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.6.0" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.7.0" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -48,4 +48,8 @@ rm -f "$T/disk/photos.jc"
 { sleep 1; printf '\033]7777;touch;D;330;990;0\007\033]7777;touch;U;330;990;0\007'; sleep 2; printf '\033]7777;touch;D;450;131;0\007\033]7777;touch;U;450;131;0\007'; sleep 3; printf '\033]7777;gfx-closed\007'; sleep 1; } | PATH="$T/fakebin:$PATH" JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" > "$T/store.out" 2>&1 || true
 [ -s "$T/disk/app.demo.jc" ] || { echo "jaric-os test: the store did not put the package in the folder"; exit 1; }
 command grep -q "runtime error" "$T/store.out" && { echo "jaric-os test: the store crashed"; exit 1; }
+# the command jstore in the console of the system (the same store): list, install, remove
+OUTJ=$(printf 'jstore list\njstore install app.demo\nls\njstore remove app.demo\nls\nexit\n' | PATH="$T/fakebin:$PATH" "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033')
+case "$OUTJ" in *"app.demo  1.0.0  Demo app"*"installed"*"app.demo.jc"*"removed"*) ;; *) echo "jaric-os test: the command jstore in the console: $OUTJ"; exit 1 ;; esac
+[ ! -e "$T/disk/app.demo.jc" ] || { echo "jaric-os test: jstore remove left the file"; exit 1; }
 echo "jaric-os tests: ok"

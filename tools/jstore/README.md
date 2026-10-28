@@ -3,6 +3,8 @@
 Find, install and update the programs of Jaric (`.jc` packages) from a list that is a plain text file. Every download is checked with its SHA-256; `jc` (the installer) shows the permissions the program asks for and asks once. Needs [jget](../jget/README.md) (download) and [jc](../jc/README.md) (install).
 
 ```
+jstore lines                one line for each program (id, version, name, tab separated: for other programs)
+jstore get ID FOLDER        download and check a package, save it as FOLDER/ID.jc (no install)
 jstore list [WORD]          the programs (version, the permissions they ask for); * = you have it
 jstore info ID              one program: where it comes from and its checksum
 jstore install ID [-y]      download, check, install (jc asks about the permissions; -y says yes)
@@ -10,6 +12,8 @@ jstore update [-y]          the installed programs that have a newer version (-y
 jstore remove ID            delete one
 ```
 The index is `store/index.txt` of [Jcmp-Tools](https://github.com/J2k-studio/Jcmp-Tools/tree/main/store). Your own store: a file with lines `ID VERSION URL SHA256 PERMISSIONS NAME...` (`-` = no permissions) and `export JSTORE_INDEX="https://example.org/index.txt /sdcard/mystore.txt"` (several, with spaces). In the app: `jaric store`.
+
+**In Jaric OS** the store is an app (`jstore` on the home screen) and a command in its Terminal (`jstore list | install ID | remove ID`); both use this tool through `lines` and `get`.
 
 ## Install
 ```

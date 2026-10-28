@@ -10,6 +10,8 @@ jc install jaric-os                                                     # with j
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jaric-os     # with curl (no jget needed)
 ```
 
+Inside Jaric OS the store is the app `jstore` on the home screen and the command `jstore list | install ID | remove ID` in its Terminal (it needs the tool `jstore`).
+
 The Jaric app already has it inside; `jc update` brings a newer one.
 
 ```

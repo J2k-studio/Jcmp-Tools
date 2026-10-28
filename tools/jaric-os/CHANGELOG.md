@@ -1,5 +1,9 @@
 # jaric-os changelog
 
+## 0.7.0
+* **Added (jstore in the system, as a command and as an app):** the console of Jaric OS has the command `jstore`: `jstore list` (the programs of the store, `*` = on the disk), `jstore install ID`, `jstore remove ID`; the app on the home screen is called `jstore` and uses the same store. On the terminal of the phone `jstore` is the tool of Jcmp-Tools (a command line), in Jaric OS it is the command and the app.
+* **Added:** the host call `remove ID` (delete the package from the folder of the disk).
+
 ## 0.6.0
 * **Added (the store):** the Store app (in the dock): it asks the host for the programs of jstore (`jstore lines`), shows them with a button (Install / Got it); a tap on Install downloads the package into the folder of the disk (`jstore get`, checked with its SHA-256), the disk is made again and read again, and the new app is on the home screen at once. The system reaches the host only through a host call device (`list`, `get ID`, `remount`; nothing else).
 * **Changed:** the disk has room for packages: 4096 sectors (2 MB) at least. The apps of the system in the dock are Terminal, Files, Store and About; Clock moved to the home screen.
