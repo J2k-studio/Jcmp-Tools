@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.8.0" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.9.0" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -40,7 +40,14 @@ cat > "$T/fakebin/jstore" <<'SH'
 #!/bin/sh
 case "$1" in
   lines) printf 'app.demo\t1.0.0\tDemo app\n' ;;
-  get) printf 'PK demo' > "$3/$2.jc"; echo "saved" ;;
+  get) python3 - "$3/$2.jc" "$2" <<'PYS'
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1], 'w', zipfile.ZIP_DEFLATED)
+z.writestr('manifest.toml', 'name = "Demo app"\nid = "' + sys.argv[2] + '"\nversion = "1.0.0"\nentry = "demo"\n')
+z.writestr('demo', b'\x7fELF-not-run')
+z.close()
+PYS
+       echo "saved" ;;
 esac
 SH
 chmod +x "$T/fakebin/jstore"
@@ -50,7 +57,7 @@ rm -f "$T/disk/photos.jc"
 command grep -q "runtime error" "$T/store.out" && { echo "jaric-os test: the store crashed"; exit 1; }
 # the command jstore in the console of the system (the same store): list, install, remove
 OUTJ=$(printf 'jstore list\njstore install app.demo\nls\njstore remove app.demo\nls\nexit\n' | PATH="$T/fakebin:$PATH" "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033')
-case "$OUTJ" in *"app.demo  1.0.0  Demo app"*"installed"*"app.demo.jc"*"removed"*) ;; *) echo "jaric-os test: the command jstore in the console: $OUTJ"; exit 1 ;; esac
+case "$OUTJ" in *"app.demo  1.0.0  Demo app"*"installed"*"app.demo.mf"*"removed"*) ;; *) echo "jaric-os test: the command jstore in the console: $OUTJ"; exit 1 ;; esac
 [ ! -e "$T/disk/app.demo.jc" ] || { echo "jaric-os test: jstore remove left the file"; exit 1; }
 # a program of the disk runs under the console (F6b): the MMU, EL0, the ELF, the calls of the system
 "${JCMP:-jcmp}" examples/hello.jk -o "$T/disk/hello" > /dev/null 2>&1
@@ -63,4 +70,19 @@ rm -f "$T/disk/hello"
 command grep -q "runtime error" "$T/draw.out" && { echo "jaric-os test: draw crashed"; exit 1; }
 [ "$(command grep -o 'gfx;present' "$T/draw.out" | wc -l)" -ge 6 ] || { echo "jaric-os test: draw did not show its pictures"; exit 1; }
 rm -f "$T/disk/draw"
+# an app of a package (.jc): the host opens the zip (manifest + program), the home screen shows the app with its name, a tap runs it, the swipe up from the bottom edge closes it
+rm -f "$T"/disk/*.jc
+"${JCMP:-jcmp}" examples/draw.jk -o "$T/draw_elf" > /dev/null 2>&1
+python3 - "$T" <<'PY'
+import sys, zipfile
+t = sys.argv[1]
+z = zipfile.ZipFile(t + '/disk/Sketch.jc', 'w', zipfile.ZIP_DEFLATED)
+z.writestr('manifest.toml', 'name = "Sketch"\nid = "com.example.sketch"\nversion = "1.0.0"\ntype = "app"\nentry = "draw"\npermissions = []\n')
+z.write(t + '/draw_elf', 'draw')
+z.close()
+PY
+{ sleep 2; printf '\033]7777;touch;D;337;430;0\007\033]7777;touch;U;337;430;0\007'; sleep 6; printf '\033]7777;touch;D;270;1150;0\007\033]7777;touch;M;270;900;0\007\033]7777;touch;U;270;800;0\007'; sleep 3; printf '\033]7777;gfx-closed\007'; sleep 1; } | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033\007' > "$T/app.out" || true
+command grep -q "runtime error" "$T/app.out" && { echo "jaric-os test: the app crashed"; exit 1; }
+[ "$(command grep -o 'gfx;present' "$T/app.out" | wc -l)" -ge 5 ] || { echo "jaric-os test: the app did not show its pictures"; exit 1; }
+[ ! -e "$T/disk/Sketch.mf" ] || { echo "jaric-os test: the package must not leave files in the folder"; exit 1; }
 echo "jaric-os tests: ok"

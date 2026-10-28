@@ -26,14 +26,14 @@ int line_end(char^ p, int from) {
     return i;
 }
 
-bool have_pkg(char^ p, int from) {                    // is the file ID.jc on the disk
+bool have_pkg(char^ p, int from) {                    // is the app ID on the disk (its manifest ID.mf)
     int idl = 0;
     while p[from + idl] != 9 && p[from + idl] != 0 && p[from + idl] != 10 { idl += 1; }
     for i in 0..nfiles {
         char^ e = @sbuf[512 + i * 64];
         int k = 0;
         while k < idl && e[k] == p[from + k] { k += 1; }
-        if k == idl && e[k] == '.' && e[k + 1] == 'j' && e[k + 2] == 'c' && e[k + 3] == 0 { return true; }
+        if k == idl && e[k] == '.' && e[k + 1] == 'm' && e[k + 2] == 'f' && e[k + 3] == 0 { return true; }
     }
     return false;
 }

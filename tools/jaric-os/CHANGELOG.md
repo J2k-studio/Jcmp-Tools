@@ -1,5 +1,10 @@
 # jaric-os changelog
 
+## 0.9.0
+* **Added (apps like on a phone):** a package (`.jc`, a zip with `manifest.toml` and the program) that is in the folder of the system becomes an app: the host opens it, the home screen shows an icon with the name from the manifest (no file names, no `.jc`), a tap shows a splash with the icon and runs the program on the whole screen. The packages are not put on the disk, only the manifest (`ID.mf`) and the program (`ID.run`); the Files app does not show them.
+* **Added (gesture):** a swipe up from the bottom edge closes the app that runs and shows the home screen.
+* **Changed:** the hint about packages on the home screen is gone; the store shows an app as installed by its manifest.
+
 ## 0.8.0
 * **Added (programs run in Jaric OS):** a program of the disk (an ARM64 ELF made by jcmp) runs under the console: `run NAME` in the Terminal. The system turns the MMU on, gives the program page tables of its own, starts it at EL0 and answers its calls (write, read, brk, mmap, clock, exit ...); the console goes on when it ends (`exit N`).
 * **Added (the screen and the touch for programs):** call 400 shows a picture (blue, green, red, alpha; width, height) on the screen of the system; call 401 gives the last touch (seq, x, y, state, id). Samples: `examples/hello.jk`, `examples/draw.jk` (a gradient and a square that follows the finger).

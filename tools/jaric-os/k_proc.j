@@ -309,6 +309,8 @@ void svc_dispatch(int^ f) {
         prog_leave(139);
         return;
     }
+    int^ uig = (int^)0x0C000000;
+    if uig[6] != 0 { prog_leave(0); return; }                         // the swipe up from the bottom edge: the program is closed, the home screen comes
     int nr = f[8];
     int a0 = f[0];
     int a1 = f[1];
@@ -356,7 +358,7 @@ void svc_dispatch(int^ f) {
     } else if nr == 132 || nr == 134 || nr == 135 { f[0] = 0;
     } else if nr == 124 { f[0] = 0;
     } else if nr == 93 || nr == 94 { prog_leave(a0);                   // exit
-    } else if nr == 400 { prog_present((char^)a0, a1, a2); f[0] = 0;   // a picture for the screen
+    } else if nr == 400 { int pl = uig[5]; prog_present((char^)a0, a1, a2); f[0] = 0;   // a picture for the screen
     } else if nr == 401 {                                              // the touch: seq, x, y, state, id of the last event
         int^ ui = (int^)0x0C000000;
         int^ o = (int^)a0;

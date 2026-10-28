@@ -12,7 +12,7 @@ curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.
 
 Inside Jaric OS the store is the app `jstore` on the home screen and the command `jstore list | install ID | remove ID` in its Terminal (it needs the tool `jstore`).
 
-**Programs:** in the Terminal of the system `run NAME` runs a program of the disk (an ARM64 program made by `jcmp`); see `examples/hello.jk` and `examples/draw.jk` (a picture and the touch: calls 400 and 401).
+**Apps:** a package `NAME.jc` (made by `makej pack`: a zip with `manifest.toml` and the program) in the folder of the system is an app on the home screen with the name of its manifest; a tap runs it, a swipe up from the bottom edge closes it. **Programs:** in the Terminal of the system `run NAME` runs a program of the disk (an ARM64 program made by `jcmp`); see `examples/hello.jk` and `examples/draw.jk` (a picture and the touch: calls 400 and 401).
 
 The Jaric app already has it inside; `jc update` brings a newer one.
 

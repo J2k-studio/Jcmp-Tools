@@ -2,6 +2,7 @@
 // ---- the phone: a home screen with icons, a dock, and the apps. Everything is drawn here with the smooth font; the touch device tells where a finger is.
 u32^ p32;
 char tb[24];
+char mbuf[1100];                       // a manifest that is read from the disk
 char anames[256];                      // 16 apps, 16 letters each
 int akind[16];                         // 0 terminal, 1 files, 2 clock, 3 about, 4 a .jc package (aidx = its place in the directory), 5 power
 int aidx[16];
@@ -156,13 +157,32 @@ void build_apps() {
     addapp(3, 0x74756f6241, 0, 0);
     addapp(2, 0x6b636f6c43, 0, 0);
     addapp(5, 0x7265776f50, 0, 0);
+    // the apps that came in packages: for each ID.mf (the manifest) on the disk an app with the name of the manifest; ID.run is its program
     for i in 0..nfiles {
         char^ e = @sbuf[512 + i * 64];
         int l = 0;
         while e[l] != 0 { l += 1; }
-        if l > 3 && l < 18 && e[l - 3] == '.' && e[l - 2] == 'j' && e[l - 1] == 'c' && napps < 16 {
-            for k in 0..(l - 3) { anames[napps * 16 + k] = e[k]; }
-            anames[napps * 16 + l - 3] = 0;
+        if l > 3 && l < 34 && e[l - 3] == '.' && e[l - 2] == 'm' && e[l - 1] == 'f' && napps < 16 {
+            int start = rd64(@e[48]);
+            int size = rd64(@e[56]);
+            if size > 1000 { size = 1000; }
+            disk_io(1, start, (int)@mbuf, 2);
+            mbuf[size] = 0;
+            int n = 0;
+            int p = 0;
+            while p < size && n == 0 {                              // the line  name = "..."
+                int q = p;
+                while q < size && mbuf[q] != 10 { q += 1; }
+                if mbuf[p] == 'n' && mbuf[p + 1] == 'a' && mbuf[p + 2] == 'm' && mbuf[p + 3] == 'e' {
+                    int r = p + 4;
+                    while r < q && mbuf[r] != 34 { r += 1; }
+                    r += 1;
+                    while r < q && mbuf[r] != 34 && n < 13 { anames[napps * 16 + n] = mbuf[r]; n += 1; r += 1; }
+                }
+                p = q + 1;
+            }
+            if n == 0 { for k in 0..(l - 3) { if k < 13 { anames[napps * 16 + k] = e[k]; n += 1; } } }
+            anames[napps * 16 + n] = 0;
             akind[napps] = 4;
             aidx[napps] = i;
             napps += 1;
@@ -225,11 +245,6 @@ void draw_home() {
         draw_icon(cell_x + 23, 390 + row * 160, a, 88);
         label(cell_x + 67, 390 + row * 160 + 98, a);
     }
-    if napps <= 6 {
-        t8(28 + 0, 600, 0x6120636a2e206f4e, 1, rgb(150, 175, 215)); t8(28 + 80, 600, 0x74206e6f20737070, 1, rgb(150, 175, 215)); t8(28 + 160, 600, 0x206b736964206568, 1, rgb(150, 175, 215)); t8(28 + 240, 600, 0x2e746579, 1, rgb(150, 175, 215));
-        t8(28 + 0, 626, 0x6170206120747550, 1, rgb(150, 175, 215)); t8(28 + 80, 626, 0x6e28206567616b63, 1, rgb(150, 175, 215)); t8(28 + 160, 626, 0x2029636a2e656d61, 1, rgb(150, 175, 215)); t8(28 + 240, 626, 0x656874206e69, 1, rgb(150, 175, 215));
-        t8(28 + 0, 652, 0x6f207265646c6f66, 1, rgb(150, 175, 215)); t8(28 + 80, 652, 0x7973206568742066, 1, rgb(150, 175, 215)); t8(28 + 160, 652, 0x2f7e203a6d657473, 1, rgb(150, 175, 215)); t8(28 + 240, 652, 0x6f2d636972616a2e, 1, rgb(150, 175, 215)); t8(28 + 320, 652, 0x73, 1, rgb(150, 175, 215));
-    }
     // the dock
     rrect(20, scrH - 230, 500, 160, 34, rgb(26, 36, 66));
     for d in 0..4 {
@@ -291,6 +306,10 @@ void app_files() {
     for i in 0..nfiles {
         char^ e = @sbuf[512 + i * 64];
         if e[0] == 'j' && e[1] == 'a' && e[2] == 'r' && e[3] == 'i' && e[4] == 'c' && e[5] == '-' { continue; }
+        int fl = 0;
+        while e[fl] != 0 { fl += 1; }
+        if fl > 3 && e[fl - 3] == '.' && e[fl - 2] == 'm' && e[fl - 1] == 'f' { continue; }              // the files of the apps are the business of the system
+        if fl > 4 && e[fl - 4] == '.' && e[fl - 3] == 'r' && e[fl - 2] == 'u' && e[fl - 1] == 'n' { continue; }
         int y = 96 + row * 58;
         rrect(16, y, 508, 50, 14, rgb(26, 36, 66));
         text(32, y + 15, e, 1, rgb(235, 242, 255));
@@ -355,27 +374,32 @@ void app_about() {
     app_wait_home();
 }
 
-void app_jc(int app) {
+// an app of a package: the splash (its icon and name), then its program runs; the swipe up from the bottom edge closes it
+void app_launch(int app) {
     wallpaper();
-    draw_bar(0x707041, 0);
-    draw_icon(226, 130, app, 88);
+    draw_icon(180, 400, app, 180);
     int l = 0;
-    while anames[app * 16 + l] != 0 && l < 20 { tb[l] = anames[app * 16 + l]; l += 1; }
+    while anames[app * 16 + l] != 0 && l < 13 { tb[l] = anames[app * 16 + l]; l += 1; }
     tb[l] = 0;
-    text(270 - l * 10, 250, @tb, 2, rgb(255, 255, 255));
-    char^ e = @sbuf[512 + aidx[app] * 64];
-    int size = rd64(@e[56]);
-    num(190, 320, size, 1, rgb(235, 242, 255));
-    t8(200 + digits(size) * 10 + 0, 320, 0x61202c7365747962, 1, rgb(150, 175, 215)); t8(200 + digits(size) * 10 + 80, 320, 0x63617020636a2e20, 1, rgb(150, 175, 215)); t8(200 + digits(size) * 10 + 160, 320, 0x6567616b, 1, rgb(150, 175, 215));
-
-    t8(40 + 0, 400, 0x20676e696e6e7552, 1, rgb(235, 242, 255)); t8(40 + 80, 400, 0x7370706120636a2e, 1, rgb(235, 242, 255)); t8(40 + 160, 400, 0x6e2073656d6f6320, 1, rgb(235, 242, 255)); t8(40 + 240, 400, 0x656874203a747865, 1, rgb(235, 242, 255)); t8(40 + 320, 400, 0x206d657473797320, 1, rgb(235, 242, 255)); t8(40 + 400, 400, 0x6c6c6977, 1, rgb(235, 242, 255));
-
-    t8(40 + 0, 426, 0x656874206e65706f, 1, rgb(235, 242, 255)); t8(40 + 80, 426, 0x6567616b63617020, 1, rgb(235, 242, 255)); t8(40 + 160, 426, 0x692064616572202c, 1, rgb(235, 242, 255)); t8(40 + 240, 426, 0x66696e616d207374, 1, rgb(235, 242, 255)); t8(40 + 320, 426, 0x646e6120747365, 1, rgb(235, 242, 255));
-
-    t8(40 + 0, 452, 0x6874207472617473, 1, rgb(235, 242, 255)); t8(40 + 80, 452, 0x6172676f72702065, 1, rgb(235, 242, 255)); t8(40 + 160, 452, 0x696874206e6f206d, 1, rgb(235, 242, 255)); t8(40 + 240, 452, 0x6e65657263732073, 1, rgb(235, 242, 255)); t8(40 + 320, 452, 0x2e, 1, rgb(235, 242, 255));
-
+    text(270 - l * 10, 620, @tb, 2, rgb(255, 255, 255));
     present();
-    app_wait_home();
+    fill(0, 0, 540, scrH, rgb(0, 0, 0));                              // the app has the whole screen (the splash stays on the picture that the host has until the first picture of the app)
+    char^ e = @sbuf[512 + aidx[app] * 64];
+    int el = 0;
+    while e[el] != 0 { el += 1; }
+    for k in 0..(el - 2) { name[k] = e[k]; }                          // ID.mf -> ID.run
+    name[el - 2] = 'r';
+    name[el - 1] = 'u';
+    name[el] = 'n';
+    name[el + 1] = 0;
+    int rc = run_program(@name);
+    if rc < 0 {
+        wallpaper();
+        draw_icon(180, 400, app, 180);
+        t8(150, 640, 0x6f20746f6e6e6143, 1, rgb(255, 215, 120)); t8(230, 640, 0x73696874206e6570, 1, rgb(255, 215, 120)); t8(310, 640, 0x2e70706120, 1, rgb(255, 215, 120));
+        present();
+        app_wait_home();
+    }
 }
 
 

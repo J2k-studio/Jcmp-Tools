@@ -67,7 +67,7 @@ void phone() {
         else if kd == 1 { app_files(); }
         else if kd == 2 { app_clock(); }
         else if kd == 3 { app_about(); }
-        else if kd == 4 { app_jc(app); }
+        else if kd == 4 { app_launch(app); }
         else if kd == 5 { power_off(); }
         else if kd == 6 { app_store(); }
     }

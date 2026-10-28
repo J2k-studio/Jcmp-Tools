@@ -33,7 +33,9 @@ int main() {
     String data = "";
     for i in 0..alln.len {
         String p = allp[i];
-        if Dir::exists(p) || alln[i].len == 0 || alln[i].len > 47 || count >= 64 { continue; }
+        int nl = alln[i].len;
+        bool is_pkg = nl > 3 && alln[i][nl - 3] == '.' && alln[i][nl - 2] == 'j' && alln[i][nl - 1] == 'c';      // the packages are opened by the host: only what is in them goes on the disk
+        if Dir::exists(p) || nl == 0 || nl > 47 || count >= 64 || is_pkg { continue; }
         Result<String, Error> fr = Fs::read_bytes(p);
         if !fr.is_ok() { continue; }
         String body = fr.take();
