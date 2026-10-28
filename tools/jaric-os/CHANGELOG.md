@@ -1,5 +1,8 @@
 # jaric-os changelog
 
+## 0.13.1
+* **Added:** `jaric-os --ram MB [FOLDER]` (64 to 1024 MB of memory; the manager of the app uses it).
+
 ## 0.13.0
 * **Added (a 2D accelerator, much faster screen):** the machine has a device at `0x0E000000` that fills rectangles, paints the wallpaper and copies pictures at the speed of the phone; the system uses it for rectangles, rounded rectangles, the wallpaper, the scroll of the terminal and the windows of the desktop. A tap that took about a second to show its result now shows it in 0.04 to 0.15 seconds.
 

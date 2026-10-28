@@ -92,7 +92,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.13.0"; }
+String jemu_version() { return "0.13.1"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -2015,6 +2015,12 @@ int rd64(char^ b, int at) { return rd32(b, at) | (rd32(b, at + 4) << 32); }
 
 int main() {
     String[] args = Env::args();
+    int ram_arg = 0;                                           // jaric-os --ram MB [FOLDER]: the memory of the machine (the Jaric OS manager of the app sets it)
+    if args.len > 2 && args[1] == "--ram" {
+        for q in 0..args[2].len { ram_arg = ram_arg * 10 + (args[2][q] - '0'); }
+        args.remove(1);
+        args.remove(1);
+    }
     bool dev = false;                                          // the emulator itself (programs, --system) is for the developers of Jaric OS: JARIC_OS_DEV=1
     switch Env::get("JARIC_OS_DEV") { Option::Some(v): { if v.len > 0 { dev = true; } } Option::None: { } }
     if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jaric-os " << jemu_version() << "\n"; return 0; }
@@ -2022,6 +2028,7 @@ int main() {
         cout << "jaric-os: Jaric OS, the operating system of the Jaric project, in a machine inside the app\n";
         cout << "  jaric-os                  start Jaric OS: it looks at the machine (CPU, timer, memory, disk, screen), writes what it finds, then waits for your commands; the disk is the folder ~/.jaric-os\n";
         cout << "  jaric-os FOLDER           the same, with the files of FOLDER as the disk\n";
+        cout << "  jaric-os --ram MB [FOLDER]   the same with MB of memory (64 to 1024; otherwise half of what Android has free)\n";
         cout << "  jaric-os --version | --help\n";
         cout << "Inside: ls, cat NAME, echo TEXT, help, exit (Ctrl-C stops the machine). Update it with  jc update  (jc install jaric-os).\n";
         return 0;
@@ -2168,6 +2175,7 @@ int main() {
         tlb_flush();
         ram_mb = 64;
         bool ram_set = false;
+        if ram_arg >= 64 && ram_arg <= 1024 { ram_mb = ram_arg; ram_set = true; }
         switch Env::get("JARIC_RAM_MB") { Option::Some(v): { int rv = 0; for q in 0..v.len { rv = rv * 10 + (v[q] - '0'); } if rv >= 64 && rv <= 1024 { ram_mb = rv; ram_set = true; } } Option::None: { } }
         if !ram_set {                                           // as much as Android can give now: half of what is free (MemAvailable), 64 MB at least, 1 GB at most
             Result<String, Error> mr = Fs::read_text("/proc/meminfo");

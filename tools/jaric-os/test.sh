@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.13.0" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.13.1" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -105,4 +105,7 @@ case "$OUTM" in *"Memory   256 MB from Android"*) ;; *) echo "jaric-os test: the
 START=$(date +%s%N)
 { sleep 1; printf '\033]7777;touch;D;230;430;0\007\033]7777;touch;U;230;430;0\007'; sleep 1; printf '\033]7777;gfx-closed\007'; sleep 1; } | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" > "$T/gpu.out" 2>&1 || true
 command grep -q "gfx;present" "$T/gpu.out" || { echo "jaric-os test: no picture"; exit 1; }
+# jaric-os --ram MB: the memory of the machine is the one asked for (the manager of the app)
+OUTR2=$(printf 'exit\n' | "$B/jaric-os" --ram 200 "$T/disk" 2>&1 | tr -d '\033')
+case "$OUTR2" in *"Memory   200 MB"*) ;; *) echo "jaric-os test: --ram: $OUTR2"; exit 1 ;; esac
 echo "jaric-os tests: ok"
