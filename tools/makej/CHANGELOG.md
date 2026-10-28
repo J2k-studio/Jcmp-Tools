@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.0 (not released yet: needs jcmp 1.2.3 and the libraries canvas2d, glcanvas, glapp)
+* **Added:** `render = "gl"` (and `main = "src/main.jk"`) in manifest.toml: `makej apk` builds a game that is a shared library (`libgame.so`, jcmp -l) inside an app with a GLSurfaceView that calls it (the library `<glapp>`: game_init / game_resize / game_frame / game_touch). The game draws with OpenGL ES itself; no jpty, no terminal. The library is stored and aligned in the apk.
+* **Fixed:** none.
+
 ## 0.9.2
 * **Added:** `makej doc [LIBRARY]`: lists the installed libraries, or shows the comment at the top of a library file (its API and examples); needs no compiler.
 * **Fixed:** none.

@@ -281,10 +281,27 @@ if [ "${1:-}" = "apk" ]; then
     case "$id" in *.*) ;; *) echo "makej: the id in manifest.toml needs a dot (for example com.you.mygame)" >&2; exit 2 ;; esac
     [ -n "$orient" ] || orient=landscape
     [ -n "$ctrl" ] || ctrl=true
+    render=$(mk render); gmain=$(mk main); [ -n "$gmain" ] || gmain=src/main.jk
     for t in aapt2 ecj d8 zipalign apksigner keytool; do command -v $t >/dev/null 2>&1 || { echo "makej: $t is needed to make an apk (pkg install aapt2 ecj dx apksigner zipalign openjdk-17)" >&2; exit 2; }; done
     jar=${ANDROID_JAR:-}
     for c in ./android.jar "$HOME/android.jar" "$HOME/.local/share/android/android.jar" "$HOME/Jaric/android.jar" "${PREFIX:-/usr}/share/android/android.jar"; do [ -n "$jar" ] || { [ -f "$c" ] && jar=$c; }; done
     [ -f "$jar" ] || { echo "makej: android.jar was not found; put it in this folder or set ANDROID_JAR=path (it is in the Android SDK: platforms/android-34/android.jar)" >&2; exit 2; }
+    if [ "$render" = gl ]; then
+        # a game that draws with OpenGL ES itself: libgame.so (J2K, jcmp -l) inside the app, a GLSurfaceView calls it (the library <glapp>)
+        [ -f "$gmain" ] || { echo "makej: render = \"gl\" needs the main file of the game: $gmain (set  main = \"...\"  in manifest.toml)" >&2; exit 2; }
+        mkdir -p _out
+        jcmp "$gmain" -l -o _out/libgame.so || { echo "makej: the game did not compile" >&2; exit 2; }
+        w=_out/apk; rm -rf "$w"; mkdir -p "$w/classes" "$w/dex" "$w/gen" "$w/assets" "$w/src/com/j2k/gamerun" "$w/res" "$w/lib/arm64-v8a"
+        cp _out/libgame.so "$w/lib/arm64-v8a/libgame.so"
+        [ -d assets ] && { mkdir -p "$w/assets/data"; cp -r assets/. "$w/assets/data/"; }
+cat > "$w/src/com/j2k/gamerun/GameLib.java" <<'MAKEJ_GL_EOF'
+@GAMELIB@
+MAKEJ_GL_EOF
+cat > "$w/src/com/j2k/gamerun/GlGameActivity.java" <<'MAKEJ_GG_EOF'
+@GLGAMEACTIVITY@
+MAKEJ_GG_EOF
+        actname=GlGameActivity; srcs="$w/src/com/j2k/gamerun/GameLib.java $w/src/com/j2k/gamerun/GlGameActivity.java"
+    else
     jpty=${JPTY:-$(command -v jpty || true)}
     [ -x "$jpty" ] || { echo "makej: jpty was not found (jc install jpty)" >&2; exit 2; }
     sh "$0" "$prog" || exit 2
@@ -295,6 +312,8 @@ if [ "${1:-}" = "apk" ]; then
 cat > "$w/src/com/j2k/gamerun/GameActivity.java" <<'MAKEJ_GA_EOF'
 @GAMEACTIVITY@
 MAKEJ_GA_EOF
+        actname=GameActivity; srcs="$w/src/com/j2k/gamerun/GameActivity.java"
+    fi
     major=$(echo "$ver" | cut -d. -f1); minor=$(echo "$ver" | cut -d. -f2); patch=$(echo "$ver" | cut -d. -f3)
     code=$(( ${major:-0} * 10000 + ${minor:-0} * 100 + ${patch:-0} )); [ "$code" -ge 1 ] || code=1
     esc_name=$(printf '%s' "$name" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/"/\&quot;/g')
@@ -307,7 +326,7 @@ cat > "$w/AndroidManifest.xml" <<MAKEJ_AM_EOF
     <uses-permission android:name="android.permission.INTERNET" />
     <application $iconattr android:label="$esc_name" android:allowBackup="false" android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
         <meta-data android:name="controls" android:value="$ctrl" />
-        <activity android:name="com.j2k.gamerun.GameActivity" android:exported="true" android:screenOrientation="$orient"
+        <activity android:name="com.j2k.gamerun.$actname" android:exported="true" android:screenOrientation="$orient"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -320,10 +339,11 @@ MAKEJ_AM_EOF
     resarg=""
     if [ -d "$w/res/mipmap-xxhdpi" ]; then aapt2 compile --dir "$w/res" -o "$w/res.zip" || exit 2; resarg="$w/res.zip"; fi
     aapt2 link -o "$w/base.apk" -I "$jar" --manifest "$w/AndroidManifest.xml" --min-sdk-version 29 --target-sdk-version 28 -A "$w/assets" --java "$w/gen" $resarg || { echo "makej: aapt2 failed" >&2; exit 2; }
-    ecj -nowarn -source 1.7 -target 1.7 -cp "$jar" -d "$w/classes" "$w/src/com/j2k/gamerun/GameActivity.java" $(find "$w/gen" -name '*.java') || { echo "makej: the runner did not compile" >&2; exit 2; }
+    ecj -nowarn -source 1.7 -target 1.7 -cp "$jar" -d "$w/classes" $srcs $(find "$w/gen" -name '*.java') || { echo "makej: the runner did not compile" >&2; exit 2; }
     d8 --lib "$jar" --min-api 29 --output "$w/dex" $(find "$w/classes" -name '*.class') || exit 2
     ( cd "$w/dex" && zip -q ../base.apk classes.dex )
-    zipalign -f 4 "$w/base.apk" "$w/aligned.apk" || exit 2
+    if [ "$render" = gl ]; then ( cd "$w" && zip -q -0 base.apk lib/arm64-v8a/libgame.so ); fi          # a native library is stored, not squeezed
+    zipalign -f -p 4 "$w/base.apk" "$w/aligned.apk" || exit 2
     ks=${MAKEJ_KEYSTORE:-$HOME/.jaric-debug.keystore}
     [ -f "$ks" ] || keytool -genkeypair -keystore "$ks" -storepass jaric00 -keypass jaric00 -alias jaric -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=makej debug" >/dev/null 2>&1
     safe=$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '_')

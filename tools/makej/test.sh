@@ -43,7 +43,8 @@ rm -rf "$T2"
 echo "makej tests (more): ok"
 
 # an Android app from a game project, when the Android tools and android.jar are here (otherwise this part is skipped)
-if command -v aapt2 >/dev/null 2>&1 && command -v ecj >/dev/null 2>&1 && command -v d8 >/dev/null 2>&1 && command -v apksigner >/dev/null 2>&1 && command -v zipalign >/dev/null 2>&1 && command -v jpty >/dev/null 2>&1 && { [ -n "${ANDROID_JAR:-}" ] || [ -f "$HOME/Jaric/android.jar" ] || [ -f "$HOME/android.jar" ]; } && [ -f "$HOME/Jcmp/build/libs/gamej.j" ]; then
+printf 'itf X { void f(self); }\nstruct S impl X { void init(self) { } void f(self) { } }\nvoid main() { S s; s.init(); }\n' > "$T/itf_probe.jk"
+if jcmp "$T/itf_probe.jk" -o "$T/itf_probe" >/dev/null 2>&1 && command -v aapt2 >/dev/null 2>&1 && command -v ecj >/dev/null 2>&1 && command -v d8 >/dev/null 2>&1 && command -v apksigner >/dev/null 2>&1 && command -v zipalign >/dev/null 2>&1 && command -v jpty >/dev/null 2>&1 && { [ -n "${ANDROID_JAR:-}" ] || [ -f "$HOME/Jaric/android.jar" ] || [ -f "$HOME/android.jar" ]; } && [ -f "$HOME/Jcmp/build/libs/gamej.j" ]; then
     mkdir "$T/game" && cd "$T/game"
     "$MK" init -game >/dev/null || { echo "init -game"; exit 1; }
     J2K_PATH="$HOME/Jcmp/build/libs" "$MK" apk >/dev/null 2>&1 || { echo "apk"; exit 1; }
@@ -75,5 +76,15 @@ cd "$T" && mkdir ap2 && cd ap2 && "$MK" -apk >/dev/null && grep -q '^os = "andro
 J2K_PATH="$HOME/Jcmp/build/libs" "$MK" doc | grep -q "^gamej" || { echo "doc list"; exit 1; }
 J2K_PATH="$HOME/Jcmp/build/libs" "$MK" doc gamej | grep -q "Game" || { echo "doc NAME"; exit 1; }
 "$MK" doc no_such_lib_xyz >/dev/null 2>&1 && { echo "doc of a missing library must fail"; exit 1; }
+# render = "gl": a game that is a shared library in an app with a GLSurfaceView (needs the apk tools, android.jar, and the libraries of jcmp 1.2.3: canvas2d, glcanvas, glapp)
+if command -v aapt2 >/dev/null 2>&1 && command -v ecj >/dev/null 2>&1 && command -v d8 >/dev/null 2>&1 && command -v zipalign >/dev/null 2>&1 && command -v apksigner >/dev/null 2>&1 && [ -f "$HOME/Jaric/android.jar" ] && [ -f "$HOME/Jcmp/build/libs/glapp.j" ]; then
+    cd "$T" && mkdir glapk && cd glapk && mkdir src
+    printf 'name = "GL Test"\nid = "com.example.gltest"\nversion = "0.1.0"\nrender = "gl"\nmain = "src/main.jk"\n' > manifest.toml
+    printf '#import <stdlib>\n#import <glapp>\nvoid game_init(int w, int h) { }\nvoid game_resize(int w, int h) { }\nvoid game_frame(int ms) { Canvas2d^ c = glapp_canvas(); c^.begin(); c^.clear(Color::rgb(0, 0, 64)); c^.end(); }\nvoid game_touch(int a, int x, int y, int id) { }\n' > src/main.jk
+    ANDROID_JAR="$HOME/Jaric/android.jar" J2K_PATH="$HOME/Jcmp/build/libs" "$MK" apk >/dev/null 2>&1 || { echo "apk render gl: the build failed"; exit 1; }
+    [ -f _out/GL_Test.apk ] || { echo "apk render gl: no apk"; exit 1; }
+    unzip -l _out/GL_Test.apk | grep -q "lib/arm64-v8a/libgame.so" || { echo "apk render gl: no libgame.so in the apk"; exit 1; }
+    aapt2 dump badging _out/GL_Test.apk 2>/dev/null | grep -q "launchable-activity: name='com.j2k.gamerun.GlGameActivity'" || { echo "apk render gl: wrong activity"; exit 1; }
+fi
 cd "$ROOT"
 echo "makej tests (game): ok"
