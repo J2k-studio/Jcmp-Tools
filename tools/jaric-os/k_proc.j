@@ -283,15 +283,15 @@ void prog_leave(int code) {
 
 // a picture of the program (blue, green, red, any; w x h dots) goes to the screen of the system
 void prog_present(char^ pix, int w, int h) {
-    char^ fb = (char^)0x41000000;
+    char^ fb = (char^)sfb;
     int ww = w;
-    if ww > 540 { ww = 540; }
+    if ww > scrW { ww = scrW; }
     int hh = h;
     if hh > scrH { hh = scrH; }
     for y in 0..hh {
         for x in 0..ww {
             int s = (y * w + x) * 4;
-            int o = (y * 540 + x) * 4;
+            int o = (y * scrW + x) * 4;
             fb[o] = pix[s];
             fb[o + 1] = pix[s + 1];
             fb[o + 2] = pix[s + 2];

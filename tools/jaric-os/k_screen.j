@@ -6,6 +6,10 @@ int cx;
 int cy;
 int gdirty;
 int shown;
+int sfb;                               // where the picture is that is drawn on now: the screen, or the surface of a window of the desktop
+int desk_ctx;                          // 1 while an app runs in a window of the desktop
+int scrW;                              // the width of the picture in dots: 540 in portrait; the shape follows the phone
+int cols;                              // the columns of letters: the width divided by 10
 int scrH;                              // the height of the picture in dots (the width is 540)
 int vrows;                             // the rows that are seen (the keyboard of the phone hides some)
 int maxrows;
@@ -32,11 +36,11 @@ void draw_cell(int col, int row, int c, int cur, int k) {
     if k == 2 { pb = 170; pg = 150; pr = 125; }
     if k == 3 { pb = 100; pg = 100; pr = 240; }
     if k == 4 { pb = 255; pg = 190; pr = 100; }
-    char^ fb = (char^)0x41000000;
+    char^ fb = (char^)sfb;
     int g = 4 + (c - 32) * 200;
     if c < 32 || c > 126 { g = 4; }
     for gy in 0..20 {
-        int o = (((row + roff) * 20 + gy) * 540 + col * 10) * 4;
+        int o = (((row + roff) * 20 + gy) * scrW + col * 10) * 4;
         for gx in 0..10 {
             int a = fnt[g + gy * 10 + gx] & 255;
             if cur == 1 { a = 255 - a; if a < 90 { a = 90; } }
@@ -50,31 +54,32 @@ void draw_cell(int col, int row, int c, int cur, int k) {
 }
 
 void scroll_up() {
-    int^ fb = (int^)0x41000000;
-    int words = 540 * (vrows - 1) * 20 / 2;          // the rows that stay, two dots in a word
-    int from = 540 * 20 / 2;
-    int top = 540 * roff * 20 / 2;
+    int^ fb = (int^)sfb;
+    int words = scrW * (vrows - 1) * 20 / 2;          // the rows that stay, two dots in a word
+    int from = scrW * 20 / 2;
+    int top = scrW * roff * 20 / 2;
     for i in 0..words { fb[top + i] = fb[top + i + from]; }
     int bg = 20 | (10 << 8) | (8 << 16) | (255 << 24);
     int two = bg | (bg << 32);
-    for i in words..(540 * vrows * 20 / 2) { fb[top + i] = two; }
-    for i in 0..(54 * (vrows - 1)) { gcells[i] = gcells[i + 54]; gcol[i] = gcol[i + 54]; }
-    for i in (54 * (vrows - 1))..(54 * vrows) { gcells[i] = (char)32; gcol[i] = (char)0; }
+    for i in words..(scrW * vrows * 20 / 2) { fb[top + i] = two; }
+    for i in 0..(cols * (vrows - 1)) { gcells[i] = gcells[i + cols]; gcol[i] = gcol[i + cols]; }
+    for i in (cols * (vrows - 1))..(cols * vrows) { gcells[i] = (char)32; gcol[i] = (char)0; }
 }
 
 // the part of the picture that is seen changed (the keyboard came or went): the rows follow, and the cursor is kept in sight
 void view_set(int vh) {
+    if desk_ctx == 1 { return; }                      // in a window the size of the surface is what it is
     int r = vh / 20 - roff;
     if r < 6 { r = 6; }
     if r > maxrows { r = maxrows; }
-    if shown == 1 { draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 0, gcol[cy * 54 + cx]); shown = 0; }
+    if shown == 1 { draw_cell(cx, cy, gcells[cy * cols + cx] & 255, 0, gcol[cy * cols + cx]); shown = 0; }
     vrows = r;
     while cy >= vrows { scroll_up(); cy -= 1; }
     int^ fb = (int^)0x41000000;
     int bg = 20 | (10 << 8) | (8 << 16) | (255 << 24);
     int two = bg | (bg << 32);
-    for i in (540 * (vrows + roff) * 20 / 2)..(540 * scrH / 2) { fb[i] = two; }
-    for i in (54 * vrows)..(54 * maxrows) { gcells[i] = (char)32; gcol[i] = (char)0; }
+    for i in (scrW * (vrows + roff) * 20 / 2)..(scrW * scrH / 2) { fb[i] = two; }
+    for i in (cols * vrows)..(cols * maxrows) { gcells[i] = (char)32; gcol[i] = (char)0; }
     gdirty = 1;
 }
 
@@ -99,15 +104,15 @@ void setcol(int k) {
 
 void putc(int c) {
     if scr == 0 { uputc(c); return; }
-    if shown == 1 { draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 0, gcol[cy * 54 + cx]); shown = 0; }
+    if shown == 1 { draw_cell(cx, cy, gcells[cy * cols + cx] & 255, 0, gcol[cy * cols + cx]); shown = 0; }
     gdirty = 1;
     if c == 10 { newline(); return; }
     if c == 13 { cx = 0; return; }
     if c == 8 { if cx > 0 { cx -= 1; } return; }
     if c < 32 || c > 126 { return; }
-    if cx >= 54 { newline(); }
-    gcells[cy * 54 + cx] = (char)c;
-    gcol[cy * 54 + cx] = (char)fgc;
+    if cx >= cols { newline(); }
+    gcells[cy * cols + cx] = (char)c;
+    gcol[cy * cols + cx] = (char)fgc;
     draw_cell(cx, cy, c, 0, fgc);
     cx += 1;
 }
@@ -115,11 +120,10 @@ void putc(int c) {
 // the picture is shown (with the cursor) before the system waits for a key
 void screen_show() {
     if scr == 0 || gdirty == 0 { return; }
-    if cx >= 54 { newline(); }
-    draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 1, 0);
+    if cx >= cols { newline(); }
+    draw_cell(cx, cy, gcells[cy * cols + cx] & 255, 1, 0);
     shown = 1;
-    int^ fb = (int^)0x0B000000;
-    fb[3] = 1;
+    present();                                       // the picture is shown (in a window of the desktop it is put in the desktop first)
     gdirty = 0;
 }
 
@@ -240,7 +244,11 @@ bool read_line() {
 void screen_start() {
     int^ fb = (int^)0x0B000000;
     int hh = fb[2];
-    if fb[1] != 540 || hh < 480 || hh > 1400 { return; }
+    int ww = fb[1];
+    if ww < 480 || ww > 1280 || hh < 480 || hh > 1400 { return; }
+    scrW = ww / 10 * 10;
+    cols = 0;
+    while cols * 10 < scrW { cols += 1; }
     char nm[16];
     nm[0] = 'j'; nm[1] = 'a'; nm[2] = 'r'; nm[3] = 'i'; nm[4] = 'c'; nm[5] = '-'; nm[6] = 'o'; nm[7] = 's'; nm[8] = '-'; nm[9] = 'f'; nm[10] = 'o'; nm[11] = 'n'; nm[12] = 't'; nm[13] = 0;
     for i in 0..nfiles {
@@ -269,12 +277,14 @@ void screen_start() {
 void screen_on() {
     if sready == 0 { return; }
     int^ fb = (int^)0x0B000000;
+    sfb = 0x41000000;
     int^ px = (int^)0x41000000;
     int bg = 20 | (10 << 8) | (8 << 16) | (255 << 24);
     int two = bg | (bg << 32);
-    for p in 0..(540 * scrH / 2) { px[p] = two; }
-    for p in 0..(54 * maxrows) { gcells[p] = (char)32; gcol[p] = (char)0; }
+    for p in 0..(scrW * scrH / 2) { px[p] = two; }
+    for p in 0..(cols * maxrows) { gcells[p] = (char)32; gcol[p] = (char)0; }
     fb[0] = 0x41000000;
+    fb[1] = scrW;
     fb[2] = scrH;                                    // the picture is whole rows of letters
     cx = 0;
     cy = 0;

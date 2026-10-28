@@ -4,11 +4,11 @@ void term_redraw() {
     wallpaper();
     draw_bar(0x6c616e696d726554, 0);
     int bgc = rgb(8, 10, 20);
-    fill(0, 76, 540, scrH - 76, bgc);
+    fill(0, 76, scrW, scrH - 76, bgc);
     for r in 0..vrows {
-        for c in 0..54 {
-            int ch = gcells[r * 54 + c] & 255;
-            if ch > 32 && ch < 127 { draw_cell(c, r, ch, 0, gcol[r * 54 + c]); }
+        for c in 0..cols {
+            int ch = gcells[r * cols + c] & 255;
+            if ch > 32 && ch < 127 { draw_cell(c, r, ch, 0, gcol[r * cols + c]); }
         }
     }
     gdirty = 1;
@@ -21,12 +21,12 @@ void app_terminal() {
     keyboard(1);
     gohome = 0;
     while true {
-        say(0x203e6a);
+        prompt();
         bool got = read_line();
         if gohome == 1 || !got { break; }
         if !run_command() { break; }
     }
-    if shown == 1 { draw_cell(cx, cy, gcells[cy * 54 + cx] & 255, 0, gcol[cy * 54 + cx]); shown = 0; }
+    if shown == 1 { draw_cell(cx, cy, gcells[cy * cols + cx] & 255, 0, gcol[cy * cols + cx]); shown = 0; }
     keyboard(0);
 }
 
@@ -43,6 +43,7 @@ void power_off() {
 void phone() {
     p32 = (u32^)0x41000000;
     build_apps();
+    if scrW > scrH { desktop(); }                              // a screen that is wider than high: the desktop
     while true {
         keyboard(0);
         draw_home();
@@ -68,7 +69,7 @@ void phone() {
         else if kd == 2 { app_clock(); }
         else if kd == 3 { app_about(); }
         else if kd == 4 { app_launch(app); }
-        else if kd == 5 { power_off(); }
+        else if kd == 5 { if power_ask() { power_off(); } }
         else if kd == 6 { app_store(); }
     }
 }

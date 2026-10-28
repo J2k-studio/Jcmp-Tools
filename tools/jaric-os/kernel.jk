@@ -23,6 +23,7 @@ void uputc(int c) {
 #import "k_proc"
 #import "k_start"
 #import "k_phone"
+#import "k_desk"
 #import "k_store"
 #import "k_term"
 
@@ -35,7 +36,7 @@ void kmain() {
         phone();
     }
     while true {
-        say(0x203e6a);
+        prompt();
         if !read_line() { break; }
         if !run_command() { break; }
     }

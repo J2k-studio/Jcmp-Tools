@@ -86,7 +86,7 @@ void boot_log() {
     if fbr[1] != 0 {
         stamp(); tag(sready == 1); say(0x20202020746e6f46); say(0x2c68746f6f6d7320); say(0x20); putnum(fontsize); say(0x736574796220);
         logline();
-        stamp(); tag(sready == 1); say(0x20206e6565726353); say(0x20); putnum(fbr[1]); say(0x207820); putnum(fbr[2]); say(0x202c); putnum(54); say(0x207820); putnum(maxrows); say(0x736c6c656320);
+        stamp(); tag(sready == 1); say(0x20206e6565726353); say(0x20); putnum(fbr[1]); say(0x207820); putnum(fbr[2]); say(0x202c); putnum(cols); say(0x207820); putnum(maxrows); say(0x736c6c656320);
         logline();
     }
     int^ uid = (int^)0x0C000000;

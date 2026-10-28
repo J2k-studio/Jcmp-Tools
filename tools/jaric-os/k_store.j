@@ -88,7 +88,7 @@ void store_message(char^ ans) {                       // the answer of the host 
     int l = 0;
     while ans[l] != 0 && ans[l] != 10 && l < 50 { tb[l] = ans[l]; l += 1; }
     tb[l] = 0;
-    fill(0, scrH - 130, 540, 40, rgb(12, 18, 40));
+    fill(0, scrH - 130, scrW, 40, rgb(12, 18, 40));
     text(28, scrH - 120, @tb, 1, rgb(255, 215, 120));
     present();
 }
@@ -125,7 +125,7 @@ void app_store() {
         hcmd[4 + idl] = 0;
         char^ keep = (char^)0x42210000;                // the list is kept: the answer of the host goes over it
         for k in 0..4000 { keep[k] = ans[k]; }
-        fill(0, scrH - 130, 540, 40, rgb(12, 18, 40));
+        fill(0, scrH - 130, scrW, 40, rgb(12, 18, 40));
         t8(28 + 0, scrH - 120, 0x64616f6c6e776f44, 1, rgb(255, 215, 120)); t8(28 + 80, scrH - 120, 0x2e2e2e20676e69, 1, rgb(255, 215, 120));
         present();
         int gs = hostcall_do();
@@ -201,6 +201,11 @@ void js_command() {
     } else {
         say(0x6c2065726f74736a); say(0x6e69207c20747369); say(0x4449206c6c617473); say(0x766f6d6572207c20); say(0x44492065); putc(10);
     }
+}
+
+// the prompt looks like the one of jsh in the terminal of the phone:  jc f:/>
+void prompt() {
+    setcol(4); say(0x20636a); setcol(1); say(0x2f3a66); setcol(0); say(0x203e);
 }
 
 // one line of the console; false = leave (exit)

@@ -1,5 +1,13 @@
 # jaric-os changelog
 
+## 0.10.1
+* **Changed:** the prompt of the Terminal of the system is the one of jsh in the terminal of the phone: `jc f:/>` (with colours).
+
+## 0.10.0
+* **Added (the desktop):** when the picture is wider than high (the phone on its side) the system is a desktop: icons of the apps on a wallpaper, a taskbar at the bottom (the start button, pinned apps, the time since start), and a window with a title bar and a close button for the app that runs. The picture width and height follow the screen (`JARIC_SCREEN=WIDTHxHEIGHT`).
+* **Changed (Power asks first):** a tap on the Power icon shows a card (Cancel / Turn off); it used to turn the machine off at once.
+* **Fixed:** the screen of the app is scaled smoothly (it was scaled in sharp pixels).
+
 ## 0.9.0
 * **Added (apps like on a phone):** a package (`.jc`, a zip with `manifest.toml` and the program) that is in the folder of the system becomes an app: the host opens it, the home screen shows an icon with the name from the manifest (no file names, no `.jc`), a tap shows a splash with the icon and runs the program on the whole screen. The packages are not put on the disk, only the manifest (`ID.mf`) and the program (`ID.run`); the Files app does not show them.
 * **Added (gesture):** a swipe up from the bottom edge closes the app that runs and shows the home screen.

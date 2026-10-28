@@ -21,8 +21,8 @@ int rgb(int r, int g, int b) { return b | (g << 8) | (r << 16) | (255 << 24); }
 void fill(int x, int y, int w, int h, int c) {
     for yy in y..(y + h) {
         if yy >= 0 && yy < scrH {
-            int base = yy * 540;
-            for xx in x..(x + w) { if xx >= 0 && xx < 540 { p32[base + xx] = (u32)c; } }
+            int base = yy * scrW;
+            for xx in x..(x + w) { if xx >= 0 && xx < scrW { p32[base + xx] = (u32)c; } }
         }
     }
 }
@@ -33,9 +33,9 @@ void rrect(int x, int y, int w, int h, int r, int c) {
             int dy = 0;
             if yy < y + r { dy = y + r - 1 - yy; }
             if yy >= y + h - r { dy = yy - (y + h - r); }
-            int base = yy * 540;
+            int base = yy * scrW;
             for xx in x..(x + w) {
-                if xx >= 0 && xx < 540 {
+                if xx >= 0 && xx < scrW {
                     int dx = 0;
                     if xx < x + r { dx = x + r - 1 - xx; }
                     if xx >= x + w - r { dx = xx - (x + w - r); }
@@ -50,14 +50,14 @@ void rrect(int x, int y, int w, int h, int r, int c) {
 void wallpaper() {
     for y in 0..scrH {
         int c = rgb(8 + y / 90, 10 + y / 50, 24 + y / 14);
-        int base = y * 540;
-        for x in 0..540 { p32[base + x] = (u32)c; }
+        int base = y * scrW;
+        for x in 0..scrW { p32[base + x] = (u32)c; }
     }
 }
 
 void blend(int x, int y, int c, int a) {
-    if x < 0 || x >= 540 || y < 0 || y >= scrH { return; }
-    int o = (int)p32[y * 540 + x];
+    if x < 0 || x >= scrW || y < 0 || y >= scrH { return; }
+    int o = (int)p32[y * scrW + x];
     int ob = o & 255;
     int og = (o >> 8) & 255;
     int orr = (o >> 16) & 255;
@@ -67,7 +67,7 @@ void blend(int x, int y, int c, int a) {
     int nb = ob + ((cb - ob) * a) / 255;
     int ng = og + ((cg - og) * a) / 255;
     int nr = orr + ((cr - orr) * a) / 255;
-    p32[y * 540 + x] = (u32)(nb | (ng << 8) | (nr << 16) | (255 << 24));
+    p32[y * scrW + x] = (u32)(nb | (ng << 8) | (nr << 16) | (255 << 24));
 }
 
 void glyph(int x, int y, int ch, int sc, int c) {
@@ -115,6 +115,7 @@ int digits(int v) {
 }
 
 void present() {
+    if desk_ctx == 1 { composite(); return; }         // in a window: the surface goes into the picture of the desktop first
     int^ fb = (int^)0x0B000000;
     fb[3] = 1;
 }
@@ -191,13 +192,41 @@ void build_apps() {
 }
 
 // one icon: a rounded square in the colour of the app and its first letter; the name under it
+
+// turning off asks first: a card with Cancel and Turn off (a tap on the icon must not end the machine)
+bool power_ask() {
+    int cw = 440;
+    int cxp = (scrW - cw) / 2;
+    int cyp = scrH / 2 - 110;
+    rrect(cxp - 4, cyp - 4, cw + 8, 228, 34, rgb(60, 78, 130));
+    rrect(cxp, cyp, cw, 220, 32, rgb(26, 36, 66));
+    t8(cxp + 40 + 0, cyp + 34, 0x66666f206e727554, 2, rgb(255, 255, 255)); t8(cxp + 40 + 160, cyp + 34, 0x3f, 2, rgb(255, 255, 255));
+    t8(cxp + 40 + 0, cyp + 90, 0x534f20636972614a, 1, rgb(150, 175, 215)); t8(cxp + 40 + 80, cyp + 90, 0x7473206c6c697720, 1, rgb(150, 175, 215)); t8(cxp + 40 + 160, cyp + 90, 0x2e706f, 1, rgb(150, 175, 215));
+    rrect(cxp + 30, cyp + 140, 180, 56, 28, rgb(50, 66, 112));
+    t8(cxp + 30 + 54 + 0, cyp + 158, 0x6c65636e6143, 1, rgb(235, 242, 255));
+    rrect(cxp + cw - 210, cyp + 140, 180, 56, 28, rgb(220, 70, 70));
+    t8(cxp + cw - 210 + 38 + 0, cyp + 158, 0x66666f206e727554, 1, rgb(255, 255, 255));
+    present();
+    while true {
+        int r = wait_event();
+        if r != 1 { continue; }
+        if tap_y >= cyp + 140 && tap_y < cyp + 196 {
+            if tap_x >= cxp + 30 && tap_x < cxp + 210 { return false; }
+            if tap_x >= cxp + cw - 210 && tap_x < cxp + cw - 30 { return true; }
+        }
+        if tap_y < cyp || tap_y > cyp + 220 || tap_x < cxp || tap_x > cxp + cw { return false; }      // a tap outside the card: cancel
+    }
+    return false;
+}
+
 void draw_icon(int x, int y, int app, int size) {
     int c = icon_color(app);
     if akind[app] == 5 { c = rgb(220, 70, 70); }
     rrect(x, y, size, size, size / 4, c);
     int ch = anames[app * 16] & 255;
     if ch >= 97 && ch <= 122 { ch = ch - 32; }
-    glyph(x + (size - 30) / 2, y + (size - 60) / 2, ch, 3, rgb(255, 255, 255));
+    if size < 60 { glyph(x + (size - 10) / 2, y + (size - 20) / 2, ch, 1, rgb(255, 255, 255)); }
+    else { glyph(x + (size - 30) / 2, y + (size - 60) / 2, ch, 3, rgb(255, 255, 255)); }
 }
 
 void label(int mx, int y, int app) {
@@ -257,7 +286,7 @@ void draw_home() {
 
 // the bar of an app: a back button and the title
 void draw_bar(int w0, int w1) {
-    fill(0, 0, 540, 76, rgb(24, 32, 58));
+    fill(0, 0, scrW, 76, rgb(24, 32, 58));
     t8(16 + 0, 28, 0x656d6f48203c, 1, rgb(120, 190, 255));
 
     t8(200, 22, w0, 2, rgb(255, 255, 255));
@@ -283,7 +312,11 @@ int wait_event() {
                 int dy = ui[2] - dn_y;
                 if dx < 0 { dx = 0 - dx; }
                 if dy < 0 { dy = 0 - dy; }
-                if dx < 40 && dy < 40 { tap_x = ui[1]; tap_y = ui[2]; return 1; }
+                if dx < 40 && dy < 40 {
+                    tap_x = ui[1];
+                    tap_y = ui[2];
+                    if tap_map() { return 1; }                      // in a window the place is the place in the window
+                }
             }
         }
     }
@@ -367,7 +400,7 @@ void app_about() {
     line_kv(310, 0x79726f6d654d, 0, 64, 0x424d);
     line_kv(370, 0x6b736944, 0, g_dsec, 0x73726f74636573);
     line_kv(430, 0x73656c6946, 0, nfiles, 0);
-    line_kv(490, 0x6e6565726353, 0, 540, 0x656469772073746f64);
+    line_kv(490, 0x6e6565726353, 0, scrW, 0x656469772073746f64);
     line_kv(550, 0x6e6565726353, 0, scrH, 0x686769682073746f64);
     line_kv(610, 0x746e6f46, 0, g_font, 0x7365747962);
     present();
@@ -383,7 +416,7 @@ void app_launch(int app) {
     tb[l] = 0;
     text(270 - l * 10, 620, @tb, 2, rgb(255, 255, 255));
     present();
-    fill(0, 0, 540, scrH, rgb(0, 0, 0));                              // the app has the whole screen (the splash stays on the picture that the host has until the first picture of the app)
+    fill(0, 0, scrW, scrH, rgb(0, 0, 0));                              // the app has the whole screen (the splash stays on the picture that the host has until the first picture of the app)
     char^ e = @sbuf[512 + aidx[app] * 64];
     int el = 0;
     while e[el] != 0 { el += 1; }

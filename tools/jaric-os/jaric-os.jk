@@ -92,7 +92,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.9.0"; }
+String jemu_version() { return "0.10.1"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -1985,8 +1985,18 @@ int main() {
                 gfx_path = args[ai + 1].c();
                 fb_w = 540;
                 fb_h = 960;
-                switch Env::get("JARIC_SCREEN") {                         // the app says how big the picture is that fills its screen: 540xHEIGHT
-                    Option::Some(v): { int xp = 0; for q in 0..v.len { if v[q] == 'x' { xp = q + 1; } } if xp > 0 { int hv = 0; for q in xp..v.len { hv = hv * 10 + (v[q] - '0'); } if hv >= 480 && hv <= 1400 { fb_h = hv; } } }
+                switch Env::get("JARIC_SCREEN") {                         // the app says how big the picture is that fills its screen: WIDTHxHEIGHT
+                    Option::Some(v): {
+                        int xp = 0;
+                        for q in 0..v.len { if v[q] == 'x' { xp = q + 1; } }
+                        if xp > 1 {
+                            int wv = 0;
+                            for q in 0..(xp - 1) { wv = wv * 10 + (v[q] - '0'); }
+                            int hv = 0;
+                            for q in xp..v.len { hv = hv * 10 + (v[q] - '0'); }
+                            if wv >= 480 && wv <= 1280 && hv >= 480 && hv <= 1400 { fb_w = wv; fb_h = hv; }
+                        }
+                    }
                     Option::None: { }
                 }
             }          // the machine has a screen: the system can draw on it (540 x 960)
