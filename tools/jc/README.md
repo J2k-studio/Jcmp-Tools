@@ -6,7 +6,7 @@ A `.jc` is one file that is a whole program: a zip with `manifest.toml` (name, i
 jc tools                         the tools of Jcmp-Tools
 jc lib list|installed|install NAME|unstall NAME     the libraries of J2K
 jc info game.jc                  name, id, version, the permissions it asks for
-jc install NAME                  a tool of Jcmp-Tools (jget tool NAME);  jc install STORE.ID: a store program
+jc install NAME                  a tool of Jcmp-Tools (jc install NAME);  jc install STORE.ID: a store program
 jc unstall NAME                  remove a tool
 jc update [-n]                   jsh and the tools (and store programs) that have a newer version; -n: only show
 jc install game.jc [-y]          unpack, show the permissions, ask once [Y/n] (-y: yes; with no terminal it refuses unless -y)

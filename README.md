@@ -6,7 +6,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 
 | tool | what it does |
 |---|---|
-| [jget](tools/jget/README.md) | download files (https, progress bar), songs (`-m`), scripts (`-sh`, `-jsh`), the libraries of J2K (`-li`), the other tools (`jget tool NAME`, also .tar.gz packed files) and `jget untar FILE` |
+| [jget](tools/jget/README.md) | download files (https, progress bar), songs (`-m`), scripts (`-sh`, `-jsh`), the libraries of J2K (`-li`), the other tools (`jc install NAME`, also .tar.gz packed files) and `jget untar FILE` |
 | [makej](tools/makej/README.md) | the build tool: `makej`, `-j N` (many cores, a bar for each job and each core), `init`, `init -pro`, `init -game`, `init -ai` (a project that trains an AI into a `.jw`), `apk`, `pack` (.jc), `dist`, `targets` |
 | [jsh](tools/jsh/README.md) | the shell: line editing, ghost text, pipes, redirects, scripts (first line `[#jsh]`, `$1 $#`), aliases, `start PROGRAM` (a new tab), `jaric setting` in sections, `jaric -restart`, `jaric video` (MPL-2.0) |
 | [jbox](tools/jbox/README.md) | about 60 small commands in one program: `dir cat grep sort sed find tree rev paste printf base64 sha256sum ...` (MPL-2.0) |
@@ -36,7 +36,7 @@ curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- jget makej  # the tools you name
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- --all      # every tool
 ```
-Options after `sh -s --`: `--dir DIR` (default `$PREFIX/bin` on Termux, else `~/.local/bin`), `--version X.Y.Z`, `--list`, `--yes`. Every file is checked with its SHA-256. With `jget` installed: `jc tools`, `jget tool NAME`, `jc install all` (and it links the second names: `unj`, `gzj`, the commands of jbox). In the Jaric app: `install NAME` in the shell.
+Options after `sh -s --`: `--dir DIR` (default `$PREFIX/bin` on Termux, else `~/.local/bin`), `--version X.Y.Z`, `--list`, `--yes`. Every file is checked with its SHA-256. With `jget` installed: `jc tools`, `jc install NAME`, `jc install all` (and it links the second names: `unj`, `gzj`, the commands of jbox). In the Jaric app: `install NAME` in the shell.
 Libraries of J2K (`#import <name>`): `jc lib list`, `jc lib install gamej` (the game engine), `neuron` (small neural networks), `deflate` (gzip, CRC-32) and more.
 
 ## How it all works (the short picture)
