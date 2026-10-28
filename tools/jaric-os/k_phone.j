@@ -312,6 +312,7 @@ int wait_event() {
                 int dy = ui[2] - dn_y;
                 if dx < 0 { dx = 0 - dx; }
                 if dy < 0 { dy = 0 - dy; }
+                if dn_y < 50 && ui[2] - dn_y > 100 && desk_ctx == 0 && dx < 120 { control_panel(); gdirty = 1; continue; }          // the swipe down from the top edge: the control panel
                 if dx < 40 && dy < 40 {
                     tap_x = ui[1];
                     tap_y = ui[2];

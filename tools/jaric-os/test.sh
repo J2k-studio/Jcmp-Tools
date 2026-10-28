@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.10.1" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.11.0" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -90,4 +90,8 @@ command grep -q "runtime error" "$T/app.out" && { echo "jaric-os test: the app c
 command grep -q "gfx;open;1170;540" "$T/desk.out" || { echo "jaric-os test: the desktop did not open a picture of 1170 x 540"; exit 1; }
 command grep -q "gfx;keys;on" "$T/desk.out" || { echo "jaric-os test: the Terminal window did not ask for the keyboard"; exit 1; }
 command grep -q "runtime error" "$T/desk.out" && { echo "jaric-os test: the desktop crashed"; exit 1; }
+# the control panel: a swipe down from the top edge opens it, the Keyboard switch asks the app for the keyboard, Close puts back what was under it
+{ sleep 2; printf '\033]7777;touch;D;270;8;0\007\033]7777;touch;M;270;200;0\007\033]7777;touch;U;270;320;0\007'; sleep 2; printf '\033]7777;touch;D;90;130;0\007\033]7777;touch;U;90;130;0\007'; sleep 2; printf '\033]7777;touch;D;400;130;0\007\033]7777;touch;U;400;130;0\007'; sleep 2; printf '\033]7777;gfx-closed\007'; sleep 1; } | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033\007' > "$T/panel.out" || true
+command grep -q "gfx;keys;on" "$T/panel.out" || { echo "jaric-os test: the Keyboard switch of the control panel did not ask for the keyboard"; exit 1; }
+command grep -q "runtime error" "$T/panel.out" && { echo "jaric-os test: the control panel crashed"; exit 1; }
 echo "jaric-os tests: ok"

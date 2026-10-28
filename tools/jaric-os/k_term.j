@@ -53,6 +53,7 @@ void phone() {
             continue;
         }
         int app = 0 - 1;
+        if tap_y < 44 && tap_x > 300 { control_panel(); continue; }              // a tap on the status line: the control panel
         if tap_y >= scrH - 230 && tap_y < scrH - 70 && tap_x >= 50 {
             int d = (tap_x - 50) / 118;
             if d >= 0 && d < 4 && (tap_x - 50) % 118 < 88 { app = d; }

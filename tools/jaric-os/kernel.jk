@@ -24,6 +24,7 @@ void uputc(int c) {
 #import "k_start"
 #import "k_phone"
 #import "k_desk"
+#import "k_panel"
 #import "k_store"
 #import "k_term"
 

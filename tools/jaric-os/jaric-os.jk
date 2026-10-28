@@ -92,7 +92,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.10.1"; }
+String jemu_version() { return "0.11.0"; }
 
 void die(String msg, int code) {
     tty_restore();

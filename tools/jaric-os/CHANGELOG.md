@@ -1,5 +1,8 @@
 # jaric-os changelog
 
+## 0.11.0
+* **Added (the control panel):** a swipe down from the top edge (or a tap on the status line of the home screen) opens a card with switches that work (Keyboard on/off, Power, Close) and what the machine is: OS, CPU, bits (64), level and core, memory, the size of the picture, the screen in dots, the disk. What was under the card comes back when it closes.
+
 ## 0.10.1
 * **Changed:** the prompt of the Terminal of the system is the one of jsh in the terminal of the phone: `jc f:/>` (with colours).
 
