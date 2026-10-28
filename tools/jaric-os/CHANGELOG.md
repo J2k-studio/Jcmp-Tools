@@ -1,5 +1,10 @@
 # jaric-os changelog
 
+## 0.14.0
+* **Added (games made with the engine run in Jaric OS):** a program that `<gamej>` built (jcmp 1.2.2 or the dev compiler with `-novec`) runs from its icon: the system tells it that it runs in Jaric OS (`JARIC_OS=1`); the picture (180 x 100 dots) is shown with call 400 and made bigger by the accelerator (3 times on the phone, in the middle of the screen); the touch comes with call 401 (with the scale and the left and top edge, so that the game can turn a place on the screen into a place in the picture). `nanosleep` is answered (the machine rests between frames).
+* **Added:** the accelerator can make a picture bigger by a whole number (operation 5) and the machine can sleep (register 0x40).
+* **Needs:** programs for the machine are built with `jcmp -novec` (the emulator has no NEON).
+
 ## 0.13.1
 * **Added:** `jaric-os --ram MB [FOLDER]` (64 to 1024 MB of memory; the manager of the app uses it).
 

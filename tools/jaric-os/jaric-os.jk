@@ -92,7 +92,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.13.1"; }
+String jemu_version() { return "0.14.0"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -402,6 +402,37 @@ void gpu_exec() {
             int drow = yy * ds;
             int srow = yy * ss;
             for xx in 0..w { d[drow + xx] = s[srow + xx]; }
+        }
+    } else if op == 5 {                                    // a picture made bigger by a whole number: dst, dst stride, dx, dy, src, src stride, w, h, scale, clip w, clip h
+        int dst = gp[1];
+        int ds = gp[2];
+        int dx = gp[3];
+        int dy = gp[4];
+        int src = gp[5];
+        int ss = gp[6];
+        int w = gp[7];
+        int h = gp[8];
+        int sc = gp[9];
+        int cw = gp[10];
+        int chh = gp[11];
+        if sc < 1 || w < 1 || h < 1 { return; }
+        int sph = host_of(src, ((h - 1) * ss + w) * 4);
+        int dph = host_of(dst, (chh * ds) * 4);
+        if sph == 0 || dph == 0 { return; }
+        u32^ s = (u32^)sph;
+        u32^ d = (u32^)dph;
+        for yy in 0..h {
+            for xx in 0..w {
+                u32 cv = s[yy * ss + xx] | (u32)4278190080;
+                for v in 0..sc {
+                    int py = dy + yy * sc + v;
+                    if py < 0 || py >= chh { continue; }
+                    for u in 0..sc {
+                        int px2 = dx + xx * sc + u;
+                        if px2 >= 0 && px2 < cw { d[py * ds + px2] = cv; }
+                    }
+                }
+            }
         }
     }
 }
@@ -770,7 +801,16 @@ void mmio_st(int addr, int v) {
         else if hoff == 0x10 { hostcall(); }
         return;
     }
-    if addr >= 0x0C000000 { return; }
+    if addr >= 0x0C000000 {
+        if addr - 0x0C000000 == 0x40 {                              // SLEEP: the machine rests for that many milliseconds (a program that waits for the next frame does not burn the phone)
+            int^ ts = (int^)Mem::alloc(16);
+            ts[0] = v / 1000;
+            ts[1] = (v % 1000) * 1000000;
+            Sys::call(101, (int)ts, 0, 0, 0, 0, 0);
+            Mem::free(ts);
+        }
+        return;
+    }
     if addr >= 0x0B000000 {                     // the screen: ADDR 0x00, WIDTH 0x08, HEIGHT 0x10, FLUSH 0x18
         int foff = addr - 0x0B000000;
         if foff == 0x00 { fb_addr = v; }

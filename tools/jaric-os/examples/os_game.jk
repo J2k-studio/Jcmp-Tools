@@ -1,0 +1,20 @@
+// a game for Jaric OS made with <gamej>: a square that follows the finger. In a package (.jc) it runs from its icon; the picture is 180 x 100 dots and the system makes it three times bigger.
+#import <stdlib>
+#import <gamej>
+int main() {
+    Game g = Game::open("OS game");
+    double x = 90.0;
+    double y = 50.0;
+    int taps = 0;
+    while g.running() {
+        g.begin();
+        if g.touching() { x = (double)g.touch_x; y = (double)g.touch_y; }
+        if g.tapped() { taps += 1; }
+        g.clear(Game::rgb(20, 30, 70));
+        g.rect((int)x - 6, (int)y - 6, 12, 12, Game::rgb(255, 210, 60));
+        g.text(2, 2, "taps " + str(taps), Game::rgb(255, 255, 255));
+        g.end();
+    }
+    g.close();
+    return 0;
+}

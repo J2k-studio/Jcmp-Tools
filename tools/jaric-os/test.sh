@@ -1,9 +1,10 @@
 #!/bin/sh
 # jaric-os: version, help, and Jaric OS from  jaric-os  (a disk made of a folder; ls, cat, echo, exit typed to the console)
 set -eu
+REAL_HOME=$HOME                          # the tests change HOME below
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.13.1" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.14.0" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -108,4 +109,20 @@ command grep -q "gfx;present" "$T/gpu.out" || { echo "jaric-os test: no picture"
 # jaric-os --ram MB: the memory of the machine is the one asked for (the manager of the app)
 OUTR2=$(printf 'exit\n' | "$B/jaric-os" --ram 200 "$T/disk" 2>&1 | tr -d '\033')
 case "$OUTR2" in *"Memory   200 MB"*) ;; *) echo "jaric-os test: --ram: $OUTR2"; exit 1 ;; esac
+# a game made with <gamej> in a package: the picture of 180 x 100 dots is made bigger by the system, the touch reaches the game (the program is built with -novec: the machine has no NEON)
+# <gamej> is a downloaded library (jget -li install gamej): the tests look in the folder that the compiler repository fills (J2K_PATH)
+LIBS="${J2K_LIBS:-$REAL_HOME/Jcmp/build/libs}"
+J2K_PATH="$LIBS" "${JCMP:-jcmp}" -novec examples/os_game.jk -o "$T/os_game" > "$T/os_game.log" 2>&1 || { echo "jaric-os test: cannot build examples/os_game.jk (needs <gamej>; J2K_LIBS=folder): $(head -3 "$T/os_game.log")"; exit 1; }
+rm -f "$T"/disk/*.jc
+python3 - "$T" <<'PY'
+import sys, zipfile
+t = sys.argv[1]
+z = zipfile.ZipFile(t + '/disk/Square.jc', 'w', zipfile.ZIP_DEFLATED)
+z.writestr('manifest.toml', 'name = "Square"\nid = "com.example.square"\nversion = "1.0.0"\ntype = "game"\nentry = "game"\npermissions = []\n')
+z.write(t + '/os_game', 'game')
+z.close()
+PY
+{ sleep 2; printf '\033]7777;touch;D;337;430;0\007\033]7777;touch;U;337;430;0\007'; sleep 6; printf '\033]7777;touch;D;300;560;0\007'; sleep 2; printf '\033]7777;gfx-closed\007'; sleep 1; } | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033\007' > "$T/game.out" || true
+command grep -q "runtime error\|syscall " "$T/game.out" && { echo "jaric-os test: the game crashed or used a call that is not there"; exit 1; }
+[ "$(command grep -o 'gfx;present' "$T/game.out" | wc -l)" -ge 12 ] || { echo "jaric-os test: the game did not show its pictures"; exit 1; }
 echo "jaric-os tests: ok"

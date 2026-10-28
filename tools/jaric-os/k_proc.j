@@ -25,6 +25,9 @@ void zero_page(int pa) {
     for i in 0..512 { p[i] = 0; }
 }
 
+int ps_sc;                             // how the last picture of the program was put on the screen (for the touch): the scale and the left and top edge
+int ps_dx;
+int ps_dy;
 int p_oom;                             // 1 when the memory is used up: the calls that ask for more say so
 
 int alloc_frame() {
@@ -286,6 +289,28 @@ void prog_leave(int code) {
 
 // a picture of the program (blue, green, red, any; w x h dots) goes to the screen of the system
 void prog_present(char^ pix, int w, int h) {
+    ps_sc = 1;
+    ps_dx = 0;
+    ps_dy = 0;
+    int sc = 1;
+    while (sc + 1) * w <= scrW && (sc + 1) * h <= scrH { sc += 1; }
+    if gpu_on == 1 && sc >= 2 && w * h <= 400000 {
+        // a small picture (a game of 180 x 100 dots): copied to the memory of the system, then made bigger by the accelerator and put in the middle
+        u32^ up = (u32^)pix;
+        u32^ stg = (u32^)0x42800000;
+        int n = w * h;
+        for i in 0..n { stg[i] = up[i]; }
+        int^ g = (int^)0x0E000000;
+        g[1] = sfb; g[2] = scrW; g[3] = (scrW - w * sc) / 2; g[4] = (scrH - h * sc) / 2;
+        g[5] = 0x42800000; g[6] = w; g[7] = w; g[8] = h; g[9] = sc; g[10] = scrW; g[11] = scrH;
+        g[0] = 5;
+        g[16] = 1;
+        ps_sc = sc;
+        ps_dx = (scrW - w * sc) / 2;
+        ps_dy = (scrH - h * sc) / 2;
+        present();
+        return;
+    }
     char^ fb = (char^)sfb;
     int ww = w;
     if ww > scrW { ww = scrW; }
@@ -360,6 +385,12 @@ void svc_dispatch(int^ f) {
         f[0] = 0;
     } else if nr == 29 { f[0] = 0 - 25;                                // ioctl: not a terminal
     } else if nr == 132 || nr == 134 || nr == 135 { f[0] = 0;
+    } else if nr == 101 {                                              // nanosleep: the machine rests (the host sleeps), so that waiting for the next frame costs no battery
+        int^ tsn = (int^)a0;
+        int ms = tsn[0] * 1000 + tsn[1] / 1000000;
+        if ms > 100 { ms = 100; }
+        if ms > 0 { int^ uis = (int^)0x0C000000; uis[8] = ms; }
+        f[0] = 0;
     } else if nr == 124 { f[0] = 0;
     } else if nr == 93 || nr == 94 { prog_leave(a0);                   // exit
     } else if nr == 400 { int pl = uig[5]; prog_present((char^)a0, a1, a2); f[0] = 0;   // a picture for the screen
@@ -372,6 +403,9 @@ void svc_dispatch(int^ f) {
         o[2] = ui[2];
         o[3] = ui[3];
         o[4] = ui[4];
+        o[5] = ps_sc;
+        o[6] = ps_dx;
+        o[7] = ps_dy;
         f[0] = 0;
     } else {
         say(0x206c6c6163737973); putnum(nr); putc(10);                 // syscall N
@@ -403,9 +437,11 @@ int run_program(char^ nm) {
     v[0] = 1;
     v[1] = 0x7fffc800;
     v[2] = 0;
-    v[3] = 0;
+    v[3] = 0x7fffc900;                                              // envp[0] = "JARIC_OS=1": the program knows that it runs in Jaric OS
     v[4] = 0;
     v[5] = 0;
+    char^ ev = (char^)0x7fffc900;
+    ev[0] = 'J'; ev[1] = 'A'; ev[2] = 'R'; ev[3] = 'I'; ev[4] = 'C'; ev[5] = '_'; ev[6] = 'O'; ev[7] = 'S'; ev[8] = '='; ev[9] = '1'; ev[10] = 0;
     p_sp = 0x7fffc000;
     for i in 0..13 { ctxU[i] = 0; }
     ctxU[9] = 0x40100000;
