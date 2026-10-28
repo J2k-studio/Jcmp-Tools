@@ -1,0 +1,381 @@
+// the phone: the home screen, the icons, the dock and the apps (files, clock, about) (a part of kernel.jk: the files are put together with #import in this order, the globals come before they are used)
+// ---- the phone: a home screen with icons, a dock, and the apps. Everything is drawn here with the smooth font; the touch device tells where a finger is.
+u32^ p32;
+char tb[24];
+char anames[256];                      // 16 apps, 16 letters each
+int akind[16];                         // 0 terminal, 1 files, 2 clock, 3 about, 4 a .jc package (aidx = its place in the directory), 5 power
+int aidx[16];
+int napps;
+int ev;                                // what wait_event found: 0 a key, 1 down, 2 move, 3 up (4, the seen height, is taken care of inside)
+int ev_x;
+int ev_y;
+int ev_key;
+int dn_x;
+int dn_y;
+int tap_x;
+int tap_y;
+
+int rgb(int r, int g, int b) { return b | (g << 8) | (r << 16) | (255 << 24); }
+
+void fill(int x, int y, int w, int h, int c) {
+    for yy in y..(y + h) {
+        if yy >= 0 && yy < scrH {
+            int base = yy * 540;
+            for xx in x..(x + w) { if xx >= 0 && xx < 540 { p32[base + xx] = (u32)c; } }
+        }
+    }
+}
+
+void rrect(int x, int y, int w, int h, int r, int c) {
+    for yy in y..(y + h) {
+        if yy >= 0 && yy < scrH {
+            int dy = 0;
+            if yy < y + r { dy = y + r - 1 - yy; }
+            if yy >= y + h - r { dy = yy - (y + h - r); }
+            int base = yy * 540;
+            for xx in x..(x + w) {
+                if xx >= 0 && xx < 540 {
+                    int dx = 0;
+                    if xx < x + r { dx = x + r - 1 - xx; }
+                    if xx >= x + w - r { dx = xx - (x + w - r); }
+                    if dx * dx + dy * dy <= r * r { p32[base + xx] = (u32)c; }
+                }
+            }
+        }
+    }
+}
+
+// the page behind everything: dark blue that gets lighter downwards
+void wallpaper() {
+    for y in 0..scrH {
+        int c = rgb(8 + y / 90, 10 + y / 50, 24 + y / 14);
+        int base = y * 540;
+        for x in 0..540 { p32[base + x] = (u32)c; }
+    }
+}
+
+void blend(int x, int y, int c, int a) {
+    if x < 0 || x >= 540 || y < 0 || y >= scrH { return; }
+    int o = (int)p32[y * 540 + x];
+    int ob = o & 255;
+    int og = (o >> 8) & 255;
+    int orr = (o >> 16) & 255;
+    int cb = c & 255;
+    int cg = (c >> 8) & 255;
+    int cr = (c >> 16) & 255;
+    int nb = ob + ((cb - ob) * a) / 255;
+    int ng = og + ((cg - og) * a) / 255;
+    int nr = orr + ((cr - orr) * a) / 255;
+    p32[y * 540 + x] = (u32)(nb | (ng << 8) | (nr << 16) | (255 << 24));
+}
+
+void glyph(int x, int y, int ch, int sc, int c) {
+    if ch < 32 || ch > 126 { return; }
+    int g = 4 + (ch - 32) * 200;
+    for gy in 0..20 {
+        for gx in 0..10 {
+            int a = fnt[g + gy * 10 + gx] & 255;
+            if a > 6 {
+                if sc == 1 { blend(x + gx, y + gy, c, a); }
+                else {
+                    for sy in 0..sc { for sx in 0..sc { blend(x + gx * sc + sx, y + gy * sc + sy, c, a); } }
+                }
+            }
+        }
+    }
+}
+
+void text(int x, int y, char^ s, int sc, int c) {
+    int i = 0;
+    while s[i] != 0 { glyph(x + i * 10 * sc, y, s[i] & 255, sc, c); i += 1; }
+}
+
+// up to eight letters that are in a number (the first one in the lowest byte)
+void t8(int x, int y, int w, int sc, int c) {
+    for k in 0..8 {
+        int ch = (w >> (k * 8)) & 255;
+        if ch == 0 { return; }
+        glyph(x + k * 10 * sc, y, ch, sc, c);
+    }
+}
+
+void num(int x, int y, int v, int sc, int c) {
+    int n = 0;
+    char d[20];
+    if v == 0 { d[0] = '0'; n = 1; }
+    while v > 0 { d[n] = (char)(48 + v % 10); v = v / 10; n += 1; }
+    for k in 0..n { glyph(x + k * 10 * sc, y, d[n - 1 - k] & 255, sc, c); }
+}
+
+int digits(int v) {
+    int n = 1;
+    while v >= 10 { v = v / 10; n += 1; }
+    return n;
+}
+
+void present() {
+    int^ fb = (int^)0x0B000000;
+    fb[3] = 1;
+}
+
+void keyboard(int on) {
+    int^ fb = (int^)0x0B000000;
+    fb[4] = on;                                    // the register KEYBOARD (0x20): the app shows or hides the keyboard
+}
+
+int icon_color(int i) {
+    int k = i % 6;
+    if k == 0 { return rgb(70, 150, 255); }
+    if k == 1 { return rgb(90, 200, 140); }
+    if k == 2 { return rgb(255, 160, 80); }
+    if k == 3 { return rgb(190, 120, 240); }
+    if k == 4 { return rgb(240, 100, 130); }
+    return rgb(80, 200, 220);
+}
+
+void setname(int i, int w0, int w1) {
+    for k in 0..8 { anames[i * 16 + k] = (char)((w0 >> (k * 8)) & 255); }
+    for k in 0..8 { anames[i * 16 + 8 + k] = (char)((w1 >> (k * 8)) & 255); }
+    anames[i * 16 + 15] = 0;
+}
+
+void addapp(int kind, int w0, int w1, int idx) {
+    if napps >= 16 { return; }
+    setname(napps, w0, w1);
+    akind[napps] = kind;
+    aidx[napps] = idx;
+    napps += 1;
+}
+
+// the apps: the ones of the system, then the .jc packages that are on the disk
+void build_apps() {
+    napps = 0;
+    addapp(0, 0x6c616e696d726554, 0, 0);
+    addapp(1, 0x73656c6946, 0, 0);
+    addapp(6, 0x65726f74736a, 0, 0);
+    addapp(3, 0x74756f6241, 0, 0);
+    addapp(2, 0x6b636f6c43, 0, 0);
+    addapp(5, 0x7265776f50, 0, 0);
+    for i in 0..nfiles {
+        char^ e = @sbuf[512 + i * 64];
+        int l = 0;
+        while e[l] != 0 { l += 1; }
+        if l > 3 && l < 18 && e[l - 3] == '.' && e[l - 2] == 'j' && e[l - 1] == 'c' && napps < 16 {
+            for k in 0..(l - 3) { anames[napps * 16 + k] = e[k]; }
+            anames[napps * 16 + l - 3] = 0;
+            akind[napps] = 4;
+            aidx[napps] = i;
+            napps += 1;
+        }
+    }
+}
+
+// one icon: a rounded square in the colour of the app and its first letter; the name under it
+void draw_icon(int x, int y, int app, int size) {
+    int c = icon_color(app);
+    if akind[app] == 5 { c = rgb(220, 70, 70); }
+    rrect(x, y, size, size, size / 4, c);
+    int ch = anames[app * 16] & 255;
+    if ch >= 97 && ch <= 122 { ch = ch - 32; }
+    glyph(x + (size - 30) / 2, y + (size - 60) / 2, ch, 3, rgb(255, 255, 255));
+}
+
+void label(int mx, int y, int app) {
+    int l = 0;
+    while anames[app * 16 + l] != 0 && l < 13 { tb[l] = anames[app * 16 + l]; l += 1; }
+    tb[l] = 0;
+    text(mx - l * 5, y, @tb, 1, rgb(225, 235, 250));
+}
+
+int dock_app(int i) { return i; }
+
+void draw_home() {
+    wallpaper();
+    // the bar at the top: the name on the left, how long it is on on the right
+    t8(16 + 0, 12, 0x534f20636972614a, 1, rgb(190, 205, 230));
+
+    int up = Sys::s3_3_c14_c0_2 / 1000000;
+    int mm = up / 60;
+    int ss = up % 60;
+    t8(400 + 0, 12, 0x7075, 1, rgb(190, 205, 230));
+
+    num(430, 12, mm, 1, rgb(190, 205, 230));
+    glyph(430 + digits(mm) * 10, 12, 58, 1, rgb(190, 205, 230));
+    if ss < 10 { glyph(440 + digits(mm) * 10, 12, 48, 1, rgb(190, 205, 230)); num(450 + digits(mm) * 10, 12, ss, 1, rgb(190, 205, 230)); }
+    else { num(440 + digits(mm) * 10, 12, ss, 1, rgb(190, 205, 230)); }
+    // the greeting
+    t8(28 + 0, 78, 0x534f20636972614a, 3, rgb(255, 255, 255));
+
+    t8(30 + 0, 150, 0x2064657265776f70, 1, rgb(150, 175, 215)); t8(30 + 80, 150, 0x636972614a207962, 1, rgb(150, 175, 215));
+
+    // a card with what the machine is
+    rrect(20, 200, 500, 150, 30, rgb(26, 36, 66));
+    t8(44 + 0, 218, 0x616d2034364d5241, 1, rgb(150, 175, 215)); t8(44 + 80, 218, 0x656e696863, 1, rgb(150, 175, 215));
+    num(44, 252, g_dsec, 1, rgb(235, 242, 255));
+    t8(44 + digits(g_dsec) * 10 + 10 + 0, 252, 0x2073726f74636573, 1, rgb(235, 242, 255)); t8(44 + digits(g_dsec) * 10 + 10 + 80, 252, 0x6b73696420666f, 1, rgb(235, 242, 255));
+    t8(44 + 0, 286, 0x666f20424d203436, 1, rgb(235, 242, 255)); t8(44 + 80, 286, 0x79726f6d656d20, 1, rgb(235, 242, 255));
+    num(44, 320, nfiles, 1, rgb(235, 242, 255));
+    t8(44 + digits(nfiles) * 10 + 10 + 0, 320, 0x6e6f2073656c6966, 1, rgb(235, 242, 255)); t8(44 + digits(nfiles) * 10 + 10 + 80, 320, 0x7369642065687420, 1, rgb(235, 242, 255)); t8(44 + digits(nfiles) * 10 + 10 + 160, 320, 0x6b, 1, rgb(235, 242, 255));
+    // the power icon and the apps that are packages (.jc)
+    for a in 4..napps {
+        int k = a - 4;
+        int col = k % 4;
+        int row = k / 4;
+        int cell_x = col * 135;
+        draw_icon(cell_x + 23, 390 + row * 160, a, 88);
+        label(cell_x + 67, 390 + row * 160 + 98, a);
+    }
+    if napps <= 6 {
+        t8(28 + 0, 600, 0x6120636a2e206f4e, 1, rgb(150, 175, 215)); t8(28 + 80, 600, 0x74206e6f20737070, 1, rgb(150, 175, 215)); t8(28 + 160, 600, 0x206b736964206568, 1, rgb(150, 175, 215)); t8(28 + 240, 600, 0x2e746579, 1, rgb(150, 175, 215));
+        t8(28 + 0, 626, 0x6170206120747550, 1, rgb(150, 175, 215)); t8(28 + 80, 626, 0x6e28206567616b63, 1, rgb(150, 175, 215)); t8(28 + 160, 626, 0x2029636a2e656d61, 1, rgb(150, 175, 215)); t8(28 + 240, 626, 0x656874206e69, 1, rgb(150, 175, 215));
+        t8(28 + 0, 652, 0x6f207265646c6f66, 1, rgb(150, 175, 215)); t8(28 + 80, 652, 0x7973206568742066, 1, rgb(150, 175, 215)); t8(28 + 160, 652, 0x2f7e203a6d657473, 1, rgb(150, 175, 215)); t8(28 + 240, 652, 0x6f2d636972616a2e, 1, rgb(150, 175, 215)); t8(28 + 320, 652, 0x73, 1, rgb(150, 175, 215));
+    }
+    // the dock
+    rrect(20, scrH - 230, 500, 160, 34, rgb(26, 36, 66));
+    for d in 0..4 {
+        draw_icon(50 + d * 118, scrH - 214, d, 88);
+        label(94 + d * 118, scrH - 214 + 98, d);
+    }
+    rrect(200, scrH - 34, 140, 8, 4, rgb(210, 220, 240));
+    present();
+}
+
+// the bar of an app: a back button and the title
+void draw_bar(int w0, int w1) {
+    fill(0, 0, 540, 76, rgb(24, 32, 58));
+    t8(16 + 0, 28, 0x656d6f48203c, 1, rgb(120, 190, 255));
+
+    t8(200, 22, w0, 2, rgb(255, 255, 255));
+    t8(280, 22, w1, 2, rgb(255, 255, 255));
+}
+
+// waits for something: a key, or a touch (a tap is a down and an up near each other: tap_x and tap_y); the seen height of the picture is taken care of here
+// returns 0 a key (ev_key), 1 a tap (tap_x, tap_y)
+int wait_event() {
+    int^ uart = (int^)0x09000000;
+    int^ ui = (int^)0x0C000000;
+    while true {
+        int fr = uart[3];
+        if (fr & 16) == 0 { ev_key = uart[0] & 255; return 0; }
+        int sq = ui[0];
+        if sq != seen {
+            seen = sq;
+            int st = ui[3];
+            if st == 4 { view_set(ui[2]); gdirty = 1; }
+            else if st == 1 { dn_x = ui[1]; dn_y = ui[2]; }
+            else if st == 3 {
+                int dx = ui[1] - dn_x;
+                int dy = ui[2] - dn_y;
+                if dx < 0 { dx = 0 - dx; }
+                if dy < 0 { dy = 0 - dy; }
+                if dx < 40 && dy < 40 { tap_x = ui[1]; tap_y = ui[2]; return 1; }
+            }
+        }
+    }
+    return 0;
+}
+
+bool is_home_tap() { return tap_y < 76 && tap_x < 170 || tap_y > scrH - 70; }
+
+void app_wait_home() {
+    while true {
+        int r = wait_event();
+        if r == 1 && is_home_tap() { return; }
+    }
+}
+
+void app_files() {
+    wallpaper();
+    draw_bar(0x73656c6946, 0);
+    int row = 0;
+    for i in 0..nfiles {
+        char^ e = @sbuf[512 + i * 64];
+        if e[0] == 'j' && e[1] == 'a' && e[2] == 'r' && e[3] == 'i' && e[4] == 'c' && e[5] == '-' { continue; }
+        int y = 96 + row * 58;
+        rrect(16, y, 508, 50, 14, rgb(26, 36, 66));
+        text(32, y + 15, e, 1, rgb(235, 242, 255));
+        int size = rd64(@e[56]);
+        num(430 - (digits(size) - 1) * 10, y + 15, size, 1, rgb(150, 175, 215));
+        t8(470 + 0, y + 15, 0x7365747962, 1, rgb(150, 175, 215));
+
+        row += 1;
+    }
+    if row == 0 { t8(28 + 0, 110, 0x6b73696420656854, 1, rgb(150, 175, 215)); t8(28 + 80, 110, 0x206f6e2073616820, 1, rgb(150, 175, 215)); t8(28 + 160, 110, 0x2e73656c6966, 1, rgb(150, 175, 215));
+ }
+    present();
+    app_wait_home();
+}
+
+void app_clock() {
+    while true {
+        wallpaper();
+        draw_bar(0x6b636f6c43, 0);
+        int up = Sys::s3_3_c14_c0_2 / 1000000;
+        int mm = up / 60;
+        int ss = up % 60;
+        int x = 270 - ((digits(mm) + 3) * 60) / 2;
+        num(x, 300, mm, 6, rgb(255, 255, 255));
+        glyph(x + digits(mm) * 60, 300, 58, 6, rgb(120, 190, 255));
+        glyph(x + digits(mm) * 60 + 60, 300, 48 + ss / 10, 6, rgb(255, 255, 255));
+        glyph(x + digits(mm) * 60 + 120, 300, 48 + ss % 10, 6, rgb(255, 255, 255));
+        t8(150 + 0, 470, 0x6e697320656d6974, 1, rgb(150, 175, 215)); t8(150 + 80, 470, 0x6d20656874206563, 1, rgb(150, 175, 215)); t8(150 + 160, 470, 0x7320656e69686361, 1, rgb(150, 175, 215)); t8(150 + 240, 470, 0x646574726174, 1, rgb(150, 175, 215));
+
+        t8(150 + 0, 500, 0x77796e6120706174, 1, rgb(150, 175, 215)); t8(150 + 80, 500, 0x206f742065726568, 1, rgb(150, 175, 215)); t8(150 + 160, 500, 0x616761206b6f6f6c, 1, rgb(150, 175, 215)); t8(150 + 240, 500, 0x6e69, 1, rgb(150, 175, 215));
+
+        present();
+        int r = wait_event();
+        if r == 1 && is_home_tap() { return; }
+    }
+}
+
+void line_kv(int y, int w0, int w1, int v, int w2) {
+    rrect(16, y, 508, 50, 14, rgb(26, 36, 66));
+    t8(32, y + 15, w0, 1, rgb(150, 175, 215));
+    t8(112, y + 15, w1, 1, rgb(150, 175, 215));
+    num(250, y + 15, v, 1, rgb(235, 242, 255));
+    t8(250 + digits(v) * 10 + 10, y + 15, w2, 1, rgb(235, 242, 255));
+}
+
+void app_about() {
+    wallpaper();
+    draw_bar(0x74756f6241, 0);
+    t8(28 + 0, 100, 0x534f20636972614a, 2, rgb(255, 255, 255)); t8(28 + 160, 100, 0x332e3020, 2, rgb(255, 255, 255));
+
+    t8(30 + 0, 150, 0x2064657265776f70, 1, rgb(150, 175, 215)); t8(30 + 80, 150, 0x636972614a207962, 1, rgb(150, 175, 215));
+
+    line_kv(190, 0x555043, 0x6c6576656c, g_el, 0);
+    line_kv(250, 0x555043, 0x65726f63, g_core, 0);
+    line_kv(310, 0x79726f6d654d, 0, 64, 0x424d);
+    line_kv(370, 0x6b736944, 0, g_dsec, 0x73726f74636573);
+    line_kv(430, 0x73656c6946, 0, nfiles, 0);
+    line_kv(490, 0x6e6565726353, 0, 540, 0x656469772073746f64);
+    line_kv(550, 0x6e6565726353, 0, scrH, 0x686769682073746f64);
+    line_kv(610, 0x746e6f46, 0, g_font, 0x7365747962);
+    present();
+    app_wait_home();
+}
+
+void app_jc(int app) {
+    wallpaper();
+    draw_bar(0x707041, 0);
+    draw_icon(226, 130, app, 88);
+    int l = 0;
+    while anames[app * 16 + l] != 0 && l < 20 { tb[l] = anames[app * 16 + l]; l += 1; }
+    tb[l] = 0;
+    text(270 - l * 10, 250, @tb, 2, rgb(255, 255, 255));
+    char^ e = @sbuf[512 + aidx[app] * 64];
+    int size = rd64(@e[56]);
+    num(190, 320, size, 1, rgb(235, 242, 255));
+    t8(200 + digits(size) * 10 + 0, 320, 0x61202c7365747962, 1, rgb(150, 175, 215)); t8(200 + digits(size) * 10 + 80, 320, 0x63617020636a2e20, 1, rgb(150, 175, 215)); t8(200 + digits(size) * 10 + 160, 320, 0x6567616b, 1, rgb(150, 175, 215));
+
+    t8(40 + 0, 400, 0x20676e696e6e7552, 1, rgb(235, 242, 255)); t8(40 + 80, 400, 0x7370706120636a2e, 1, rgb(235, 242, 255)); t8(40 + 160, 400, 0x6e2073656d6f6320, 1, rgb(235, 242, 255)); t8(40 + 240, 400, 0x656874203a747865, 1, rgb(235, 242, 255)); t8(40 + 320, 400, 0x206d657473797320, 1, rgb(235, 242, 255)); t8(40 + 400, 400, 0x6c6c6977, 1, rgb(235, 242, 255));
+
+    t8(40 + 0, 426, 0x656874206e65706f, 1, rgb(235, 242, 255)); t8(40 + 80, 426, 0x6567616b63617020, 1, rgb(235, 242, 255)); t8(40 + 160, 426, 0x692064616572202c, 1, rgb(235, 242, 255)); t8(40 + 240, 426, 0x66696e616d207374, 1, rgb(235, 242, 255)); t8(40 + 320, 426, 0x646e6120747365, 1, rgb(235, 242, 255));
+
+    t8(40 + 0, 452, 0x6874207472617473, 1, rgb(235, 242, 255)); t8(40 + 80, 452, 0x6172676f72702065, 1, rgb(235, 242, 255)); t8(40 + 160, 452, 0x696874206e6f206d, 1, rgb(235, 242, 255)); t8(40 + 240, 452, 0x6e65657263732073, 1, rgb(235, 242, 255)); t8(40 + 320, 452, 0x2e, 1, rgb(235, 242, 255));
+
+    present();
+    app_wait_home();
+}
+
+
