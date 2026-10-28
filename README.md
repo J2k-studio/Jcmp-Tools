@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/banner.svg" alt="Jcmp-Tools" width="100%"></p>
+
 # Jcmp-Tools
 
 Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compiler `jcmp`, written in J2K. Each tool is one program (one file) for Linux ARM64 (Termux, the **Jaric app**, a Linux machine). Together with the app they are **Jaric OS in its console mode**: a shell, packages, an editor, a player, a build tool, and a protocol that lets programs ask the system for pictures, sound and settings.
