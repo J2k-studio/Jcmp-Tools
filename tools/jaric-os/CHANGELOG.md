@@ -1,5 +1,10 @@
 # jaric-os changelog
 
+## 0.8.0
+* **Added (programs run in Jaric OS):** a program of the disk (an ARM64 ELF made by jcmp) runs under the console: `run NAME` in the Terminal. The system turns the MMU on, gives the program page tables of its own, starts it at EL0 and answers its calls (write, read, brk, mmap, clock, exit ...); the console goes on when it ends (`exit N`).
+* **Added (the screen and the touch for programs):** call 400 shows a picture (blue, green, red, alpha; width, height) on the screen of the system; call 401 gives the last touch (seq, x, y, state, id). Samples: `examples/hello.jk`, `examples/draw.jk` (a gradient and a square that follows the finger).
+* **Changed (inside):** the kernel is in several files (`kernel.jk` and `k_screen.j`, `k_proc.j`, `k_start.j`, `k_phone.j`, `k_store.j`, `k_term.j`, put together with `#import`); the kernel is loaded 256 MB higher so that programs can have the addresses from 4 MB; the host reads the input without waiting when a program asks for the touch.
+
 ## 0.7.0
 * **Added (jstore in the system, as a command and as an app):** the console of Jaric OS has the command `jstore`: `jstore list` (the programs of the store, `*` = on the disk), `jstore install ID`, `jstore remove ID`; the app on the home screen is called `jstore` and uses the same store. On the terminal of the phone `jstore` is the tool of Jcmp-Tools (a command line), in Jaric OS it is the command and the app.
 * **Added:** the host call `remove ID` (delete the package from the folder of the disk).

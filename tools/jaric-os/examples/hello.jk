@@ -1,0 +1,7 @@
+// the first normal program of Jaric OS (K7b): the runtime of J2K, cout, an exit code - the system calls are answered by the kernel
+#import <stdlib>
+
+int main() {
+    cout << "hi " << 42 << "\n";
+    return 3;
+}

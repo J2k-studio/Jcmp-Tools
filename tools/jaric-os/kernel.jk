@@ -20,6 +20,7 @@ void uputc(int c) {
 }
 
 #import "k_screen"
+#import "k_proc"
 #import "k_start"
 #import "k_phone"
 #import "k_store"

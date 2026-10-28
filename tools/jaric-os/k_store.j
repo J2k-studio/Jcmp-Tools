@@ -220,7 +220,17 @@ bool run_command() {
         putc(10);
     }
     else if w == 0x65726f74736a { js_command(); }
-    else if w == 0x706c6568 { say(0x20746163202c736c); say(0x6365202c454d414e); say(0x2c54584554206f68); say(0x2065726f74736a20); say(0x6c6568202c2e2e2e); say(0x74697865202c70); putc(10); }
+    else if w == 0x6e7572 {                                           // run NAME: a program of the disk runs under the console
+        int a3 = args_at();
+        int n3 = 0;
+        while a3 + n3 < llen && n3 < 47 { name[n3] = line[a3 + n3]; n3 += 1; }
+        name[n3] = 0;
+        int rc = run_program(@name);
+        if scr == 1 { term_redraw(); }                                  // the program may have drawn over the screen
+        if rc < 0 { say(0x7220746f6e6e6163); say(0x7469206e75); putc(10); }
+        else { say(0x2074697865); putnum(rc); putc(10); }
+    }
+    else if w == 0x706c6568 { say(0x20746163202c736c); say(0x6365202c454d414e); say(0x2c54584554206f68); say(0x4d414e206e757220); say(0x726f74736a202c45); say(0x68202c2e2e2e2065); say(0x697865202c706c65); say(0x74); putc(10); }
     else if w == 0x74697865 { return false; }
     else if w != 0 { say(0x3f); putc(10); }
     return true;

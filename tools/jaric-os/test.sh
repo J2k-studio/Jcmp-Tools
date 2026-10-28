@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.7.0" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.8.0" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -52,4 +52,15 @@ command grep -q "runtime error" "$T/store.out" && { echo "jaric-os test: the sto
 OUTJ=$(printf 'jstore list\njstore install app.demo\nls\njstore remove app.demo\nls\nexit\n' | PATH="$T/fakebin:$PATH" "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033')
 case "$OUTJ" in *"app.demo  1.0.0  Demo app"*"installed"*"app.demo.jc"*"removed"*) ;; *) echo "jaric-os test: the command jstore in the console: $OUTJ"; exit 1 ;; esac
 [ ! -e "$T/disk/app.demo.jc" ] || { echo "jaric-os test: jstore remove left the file"; exit 1; }
+# a program of the disk runs under the console (F6b): the MMU, EL0, the ELF, the calls of the system
+"${JCMP:-jcmp}" examples/hello.jk -o "$T/disk/hello" > /dev/null 2>&1
+OUTR=$(printf 'run hello\nexit\n' | "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033')
+case "$OUTR" in *"hi 42"*"exit 3"*) ;; *) echo "jaric-os test: run hello: $OUTR"; exit 1 ;; esac
+rm -f "$T/disk/hello"
+# a program that draws and reads the touch (calls 400 and 401): draw.jk shows a picture; a touch near the top ends it
+"${JCMP:-jcmp}" examples/draw.jk -o "$T/disk/draw" > /dev/null 2>&1
+{ sleep 1; printf '\033]7777;touch;D;100;990;0\007\033]7777;touch;U;100;990;0\007'; sleep 1; printf 'run draw\r'; sleep 5; printf '\033]7777;touch;D;300;200;0\007\033]7777;touch;U;300;200;0\007'; sleep 3; printf '\033]7777;touch;D;50;20;0\007'; sleep 3; printf '\033]7777;gfx-closed\007'; sleep 1; } | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033\007' > "$T/draw.out" || true
+command grep -q "runtime error" "$T/draw.out" && { echo "jaric-os test: draw crashed"; exit 1; }
+[ "$(command grep -o 'gfx;present' "$T/draw.out" | wc -l)" -ge 6 ] || { echo "jaric-os test: draw did not show its pictures"; exit 1; }
+rm -f "$T/disk/draw"
 echo "jaric-os tests: ok"

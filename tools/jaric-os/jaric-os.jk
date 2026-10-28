@@ -91,7 +91,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.7.0"; }
+String jemu_version() { return "0.8.0"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -470,6 +470,41 @@ void touch_message(char^ m) {
     touch_seq += 1;
 }
 
+char kq[256];                                                   // keys that host_poll found: the kernel gets them first
+int kq_head;
+int kq_tail;
+
+// looks at the input without waiting (a program that asks for the touch does not block): the messages of the app go to the touch device, a key waits in rx_byte
+void host_poll() {
+    int pfd[1];
+    int ts[2];
+    for round in 0..64 {
+        pfd[0] = 1 << 32;                                      // fd 0, POLLIN
+        ts[0] = 0;
+        ts[1] = 0;
+        int r = Sys::call(73, (int)@pfd, 1, (int)@ts, 0, 0, 0);          // ppoll with no wait
+        if r <= 0 || ((pfd[0] >> 48) & 1) == 0 { return; }
+        char one[2];
+        int n = Sys::read(0, @one, 1);
+        if n <= 0 { return; }
+        int c = one[0] & 255;
+        if c == 27 {
+            int n2 = Sys::read(0, @one, 1);
+            if n2 > 0 && (one[0] & 255) == 93 {
+                char msg[64];
+                int ml = 0;
+                int m = Sys::read(0, @one, 1);
+                while m > 0 && (one[0] & 255) != 7 { if ml < 63 { msg[ml] = one[0]; ml += 1; } m = Sys::read(0, @one, 1); }
+                msg[ml] = 0;
+                touch_message(@msg);
+            }
+        } else if kq_tail - kq_head < 256 {
+            kq[kq_tail % 256] = (char)c;
+            kq_tail += 1;
+        }
+    }
+}
+
 int uart_ld(int addr) {
     if addr >= 0x0D000000 {
         int hoff = addr - 0x0D000000;
@@ -479,6 +514,7 @@ int uart_ld(int addr) {
     if addr >= 0x0C000000 {
         int toff = addr - 0x0C000000;
         if toff == 0x00 { return touch_seq; }
+        if toff == 0x28 { host_poll(); return touch_seq; }                    // a program that asks for the touch: the input is looked at (without waiting) first
         if toff == 0x08 { return touch_x; }
         if toff == 0x10 { return touch_y; }
         if toff == 0x18 { return touch_state; }
@@ -500,6 +536,7 @@ int uart_ld(int addr) {
     }
     int off = addr - 0x09000000;
     if off == 0x18 {                            // UARTFR: bit 4 = nothing to read, bit 7 = the transmitter is empty. A read of this register waits for a key (the machine has nothing else to do)
+        if !rx_have && kq_head < kq_tail { rx_byte = kq[kq_head % 256] & 255; kq_head += 1; rx_have = true; }
         if !rx_have && rx_has_pending { rx_byte = rx_pending; rx_has_pending = false; rx_have = true; }
         if !rx_have {
             if text_mode && tg_dirty { text_render(); }
@@ -1831,6 +1868,7 @@ int main() {
         cout << "Jaric OS: the disk is the files of " << folder << "  (exit leaves, Ctrl-C stops the machine)\n";
         String[] na = arr(12);
         na.push("jemu"); na.push("--system"); na.push(kernel); na.push("--disk"); na.push(img);
+        na.push("--shift"); na.push("268435456");                     // the kernel is loaded 256 MB higher: the programs have the addresses from 4 MB
         String fontf = Path::join(dir, "jaric-os-font");
         bool in_app = false;
         switch Env::get("JARIC") { Option::Some(v): { if v.len > 0 { in_app = true; } } Option::None: { } }
