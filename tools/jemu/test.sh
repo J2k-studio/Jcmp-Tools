@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jemu" --version)" = "jemu 0.1.0" ] || { echo "jemu test: version"; exit 1; }
+[ "$("$B/jemu" --version)" = "jemu 0.2.0" ] || { echo "jemu test: version"; exit 1; }
 "$B/jemu" --help | grep -q "jemu os" || { echo "jemu test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -19,4 +19,8 @@ printf '#import <stdlib>\nint main() { cout << "from jemu\\n"; return 5; }\n' > 
 "${JCMP:-jcmp}" "$T/p.jk" -o "$T/p" >/dev/null 2>&1
 set +e; "$B/jemu" "$T/p" > "$T/p.out"; rc=$?; set -e
 [ "$rc" = 5 ] && [ "$(cat "$T/p.out")" = "from jemu" ] || { echo "jemu test: a Linux program ($rc)"; exit 1; }
+# jemu boot: the start screen is sent to the app (OSC gfx open / present) and the picture file has the size of the screen
+OUTB=$("$B/jemu" boot 2>&1 | tr -d '\033\007')
+case "$OUTB" in *"]7777;gfx;open;360;640;"*"]7777;gfx;present"*) ;; *) echo "jemu test: jemu boot"; exit 1 ;; esac
+[ "$(wc -c < "$T/jemu-screen.bgra")" = 921600 ] || { echo "jemu test: the screen file"; exit 1; }
 echo "jemu tests: ok"

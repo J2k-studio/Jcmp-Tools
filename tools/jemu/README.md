@@ -5,6 +5,7 @@
 ```
 jemu os                      start Jaric OS (the files of ~/.jemu-os are its disk)
 jemu os FOLDER               the same, with the files of FOLDER as the disk
+jemu boot                    the start screen of Jaric OS, live in the Jaric app (a ring of light, "Jaric OS", "powered by Jaric")
 jemu PROGRAM [arguments]     run a Linux ARM64 program (jcmp makes them); the host answers its system calls
 jemu --system KERNEL.elf [--disk IMAGE] [--shift N] [--steps N]    run a kernel of your own
 jemu --version | --help

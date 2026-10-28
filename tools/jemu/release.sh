@@ -6,6 +6,6 @@ export JCMP=${1:-${JCMP:-jcmp}}
 sh ./test.sh > "${TMPDIR:-/tmp}/jemu_test.txt" 2>&1 || { tail -5 "${TMPDIR:-/tmp}/jemu_test.txt"; echo "release: the tests fail"; exit 1; }
 rm -rf dist; mkdir dist
 cp _out/jemu dist/jemu
-cp _out/jemu-kernel _out/jemu-mkfs dist/
-tar cf dist/jemu-files.tar -C dist jemu-kernel jemu-mkfs; rm dist/jemu-kernel dist/jemu-mkfs
+cp _out/jemu-kernel _out/jemu-mkfs _out/jemu-boot dist/
+tar cf dist/jemu-files.tar -C dist jemu-kernel jemu-mkfs jemu-boot; rm dist/jemu-kernel dist/jemu-mkfs dist/jemu-boot
 ( cd dist && sha256sum jemu jemu-files.tar > SHA256SUMS && ls -l )

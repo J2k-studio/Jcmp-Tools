@@ -51,6 +51,15 @@ bool aborted;                                   // a memory access raised an exc
 int^ tlb;                                       // 64 entries of 3: the page (| 1), the physical page, the attributes
 int rx_byte;                                    // the UART: the next byte from the standard input (0x04 at the end of it)
 bool rx_have;
+bool trace_calls;                               // JEMU_TRACE=1: every Linux call of the program is written on the error output
+int fb_addr;                                    // the screen (jemu --system KERNEL --screen FILE.ppm): a frame buffer at 0x0B00_0000, 32 bits per pixel (blue, green, red, 0 in memory)
+int fb_w;                                       // registers: ADDR 0x00, WIDTH 0x08, HEIGHT 0x10, FLUSH 0x18 (a write saves the picture as a PPM file)
+int fb_h;
+int fb_flushes;
+char^ screen_path;
+char^ gfx_path;                                 // --gfx FILE: show the screen live in the Jaric app (the file holds the pixels; the app is told by OSC 7777;gfx;open / present) at about 25 pictures a second
+int gfx_fd;
+bool gfx_opened;
 int disk_fd;                                    // the disk image (jemu --system KERNEL --disk FILE): a block device at 0x0A00_0000
 int disk_sectors;
 int disk_sector;                                // the registers of the device
@@ -80,7 +89,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.1.0"; }
+String jemu_version() { return "0.2.0"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -124,6 +133,75 @@ void fault(int addr, String what) {
     Sys::exit(139);
 }
 
+void fb_live() {
+    int n = fb_w * fb_h;
+    int h = host_of(fb_addr, n * 4);
+    if h == 0 { return; }
+    char^ buf = (char^)Mem::alloc(n * 4 + 16);
+    char^ src = (char^)h;
+    for i in 0..n {
+        buf[i * 4] = src[i * 4];
+        buf[i * 4 + 1] = src[i * 4 + 1];
+        buf[i * 4 + 2] = src[i * 4 + 2];
+        buf[i * 4 + 3] = (char)255;
+    }
+    if !gfx_opened {
+        gfx_fd = Sys::call(56, 0 - 100, (int)gfx_path, 66, 420, 0, 0);                 // openat(O_RDWR | O_CREAT)
+        String open = "\x1b]7777;gfx;open;" + str(fb_w) + ";" + str(fb_h) + ";";
+        open.append(gfx_path);
+        open.append("\x07");
+        Sys::write(1, open.c(), open.len);
+        gfx_opened = true;
+    }
+    if gfx_fd >= 0 { Sys::call(68, gfx_fd, (int)buf, n * 4, 0, 0, 0); }                 // pwrite64
+    String pres = "\x1b]7777;gfx;present\x07";
+    Sys::write(1, pres.c(), pres.len);
+    Mem::free(buf);
+    int^ ts = (int^)Mem::alloc(16);
+    ts[0] = 0;
+    ts[1] = 40000000;
+    Sys::call(101, (int)ts, 0, 0, 0, 0, 0);                                            // nanosleep 40 ms
+    Mem::free(ts);
+}
+
+// the live screen stays for two seconds after the machine has stopped, then the app gets its terminal back
+void gfx_end() {
+    if !gfx_opened { return; }
+    int^ ts = (int^)Mem::alloc(16);
+    ts[0] = 2;
+    ts[1] = 0;
+    Sys::call(101, (int)ts, 0, 0, 0, 0, 0);
+    String cl = "\x1b]7777;gfx;close\x07";
+    Sys::write(1, cl.c(), cl.len);
+}
+
+void fb_flush() {
+    if gfx_path != null && fb_w > 0 && fb_h > 0 && fb_w * fb_h <= 4000000 { fb_live(); }
+    if screen_path == null || fb_w < 1 || fb_h < 1 || fb_w * fb_h > 4000000 { return; }
+    int n = fb_w * fb_h;
+    int h = host_of(fb_addr, n * 4);
+    if h == 0 { return; }
+    char^ out = (char^)Mem::alloc(n * 3 + 32);
+    char^ hd = (char^)Mem::alloc(64);
+    String head = "P6\n" + str(fb_w) + " " + str(fb_h) + "\n255\n";
+    int hl = head.len;
+    char^ src = (char^)h;
+    for i in 0..n {
+        out[i * 3] = src[i * 4 + 2];
+        out[i * 3 + 1] = src[i * 4 + 1];
+        out[i * 3 + 2] = src[i * 4];
+    }
+    int fd = Sys::call(56, 0 - 100, (int)screen_path, 577, 420, 0, 0);          // openat(O_WRONLY, O_CREAT, O_TRUNC)
+    if fd >= 0 {
+        Sys::call(64, fd, (int)head.c(), hl, 0, 0, 0);
+        Sys::call(64, fd, (int)out, n * 3, 0, 0, 0);
+        Sys::call(57, fd, 0, 0, 0, 0, 0);
+    }
+    Mem::free(out);
+    Mem::free(hd);
+    fb_flushes += 1;
+}
+
 int disk_do(int cmd) {                          // 1 read, 2 write: count sectors of 512 bytes between the disk and the guest memory at disk_addr
     disk_status = 1;
     if disk_fd < 0 || disk_count < 1 || disk_sector < 0 || disk_sector + disk_count > disk_sectors { return 0; }
@@ -138,6 +216,13 @@ int disk_do(int cmd) {                          // 1 read, 2 write: count sector
 }
 
 int uart_ld(int addr) {
+    if addr >= 0x0B000000 {                     // the screen: the registers can be read back
+        int foff = addr - 0x0B000000;
+        if foff == 0x00 { return fb_addr; }
+        if foff == 0x08 { return fb_w; }
+        if foff == 0x10 { return fb_h; }
+        return 0;
+    }
     if addr >= 0x0A000000 {                     // the disk: STATUS (0x20), SIZE in sectors (0x28)
         int doff = addr - 0x0A000000;
         if doff == 0x20 { return disk_status; }
@@ -163,6 +248,14 @@ int uart_ld(int addr) {
 }
 
 void mmio_st(int addr, int v) {
+    if addr >= 0x0B000000 {                     // the screen: ADDR 0x00, WIDTH 0x08, HEIGHT 0x10, FLUSH 0x18
+        int foff = addr - 0x0B000000;
+        if foff == 0x00 { fb_addr = v; }
+        else if foff == 0x08 { fb_w = v; }
+        else if foff == 0x10 { fb_h = v; }
+        else if foff == 0x18 { fb_flush(); }
+        return;
+    }
     if addr >= 0x0A000000 {                     // the disk: SECTOR 0x08, ADDR 0x10, COUNT 0x18, CMD 0x00 (1 read, 2 write: done at once)
         int doff = addr - 0x0A000000;
         if doff == 0x08 { disk_sector = v; }
@@ -183,7 +276,7 @@ void mmio_st(int addr, int v) {
 
 int ld(int addr, int size) {
     if mmu_on() { addr = xlate(addr, 0); if addr < 0 { return 0; } }
-    if sysmode && addr >= 0x09000000 && addr < 0x0A001000 { return uart_ld(addr); }
+    if sysmode && addr >= 0x09000000 && addr < 0x0B001000 { return uart_ld(addr); }
     int h = host_of(addr, size);
     if h == 0 { fault(addr, "read"); }
     if size == 8 { int^ p = (int^)h; return p[0]; }
@@ -195,7 +288,7 @@ int ld(int addr, int size) {
 
 void st(int addr, int size, int v) {
     if mmu_on() { addr = xlate(addr, 1); if addr < 0 { return; } }
-    if sysmode && addr >= 0x09000000 && addr < 0x0A001000 { mmio_st(addr, v); return; }
+    if sysmode && addr >= 0x09000000 && addr < 0x0B001000 { mmio_st(addr, v); return; }
     int h = host_of(addr, size);
     if h == 0 { fault(addr, "write"); }
     if size == 8 { int^ p = (int^)h; p[0] = v; return; }
@@ -798,6 +891,7 @@ int xlate(int va, int kind) {
 // ---------------------------------------------------------------- the system calls (Linux ARM64)
 void syscall_guest() {
     int nr = X[8];
+    if trace_calls { cerr << "[call " << nr << "]\n"; }
     int a0 = X[0];
     int a1 = X[1];
     int a2 = X[2];
@@ -1390,10 +1484,12 @@ int main() {
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h" || args[1] == "help") {
         cout << "jemu: a machine that runs programs for ARM64 and, in system mode, kernels (Jaric OS)\n";
         cout << "  jemu os [FOLDER]                 start Jaric OS: the files of FOLDER (default ~/.jemu-os) are its disk; type ls, cat NAME, echo TEXT, help, exit\n";
+        cout << "  jemu boot                        the start screen of Jaric OS, live in the Jaric app (a ring of light, Jaric OS, powered by Jaric)\n";
         cout << "  jemu PROGRAM [arguments]         run a Linux ARM64 program (the Linux calls are answered by the host)\n";
         cout << "  jemu --system KERNEL.elf [--disk IMAGE] [--shift N] [--steps N]    run a kernel on the machine (EL0 / EL1, MMU, timer, a UART, a disk)\n";
         return 0;
     }
+    switch Env::get("JEMU_TRACE") { Option::Some(v): { if v.len > 0 { trace_calls = true; } } Option::None: { } }
     if args.len > 1 && args[1] == "os" {                       // jemu os [FOLDER]: the kernel and mkfs come next to this program (jemu-kernel, jemu-mkfs)
         char sbuf[512];
         int sn = Sys::readlink("/proc/self/exe".c(), @sbuf, 511);
@@ -1425,6 +1521,20 @@ int main() {
         na.push("jemu"); na.push("--system"); na.push(kernel); na.push("--disk"); na.push(img);
         args = na;
     }
+    if args.len > 1 && args[1] == "boot" {                     // jemu boot: the start screen of Jaric OS, live in the Jaric app (the kernel jemu-boot comes next to this program)
+        char bbuf[512];
+        int bn = Sys::readlink("/proc/self/exe".c(), @bbuf, 511);
+        if bn <= 0 { die("cannot find where jemu is", 1); }
+        bbuf[bn] = 0;
+        String bself = (char^)@bbuf;
+        String bkernel = Path::join(Path::parent(bself), "jemu-boot");
+        if !Fs::exists(bkernel) { die("jemu-boot must be next to jemu (jc install jemu brings it)", 1); }
+        String btmp = "/tmp";
+        switch Env::get("TMPDIR") { Option::Some(t): { if t.len > 0 { btmp = t; } } Option::None: { } }
+        String[] ba = arr(6);
+        ba.push("jemu"); ba.push("--system"); ba.push(bkernel); ba.push("--gfx"); ba.push(Path::join(btmp, "jemu-screen.bgra"));
+        args = ba;
+    }
     if args.len < 2 { cerr << "usage: jemu PROGRAM [arguments]       jemu --system KERNEL.elf [--steps N] [--disk IMAGE] [--shift N]   (system mode: EL0/EL1, vectors, a UART at 0x09000000, exit device at 0x09100000, a disk at 0x0A000000)\n"; return 2; }
     if args[1] == "--system" {
         if args.len < 3 { cerr << "usage: jemu --system KERNEL.elf [--steps N]\n"; return 2; }
@@ -1435,6 +1545,8 @@ int main() {
         while ai + 1 < args.len {
             if args[ai] == "--steps" { max_steps = args[ai + 1].to_int(); }
             if args[ai] == "--shift" { kshift = args[ai + 1].to_int(); }
+            if args[ai] == "--gfx" { gfx_path = args[ai + 1].c(); }
+            if args[ai] == "--screen" { screen_path = args[ai + 1].c(); }
             if args[ai] == "--disk" {
                 char^ dp = args[ai + 1].c();
                 disk_fd = Sys::call(56, 0 - 100, (int)dp, 2, 0, 0, 0);                  // openat(AT_FDCWD, path, O_RDWR)
@@ -1507,6 +1619,7 @@ int main() {
             if icount >= max_steps { tty_restore(); cerr << "jemu: stopped after " << icount << " instructions (--steps N)\n"; return 124; }
         }
         tty_restore();
+        gfx_end();
         return exit_code;
     }
     // argc, argv, envp on the stack
