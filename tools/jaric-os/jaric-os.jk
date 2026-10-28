@@ -92,7 +92,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.11.0"; }
+String jemu_version() { return "0.11.1"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -529,6 +529,10 @@ void touch_message(char^ m) {
         touch_seq += 1;
         return;
     }
+    char^ gb = "7777;gfx-back";                                      // the back key of the phone: an event (state 6) and the same as the swipe up for a program that runs
+    int b = 0;
+    while gb[b] != 0 && m[b] == gb[b] { b += 1; }
+    if gb[b] == 0 { touch_state = 6; touch_seq += 1; home_flag = 1; return; }
     char^ gc = "7777;gfx-closed";                                    // the back key of the app closed the screen: the machine is turned off
     int q = 0;
     while gc[q] != 0 && m[q] == gc[q] { q += 1; }
@@ -679,6 +683,10 @@ void mmio_st(int addr, int v) {
         else if foff == 0x08 { fb_w = v; }
         else if foff == 0x10 { fb_h = v; }
         else if foff == 0x18 { fb_flush(); }
+        else if foff == 0x28 {                                  // MINIMIZE: the system is at its home screen and the back key came: the app goes to the background
+            String mn = "\x1b]7777;gfx;minimize\x07";
+            Sys::write(1, mn.c(), mn.len);
+        }
         else if foff == 0x20 {                                  // KEYBOARD: the system asks the app to show (1) or hide (0) its keyboard
             String kb = "\x1b]7777;gfx;keys;";
             if v != 0 { kb.append("on"); } else { kb.append("off"); }

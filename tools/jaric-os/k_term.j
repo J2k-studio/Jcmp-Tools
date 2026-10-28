@@ -47,7 +47,9 @@ void phone() {
     while true {
         keyboard(0);
         draw_home();
+        at_home = 1;
         int r = wait_event();
+        at_home = 0;
         if r != 1 {
             if ev_key == 4 { power_off(); }                  // the end of the input (Ctrl-D): the machine is turned off
             continue;

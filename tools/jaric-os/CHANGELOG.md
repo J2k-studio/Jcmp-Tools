@@ -1,5 +1,8 @@
 # jaric-os changelog
 
+## 0.11.1
+* **Changed (the back key of the phone):** it does not turn Jaric OS off any more. In an app, the control panel or a card it does what the back button of the app does (it goes back); in the Terminal app it goes home; a program that runs is closed; at the home screen the app goes to the background and the system goes on (the Power icon turns the machine off).
+
 ## 0.11.0
 * **Added (the control panel):** a swipe down from the top edge (or a tap on the status line of the home screen) opens a card with switches that work (Keyboard on/off, Power, Close) and what the machine is: OS, CPU, bits (64), level and core, memory, the size of the picture, the screen in dots, the disk. What was under the card comes back when it closes.
 

@@ -6,6 +6,7 @@ int cx;
 int cy;
 int gdirty;
 int shown;
+int at_home;                           // 1 while the system waits at the home screen (the back key there puts the app in the background)
 int sfb;                               // where the picture is that is drawn on now: the screen, or the surface of a window of the desktop
 int desk_ctx;                          // 1 while an app runs in a window of the desktop
 int scrW;                              // the width of the picture in dots: 540 in portrait; the shape follows the phone
@@ -137,6 +138,7 @@ int getc() {                                   // waits for a key: the flag regi
         if sq != seen {
             seen = sq;
             if ui[3] == 4 && scr == 1 { view_set(ui[2]); screen_show(); }
+            if ui[3] == 6 && scr == 1 { gohome = 1; return 4; }                                    // the back key in the terminal app: go home
             if ui[3] == 1 && scr == 1 && ((ui[2] < 76 && ui[1] < 170) || ui[2] > scrH - 70) { gohome = 1; return 4; }
         }
         fr = uart[3];

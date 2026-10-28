@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 B="$PWD/_out"
-[ "$("$B/jaric-os" --version)" = "jaric-os 0.11.0" ] || { echo "jaric-os test: version"; exit 1; }
+[ "$("$B/jaric-os" --version)" = "jaric-os 0.11.1" ] || { echo "jaric-os test: version"; exit 1; }
 "$B/jaric-os" --help | grep -q "start Jaric OS" || { echo "jaric-os test: help"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" TMPDIR="$T"; mkdir -p "$HOME" "$T/disk"
@@ -94,4 +94,8 @@ command grep -q "runtime error" "$T/desk.out" && { echo "jaric-os test: the desk
 { sleep 2; printf '\033]7777;touch;D;270;8;0\007\033]7777;touch;M;270;200;0\007\033]7777;touch;U;270;320;0\007'; sleep 2; printf '\033]7777;touch;D;90;130;0\007\033]7777;touch;U;90;130;0\007'; sleep 2; printf '\033]7777;touch;D;400;130;0\007\033]7777;touch;U;400;130;0\007'; sleep 2; printf '\033]7777;gfx-closed\007'; sleep 1; } | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033\007' > "$T/panel.out" || true
 command grep -q "gfx;keys;on" "$T/panel.out" || { echo "jaric-os test: the Keyboard switch of the control panel did not ask for the keyboard"; exit 1; }
 command grep -q "runtime error" "$T/panel.out" && { echo "jaric-os test: the control panel crashed"; exit 1; }
+# the back key of the phone (gfx-back): at the home screen the app is asked to go to the background (minimize); in the Terminal app it goes home (the keyboard is dropped); the system is not turned off
+{ sleep 2; printf '\033]7777;gfx-back\007'; sleep 1; printf '\033]7777;touch;D;100;1000;0\007\033]7777;touch;U;100;1000;0\007'; sleep 1; printf '\033]7777;gfx-back\007'; sleep 2; printf '\033]7777;gfx-back\007'; sleep 1; printf '\033]7777;gfx-closed\007'; sleep 1; } | JARIC=1 JARIC_SCREEN=540x1170 "$B/jaric-os" "$T/disk" 2>&1 | tr -d '\033\007' > "$T/back.out" || true
+[ "$(command grep -o 'gfx;minimize' "$T/back.out" | wc -l)" -ge 2 ] || { echo "jaric-os test: the back key at the home screen must ask to minimize"; exit 1; }
+[ "$(command grep -o 'gfx;keys;off' "$T/back.out" | wc -l)" -ge 3 ] || { echo "jaric-os test: the back key in the Terminal app must go home"; exit 1; }
 echo "jaric-os tests: ok"

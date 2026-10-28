@@ -306,6 +306,11 @@ int wait_event() {
             seen = sq;
             int st = ui[3];
             if st == 4 { view_set(ui[2]); gdirty = 1; }
+            else if st == 6 {                                              // the back key of the phone
+                int^ ui2 = (int^)ui;
+                if at_home == 1 { int^ scrr = (int^)0x0B000000; scrr[5] = 1; }        // at the home screen: the app goes to the background
+                else { tap_x = 0; tap_y = 0; return 1; }                  // in an app, a card ...: the same as its back button
+            }
             else if st == 1 { dn_x = ui[1]; dn_y = ui[2]; }
             else if st == 3 {
                 int dx = ui[1] - dn_x;

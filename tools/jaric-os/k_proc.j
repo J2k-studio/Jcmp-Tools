@@ -406,6 +406,8 @@ int run_program(char^ nm) {
     ctxU[9] = 0x40100000;
     ctxU[11] = (int)proc_first;
     ctxU[12] = (int)@kstackA + 16384;
+    int^ uic = (int^)0x0C000000;
+    int stale = uic[6];                                                 // a swipe or a back key from before is forgotten
     p_running = 1;
     Sys::ttbr0_el1 = 0x40820000;
     Sys::sctlr_el1 = 1;
