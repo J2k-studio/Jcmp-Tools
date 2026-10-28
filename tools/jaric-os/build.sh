@@ -3,8 +3,8 @@
 set -eu
 cd "$(dirname "$0")"
 mkdir -p _out
-"${JCMP:-jcmp}" jemu.jk -o _out/jemu
-"${JCMP:-jcmp}" kernel.jk -o _out/jemu-kernel
-"${JCMP:-jcmp}" mkfs.jk -o _out/jemu-mkfs
-"${JCMP:-jcmp}" boot.jk -o _out/jemu-boot
-echo "built _out/jemu _out/jemu-kernel _out/jemu-mkfs _out/jemu-boot"
+"${JCMP:-jcmp}" jaric-os.jk -o _out/jaric-os
+"${JCMP:-jcmp}" kernel.jk -o _out/jaric-os-kernel
+"${JCMP:-jcmp}" mkfs.jk -o _out/jaric-os-mkfs
+"${JCMP:-jcmp}" boot.jk -o _out/jaric-os-boot
+echo "built _out/jaric-os _out/jaric-os-kernel _out/jaric-os-mkfs _out/jaric-os-boot"

@@ -1,4 +1,11 @@
-# jemu changelog
+# jaric-os changelog
+
+## 0.1.0 (the tool jemu 0.2.0 became jaric-os)
+* **Changed:** the tool is Jaric OS only and its command is `jaric-os`: `jaric-os` (the start screen, then the system), `jaric-os FOLDER`, `jaric-os boot`. The emulator parts (`jemu PROGRAM`, `--system`) need `JARIC_OS_DEV=1` (for developers). The disk folder is `~/.jaric-os`; the files are `jaric-os-kernel`, `jaric-os-mkfs`, `jaric-os-boot`.
+* **Added:** the Jaric app brings `jaric-os` inside (an internal tool): `jc update` puts a newer one over it.
+* **Fixed:** none.
+
+# history of jemu (before the rename)
 
 ## 0.2.0
 * **Added (a screen):** the machine has a screen: a frame buffer at `0x0B000000` (ADDR, WIDTH, HEIGHT, FLUSH). `jemu --system KERNEL --screen FILE.ppm` saves the picture on every FLUSH; `--gfx FILE` shows it live in the Jaric app (about 25 pictures a second, through the `7777;gfx` messages the app already has).

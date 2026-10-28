@@ -1,4 +1,4 @@
-// jemu: runs a Linux ARM64 program (a static ELF such as jcmp writes) by interpreting its instructions. M1: the integer instructions and the
+// jaric-os: the machine of Jaric OS (made from the emulator jemu of the Jaric project): runs a Linux ARM64 program (a static ELF such as jcmp writes) by interpreting its instructions. M1: the integer instructions and the
 // Linux system calls that those programs use. Usage: jemu PROGRAM [arguments]. It is the core of Jaric (docs/android-app-plan.md): it uses
 // only the library and Sys:: calls, nothing of the host except the system calls that a guest asks for.
 #import <stdlib>
@@ -89,7 +89,7 @@ void tty_restore() {
     Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
 }
 
-String jemu_version() { return "0.2.0"; }
+String jemu_version() { return "0.1.0"; }
 
 void die(String msg, int code) {
     tty_restore();
@@ -1480,30 +1480,43 @@ int rd64(char^ b, int at) { return rd32(b, at) | (rd32(b, at + 4) << 32); }
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jemu " << jemu_version() << "\n"; return 0; }
+    bool dev = false;                                          // the emulator itself (programs, --system) is for the developers of Jaric OS: JARIC_OS_DEV=1
+    switch Env::get("JARIC_OS_DEV") { Option::Some(v): { if v.len > 0 { dev = true; } } Option::None: { } }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jaric-os " << jemu_version() << "\n"; return 0; }
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h" || args[1] == "help") {
-        cout << "jemu: a machine that runs programs for ARM64 and, in system mode, kernels (Jaric OS)\n";
-        cout << "  jemu os [FOLDER]                 start Jaric OS: the files of FOLDER (default ~/.jemu-os) are its disk; type ls, cat NAME, echo TEXT, help, exit\n";
-        cout << "  jemu boot                        the start screen of Jaric OS, live in the Jaric app (a ring of light, Jaric OS, powered by Jaric)\n";
-        cout << "  jemu PROGRAM [arguments]         run a Linux ARM64 program (the Linux calls are answered by the host)\n";
-        cout << "  jemu --system KERNEL.elf [--disk IMAGE] [--shift N] [--steps N]    run a kernel on the machine (EL0 / EL1, MMU, timer, a UART, a disk)\n";
+        cout << "jaric-os: Jaric OS, the operating system of the Jaric project, in a machine inside the app\n";
+        cout << "  jaric-os                  start Jaric OS: the start screen (a ring of light, Jaric OS, powered by Jaric), then the system on the disk ~/.jaric-os\n";
+        cout << "  jaric-os FOLDER           the same, with the files of FOLDER as the disk\n";
+        cout << "  jaric-os boot             only the start screen, live in the Jaric app\n";
+        cout << "  jaric-os --version | --help\n";
+        cout << "Inside: ls, cat NAME, echo TEXT, help, exit (Ctrl-C stops the machine). Update it with  jc update  (jc install jaric-os).\n";
         return 0;
     }
     switch Env::get("JEMU_TRACE") { Option::Some(v): { if v.len > 0 { trace_calls = true; } } Option::None: { } }
-    if args.len > 1 && args[1] == "os" {                       // jemu os [FOLDER]: the kernel and mkfs come next to this program (jemu-kernel, jemu-mkfs)
+    if !dev && args.len > 1 && (args[1] == "--system" || args[1].len > 1 && args[1][0] == '-') { die("jaric-os runs Jaric OS only (jaric-os --help)", 2); }
+    if args.len == 1 || args[1] == "os" || (!dev && args[1] != "boot") {   // jaric-os [FOLDER]: the kernel and mkfs come next to this program (jaric-os-kernel, jaric-os-mkfs)
         char sbuf[512];
         int sn = Sys::readlink("/proc/self/exe".c(), @sbuf, 511);
-        if sn <= 0 { die("cannot find where jemu is", 1); }
+        if sn <= 0 { die("cannot find where jaric-os is", 1); }
+        if args.len == 1 {                                     // the start screen first (a failure of it does not stop the system)
+            sbuf[sn] = 0;
+            String[] bo = arr(2);
+            bo.push("boot");
+            Proc::run((char^)@sbuf, bo);
+        }
         sbuf[sn] = 0;
         String self = (char^)@sbuf;
         String dir = Path::parent(self);
-        String kernel = Path::join(dir, "jemu-kernel");
-        String mkfs = Path::join(dir, "jemu-mkfs");
-        if !Fs::exists(kernel) || !Fs::exists(mkfs) { die("jemu-kernel and jemu-mkfs must be next to jemu (jc install jemu brings them)", 1); }
+        String kernel = Path::join(dir, "jaric-os-kernel");
+        String mkfs = Path::join(dir, "jaric-os-mkfs");
+        if !Fs::exists(kernel) || !Fs::exists(mkfs) { die("jaric-os-kernel and jaric-os-mkfs must be next to jaric-os (jc install jaric-os brings them)", 1); }
         String home = ".";
         switch Env::get("HOME") { Option::Some(h): { if h.len > 0 { home = h; } } Option::None: { } }
-        String folder = Path::join(home, ".jemu-os");
+        String folder = Path::join(home, ".jaric-os");
         if args.len > 2 { folder = args[2]; }
+        else if args.len == 2 && args[1] != "os" { folder = args[1]; }
+        if args.len > 1 && args[1] != "os" && !Dir::exists(folder) { die("there is no folder " + folder, 1); }
+        if args.len > 2 && !Dir::exists(folder) { die("there is no folder " + folder, 1); }
         if !Dir::exists(folder) {
             Dir::make_all(folder);
             Fs::write_text(Path::join(folder, "hello.txt"), "hello from the disk of Jaric OS\n");
@@ -1511,7 +1524,7 @@ int main() {
         }
         String tmp = "/tmp";
         switch Env::get("TMPDIR") { Option::Some(t): { if t.len > 0 { tmp = t; } } Option::None: { } }
-        String img = Path::join(tmp, "jemu-os.img");
+        String img = Path::join(tmp, "jaric-os.img");
         String[] ma = arr(4);
         ma.push(img); ma.push(folder); ma.push("128");
         Result<int, Error> mr = Proc::run(mkfs, ma);
@@ -1521,18 +1534,18 @@ int main() {
         na.push("jemu"); na.push("--system"); na.push(kernel); na.push("--disk"); na.push(img);
         args = na;
     }
-    if args.len > 1 && args[1] == "boot" {                     // jemu boot: the start screen of Jaric OS, live in the Jaric app (the kernel jemu-boot comes next to this program)
+    if args.len > 1 && args[1] == "boot" {                     // jemu boot: the start screen of Jaric OS, live in the Jaric app (the kernel jaric-os-boot comes next to this program)
         char bbuf[512];
         int bn = Sys::readlink("/proc/self/exe".c(), @bbuf, 511);
-        if bn <= 0 { die("cannot find where jemu is", 1); }
+        if bn <= 0 { die("cannot find where jaric-os is", 1); }
         bbuf[bn] = 0;
         String bself = (char^)@bbuf;
-        String bkernel = Path::join(Path::parent(bself), "jemu-boot");
-        if !Fs::exists(bkernel) { die("jemu-boot must be next to jemu (jc install jemu brings it)", 1); }
+        String bkernel = Path::join(Path::parent(bself), "jaric-os-boot");
+        if !Fs::exists(bkernel) { die("jaric-os-boot must be next to jaric-os (jc install jaric-os brings it)", 1); }
         String btmp = "/tmp";
         switch Env::get("TMPDIR") { Option::Some(t): { if t.len > 0 { btmp = t; } } Option::None: { } }
         String[] ba = arr(6);
-        ba.push("jemu"); ba.push("--system"); ba.push(bkernel); ba.push("--gfx"); ba.push(Path::join(btmp, "jemu-screen.bgra"));
+        ba.push("jemu"); ba.push("--system"); ba.push(bkernel); ba.push("--gfx"); ba.push(Path::join(btmp, "jaric-os-screen.bgra"));
         args = ba;
     }
     if args.len < 2 { cerr << "usage: jemu PROGRAM [arguments]       jemu --system KERNEL.elf [--steps N] [--disk IMAGE] [--shift N]   (system mode: EL0/EL1, vectors, a UART at 0x09000000, exit device at 0x09100000, a disk at 0x0A000000)\n"; return 2; }

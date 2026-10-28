@@ -1,17 +1,27 @@
-# jemu: a machine for programs and for Jaric OS
+# jaric-os: Jaric OS in the Jaric app
 
-`jemu` runs programs written for a processor of the ARM64 kind inside itself, and in *system mode* it is a whole small computer on which a kernel can run: that is how Jaric OS (the operating system of the Jaric project, written in J2K) is built and tried on the phone.
+`jaric-os` starts **Jaric OS**, the operating system of the Jaric project (written in J2K), on a small machine inside the app. It is the internal tool of the app: the app brings a version, and `jc update` puts a newer one over it.
+
+## Install
 
 ```
-jemu os                      start Jaric OS (the files of ~/.jemu-os are its disk)
-jemu os FOLDER               the same, with the files of FOLDER as the disk
-jemu boot                    the start screen of Jaric OS, live in the Jaric app (a ring of light, "Jaric OS", "powered by Jaric")
-jemu PROGRAM [arguments]     run a Linux ARM64 program (jcmp makes them); the host answers its system calls
-jemu --system KERNEL.elf [--disk IMAGE] [--shift N] [--steps N]    run a kernel of your own
-jemu --version | --help
+jget tool jaric-os                                                      # with jget
+jc install jaric-os                                                     # with jc
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jaric-os     # with curl (no jget needed)
 ```
 
-## Jaric OS in `jemu os`
+The Jaric app already has it inside; `jc update` brings a newer one.
+
+```
+jaric-os                     the start screen (a ring of light, "Jaric OS", "powered by Jaric"), then the system on the disk ~/.jaric-os
+jaric-os FOLDER              the same, with the files of FOLDER as the disk
+jaric-os boot                only the start screen, live in the Jaric app
+jaric-os --version | --help
+```
+
+The machine (a processor of the ARM64 kind with a screen, a disk and a keyboard) is `jemu`, the emulator of the Jaric project; here it runs Jaric OS only. Developers of the system set `JARIC_OS_DEV=1` to run other programs and kernels on it.
+
+## Jaric OS in `jaric-os`
 ```
 Jaric OS: the disk is the files of /home/you/.jemu-os  (exit leaves, Ctrl-C stops the machine)
 Jaric OS K7
@@ -37,11 +47,11 @@ The kernels of every step (exceptions, timer, MMU, tasks, user programs, separat
 jget tool jemu                                                       # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jemu     # with curl
 ```
-In jsh: `jc install jemu`. The kernel `jemu-kernel` and the disk maker `jemu-mkfs` are put next to `jemu`.
+In jsh: `jc install jaric-os`. The kernel `jemu-kernel` and the disk maker `jemu-mkfs` are put next to `jaric-os`.
 
 ## A short lesson
-1. `jemu os`, then `ls`, `cat hello.txt`, `echo hello`, `exit`.
-2. Put your own files on the disk: `mkdir ~/disk; echo notes > ~/disk/notes.txt; jemu os ~/disk`, then `cat notes.txt`.
+1. `jaric-os`, then `ls`, `cat hello.txt`, `echo hello`, `exit`.
+2. Put your own files on the disk: `mkdir ~/disk; echo notes > ~/disk/notes.txt; jaric-os ~/disk`, then `cat notes.txt`.
 3. Run a program of your own in the machine: `jcmp hello.jk -o hello; jemu hello`.
 4. Write a kernel: see `os/kernel/k1_exceptions.jk` in the Jaric repository (a raw file starting with `#!library`); `jemu --system k1.elf` runs it.
 
