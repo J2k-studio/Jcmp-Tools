@@ -1,6 +1,6 @@
 # zipj and unj: zip files
 
-`zipj` makes a .zip, `unj` opens one (and a .gz). Written in J2K (the library is `zipcore.j`: CRC-32, DEFLATE, ZIP, and the old ZIP password). One program with two names: `jget tool zipj` installs it and a link `unj`.
+`zipj` makes a .zip, `unj` opens one (and a .gz). Written in J2K (the library is `zipcore.j`: CRC-32, DEFLATE, ZIP, and the old ZIP password). One program with two names: `jc install zipj` installs it and a link `unj`.
 
 ```
 unj test.zip                 open here, without a folder
@@ -29,7 +29,7 @@ sh test.sh       # needs python3 and gzip
 
 ## Install
 ```
-jget tool zipj                                                        # with jget
+jc install zipj                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s zipj     # with curl (no jget needed)
 ```
 In jsh: `jc install zipj`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.

@@ -16,7 +16,7 @@ case "${1:-}" in -pro|-game|-ai|-apk) first=$1; shift; set -- init "$first" "$@"
 # makej is built with jcmp 1.2.0.0 or newer (its library uses forms that older compilers do not know: they stop with "unknown escape sequence")
 need_jcmp() {
     have="$(jcmp -version 2>/dev/null | cut -d' ' -f2)"
-    if [ -z "$have" ]; then echo "makej: the compiler jcmp is not installed (or not in the PATH): jget tool jcmp" >&2; exit 2; fi
+    if [ -z "$have" ]; then echo "makej: the compiler jcmp is not installed (or not in the PATH): jc install jcmp" >&2; exit 2; fi
     major=${have%%.*}; rest=${have#*.}; minor=${rest%%.*}
     case "$major$minor" in *[!0-9]*) return 0 ;; esac
     if [ "$major" -lt 1 ] || { [ "$major" -eq 1 ] && [ "$minor" -lt 2 ]; }; then
@@ -24,13 +24,13 @@ need_jcmp() {
         # at a terminal makej offers to update it at once (MAKEJ_UPDATE_JCMP=yes does it without asking, =no never)
         want="${MAKEJ_UPDATE_JCMP:-ask}"
         if [ "$want" = ask ] && [ -t 0 ] && [ -t 2 ] && command -v jget >/dev/null 2>&1; then
-            printf 'makej: update jcmp now with  jget tool jcmp ?  [Y/n] ' >&2; read -r ans || ans=n
+            printf 'makej: update jcmp now with  jc install jcmp ?  [Y/n] ' >&2; read -r ans || ans=n
             case "$ans" in n|N|no) want=no ;; *) want=yes ;; esac
         fi
         if [ "$want" = yes ] && command -v jget >/dev/null 2>&1; then
-            jget tool jcmp >&2 && { echo "makej: jcmp is updated; run makej again" >&2; exit 2; }
+            jc install jcmp >&2 && { echo "makej: jcmp is updated; run makej again" >&2; exit 2; }
         fi
-        echo "makej: update it with:  jget tool jcmp   (or: jcmp -update)" >&2
+        echo "makej: update it with:  jc install jcmp   (or: jcmp -update)" >&2
         exit 2
     fi
 }
@@ -174,20 +174,20 @@ if [ "${1:-}" = "init" ] && [ "${2:-}" = "-ai" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
     mkdir -p data
 cat > makej <<'MAKEJ_AI_EOF'
-# an AI project (makej init -ai). The steps below run only when you name them; each one installs the tool neuron (jget tool neuron) when it is missing.
+# an AI project (makej init -ai). The steps below run only when you name them; each one installs the tool neuron (jc install neuron) when it is missing.
 #   makej train     learns the talk in data/chat.txt and writes the model assistant.jw   (all the AI in one .jw file)
 #   makej chat      talks with the model;   makej install   makes it the assistant of this phone (xr, neuron chat)
 [makej]
 out = "_out"
 
 [step.train]
-run = "command -v neuron >/dev/null 2>&1 || jget tool neuron; neuron train data/chat.txt -o assistant.jw -k 12 -d 8 -h 64 -e 6 -r 0.08"
+run = "command -v neuron >/dev/null 2>&1 || jc install neuron; neuron train data/chat.txt -o assistant.jw -k 12 -d 8 -h 64 -e 6 -r 0.08"
 
 [step.chat]
-run = "command -v neuron >/dev/null 2>&1 || jget tool neuron; neuron chat assistant.jw"
+run = "command -v neuron >/dev/null 2>&1 || jc install neuron; neuron chat assistant.jw"
 
 [step.install]
-run = "command -v neuron >/dev/null 2>&1 || jget tool neuron; neuron install assistant.jw"
+run = "command -v neuron >/dev/null 2>&1 || jc install neuron; neuron install assistant.jw"
 MAKEJ_AI_EOF
 cat > data/chat.txt <<'MAKEJ_AI_CHAT_EOF'
 You: hello
@@ -211,7 +211,7 @@ Bot: Hi! I am your helper.
 You: bye
 Bot: Goodbye! See you.
 MAKEJ_AI_CHAT_EOF
-    echo "makej: wrote makej and data/chat.txt (the talk to learn). Next: jget tool neuron; makej train (writes assistant.jw), makej chat, makej install"; exit 0
+    echo "makej: wrote makej and data/chat.txt (the talk to learn). Next: jc install neuron; makej train (writes assistant.jw), makej chat, makej install"; exit 0
 fi
 if [ "${1:-}" = "targets" ]; then
     cat <<'MAKEJ_TARGETS_EOF'
@@ -265,7 +265,7 @@ if [ "${1:-}" = "apk" ]; then
     for c in ./android.jar "$HOME/android.jar" "$HOME/.local/share/android/android.jar" "$HOME/Jaric/android.jar" "${PREFIX:-/usr}/share/android/android.jar"; do [ -n "$jar" ] || { [ -f "$c" ] && jar=$c; }; done
     [ -f "$jar" ] || { echo "makej: android.jar was not found; put it in this folder or set ANDROID_JAR=path (it is in the Android SDK: platforms/android-34/android.jar)" >&2; exit 2; }
     jpty=${JPTY:-$(command -v jpty || true)}
-    [ -x "$jpty" ] || { echo "makej: jpty was not found (jget tool jpty)" >&2; exit 2; }
+    [ -x "$jpty" ] || { echo "makej: jpty was not found (jc install jpty)" >&2; exit 2; }
     sh "$0" "$prog" || exit 2
     [ -f "_out/$prog" ] || { echo "makej: _out/$prog was not built" >&2; exit 2; }
     w=_out/apk; rm -rf "$w"; mkdir -p "$w/classes" "$w/dex" "$w/gen" "$w/assets/bin" "$w/src/com/j2k/gamerun" "$w/res"
@@ -324,7 +324,7 @@ if [ "${1:-}" = "init" ] && [ "${2:-}" = "-game" ]; then
     fi
     mkdir -p src lessons assets
 cat > makej <<'MAKEJ_GAME_EOF'
-# a game project (makej init -game): Jaric Engine, the library gamej.  Needs it:  jget -li install gamej
+# a game project (makej init -game): Jaric Engine, the library gamej.  Needs it:  jc lib install gamej
 #   makej game          build the game          makej run           build and play
 #   makej lesson1 ..    build lesson 1 to 5     makej play1 ..      play lesson 1 to 5
 #   makej dist          build for every system in manifest.toml (os = ...); makej targets lists them
@@ -575,12 +575,12 @@ MAKEJ_GAME_SRC_EOF
 cat > README.md <<'MAKEJ_GAME_README_EOF'
 # My game (made with makej init -game and Jaric Engine)
 
-* `jget -li install gamej` once; then `makej run` plays the game, `makej apk` makes an Android app (`_out/NAME.apk`: install it on the phone), `makej pack` makes `game.jc` (the package of the game: a zip with `manifest.toml`, the program and `assets/`).
+* `jc lib install gamej` once; then `makej run` plays the game, `makej apk` makes an Android app (`_out/NAME.apk`: install it on the phone), `makej pack` makes `game.jc` (the package of the game: a zip with `manifest.toml`, the program and `assets/`).
 * Learn: `makej play1` ... `makej play5` (the files are in `lessons/`, each short, with comments): 1 window and loop, 2 move, 3 gravity and jump, 4 falling things, hit and score, 5 pictures and sound.
 * Jaric Engine = the library `<gamej>`: see `jcmp -showlib gamej` or the top of `~/.j2k/Library/gamej.j`. Draw: clear pixel rect frame_rect line circle text art. Input: held hit. Time: g.dt. Collision: Game::overlap. Sound: g.sound.
 * ภาษาไทย: ไลบรารีชื่อ `<gamej>` วาดบนเทอร์มินัลทั้งจอ (1 ช่อง = 2 พิกเซล) เกมคือลูป: อ่านปุ่ม -> เปลี่ยนโลก -> วาด; ใช้ `g.dt` เพื่อให้ความเร็วเท่ากันทุกเครื่อง
 MAKEJ_GAME_README_EOF
-    echo "makej: wrote makej, manifest.toml, src/main.jk, lessons/lesson1..5.jk, README.md (jget -li install gamej; then makej run, makej play1)"
+    echo "makej: wrote makej, manifest.toml, src/main.jk, lessons/lesson1..5.jk, README.md (jc lib install gamej; then makej run, makej play1)"
     if [ "$gos" = "android" ] || [ "$APK_INIT" = 1 ]; then
         echo "makej: this is an Android app project: makej run tries it here, makej apk builds _out/NAME.apk"
         miss=""

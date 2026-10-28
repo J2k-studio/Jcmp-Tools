@@ -7,7 +7,7 @@
 set -eu
 cd "$(dirname "$0")"
 JCMP=$1; TARBALL=$2; CERT=${3:-/data/data/com.termux/files/usr/etc/tls/cert.pem}
-export J2K_PATH="${J2K_PATH:-$HOME/Jaric-Engine/libs}"      # the library native (jget -li install native)
+export J2K_PATH="${J2K_PATH:-$HOME/Jaric-Engine/libs}"      # the library native (jc lib install native)
 rm -rf dist _work; mkdir dist _work
 "$JCMP" python.jk -dyn -o dist/python
 tar xzf "$TARBALL" -C _work

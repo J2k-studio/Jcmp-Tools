@@ -5,7 +5,7 @@
 ## Install
 
 ```
-jget tool jaric-os                                                      # with jget
+jc install jaric-os                                                      # with jget
 jc install jaric-os                                                     # with jc
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jaric-os     # with curl (no jget needed)
 ```
@@ -47,7 +47,7 @@ The kernels of every step (exceptions, timer, MMU, tasks, user programs, separat
 
 ## Install
 ```
-jget tool jemu                                                       # with jget
+jc install jemu                                                       # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jemu     # with curl
 ```
 In jsh: `jc install jaric-os`. The kernel `jemu-kernel` and the disk maker `jemu-mkfs` are put next to `jaric-os`.

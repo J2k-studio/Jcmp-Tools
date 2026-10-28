@@ -21,7 +21,7 @@ Packed repositories (after `git gc` or a `git clone`) are read: the idx and pack
 
 ## Install
 ```
-jget tool jgit                                                       # with jget
+jc install jgit                                                       # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jgit     # with curl
 ```
 In jsh: `jc install jgit`.
@@ -33,4 +33,4 @@ In jsh: `jc install jgit`.
 4. Change it: `echo more >> a.txt`. `jgit diff` shows `+more`; `jgit add a.txt`, `jgit commit -m "more"`.
 5. `jgit log` shows both. `jgit branch try`, `jgit switch try`: files of that branch; `jgit switch main` goes back.
 
-License: MPL-2.0. Build: `JCMP=path sh build.sh` (the library deflate: `jget -li install deflate`, or `J2K_PATH` to the folder). Test: `sh test.sh` (the part with git needs `git`).
+License: MPL-2.0. Build: `JCMP=path sh build.sh` (the library deflate: `jc lib install deflate`, or `J2K_PATH` to the folder). Test: `sh test.sh` (the part with git needs `git`).

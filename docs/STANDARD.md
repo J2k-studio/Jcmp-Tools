@@ -20,7 +20,7 @@ Every tool follows these rules. A new tool is not released until it passes the c
 
 ## Versions and releases
 * `X.Y.Z`: Z = a fix, Y = something new, X = a break (not before 1.0). One number in `VERSION`; the program prints it; the changelog has a section for it. **The version text in the source must be changed together with `VERSION`** (jsh 0.5.1 to 0.6.0 printed 0.5.0 because it was not: `test.sh` now checks `NAME --version` against `VERSION`).
-* A release is the tag `NAME-vX.Y.Z` in Jcmp-Tools with the file `NAME` and `SHA256SUMS`; `release.sh` builds, tests, writes the sums. `install.sh NAME` and `jget tool NAME` check the sums.
+* A release is the tag `NAME-vX.Y.Z` in Jcmp-Tools with the file `NAME` and `SHA256SUMS`; `release.sh` builds, tests, writes the sums. `install.sh NAME` and `jc install NAME` check the sums.
 * A tool built for the Jaric app is built from the same source (no copy that differs): `build_app.sh` takes `~/jget/tools/*`; the only other copy (`os/userland/shell/jsh.jk` in Jaric) is replaced by the tool's file at every release.
 
 ## Checklist before a release
@@ -53,7 +53,7 @@ Defaults need no file. A setting is read in this order: the command line, the en
 ## The README of a tool (this order)
 1. `# name: one line of what it is`, then a paragraph and the usage block (every option, as in `--help`).
 2. What it does not do yet (said plainly).
-3. `## Install` with **both** `jget tool NAME` and `curl -fsSL .../install.sh | sh -s NAME`, and `jc install NAME` in jsh.
+3. `## Install` with **both** `jc install NAME` and `curl -fsSL .../install.sh | sh -s NAME` (jc is the installer; jget is only the downloader since jget 1.0.0).
 4. `## A short lesson`: 4 to 6 numbered steps that a new person can follow.
 5. A line `License: ...` (the file `LICENSE` of the tool, or "the license of the repository" when the tool has none of its own), the build line and the test line.
 
@@ -66,7 +66,7 @@ Defaults need no file. A setting is read in this order: the command line, the en
 - [ ] `install-NAME.sh` and the line in `tools.txt` exist; the table of `README.md` links the README of the tool
 
 ## Install, update, remove
-`jc install NAME`, `jc unstall NAME`, `jc update [-n]` all go to `jget tool ...`; `update` compares `versions.txt` (written by `check-standard.sh`) with the installed versions, so a release must run `check-standard.sh` and publish `versions.txt`.
+`jc install NAME`, `jc unstall NAME`, `jc update [-n]` do the work themselves (the code is `manage.j`, the downloads `core.j`); `update` compares `versions.txt` (written by `check-standard.sh`) with the installed versions, so a release must run `check-standard.sh` and publish `versions.txt`.
 
 ## The guide of a tool
 A README is the front page; a tool with more than a few commands also has a **guide**: a section `## Commands` in the README, or a file `docs/GUIDE.md`, that goes through **every command and option with an example**, shows a step by step lesson for each big feature (for example an Android app with `makej init -apk`), and has a table of the error messages and what to do. `check-standard.sh` prints a note for a tool that has neither. (Written so far: makej.)

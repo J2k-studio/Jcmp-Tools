@@ -1,5 +1,10 @@
 # jc changelog
 
+## 0.3.0
+* **Added (jc installs the tools and the libraries itself):** `jc install NAME` (a tool of Jcmp-Tools: downloaded, checked with its SHA-256, put next to jc, with the files that come with it), `jc update [-n]`, `jc unstall NAME`, `jc tools` (the list), and `jc lib list | installed | install NAME | unstall NAME` (the libraries of J2K). It used to ask `jget tool ...`; now it needs no other program (the shared downloader is `core.j`).
+* **Changed:** jc and jget cannot be removed with `jc unstall`.
+* **Fixed:** none.
+
 ## 0.2.0
 * **Added:** `jc install NAME` installs a tool of Jcmp-Tools (`jget tool NAME`), `jc install STORE.ID` a program of the store (`jstore`), `jc unstall NAME` removes a tool, `jc update [-n]` updates jsh and the tools that have a newer version, then the store programs.
 

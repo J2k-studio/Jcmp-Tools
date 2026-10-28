@@ -28,7 +28,7 @@ The folder of your songs is **hidden**: `~/.music` (an older `~/music` is moved 
 
 ## Install
 ```
-jget tool mujic                                                        # with jget
+jc install mujic                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s mujic     # with curl (no jget needed)
 ```
 In jsh: `jc install mujic`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.

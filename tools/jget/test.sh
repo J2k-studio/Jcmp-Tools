@@ -14,6 +14,8 @@ t()   { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 [ -z "${J2K_PATH:-}" ] && [ -d "$HOME/Jcmp/build/libs" ] && export J2K_PATH="$HOME/Jcmp/build/libs"
 $JCMP jget.jk -o "$W/jget" >"$W/build.txt" 2>&1 || { cat "$W/build.txt"; echo "FAIL  jget does not build"; exit 1; }
 J="$W/jget"
+( cd "$HERE/../jc" && $JCMP jc.jk -o "$W/jc" ) >"$W/build_jc.txt" 2>&1 || { cat "$W/build_jc.txt"; echo "FAIL  jc does not build"; exit 1; }
+export PATH="$W:$PATH"                                      # jget -li ... and jget tool ... are sent to jc
 mkdir -p "$W/tz/src/sub"; echo hello > "$W/tz/src/a.txt"; echo deep > "$W/tz/src/sub/b.txt"
 ( cd "$W/tz" && tar czf t.tar.gz src && tar cf t.tar src )
 mkdir "$W/tz/o1" "$W/tz/o2"
@@ -118,14 +120,14 @@ printf 'jsh 0.2.0\nfoo 1.0.0\nbar 1.0.0\n' > "$M/versions.txt"
 echo 0.2.0 > "$M/tools/jsh/LATEST"; echo 1.0.0 > "$M/tools/foo/LATEST"; echo 1.0.0 > "$M/tools/bar/LATEST"
 mkfake() { printf '#!/bin/sh\necho "%s %s"\n' "$2" "$3" > "$M/dl/$2-v$3/$2"; ( cd "$M/dl/$2-v$3" && sha256sum "$2" > SHA256SUMS ); }
 mkfake x jsh 0.2.0; mkfake x foo 1.0.0; mkfake x bar 1.0.0
-TB="$W/tbin"; mkdir -p "$TB"; cp "$J" "$TB/jget"
+TB="$W/tbin"; mkdir -p "$TB"; cp "$J" "$TB/jget"; cp "$W/jc" "$TB/jc"
 printf '#!/bin/sh\necho "jsh 0.1.0"\n' > "$TB/jsh"; chmod 755 "$TB/jsh"
 printf '#!/bin/sh\necho "foo 1.0.0"\n' > "$TB/foo"; chmod 755 "$TB/foo"
 TE="JCMPTOOLS_RAW=file://$M JCMPTOOLS_DL=file://$M/dl"
-t "tool update -n: lists jsh only (foo is up to date, bar is not installed)" '[ "$(cd $TB && env $TE ./jget tool update -n 2>/dev/null | head -n 1)" = "jsh: 0.1.0 -> 0.2.0" ] && ! (cd $TB && env $TE ./jget tool update -n 2>/dev/null | grep -q "foo\|bar")'
-t "tool update installs the newer jsh and leaves the rest" '(cd $TB && env $TE ./jget tool update >/dev/null 2>&1); [ "$($TB/jsh)" = "jsh 0.2.0" ] && [ "$($TB/foo)" = "foo 1.0.0" ] && [ ! -e $TB/bar ]'
-t "tool update again: everything is up to date" '[ "$(cd $TB && env $TE ./jget tool update 2>/dev/null)" = "everything is up to date" ]'
-t "tool unstall removes a tool, refuses jsh and jget" '(cd $TB && env $TE ./jget tool unstall foo >/dev/null 2>&1); [ ! -e $TB/foo ] && ! (cd $TB && env $TE ./jget tool unstall jsh >/dev/null 2>&1) && [ -e $TB/jsh ] && ! (cd $TB && env $TE ./jget tool unstall jget >/dev/null 2>&1)'
+t "tool update -n: lists jsh only (foo is up to date, bar is not installed)" '[ "$(cd $TB && env PATH="$TB:$PATH" $TE ./jget tool update -n 2>/dev/null | head -n 1)" = "jsh: 0.1.0 -> 0.2.0" ] && ! (cd $TB && env PATH="$TB:$PATH" $TE ./jget tool update -n 2>/dev/null | grep -q "foo\|bar")'
+t "tool update installs the newer jsh and leaves the rest" '(cd $TB && env PATH="$TB:$PATH" $TE ./jget tool update >/dev/null 2>&1); [ "$($TB/jsh)" = "jsh 0.2.0" ] && [ "$($TB/foo)" = "foo 1.0.0" ] && [ ! -e $TB/bar ]'
+t "tool update again: everything is up to date" '[ "$(cd $TB && env PATH="$TB:$PATH" $TE ./jget tool update 2>/dev/null)" = "everything is up to date" ]'
+t "tool unstall removes a tool, refuses jsh, jget and jc" '(cd $TB && env PATH="$TB:$PATH" $TE ./jget tool unstall foo >/dev/null 2>&1); [ ! -e $TB/foo ] && ! (cd $TB && env PATH="$TB:$PATH" $TE ./jget tool unstall jsh >/dev/null 2>&1) && [ -e $TB/jsh ] && ! (cd $TB && env PATH="$TB:$PATH" $TE ./jget tool unstall jget >/dev/null 2>&1)'
 cd / ; rm -rf "$W"
 echo "jget: $FAILS failures"
 exit $FAILS

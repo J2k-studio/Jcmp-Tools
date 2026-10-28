@@ -10,7 +10,7 @@ Without Jaric it is on its own: the launcher finds the folder `python-android` n
 
 ## Install
 ```
-jget tool python                                                     # with jget
+jc install python                                                     # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s python     # with curl
 ```
 `python3` is a link to `python`. In jsh: `jc install python`.

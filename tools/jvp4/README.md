@@ -10,7 +10,7 @@ License: MPL-2.0. Build: `JCMP=path sh build.sh` (jcmp 1.1.0.0 or newer). Test: 
 
 ## Install
 ```
-jget tool jvp4                                                        # with jget
+jc install jvp4                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jvp4     # with curl (no jget needed)
 ```
 In jsh: `jc install jvp4`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.

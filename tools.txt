@@ -5,7 +5,7 @@ jsh|A small shell for J2K machines: line editing, ghost text, pipes, variables, 
 jbox|The basic commands in one program (dir cat cp mv rm mkdir grep sort ...); installs links so every shell finds them
 jpty|Run a program on a pseudo terminal, driven through two pipes (for apps and tools)
 coderin|A text editor for the terminal (colours for J2K, select, copy and paste, find)
-jcmp|The J2K compiler and its library (the language): jget tool jcmp
+jcmp|The J2K compiler and its library (the language): jc install jcmp
 zipj|Make and open zip files (zipj, unj): folders, a password, deflate, also .gz
 tarj|Make and open tar archives (.tar, .tar.gz, .tgz) and gzip files (tarj, gzj)
 mujic|A music player for the terminal: your songs, free songs to fetch, synced lyrics (mujic)

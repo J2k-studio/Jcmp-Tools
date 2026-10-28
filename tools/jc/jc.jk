@@ -11,9 +11,12 @@
 // A program started by jc finds JC_ASSETS (its assets folder), JC_HOME (its own folder) and JC_PERMS (the permissions it has, with commas):
 // the libraries of Jaric look at JC_PERMS and refuse what is not allowed (a convention, not a wall: see docs/security.md of Jaric).
 #import <stdlib>
+#import <deflate>
 #import "zipcore"
+#import "core"
+#import "manage"
 
-String jc_version() { return "0.2.0"; }
+String jc_version() { return "0.3.0"; }
 
 int fail(String msg) {
     cerr << "jc: " << msg << "\n";
@@ -282,28 +285,24 @@ int do_remove(String id) {
     return 0;
 }
 
-void remove_tree(String dir) {
-    Result<String[], Error> r = Dir::list(dir);
-    if r.is_ok() {
-        String[] names = r.take();
-        for i in 0..names.len {
-            String p = dir + "/" + names[i];
-            if Dir::exists(p) { remove_tree(p); } else { Fs::remove(p); }
-        }
-    }
-    Dir::remove(dir);
-}
 
 int run_other(String prog, String[] words) {              // another program of Jaric does the work (jget for tools, jstore for the store)
     String[] args = arr(words.len + 1);
     for i in 0..words.len { args.push(words[i]); }
     Result<int, Error> r = Proc::run(prog, args);
-    if !r.is_ok() { return fail("cannot start " + prog + " (jget tool " + prog + ")"); }
+    if !r.is_ok() { return fail("cannot start " + prog + " (jc install " + prog + ")"); }
     return r.take();
 }
 
 bool is_package_name(String what) {                        // FILE.jc or a path: a package; NAME: a tool; ID.with.dots: the store
     return what.ends_with(".jc") || what.contains("/") || Fs::exists(what);
+}
+
+// the libraries and the tools: what the commands of manage.j print when they are used wrongly
+int usage() {
+    cerr << "jc: jc lib list | installed | install NAME | unstall NAME      the libraries of J2K\n";
+    cerr << "    jc tools | install NAME | update [-n] | unstall NAME        the tools of Jcmp-Tools\n";
+    return 1;
 }
 
 int main() {
@@ -312,16 +311,17 @@ int main() {
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
         cout << "jc: install and run the programs of Jaric (.jc packages)\n";
         cout << "  jc info FILE.jc | install FILE.jc [-y] | run ID|FILE.jc [args] | list | perm ID [NAME on|off] | remove ID\n";
-        cout << "  jc install NAME (a tool: jget tool NAME) | install STORE.ID (jstore) | unstall NAME (remove a tool) | update [-n] (jsh and the tools and programs that have an update)\n";
+        cout << "  jc tools | lib list | lib install NAME | lib unstall NAME   (the tools; the libraries of J2K)\n";
+        cout << "  jc install NAME (a tool of Jcmp-Tools) | install STORE.ID (jstore) | unstall NAME (remove a tool) | update [-n] (jsh and the tools and programs that have an update)\n";
         return 0;
     }
     if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
     if a[1] == "update" || a[1] == "upgrade" {                 // jsh and every installed tool with a newer version, then the programs of the store
-        String[] w = arr(4);
-        w.push("tool");
+        String[] w = arr(a.len + 2);
+        w.push("jc");
         w.push("update");
-        for i in 2..a.len { w.push(a[i]); }
-        int rc = run_other("jget", w);
+        for i in 2..a.len { w.push(a[i] + ""); }
+        int rc = cmd_tool(w, 1);
         String[] sw = arr(2);
         sw.push("update");
         Result<int, Error> sr = Proc::run("jstore", sw);       // the store is optional: not installed = nothing to do
@@ -330,23 +330,35 @@ int main() {
     }
     if (a[1] == "unstall" || a[1] == "uninstall") && a.len >= 3 {
         if a[2].contains(".") { return do_remove(a[2]); }
-        String[] w = arr(4);
-        w.push("tool");
+        String[] w = arr(a.len + 2);
+        w.push("jc");
         w.push("unstall");
-        for i in 2..a.len { w.push(a[i]); }
-        return run_other("jget", w);
+        for i in 2..a.len { w.push(a[i] + ""); }
+        return cmd_tool(w, 1);
     }
     if a[1] == "install" && a.len >= 3 && !is_package_name(a[2]) {
         String[] w = arr(a.len + 2);
-        String prog = "jget";
-        if a[2].contains(".") { prog = "jstore"; } else { w.push("tool"); }
-        for i in 2..a.len { w.push(a[i]); }
-        return run_other(prog, w);
+        if a[2].contains(".") {
+            w.push("install");
+            for i in 2..a.len { w.push(a[i] + ""); }
+            return run_other("jstore", w);                       // a program of the store: ID.with.dots  ->  jstore install ID
+        }
+        w.push("jc");
+        for i in 2..a.len { w.push(a[i] + ""); }
+        return cmd_tool(w, 1);                                   // a tool of Jcmp-Tools
     }
     if a[1] == "install" && a.len >= 3 {
         bool yes = false;
         for i in 3..a.len { if a[i] == "-y" { yes = true; } }
         return do_install(a[2], yes);
+    }
+    if a[1] == "tools" { String[] w = arr(2); w.push("jc"); w.push("list"); return cmd_tool(w, 1); }          // the tools of Jcmp-Tools
+    if a[1] == "lib" || a[1] == "libs" {                                                                      // the libraries of J2K: jc lib list | install NAME | unstall NAME | installed
+        String[] w = arr(a.len + 2);
+        w.push("jc");
+        w.push("lib");
+        for i in 2..a.len { w.push(a[i] + ""); }
+        return cmd_library(w, 2);
     }
     if a[1] == "run" { return do_run(a); }
     if a[1] == "list" { return do_list(); }

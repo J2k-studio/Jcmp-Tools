@@ -15,7 +15,7 @@ sh test.sh
 
 ## Install
 ```
-jget tool jbox                                                        # with jget
+jc install jbox                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jbox     # with curl (no jget needed)
 ```
 In jsh: `jc install jbox`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.

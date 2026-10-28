@@ -16,7 +16,7 @@ How it learns: for every place of the text the model sees the last `-k` bytes an
 
 **To teach it to chat**, write the text as lines of a talk, many of them, in the same shape: `You: hello`, `Bot: Hi!` (see `example/chat.txt`). `neuron chat` puts `You: your line` and `Bot: ` in front of the model and stops the answer at the line end. It copies and mixes what it saw: a small model on a small text is a toy, a good one needs a lot of good text and many rounds.
 
-The program `neuron.jk` is the trainer: it is short, and it is yours to change (another model shape, another way to learn). Build: `JCMP=path sh build.sh` (jcmp 1.2.0.0; the library neuron is in `build/libs` of Jcmp or `jget -li install neuron`).
+The program `neuron.jk` is the trainer: it is short, and it is yours to change (another model shape, another way to learn). Build: `JCMP=path sh build.sh` (jcmp 1.2.0.0; the library neuron is in `build/libs` of Jcmp or `jc lib install neuron`).
 
 ## xaiorin (xr): the assistant that runs in the background
 `neuron install MODEL.jw` makes a model the assistant. It is called **xaiorin**, short **xr** (both names come with the tool: they are the same program):
@@ -27,11 +27,11 @@ xr "what is your name"                one answer;   xr  alone = a chat
 Settings (`jash set xr.port 7791`; `free_text` off: when no question of the talk is like yours, `xr` says "I do not know" instead of letting the small model write noise; `on` brings the writing back): `port` (7790), `temperature` (0.7), `max` (bytes of an answer, 200), `autostart` (on / off: the Jaric app starts `xr start` when it opens; `jaric setting`, section "assistant").
 
 ## The tool and the library are two things
-`jget tool neuron` installs this **program** (train, run, chat, xr). `jget -li install neuron` installs the **library** `<neuron>` (a J2K source file with `Tensor` and `Network`, for your own programs). The project of `makej init -ai` needs only the program, and its steps install it by themselves.
+`jc install neuron` installs this **program** (train, run, chat, xr). `jc lib install neuron` installs the **library** `<neuron>` (a J2K source file with `Tensor` and `Network`, for your own programs). The project of `makej init -ai` needs only the program, and its steps install it by themselves.
 
 ## Install
 ```
-jget tool neuron                                                     # with jget
+jc install neuron                                                     # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s neuron     # with curl
 ```
 In jsh: `jc install neuron`.

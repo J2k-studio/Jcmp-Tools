@@ -16,7 +16,7 @@ A whole number is shown as `255`, `hex 0xff`, `bin 0b1111_1111`, `oct 0o377`; a 
 
 ## Install
 ```
-jget tool calc                                                       # with jget
+jc install calc                                                       # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s calc     # with curl
 ```
 In jsh: `jc install calc`.

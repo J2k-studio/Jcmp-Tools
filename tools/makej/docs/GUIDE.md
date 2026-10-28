@@ -36,7 +36,7 @@ A program is built again only when a `.jk` / `.j` file below the folder of its m
 **Before the first time (once).**
 1. Tools: `pkg install aapt2 ecj dx apksigner zipalign openjdk-17` (in Termux). `makej init -apk` prints which ones are still missing.
 2. `android.jar` (from the Android SDK, `platforms/android-34/android.jar`): put it in the project folder, or in `~/android.jar`, or set `ANDROID_JAR=/path/android.jar`.
-3. `jpty`: `jc install jpty`. The library of the game: `jget -li install gamej`.
+3. `jpty`: `jc install jpty`. The library of the game: `jc lib install gamej`.
 
 **Step by step.**
 ```

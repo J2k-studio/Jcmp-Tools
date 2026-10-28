@@ -1,17 +1,19 @@
 # jget
 
-Download files from the web, and libraries for the [J2K language](https://github.com/J2k-studio/Jcmp). A small program written in J2K.
+Download files from the web. A small program written in J2K: URLs, a progress bar, HTTPS (TLS 1.3 with the check of the certificate), mirrors. Since 1.0.0 **jget only downloads**; the tools and the libraries are installed by [jc](../jc/README.md).
 
 ```
 jget https://example.com/file.tar.gz          save it here, named file.tar.gz
 jget URL -o other.name                        save it with another name   (-o - : write it to the screen)
 jget -q URL                                   no progress bar
 jget -x URL                                   make any file executable (scripts and programs already are)
-jget -sh URL [args]                           download a script and run it at once
+jget -m URL                                   a song from a link goes to ~/music (mujic plays it)
+jget -sh URL [args]  /  jget -jsh URL         download a script and run it at once (sh / jsh)
+jget untar FILE [DIR]                         open a .tar or a .tar.gz
 jget --install [DIR]  /  jget --update        put this program in your commands folder / replace it by the latest release
-jget -li list                                 the libraries of the index
-jget -li install NAME / unstall NAME          install / remove a library (a library is one J2K source file)
 ```
+
+Tools and libraries: `jc install NAME`, `jc update`, `jc unstall NAME`, `jc tools`, `jc lib install NAME`. (The old forms `jget tool ...` and `jget -li ...` are sent to jc.)
 
 * A progress bar (percent, size, speed) is drawn when the error output is a terminal. A file is written as it arrives (any size, any bytes) and renamed when it is whole.
 * `http://` and `https://` addresses are fetched by jget itself (DNS, TLS 1.3 with the check of the certificate, HTTP/1.1, redirects, chunked answers); `file://`, `ftp://` and servers that only know older protocols by `curl`, or `wget` when there is no `curl`.

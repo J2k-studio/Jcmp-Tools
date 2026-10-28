@@ -38,7 +38,7 @@ sh test.sh
 
 ## Install
 ```
-jget tool coderin                                                        # with jget
+jc install coderin                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s coderin     # with curl (no jget needed)
 ```
 In jsh: `jc install coderin`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.

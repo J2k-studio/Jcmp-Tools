@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0
+* **Changed (jget only downloads):** the install, update and remove of the tools (`jget tool ...`) and of the libraries (`jget -li ...`) moved to `jc` (`jc install NAME`, `jc update`, `jc unstall NAME`, `jc tools`, `jc lib list | install | unstall | installed`). jget is the downloader: URLs, `-o`, `-O`, `-x`, `-m` (songs), `-sh` and `-jsh` (run a script), `untar`, `--install`, `--update`, the progress bar, TLS 1.3 with the check of the certificate, mirrors.
+* **Kept for old scripts and documents:** `jget tool ...` and `jget -li ...` are sent to `jc` (when jc is not there jget says how to get it).
+* **Added:** the code that jget and jc share is in `core.j` (the downloads, tar, the small helpers).
+* **Fixed:** none.
+
 ## 0.9.1
 * **Changed:** `update` never installs a tool that is not there, and leaves alone a file that jget did not install (python without the marker, a program of the system); only `install` puts a tool first.
 

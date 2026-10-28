@@ -1,5 +1,5 @@
 #!/bin/sh
-# builds jget into _out/jget (needs jcmp 1.2.0.0 or newer; the library deflate: J2K_PATH=folder, or jget -li install deflate)
+# builds jget into _out/jget (needs jcmp 1.2.0.0 or newer; the library deflate: J2K_PATH=folder, or jc lib install deflate)
 set -eu
 cd "$(dirname "$0")"
 mkdir -p _out

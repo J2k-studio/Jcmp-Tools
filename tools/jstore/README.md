@@ -17,7 +17,7 @@ The index is `store/index.txt` of [Jcmp-Tools](https://github.com/J2k-studio/Jcm
 
 ## Install
 ```
-jget tool jstore                                                     # with jget (it installs jc too when you also name it: jget tool jc jstore)
+jc install jstore                                                     # with jget (it installs jc too when you also name it: jc install jc jstore)
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jc jstore     # with curl
 ```
 In jsh: `jc install jstore`.

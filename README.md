@@ -27,7 +27,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [yt-dlp](tools/yt-dlp/README.md) | yt-dlp on that Python, for what you may download (mujic `/get ADDRESS` uses it) |
 | [jvp4](tools/jvp4/README.md) | a video player made only of J2K (own container reader and decoders; today `jvp4 info FILE`) |
 | [jpty](tools/jpty/README.md) | run a program on a pseudo terminal (for apps and tests) (MPL-2.0) |
-| [jcmp](tools/jcmp/README.md) | the compiler and its library, as a tool: `jget tool jcmp` (always the newest release; makej and the other tools need 1.2.0.0 or newer) |
+| [jcmp](tools/jcmp/README.md) | the compiler and its library, as a tool: `jc install jcmp` (always the newest release; makej and the other tools need 1.2.0.0 or newer) |
 
 ## Install
 
@@ -36,8 +36,8 @@ curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- jget makej  # the tools you name
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- --all      # every tool
 ```
-Options after `sh -s --`: `--dir DIR` (default `$PREFIX/bin` on Termux, else `~/.local/bin`), `--version X.Y.Z`, `--list`, `--yes`. Every file is checked with its SHA-256. With `jget` installed: `jget tool list`, `jget tool NAME`, `jget tool all` (and it links the second names: `unj`, `gzj`, the commands of jbox). In the Jaric app: `install NAME` in the shell.
-Libraries of J2K (`#import <name>`): `jget -li list`, `jget -li install gamej` (the game engine), `neuron` (small neural networks), `deflate` (gzip, CRC-32) and more.
+Options after `sh -s --`: `--dir DIR` (default `$PREFIX/bin` on Termux, else `~/.local/bin`), `--version X.Y.Z`, `--list`, `--yes`. Every file is checked with its SHA-256. With `jget` installed: `jc tools`, `jget tool NAME`, `jc install all` (and it links the second names: `unj`, `gzj`, the commands of jbox). In the Jaric app: `install NAME` in the shell.
+Libraries of J2K (`#import <name>`): `jc lib list`, `jc lib install gamej` (the game engine), `neuron` (small neural networks), `deflate` (gzip, CRC-32) and more.
 
 ## How it all works (the short picture)
 

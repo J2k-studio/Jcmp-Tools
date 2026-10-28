@@ -1,6 +1,6 @@
 # tarj and gzj: tar and gzip files
 
-`tarj` makes and opens `.tar` / `.tar.gz` / `.tgz`, `gzj` packs one file with gzip. Written in J2K (library `deflate`). One program with two names: `jget tool tarj` installs it and a link `gzj`.
+`tarj` makes and opens `.tar` / `.tar.gz` / `.tgz`, `gzj` packs one file with gzip. Written in J2K (library `deflate`). One program with two names: `jc install tarj` installs it and a link `gzj`.
 
 ```
 tarj c out.tar.gz src docs    make an archive (.gz or .tgz in the name: gzip too); folders go in with everything inside
@@ -12,11 +12,11 @@ gzj -d notes.txt.gz           open it again
 gzj -c notes.txt | ...        write to a pipe
 ```
 -q is quiet. File modes (the x bit) are kept. Links and special files are skipped with a message; names with `..` or a first `/` are refused.
-License: MPL-2.0. Build: `JCMP=path sh build.sh` (the library: `jget -li install deflate`). Test: `sh test.sh` (needs tar and gzip).
+License: MPL-2.0. Build: `JCMP=path sh build.sh` (the library: `jc lib install deflate`). Test: `sh test.sh` (needs tar and gzip).
 
 ## Install
 ```
-jget tool tarj                                                        # with jget
+jc install tarj                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s tarj     # with curl (no jget needed)
 ```
 In jsh: `jc install tarj`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.

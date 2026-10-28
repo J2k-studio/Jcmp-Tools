@@ -9,7 +9,7 @@ jpty -w 100 -h 30 /bin/sh        # build: jcmp jpty.jk -o jpty   (jcmp 1.0.0.0 o
 
 ## Install
 ```
-jget tool jpty                                                        # with jget
+jc install jpty                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jpty     # with curl (no jget needed)
 ```
 In jsh: `jc install jpty`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.

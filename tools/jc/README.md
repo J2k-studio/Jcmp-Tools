@@ -3,6 +3,8 @@
 A `.jc` is one file that is a whole program: a zip with `manifest.toml` (name, id, version, type, entry, permissions), the program (the entry) and `assets/`. `makej pack` and `makej dist` make it. `jc` unpacks it into `~/.local/share/jc/apps/ID` (`JC_ROOT` names another place), shows what it asks for, and runs it with a clean set of variables.
 
 ```
+jc tools                         the tools of Jcmp-Tools
+jc lib list|installed|install NAME|unstall NAME     the libraries of J2K
 jc info game.jc                  name, id, version, the permissions it asks for
 jc install NAME                  a tool of Jcmp-Tools (jget tool NAME);  jc install STORE.ID: a store program
 jc unstall NAME                  remove a tool
@@ -19,7 +21,7 @@ An update (the same id) asks again only for permissions that the old version did
 
 ## Install
 ```
-jget tool jc                                                         # with jget
+jc install jc                                                         # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jc     # with curl
 ```
 In jsh: `jc install jc`.

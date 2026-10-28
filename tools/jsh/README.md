@@ -29,7 +29,7 @@ Put in `~/.jshrc`: `export JSH_COLOR_MARK=sky` (also `JSH_COLOR_NAME` for `jc`, 
 
 ## Install
 ```
-jget tool jsh                                                        # with jget
+jc install jsh                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jsh     # with curl (no jget needed)
 ```
 In jsh: `jc install jsh`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.

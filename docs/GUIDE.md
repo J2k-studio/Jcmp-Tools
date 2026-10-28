@@ -114,16 +114,16 @@ More (jbox 0.6.0): `rev` (lines backwards), `paste a b`, `fold -w 40`, `printf '
 jget https://example.com/f.tar.gz        # saved as f.tar.gz  (a progress bar shows)
 jget URL -o name.ext                      # another name   (-o - : to the screen)
 jget -sh URL arg1                         # download a script and run it
-jget tool list                            # the tools of Jcmp-Tools
-jget tool coderin jsh jbox                # install tools next to jget (checked with SHA-256)
-jget -li list                             # libraries of the J2K language
-jget -li install NAME / unstall NAME
+jc tools                            # the tools of Jcmp-Tools
+jc install coderin jsh jbox                # install tools next to jget (checked with SHA-256)
+jc lib list                             # libraries of the J2K language
+jc lib install NAME / unstall NAME
 jget --update                             # replace jget by the latest release
 ```
-In the Jaric app no `curl` is needed: `install coderin` in `jsh` does `jget tool coderin`.
+In the Jaric app no `curl` is needed: `install coderin` in `jsh` does `jc install coderin`.
 
 ## 5. makej: build projects
-`makej init` writes a file `makej`; `makej init -ai` writes an AI project that uses the library `neuron` (`jget -li install neuron`; steps `train` on `data/data.csv` and `ask`). Then:
+`makej init` writes a file `makej`; `makej init -ai` writes an AI project that uses the library `neuron` (`jc lib install neuron`; steps `train` on `data/data.csv` and `ask`). Then:
 ```
 makej                 # build everything          makej -j 4   # 4 jobs at once
 makej NAME            # one target and what it needs      makej -v   # show the commands
@@ -149,7 +149,7 @@ void main() {
 `install jcmp` (in `jsh`) brings the compiler and its library. The tutorial and the reference are in the repository of the language.
 
 ## 6b. zipj, unj, tarj, gzj: archives
-Install: `jget tool zipj`, `jget tool tarj` (each also makes its second name: `unj`, `gzj`).
+Install: `jc install zipj`, `jc install tarj` (each also makes its second name: `unj`, `gzj`).
 ```
 unj test.zip                open here, no folder          unj test.zip -f   into a folder named test
 unj test.zip -o dest        into dest                     unj test.zip -l   only list
@@ -167,7 +167,7 @@ gzj notes.txt               make notes.txt.gz              gzj -d notes.txt.gz  
 `makej init -pro NAME` makes a folder with `src/` (`main.jk`, `lib/`), `tests/` (a runner), `docs/`, `assets/`, `scripts/release.sh`, `manifest.toml`, `VERSION`, `CHANGELOG.md`, `README.md`, `.gitignore` and a build file with `makej`, `makej run`, `makej test`, `makej release`. Your own parts go in `src/lib/*.j` (found by `#import "name"` through `flags = "-I src/lib"`).
 
 ## 6d. Jaric Engine: games with makej init -game
-`jget -li install gamej`, then `makej init -game` in an empty folder. You get `src/main.jk` (a small game), `lessons/lesson1..5.jk`, `manifest.toml`, `README.md`.
+`jc lib install gamej`, then `makej init -game` in an empty folder. You get `src/main.jk` (a small game), `lessons/lesson1..5.jk`, `manifest.toml`, `README.md`.
 ```
 makej run            build and play the game          makej play1 .. play5   the lessons (window, move, gravity, hit and score, pictures and sound)
 makej targets        the systems: android (apk), jaric (.jc of Jaric OS), linux
@@ -178,7 +178,7 @@ makej pack           make _out/game.jc, the package of the game (a zip: manifest
 The library `<gamej>`: `Game g = Game::open("title"); while g.running() { g.begin(); ...draw...; g.end(); } g.close();` Draw: clear pixel rect frame_rect line circle text art. Input: `g.held(Key::left())`, `g.hit(' ')`. Time: `g.dt`. Collision: `Game::overlap(...)`. Sound (Jaric app): `g.sound("a.mp3")`. Esc ends the game.
 
 ## 6c. mujic: music
-Install: `jget tool mujic`. Songs are in `~/music`.
+Install: `jc install mujic`. Songs are in `~/music`.
 ```
 mujic                       the player: up/down, Enter play, Space pause, n/p, left/right jump, l lyrics, g fetch, q quit
 mujic catalog               free songs;   mujic get sneaky-snitch   fetch one

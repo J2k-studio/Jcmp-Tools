@@ -51,7 +51,7 @@ Status: a prototype (2026-10-22) written before the usage was designed; the desi
 
 ## Install
 ```
-jget tool makej                                                        # with jget
+jc install makej                                                        # with jget
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s makej     # with curl (no jget needed)
 ```
 In jsh: `jc install makej`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
