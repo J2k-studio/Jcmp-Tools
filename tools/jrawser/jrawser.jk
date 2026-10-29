@@ -1,0 +1,25 @@
+#import <stdlib>
+// jrawser 0.1.0 -- Jrawser, the browser of the Jaric app, from the terminal.   (license: MPL-2.0)
+//   jrawser                      the browser opens
+//   jrawser URL                  a page (https:// is added to a name like example.org)
+//   jrawser words to search      a search (the search page is the one of jaric settings: search = ..., else duckduckgo)
+// It sends  ESC ] 7777 ; web ; open ; URL BEL  to the app (the system WebView in a window of the old programs: tabs, bookmarks, history, downloads to u:/Download).
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jrawser 0.1.0\n"; return 0; }
+    if a.len > 1 && (a[1] == "--help" || a[1] == "-h") {
+        cout << "jrawser: the browser of the Jaric app.   jrawser [URL | words to search]\n";
+        return 0;
+    }
+    String what = "";
+    for i in 1..a.len { if i > 1 { what += " "; } what += a[i]; }
+    bool in_app = false;
+    switch Env::get("JARIC") {
+        Option::Some(j): { if j.len > 0 { in_app = true; } }
+        Option::None: { }
+    }
+    if !in_app { cerr << "jrawser: the browser is a window of the Jaric app (here it cannot open: " << what << ")\n"; return 1; }
+    cout << "\e]7777;web;open;" << what << "\a";
+    return 0;
+}

@@ -16,6 +16,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [tarj](tools/tarj/README.md) | `tarj` makes and opens tar / tar.gz, `gzj` packs one file with gzip |
 | [imgj](tools/imgj/README.md) | `imgj` prepares pictures for a game: reads PNG and JPEG, cuts the background, gives the real size, cuts parts, makes normal maps (MPL-2.0) |
 | [authj](tools/authj/README.md) | `authj` makes the codes of two-step logins (TOTP, like Google Authenticator) for GitHub and other sites; the secrets in a vault that a passphrase can lock (MPL-2.0) |
+| [jrawser](tools/jrawser/README.md) | `jrawser URL`: Jrawser, the browser window of the Jaric app: tabs, bookmarks, history, downloads (MPL-2.0) |
 | [mulap](tools/mulap/README.md) | `mulap render PLAN.mlp OUT.wav`: make beats from a plan of tracks (kick, snare, hat ...): the engine of the app to record songs and make beats (MPL-2.0) |
 | [jearlink](tools/jearlink/README.md) | `jearlink -viw -snd -sh -cll -ap -aps -ntf`: the apps and notifications of the phone from the Jaric app terminal (MPL-2.0) |
 | [cam](tools/cam/README.md) | `cam photo` and `cam scan`: the camera of the phone in the terminal of the Jaric app (photos, QR codes) (MPL-2.0) |
@@ -89,4 +90,4 @@ makej init -ai                    # a small neural network (library <neuron>)
 The old address `github.com/J2k-studio/Jget` leads here.
 
 ## Licences
-The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox, jpty, coderin, zipj, tarj, imgj, authj, cam, jearlink, mulap, jfile and mujic** are under the Mozilla Public License 2.0: each of their folders has the text.
+The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox, jpty, coderin, zipj, tarj, imgj, authj, cam, jearlink, mulap, jrawser, jfile and mujic** are under the Mozilla Public License 2.0: each of their folders has the text.

@@ -10,6 +10,7 @@ zipj|Make and open zip files (zipj, unj): folders, a password, deflate, also .gz
 tarj|Make and open tar archives (.tar, .tar.gz, .tgz) and gzip files (tarj, gzj)
 imgj|Prepare pictures for a game: read PNG and JPEG, cut the background, real size, parts, normal maps, credits
 authj|One-time codes for two-step logins (TOTP like Google Authenticator) for GitHub and other sites; a vault locked with a passphrase
+jrawser|Jrawser, the browser of the Jaric app: tabs, bookmarks, history, downloads (the system WebView in a window)
 mulap|Record songs and make beats: a plan of a beat becomes a sound file (the engine; pads and recording come next)
 jearlink|The apps of the phone from the Jaric app terminal: open links, share, call, start apps, notifications (-viw -snd -sh -cll -ap -aps -ntf)
 cam|The camera of the phone for the Jaric app terminal: photos and reading QR codes
