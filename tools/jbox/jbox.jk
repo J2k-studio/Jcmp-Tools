@@ -1017,7 +1017,7 @@ bool is_digits(String s) {
 }
 
 int do_help() {
-    cout << "jbox commands: dir tree find date du stat xargs sed less ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
+    cout << "jbox commands: dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
     cout << "flags: dir -a -l   tree -a -d -s -L N   find -name P -type f|d -maxdepth N   ln -s   cut -d X -f N   tr -d   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
     return 0;
 }
@@ -1347,6 +1347,168 @@ int do_sed(String[] a) {
 int last_shown(int top, int page, int total) { if top + page < total { return top + page; } return total; }
 
 // less FILE: one page at a time; space = next page, Enter = next line, b = back a page, q = quit
+// ---------------------------------------------------------------- the pager (less, man)
+// the keys come from /dev/tty (the text may come from a pipe); the lines are cut to the width of the screen at a letter, not in the middle of one
+String[] wrap_lines(String[] ls, int[] style, int width, int[] out_style) {
+    String[] out = arr(ls.len + 8);
+    for i in 0..ls.len {
+        String l = ls[i].replace("\t", "    ").replace("\r", "");
+        int st = 0;
+        if i < style.len { st = style[i]; }
+        if l.len <= width { out.push(l); out_style.push(st); continue; }
+        int at = 0;
+        while at < l.len {
+            int to = at + width;
+            if to >= l.len { out.push(l.slice(at, l.len)); out_style.push(st); break; }
+            while to > at + 1 && (l[to] & 192) == 128 { to -= 1; }                    // not in the middle of a letter
+            out.push(l.slice(at, to));
+            out_style.push(st);
+            at = to;
+        }
+    }
+    return out;
+}
+
+String hilite(String line, String pat) {
+    if pat.len == 0 { return line; }
+    String r = "";
+    int at = 0;
+    String low = line.lower();
+    String lp = pat.lower();
+    while at < line.len {
+        int k = Net::http_find_from(low, lp, at);
+        if k < 0 { break; }
+        r = r + line.slice(at, k) + "\e[7m" + line.slice(k, k + pat.len) + "\e[27m";
+        at = k + pat.len;
+    }
+    return r + line.slice(at, line.len);
+}
+
+// shows the lines; style 1 = a heading (bold), 2 = code (grey), 0 = plain
+int pager(String title, String[] raw, int[] raw_style) {
+    int fdin = Sys::open_read("/dev/tty".c());
+    if fdin < 0 || Sys::isatty(1) != 0 {
+        for i in 0..raw.len { cout << raw[i] << "\n"; }
+        return 0;
+    }
+    char t[64];
+    Sys::call(29, fdin, 21505, (int)@t, 0, 0, 0);
+    char rw[64];
+    for i in 0..64 { rw[i] = t[i]; }
+    rw[12] = rw[12] & 245;
+    rw[23] = 1;
+    rw[22] = 0;
+    Sys::call(29, fdin, 21506, (int)@rw, 0, 0, 0);
+    char w[8];
+    Sys::call(29, 1, 21523, (int)@w, 0, 0, 0);
+    int rows = (w[0] & 255) | ((w[1] & 255) << 8);
+    int cols = (w[2] & 255) | ((w[3] & 255) << 8);
+    if rows < 4 { rows = 24; }
+    if cols < 20 { cols = 80; }
+    int[] st = arr(raw.len + 8);
+    String[] ls = wrap_lines(raw, raw_style, cols - 1, st);
+    int page = rows - 1;
+    int top = 0;
+    String pat = "";
+    String note = "";
+    String e = "\e";
+    cout << e << "[?1049h";
+    bool done = false;
+    while !done {
+        String o = e + "[H";
+        for i in 0..page {
+            int k = top + i;
+            String ln = "";
+            if k < ls.len {
+                ln = hilite(ls[k], pat);
+                if st[k] == 1 { ln = e + "[1m" + ln + e + "[22m"; }
+                else if st[k] == 2 { ln = e + "[2m" + ln + e + "[22m"; }
+            }
+            o = o + e + "[2K" + ln + "\r\n";
+        }
+        int pct = 100;
+        if ls.len > page { pct = (top + page) * 100 / ls.len; if pct > 100 { pct = 100; } }
+        String foot = " " + title + "  " + str(pct) + "%";
+        if note.len > 0 { foot = foot + "  " + note; } else { foot = foot + "   (space next, b back, / find, n next match, g top, G end, h help, q quit)"; }
+        if foot.len > cols - 1 { foot = foot.slice(0, cols - 1); }
+        o = o + e + "[7m" + foot + e + "[0m" + e + "[K";
+        cout << o;
+        note = "";
+        char k[2];
+        int n = Sys::read(fdin, @k, 1);
+        if n <= 0 || k[0] == 'q' { break; }
+        int c = k[0] & 255;
+        if c == 27 {
+            if !Input::ready(40) { break; }
+            char k2[2];
+            Sys::read(fdin, @k2, 1);
+            Sys::read(fdin, @k2, 1);
+            int d = k2[0] & 255;
+            if d == 'A' { c = 'k'; } else if d == 'B' { c = 'j'; } else if d == 'H' { c = 'g'; } else if d == 'F' { c = 'G'; }
+            else if d == '5' { Sys::read(fdin, @k2, 1); c = 'b'; } else if d == '6' { Sys::read(fdin, @k2, 1); c = ' '; }
+            else if d == '1' { Sys::read(fdin, @k2, 1); c = 'g'; } else if d == '4' { Sys::read(fdin, @k2, 1); c = 'G'; }
+            else { continue; }
+        }
+        int maxtop = ls.len - page;
+        if maxtop < 0 { maxtop = 0; }
+        if c == ' ' || c == 'f' { top += page; if top > maxtop { top = maxtop; } }
+        else if c == 13 || c == 10 || c == 'j' { if top < maxtop { top += 1; } }
+        else if c == 'k' { if top > 0 { top -= 1; } }
+        else if c == 'b' { top -= page; if top < 0 { top = 0; } }
+        else if c == 'd' { top += page / 2; if top > maxtop { top = maxtop; } }
+        else if c == 'u' { top -= page / 2; if top < 0 { top = 0; } }
+        else if c == 'g' { top = 0; }
+        else if c == 'G' { top = maxtop; }
+        else if c == 'h' {
+            note = "";
+            String[] hl = arr(12);
+            hl.push("jbox pager"); hl.push(""); hl.push("space / f   next page        b   back a page"); hl.push("Enter / j   next line        k   back a line (the arrows too)");
+            hl.push("d / u       half a page         g / G   top / end"); hl.push("/ TEXT      find (not caring about capitals)     n   next match    N   back");
+            hl.push("q           leave"); hl.push("");
+            int[] hs = arr(12);
+            for i in 0..hl.len { hs.push(0); }
+            hs[0] = 1;
+            pager("help", hl, hs);
+            cout << e << "[?1049h";
+        }
+        else if c == '/' {
+            cout << e << "[" << rows << ";1H" << e << "[7m/" << e << "[0m" << e << "[K";
+            String q = "";
+            while true {
+                char ch[2];
+                if Sys::read(fdin, @ch, 1) <= 0 { break; }
+                int cc = ch[0] & 255;
+                if cc == 13 || cc == 10 { break; }
+                if cc == 27 { q = ""; break; }
+                if cc == 127 || cc == 8 { if q.len > 0 { q = q.slice(0, q.len - 1); } }
+                else { q.push((char)cc); }
+                cout << e << "[" << rows << ";1H" << e << "[7m/" << q << e << "[0m" << e << "[K";
+            }
+            if q.len > 0 { pat = q + ""; }
+            c = 'n';
+        }
+        if c == 'n' || c == 'N' {
+            if pat.len == 0 { note = "no search yet: / TEXT"; }
+            else {
+                bool found = false;
+                String lp = pat.lower();
+                if c == 'n' {
+                    for k2 in (top + 1)..ls.len { if !found { String ll = ls[k2].lower(); if ll.contains(lp) { top = k2; found = true; } } }
+                    if !found { for k2 in 0..(top + 1) { if !found { String ll = ls[k2].lower(); if ll.contains(lp) { top = k2; found = true; note = "(from the top)"; } } } }
+                } else {
+                    int k2 = top - 1;
+                    while k2 >= 0 && !found { String ll = ls[k2].lower(); if ll.contains(lp) { top = k2; found = true; } k2 -= 1; }
+                }
+                if !found { note = "not found: " + pat; }
+                if top > maxtop && found { top = maxtop; }
+            }
+        }
+    }
+    cout << e << "[?1049l";
+    Sys::call(29, fdin, 21506, (int)@t, 0, 0, 0);
+    return 0;
+}
+
 int do_less(String[] a) {
     String[] ops = operands(a, false);
     int rc = 0;
@@ -1357,45 +1519,107 @@ int do_less(String[] a) {
         for i in 0..ls.len { cout << ls[i] << "\n"; }
         return rc;
     }
-    char t[64];
-    int fdin = Sys::open_read("/dev/tty".c());
-    if fdin < 0 { for i in 0..ls.len { cout << ls[i] << "\n"; } return rc; }
-    Sys::call(29, fdin, 21505, (int)@t, 0, 0, 0);
-    char raw[64];
-    for i in 0..64 { raw[i] = t[i]; }
-    raw[12] = raw[12] & 245;
-    raw[23] = 1;
-    raw[22] = 0;
-    Sys::call(29, fdin, 21506, (int)@raw, 0, 0, 0);
-    char w[8];
-    Sys::call(29, 1, 21523, (int)@w, 0, 0, 0);
-    int rows = (w[0] & 255) | ((w[1] & 255) << 8);
-    if rows < 3 { rows = 24; }
-    int page = rows - 1;
-    int top = 0;
-    String e = "\e";
-    while true {
-        cout << e << "[2J" << e << "[H";
-        for i in top..top + page { if i < ls.len { cout << ls[i] << "\r\n"; } }
-        cout << e << "[7m" << " " << file << "  lines " << top + 1 << "-" << last_shown(top, page, ls.len) << " of " << ls.len << "   (space next, b back, Enter line, q quit)" << e << "[0m";
-        char k[2];
-        int n = Sys::read(fdin, @k, 1);
-        if n <= 0 || k[0] == 'q' { break; }
-        if k[0] == 27 {                                          // Esc alone leaves; the arrows (ESC [ A, B) move
-            if !Input::ready(40) { break; }
-            char k2[2];
-            Sys::read(fdin, @k2, 1);
-            Sys::read(fdin, @k2, 1);
-            if k2[0] == 'A' { k[0] = 'k'; } else if k2[0] == 'B' { k[0] = 'j'; } else { continue; }
-        }
-        if k[0] == ' ' || k[0] == 'f' { top += page; if top >= ls.len { top = ls.len - 1; if top < 0 { top = 0; } break; } }
-        else if k[0] == 13 || k[0] == 10 || k[0] == 'j' { if top + 1 < ls.len { top += 1; } }
-        else if k[0] == 'k' { if top > 0 { top -= 1; } }
-        else if k[0] == 'b' { top = top - page; if top < 0 { top = 0; } }
-    }
-    Sys::call(29, fdin, 21506, (int)@t, 0, 0, 0);
-    cout << "\n";
+    int[] none = arr(2);
+    pager(file, ls, none);
     return rc;
+}
+
+// ---------------------------------------------------------------- man: the manuals of Jaric
+// a manual is a Markdown text: a file on the phone (~/.jaric/man/NAME.md, $PREFIX/share/man/NAME.md), else the README of the tool or the page of the library
+// from GitHub (kept in ~/.cache/jaric/man/ for the next time)
+String man_cache_dir() {
+    switch Env::get("HOME") { Option::Some(h): { return h + "/.cache/jaric/man"; } Option::None: { } }
+    return "/tmp/jaric-man";
+}
+
+String man_find(String name, bool^ from_net) {
+    from_net[0] = false;
+    String[] places = arr(6);
+    switch Env::get("HOME") { Option::Some(h): { places.push(h + "/.jaric/man/" + name + ".md"); } Option::None: { } }
+    switch Env::get("PREFIX") { Option::Some(p): { places.push(p + "/share/man/" + name + ".md"); } Option::None: { } }
+    places.push(man_cache_dir() + "/" + name + ".md");
+    for i in 0..places.len {
+        if Fs::exists(places[i]) { Result<String, Error> r = Fs::read_text(places[i]); if r.is_ok() { return r.take(); } }
+    }
+    String[] urls = arr(6);
+    urls.push("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools/" + name + "/README.md");
+    urls.push("https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/docs/" + name + ".md");
+    if name == "language" { urls.push("https://raw.githubusercontent.com/J2k-studio/Jcmp/main/docs/LANGUAGE.md"); }
+    if name == "usage" { urls.push("https://raw.githubusercontent.com/J2k-studio/Jcmp/main/docs/USAGE.md"); }
+    if name == "jcmp" { urls.push("https://raw.githubusercontent.com/J2k-studio/Jcmp/main/docs/USAGE.md"); }
+    for i in 0..urls.len {
+        Result<String, Error> r = Net::http_try_get(urls[i]);
+        if r.is_ok() {
+            String t = r.take();
+            if t.len > 0 {
+                Dir::make_all(man_cache_dir());
+                Fs::write_text(man_cache_dir() + "/" + name + ".md", t);
+                from_net[0] = true;
+                return t;
+            }
+        }
+    }
+    return "";
+}
+
+// a Markdown text as lines with a style each: headings bold, code grey, the marks of Markdown taken away
+void man_render(String md, String[] out, int[] st) {
+    String[] ls = md.split("\n");
+    bool code = false;
+    for i in 0..ls.len {
+        String l = ls[i].replace("\r", "");
+        if l.starts_with("```") { code = !code; if code { out.push(""); st.push(0); } continue; }
+        if code { out.push("    " + l); st.push(2); continue; }
+        if l.starts_with("# ") { out.push(l.slice(2, l.len).upper()); st.push(1); out.push(""); st.push(0); continue; }
+        if l.starts_with("## ") { out.push(""); st.push(0); out.push(l.slice(3, l.len)); st.push(1); continue; }
+        if l.starts_with("### ") { out.push(l.slice(4, l.len)); st.push(1); continue; }
+        String t = l.replace("**", "").replace("`", "").replace("__", "");
+        if t.starts_with("* ") || t.starts_with("- ") { t = "  - " + t.slice(2, t.len); }
+        // [text](address) -> text
+        String r = "";
+        int p = 0;
+        while p < t.len {
+            if t[p] == '[' {
+                int close = Net::http_find_from(t, "](", p);
+                int endp = 0 - 1;
+                if close > 0 { endp = Net::http_find_from(t, ")", close); }
+                if close > 0 && endp > 0 { r = r + t.slice(p + 1, close); p = endp + 1; continue; }
+            }
+            r.push(t[p]);
+            p += 1;
+        }
+        out.push(r); st.push(0);
+    }
+}
+
+int do_man(String[] a) {
+    String[] ops = operands(a, false);
+    if ops.len == 0 {
+        // the list of the manuals: the tools and the libraries
+        String[] out = arr(40); int[] st = arr(40);
+        out.push("MANUALS OF JARIC"); st.push(1);
+        out.push(""); st.push(0);
+        out.push("man NAME shows the manual of a tool or a library (from the phone, else from GitHub once)."); st.push(0);
+        out.push("Also: man language, man usage (the language J2K and the compiler jcmp)."); st.push(0);
+        out.push(""); st.push(0);
+        out.push("The tools:"); st.push(1);
+        Result<String, Error> tt = Net::http_try_get("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools.txt");
+        if tt.is_ok() {
+            String[] tl = tt.take().split("\n");
+            for i in 0..tl.len { if tl[i].len > 0 && !tl[i].starts_with("#") { int bar = tl[i].find("|"); if bar > 0 { out.push("  " + tl[i].slice(0, bar) + "   " + tl[i].slice(bar + 1, tl[i].len)); st.push(0); } } }
+        } else { out.push("  (the list needs the network)"); st.push(0); }
+        pager("man", out, st);
+        return 0;
+    }
+    String name = ops[0].lower();
+    bool net = false;
+    String md = man_find(name, @net);
+    if md.len == 0 { return fail("man", "no manual for " + ops[0] + " (man shows the list; " + ops[0] + " --help may tell something)"); }
+    String[] out = arr(100); int[] st = arr(100);
+    man_render(md, out, st);
+    if Sys::isatty(1) != 0 { for i in 0..out.len { cout << out[i] << "\n"; } return 0; }
+    pager("man " + name, out, st);
+    return 0;
 }
 
 int do_install(String[] args) {
@@ -1421,7 +1645,7 @@ int do_install(String[] args) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.8.0\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.9.0\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
@@ -1443,6 +1667,7 @@ int main() {
     if app == "xargs" { return do_xargs(a); }
     if app == "sed" { return do_sed(a); }
     if app == "less" { return do_less(a); }
+    if app == "man" { return do_man(a); }
     if app == "ln" { return do_ln(a); }
     if app == "chmod" { return do_chmod(a); }
     if app == "cut" { return do_cut(a); }

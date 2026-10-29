@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.11.0"; }
+String jsh_version() { return "0.11.1"; }
 String[] history;
 int last_status;
 int running;
@@ -1099,6 +1099,60 @@ void exec_path(String name, int^ av, int^ envp) {
     }
 }
 
+// the number of changes (a letter put in, taken away or changed) from a to b
+int edit_distance(String a, String b) {
+    int n = a.len; int m = b.len;
+    if n == 0 { return m; }
+    if m == 0 { return n; }
+    int[] prev = arr(m + 1);
+    int[] cur = arr(m + 1);
+    for j in 0..(m + 1) { prev.push(j); cur.push(0); }
+    for i in 1..(n + 1) {
+        cur[0] = i;
+        for j in 1..(m + 1) {
+            int cost = 1;
+            if a[i - 1] == b[j - 1] { cost = 0; }
+            int best = prev[j - 1] + cost;
+            if prev[j] + 1 < best { best = prev[j] + 1; }
+            if cur[j - 1] + 1 < best { best = cur[j - 1] + 1; }
+            cur[j] = best;
+        }
+        for j in 0..(m + 1) { prev[j] = cur[j]; }
+    }
+    return prev[m];
+}
+
+// "  (did you mean git?)" for a command that is not there: a tool of Jaric that is not installed (exact name: how to install it), else the nearest name
+// of the commands or of the tools (one change for a short name, two for a long one)
+String typo_hint(String name) {
+    if name.len < 2 || name.len > 30 { return ""; }
+    String tools = "jc jget makej jsh jbox jpty coderin jcmp zipj unj tarj gzj imgj authj cam jfile jmanager jamanager jgit mujic jvp4 python yt-dlp neuron calc drive jash jstore";
+    String[] tl = tools.split(" ");
+    for i in 0..tl.len { if tl[i] == name { return "  (a tool of Jaric: jc install " + tl[i] + ")"; } }
+    int limit = 1;
+    if name.len >= 5 { limit = 2; }
+    int best = 100;
+    String pick = "";
+    bool pick_tool = false;
+    String[] names = command_names();
+    for i in 0..names.len {
+        if names[i].len < 3 && name.len > 3 { continue; }
+        int d = edit_distance(name, names[i]);
+        if d < best && d <= limit { best = d; pick = names[i] + ""; pick_tool = false; }
+    }
+    for i in 0..tl.len {
+        int d = edit_distance(name, tl[i]);
+        if d <= best && d <= limit && d > 0 { best = d; pick = tl[i] + ""; pick_tool = true; }
+    }
+    if pick.len == 0 { return ""; }
+    if pick_tool {
+        bool here = false;
+        for i in 0..names.len { if names[i] == pick { here = true; } }
+        if !here { return "  (did you mean " + pick + "? jc install " + pick + ")"; }
+    }
+    return "  (did you mean " + pick + "?)";
+}
+
 // one program: fork, set the files, exec (the PATH is searched)
 int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_file, String out_file, String err_file, int err_mode) {          // err_mode: 0 as is, 1 file, 2 file (append), 3 stderr to where stdout goes, 4 stdout to where stderr goes
     int^ av = build_argv(argv, argv.len);
@@ -1137,20 +1191,24 @@ int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_
             Sys::execve(argv[0].c(), av, envp);
         } else {
             exec_path(argv[0], av, envp);
-            // not in the PATH: the small commands of Jaric (jbox NAME args), from the PATH or from the folder of jsh
-            String[] jargv = arr(argv.len + 1);
-            jargv.push("jbox");
-            for i in 0..argv.len { jargv.push(argv[i]); }
-            int^ jav = build_argv(jargv, jargv.len);
-            exec_path("jbox", jav, envp);
-            String self = "";
-            self.append((char^)Sys::arg(0));
-            Sys::execve(Path::join(Path::parent(self), "jbox").c(), jav, envp);
+            // not in the PATH: the small commands of Jaric (jbox NAME args), from the PATH or from the folder of jsh (only the names that jbox knows:
+            // for another name jbox would give the error itself and jsh could not add a hint)
+            if is_jbox_name(argv[0]) {
+                String[] jargv = arr(argv.len + 1);
+                jargv.push("jbox");
+                for i in 0..argv.len { jargv.push(argv[i]); }
+                int^ jav = build_argv(jargv, jargv.len);
+                exec_path("jbox", jav, envp);
+                String self = "";
+                self.append((char^)Sys::arg(0));
+                Sys::execve(Path::join(Path::parent(self), "jbox").c(), jav, envp);
+            }
         }
         String hint = "";
         if is_jbox_name(argv[0]) { hint = "  (jc install jbox)"; }
         if argv[0] == "jcmp" { hint = "  (jc install jcmp: the language)"; }
         if argv[0] == "makej" || argv[0] == "coderin" || argv[0] == "jget" { hint = "  (jc install " + argv[0] + ")"; }
+        if hint.len == 0 { hint = typo_hint(argv[0]); }
         cerr << "jsh: " << argv[0] << ": command not found" << hint << "\n";
         Sys::exit(127);
     }

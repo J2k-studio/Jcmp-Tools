@@ -8,6 +8,7 @@ jpeg = os.path.join(work, 'qr_frame.jpg')       # what the "camera" sees
 pid, fd = pty.fork()
 if pid == 0:
     os.environ['TMPDIR'] = work
+    os.environ['HOME'] = work
     os.environ['PATH'] = work + '/bin:' + os.environ.get('PATH', '')
     os.environ['CAM_DIR'] = work + '/dcim/'
     os.execv(cam, [cam] + args)

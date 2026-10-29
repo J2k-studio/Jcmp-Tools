@@ -7,7 +7,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
 OUT=$(printf 'echo hello world\necho "a  b" | cat\necho one > f.txt\necho two >> f.txt\ncat < f.txt\nfalse\necho status $?\necho x | tr x y | cat\nnosuchprog\ncd /\npwd\nexit 7\n' | "$SH" 2>&1) && rc=0 || rc=$?
-WANT='jsh 0.11.0 (the shell of Jaric): help shows the commands
+WANT='jsh 0.11.1 (the shell of Jaric): help shows the commands
 hello world
 a  b
 one
@@ -24,7 +24,7 @@ T2=$(mktemp -d); trap 'rm -rf "$T" "$T2"' EXIT
 cd "$T2"; touch a.txt b.txt c.log
 printf 'echo "echo in the script"\nexport K=5\necho k=$K\n' > s.jsh
 OUT2=$(printf 'NAME=jao\necho hi $NAME\nalias say=echo\nsay aliased\necho *.txt\nfalse || echo second\ntrue && echo third\necho a ; echo b\nunset NAME\necho [$NAME]\ntype cd\nexit 0\n' | HOME="$T2" "$SH" 2>&1)
-WANT2='jsh 0.11.0 (the shell of Jaric): help shows the commands
+WANT2='jsh 0.11.1 (the shell of Jaric): help shows the commands
 hi jao
 aliased
 a.txt b.txt
@@ -271,3 +271,12 @@ case "$R18" in *"motd of the root"*) ;; *) echo "shell test (step 18): cd /etc i
 case "$R18" in *"etc"*"home"*) ;; *) echo "shell test (step 18): dir of / in the virtual root: $R18"; exit 1 ;; esac
 rm -rf "$T18"
 echo "shell test (step 18): ok"
+
+# step 19: a wrong name gets a hint
+T19=$(mktemp -d)
+R19=$(cd "$T19" && "$SH" -c 'ech hi; jfile2; zzzzzzzz; cam' 2>&1) || true
+case "$R19" in *"ech: command not found  (did you mean echo?)"*) ;; *) echo "shell test (step 19): did you mean: $R19"; exit 1 ;; esac
+case "$R19" in *"cam: command not found  (a tool of Jaric: jc install cam)"*) ;; *) echo "shell test (step 19): a tool that is not installed: $R19"; exit 1 ;; esac
+case "$R19" in *"zzzzzzzz: command not found"*"did you mean"*) echo "shell test (step 19): no guess for nonsense: $R19"; exit 1 ;; esac
+rm -rf "$T19"
+echo "shell test (step 19): ok"

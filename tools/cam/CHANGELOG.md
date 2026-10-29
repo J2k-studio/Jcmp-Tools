@@ -1,5 +1,9 @@
 # cam changelog
 
+## 0.3.0 (app 0.0.151)
+* **Added:** `cam history [-n N]` (the codes that were read, kept in `~/.cache/jaric/cam-history.txt`); in the camera of the app: **tap to focus** (a ring), **double tap** zoom 1x / 2x and a label of the zoom, a **timer** (3 or 10 seconds with a number), a **grid**, the **volume keys are the shutter**, the preview follows when the phone is turned, the picture of the gallery is copied off the screen thread.
+* **Fixed:** none.
+
 ## 0.2.1
 * **Changed:** photos are kept in `u:/DCIM/Jaric/` (the gallery of the phone shows them; it was the folder for temporary files); `CAM_DIR` chooses another folder.
 * **Fixed:** none.

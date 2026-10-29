@@ -9,8 +9,10 @@ cam photo                      the camera opens; touch the round button: the pic
 cam photo out.jpg --after 3    taken by itself after 3 seconds
 cam photo --front              the front camera (the button with the two arrows on the screen turns it)
 cam scan                       reads a QR code with the camera and prints its text; Esc, q, Ctrl-C or the cross on the screen close it
+cam history                    the codes that were read before, the newest first
 cam scan --timeout 30 --keep last.jpg     give up after 30 seconds; keep the last picture that was looked at
 ```
+* In the camera: tap = focus, double tap = zoom 1x / 2x, pinch = zoom, the volume keys = the shutter, the clock button = a timer (3, 10 s), `#` = a grid, the light and the turn of the camera at the top.
 * A scan looks at a picture about once a second (2 million dots) and stops at the first code that is read. Hold the code still, light on it, 15 to 30 cm away.
 * Use it with `authj`:  `authj add-uri "$(cam scan)"`  (the code of GitHub or another site becomes an account).
 * The pictures are JPEG files in the folder you name (by default `u:/DCIM/Jaric/`, which the gallery shows). Photos have up to 12 million dots.

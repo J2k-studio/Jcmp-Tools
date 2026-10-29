@@ -110,3 +110,13 @@ head -c 3000 /dev/urandom > cpb.bin; printf 'a\0b' > cpz.bin
 check "$(cmp cpb.bin cpb2.bin && echo same)" "same" cp-bytes
 check "$(cmp cpz.bin dirt/cpz.bin && echo same)" "same" cp-zero-byte-into-folder
 check "$(test -x cpx.sh && echo exec)" "exec" cp-mode
+# man: a manual from the phone (a Markdown file) is shown without the marks of Markdown; the pager finds, jumps, leaves
+mkdir -p "$T/home/.jaric/man"
+printf '# demo tool\n\nSee [the guide](https://x.org/g) and `code` and **bold**.\n\n## Commands\n\n```\ndemo run\n```\n* one\n- two\n' > "$T/home/.jaric/man/demo.md"
+OUT=$(HOME="$T/home" "$J" man demo)
+echo "$OUT" | grep -q "^DEMO TOOL$" || { echo "jbox test: man: the heading"; echo "$OUT"; exit 1; }
+echo "$OUT" | grep -q "See the guide and code and bold" || { echo "jbox test: man: links and marks"; echo "$OUT"; exit 1; }
+echo "$OUT" | grep -q "^    demo run$" || { echo "jbox test: man: code"; exit 1; }
+echo "$OUT" | grep -q "^  - one$" || { echo "jbox test: man: lists"; exit 1; }
+if HOME="$T/home" "$J" man nosuchtopicxyz > /dev/null 2>&1; then echo "jbox test: man of nothing must fail"; exit 1; fi
+python3 -I "$OLDPWD/pager_test.py" "$J" "$T" || { echo "jbox test: the pager"; exit 1; }

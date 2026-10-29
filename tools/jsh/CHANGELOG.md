@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1
+* **Added:** a name that is not a command gets a hint: `ech` gives `(did you mean echo?)`, the name of a tool of Jaric that is not installed gives `(a tool of Jaric: jc install cam)`, a near name of a tool gives `(did you mean jfile? jc install jfile)`; nothing is guessed for nonsense.
+* **Fixed:** jsh asked the small commands (jbox) for every unknown name, and jbox gave the error without a hint; now only the names that jbox knows go to it.
+
 ## 0.11.0 (needs jcmp 1.2.4 for the virtual root; the rest works with 1.2.3)
 * **Added:** a shell nearer to the real ones: `echo -n`, `-e` (`\\t \\n \\e \\0NNN \\xHH \\c`) and `-E`; `kill` as a built-in with signals (`-9`, `-KILL`, `-s TERM`, `-l`) and jobs (`kill %1`, `%%`); `fg` and `bg`; `jobs` shows `Running` and the ended ones are told once (`[1]+ Done`, also before the prompt); `cd /etc`, `cd /`, `cd /u` read the virtual root of Jaric (the environment `JARIC_ROOT`).
 * **Added (the grey text, better):** the history of the commands is kept in `~/.jsh_history` (the folder and the command; the last 3000 are read at the start; a line with a secret in it is not kept), so the grey text and the arrows know what you typed in the sessions before. The grey text chooses the line that you typed most often, in this folder, and lately; a tree of words made from the history guesses the next word (`git` + space gives the usual `status`; `x && git pu` gives `push`: each part after `&&` `||` `;` `|` is a command of its own); `$HO` gives `ME`. Tab still takes the grey text.

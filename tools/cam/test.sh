@@ -39,4 +39,7 @@ out=$(python3 -I "$F" ui-pick "$C" "$T" 2>&1) || { echo "cam test: ui-pick: $out
 echo "$out" | grep -q "otpauth://totp/Cam:me" || { echo "cam test: the picked picture was not read: $out"; exit 1; }
 python3 -I "$F" ui-pick-none "$C" "$T" > /dev/null 2>&1 || true
 grep -q "No QR code" "$T/toast.txt" || { echo "cam test: a picture without a code must give the message"; exit 1; }
+# the history of the codes
+HOME="$T" "$C" history | grep -q "otpauth://totp/Cam:me" || { echo "cam test: history shows the code that was read"; exit 1; }
+[ "$(HOME="$T/none" "$C" history)" = "no codes were read yet (cam scan)" ] || { echo "cam test: history of nothing"; exit 1; }
 echo "cam tests passed"

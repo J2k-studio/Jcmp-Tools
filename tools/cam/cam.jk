@@ -5,7 +5,7 @@
 using stdlib;
 #import "jpeg"
 #import "qr"
-// cam 0.2.1 -- the camera of the phone for the programs of the terminal of the Jaric app: pictures and QR codes.   (license: MPL-2.0)
+// cam 0.3.0 -- the camera of the phone for the programs of the terminal of the Jaric app: pictures and QR codes.   (license: MPL-2.0)
 //   cam                                               the camera with two tabs (PHOTO, SCAN): point it at a code and a card shows what it is; touch a link to open it
 //   cam photo [OUT.jpg] [--front] [--after SECONDS]   shows the camera; touch the round button to take the picture (or --after: it is taken by itself)
 //   cam scan [--front] [--timeout 60] [--keep FILE]  shows the camera and reads QR codes until one is read; prints its text (exit 1: none)
@@ -72,6 +72,38 @@ bool flag(String[] a, String name) {
 
 int now_ms() { return Time::now_ms(); }
 
+// the codes that were read are kept (the time and the text) in ~/.cache/jaric/cam-history.txt; cam history lists them, the newest first
+String history_file() {
+    switch Env::get("HOME") { Option::Some(h): { return h + "/.cache/jaric/cam-history.txt"; } Option::None: { } }
+    return "/tmp/cam-history.txt";
+}
+
+void history_add(String text) {
+    String file = history_file();
+    Dir::make_all(Path::parent(file));
+    String one = text.replace("\t", " ").replace("\n", " ");
+    Fs::append_text(file, str(Time::now_ms() / 1000) + "\t" + one + "\n");
+}
+
+int do_history(String[] a) {
+    int n = 20;
+    for i in 2..a.len { if a[i] == "-n" && i + 1 < a.len { n = a[i + 1].to_int(); } }
+    Result<String, Error> r = Fs::read_text(history_file());
+    if r.is_err() { cout << "no codes were read yet (cam scan)\n"; return 0; }
+    String[] ls = r.take().split("\n");
+    int shown = 0;
+    int i = ls.len - 1;
+    while i >= 0 && shown < n {
+        if ls[i].len > 0 {
+            int tab = ls[i].find("\t");
+            if tab > 0 { cout << ls[i].slice(tab + 1, ls[i].len) << "\n"; shown += 1; }
+        }
+        i -= 1;
+    }
+    if shown == 0 { cout << "no codes were read yet (cam scan)\n"; }
+    return 0;
+}
+
 // where the photos go: u:/DCIM/Jaric (the gallery of the phone shows it); CAM_DIR changes it
 String photo_dir() {
     Option<String> d = Env::get("CAM_DIR");
@@ -88,9 +120,11 @@ String work_dir() {
 }
 
 void usage() {
-    cout << "cam 0.2.1: the camera of the phone (the terminal of the Jaric app)\n";
+    cout << "cam 0.3.0: the camera of the phone (the terminal of the Jaric app)\n";
     cout << "  cam photo [OUT.jpg] [--front] [--after SECONDS]    touch the round button (or wait --after seconds): the picture is saved\n";
     cout << "  cam scan [--front] [--timeout 60] [--keep FILE]    reads a QR code with the camera and prints its text\n";
+    cout << "  cam history [-n N]                                 the codes that were read, the newest first\n";
+    cout << "  In the camera: tap = focus, double tap = zoom, pinch = zoom, the volume keys = the shutter, the clock = a timer, # = a grid\n";
     cout << "  Esc, q or Ctrl-C closes the camera; the cross on the screen too\n";
 }
 
@@ -161,7 +195,7 @@ int interactive(bool front) {
             bool pgood = false;
             String ptext = scan_file(pfile, @pgood);
             Sys::unlink(pfile.c());
-            if pgood { last = ptext + ""; last_at = now_ms(); paused = true; send("result;" + Base64::encode(ptext)); }
+            if pgood { last = ptext + ""; last_at = now_ms(); paused = true; history_add(ptext); send("result;" + Base64::encode(ptext)); }
             else { send("toast;No QR code was read in this picture"); }
         }
         else if m.starts_with("camera-shot") {
@@ -180,6 +214,7 @@ int interactive(bool front) {
                             last = text + "";
                             last_at = now_ms();
                             paused = true;
+                            history_add(text);
                             send("result;" + Base64::encode(text));
                         }
                     }
@@ -220,12 +255,13 @@ bool unlink_ok(String p) { return Sys::unlink(p.c()) == 0; }
 
 int main() {
     String[] a = Env::args();
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "cam 0.2.1\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "cam 0.3.0\n"; return 0; }
     if a.len >= 2 && (a[1] == "help" || a[1] == "--help" || a[1] == "-h") { usage(); return 0; }
     String cmd = "ui";
     if a.len >= 2 { cmd = a[1]; }
     bool front = flag(a, "--front");
     if a.len >= 2 && a[1] == "--front" { cmd = "ui"; }
+    if cmd == "history" { return do_history(a); }
     if Sys::isatty(0) != 0 { cerr << "cam: it needs the terminal of the Jaric app\n"; return 1; }
     if cmd == "ui" || cmd == "camera" {
         return interactive(front);
@@ -295,7 +331,7 @@ int main() {
         }
         send("close");
         raw_off();
-        if rc == 0 { cout << found << "\n"; }
+        if rc == 0 { history_add(found); cout << found << "\n"; }
         if keep.len == 0 { Sys::unlink(tmp.c()); }
         return rc;
     }
