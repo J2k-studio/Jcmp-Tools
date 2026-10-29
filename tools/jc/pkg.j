@@ -182,9 +182,9 @@ int pkg_search(String index, String word) {
 }
 
 // the installed packages that have another version in the index: removed and installed again (dry: only shown)
-int pkg_update(String index, bool dry) {
+int pkg_update(String index, bool dry, bool quiet) {
     String st = pkg_state();
-    if !Dir::exists(st) { cout << "no packages installed\n"; return 0; }
+    if !Dir::exists(st) { if !quiet { cout << "no packages installed\n"; } return 0; }
     String[] mine = arr(8);
     switch Dir::list(st) {
         Result::Ok(names): { for i in 0..names.len { if names[i].ends_with(".list") { mine.push(names[i] + ""); } } }
@@ -206,7 +206,7 @@ int pkg_update(String index, bool dry) {
         if pkg_remove(name) != 0 { rc = 1; continue; }
         if pkg_install(index, name, 0) != 0 { rc = 1; }
     }
-    if shown == 0 { cout << "the packages are up to date\n"; }
+    if shown == 0 && !quiet { cout << "the packages are up to date\n"; }
     return rc;
 }
 
@@ -227,7 +227,9 @@ int cmd_pkg(String[] a) {
             if a.len >= 4 { w = a[3] + ""; }
             return pkg_search(index, w);
         }
-        if sub == "update" { return pkg_update(index, a.len >= 4 && a[3] == "-n"); }
+        if sub == "update" && a.len >= 4 && a[3] == "--quiet" { return pkg_update(index, false, true); }
+        if sub == "update" && a.len >= 5 && a[3] == "-n" && a[4] == "--quiet" { return pkg_update(index, true, true); }
+        if sub == "update" { return pkg_update(index, a.len >= 4 && a[3] == "-n", false); }
         if a.len < 4 { err("usage: jc pkg install NAME\n"); return 1; }
         for i in 3..a.len { if pkg_install(index, a[i] + "", 0) != 0 { return 1; } }
         return 0;

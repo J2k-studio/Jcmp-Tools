@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.5.2
+* **Added:** none.
+* **Fixed:** `jc update` (and `jget tool update`) printed "no packages installed" / "the packages are up to date" after its own answer, so "everything is up to date" was no longer the whole output; the package part is silent now unless something is updated.
+
 ## 0.5.1
 * **Added:** none.
 * **Fixed:** a package of Jcmp-pkg can have a symbolic link to an absolute path of the prefix (python-pip: `cacert.pem`); the unpacking used to stop there. Tool archives still refuse absolute links.

@@ -8,7 +8,7 @@ jamanager 0.3.0
 jaric-os 0.14.0
 jash 0.1.0
 jbox 0.10.0
-jc 0.5.1
+jc 0.5.2
 jcmp 1.2.4.0
 jearlink 0.1.1
 jfile 0.3.0

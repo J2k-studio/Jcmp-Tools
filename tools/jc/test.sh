@@ -22,7 +22,7 @@ make('noentry.jc', 'name = "X"\nid = "x.one"\nversion = "1"\nentry = "missing"\n
 make('evil.jc', 'name = "Evil"\nid = "evil.one"\nversion = "1"\nentry = "hello"\npermissions = []\n', {'../escape.txt': 'x'})
 open(t + '/notzip.jc', 'w').write('this is not a zip')
 PY
-[ "$("$J" --version)" = "jc 0.5.1" ] || { echo "jc test: version"; exit 1; }
+[ "$("$J" --version)" = "jc 0.5.2" ] || { echo "jc test: version"; exit 1; }
 "$J" info "$T/game.jc" | grep -q "permissions:  files,audio" || { echo "jc test: info"; exit 1; }
 "$J" info "$T/notzip.jc" > /dev/null 2>&1 && { echo "jc test: a file that is not a zip must fail"; exit 1; }
 "$J" install "$T/game.jc" > /dev/null 2>&1 && { echo "jc test: permissions without a terminal and without -y must be refused"; exit 1; }

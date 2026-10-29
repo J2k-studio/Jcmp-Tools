@@ -18,7 +18,7 @@
 #import "pkg"
 #import "manage"
 
-String jc_version() { return "0.5.1"; }
+String jc_version() { return "0.5.2"; }
 
 int fail(String msg) {
     cerr << "jc: " << msg << "\n";
@@ -334,6 +334,7 @@ int main() {
         pw.push("pkg");
         pw.push("update");
         for i in 2..a.len { if a[i] == "-n" { pw.push("-n"); } }
+        pw.push("--quiet");                                    // nothing to say when there are no packages or they are up to date
         if cmd_pkg(pw) != 0 { rc = 1; }
         return rc;
     }
