@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.5
+* **Added:** the cover has the words of the app (what it is, who made it, where the code is) beside the picture instead of the frame.
+* **Fixed:** none.
+
 ## 0.12.4
 * **Added:** the cover leaves room at its left for the picture of the maker (the Jaric app draws it; other terminals show a blank space).
 * **Fixed:** none.
