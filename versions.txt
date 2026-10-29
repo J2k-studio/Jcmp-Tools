@@ -15,7 +15,7 @@ jfile 0.2.0
 jget 1.0.0
 jgit 0.4.0
 jpty 0.1.1
-jsh 0.12.0
+jsh 0.12.1
 jstore 0.2.0
 jvp4 0.1.0
 makej 0.10.1

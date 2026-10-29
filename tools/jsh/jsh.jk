@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.0"; }
+String jsh_version() { return "0.12.1"; }
 String[] history;
 int last_status;
 int running;
@@ -3022,6 +3022,60 @@ int run_file(String path) {
     return run_script_text(text);
 }
 
+// the cover: what the first screen of Jaric shows (a tip changes every day; the file ~/.jsh_quiet makes it one line)
+void cover() {
+    String[] tips = arr(16);
+    tips.push("Tab takes the grey text after the cursor: it comes from what you typed before.");
+    tips.push("u:/ is the storage of the phone, :/ is your home; cd u:/Download goes there.");
+    tips.push("cam scans a QR code: touch the link on the card, or choose Open with.");
+    tips.push("jearlink -ntf Done \"ready\" shows a notification; chain it: makej && jearlink -ntf ok");
+    tips.push("man NAME shows the manual of a tool; man alone lists them.");
+    tips.push("jmanager shows the programs, the memory and the caches; it can stop a program.");
+    tips.push("mujic plays your songs; /scan finds the songs of the phone.");
+    tips.push("jfile browses the folders: pictures and text open inside it.");
+    tips.push("jc install NAME gets a tool; jc list shows what is installed.");
+    tips.push("cmd1 && cmd2 runs the second only when the first worked; cmd1 || cmd2 when it failed.");
+    tips.push("A script is a text file: put #jsh on its first line and run it by its name.");
+    tips.push("In braces after a dollar: name%.txt cuts the end of a variable, name:-x gives x when it is empty.");
+    tips.push("jget URL downloads a file with a progress bar.");
+    tips.push("jgit clone URL gets a repository; authj keeps your two-step codes.");
+    tips.push("!! is not needed: the up arrow brings back the last line, and Tab completes it.");
+    tips.push("help shows all the commands of the shell; type a name wrongly and jsh guesses.");
+    int day = Time::now_ms() / 86400000;
+    String tip = tips[day % tips.len];
+    String e = esc();
+    String amber = e + "[38;2;255;176;0m";
+    String line1 = "   J A R I C";
+    String line2 = "   shell  jsh " + jsh_version();
+    while line1.len < 24 { line1 += " "; }
+    while line2.len < 24 { line2 += " "; }
+    String bar = "";
+    for k in 0..24 { bar += "─"; }
+    cout << "\n" << amber << "  ╭" << bar << "╮" << e << "[0m\n";
+    cout << amber << "  │" << e << "[1;97m" << line1 << e << "[0m" << amber << "│" << e << "[0m\n";
+    cout << amber << "  │" << e << "[0;37m" << line2 << e << "[0m" << amber << "│" << e << "[0m\n";
+    cout << amber << "  ╰" << bar << "╯" << e << "[0m\n\n";
+    cout << e << "[1m  Start here" << e << "[0m\n";
+    cout << "  " << e << "[96mjc install X" << e << "[0m   get a tool\n";
+    cout << "  " << e << "[96mcam" << e << "[0m            camera and QR\n";
+    cout << "  " << e << "[96mmujic" << e << "[0m          music\n";
+    cout << "  " << e << "[96mjfile" << e << "[0m          files\n";
+    cout << "  " << e << "[96mhelp" << e << "[0m           all commands\n\n";
+    int cols = 40;
+    String rest = "Tip: " + tip;
+    while rest.len > 0 {                                       // the tip in rows of the width of the screen
+        int cut = rest.len;
+        if cut > cols - 4 {
+            cut = cols - 4;
+            while cut > 0 && rest[cut] != ' ' { cut -= 1; }
+            if cut == 0 { cut = cols - 4; }
+        }
+        cout << e << "[2m  " << rest.slice(0, cut).trim() << e << "[0m\n";
+        rest = rest.slice(cut, rest.len).trim();
+    }
+    cout << "\n";
+}
+
 int main() {
     history = arr(16);
     hist_cwd = arr(16);
@@ -3071,8 +3125,11 @@ int main() {
     actw[0] = (int)onint;
     actw[1] = 268435456;                                          // SA_RESTART
     Sys::call(134, 2, (int)@act, 0, 8, 0, 0);
-    cout << "jsh " << jsh_version() << " (the shell of Jaric): help shows the commands\n";
     bool tty = Sys::isatty(0) == 0;
+    String quiet_file = getv("HOME") + "/.jsh_quiet";
+    bool quiet = Fs::exists(quiet_file);
+    if tty && !quiet { cover(); }
+    else { cout << "jsh " << jsh_version() << " (the shell of Jaric): help shows the commands\n"; }
     String rc_file = getv("HOME") + "/.jshrc";
     if tty && Fs::exists(rc_file) { run_file(rc_file); }      // the settings: aliases, export, ...
     if tty { history_load(); }                                  // the commands of the sessions before (the arrows and the grey text use them)
