@@ -1,6 +1,8 @@
-# jamanager: the task manager of Jaric
+# jamanager (jmanager): the task manager of Jaric
 
 Like the Task Manager of Windows, in a terminal: which programs run, how much memory they use, stop one, how full the drives are, how big the caches are. Written in J2K on the standard library only; reads `/proc`. Android lets a program see only its own programs (and the ones of the same app), so the list is shorter than on a PC.
+
+**`jmanager`** (the same program under its other name, made by the installer) is the screen: tabs **Programs** (cpu in percent and memory of each program, biggest first; `s` sort, `/` find, `k` stop, `K` stop at once, `p` pause), **Memory**, **Drives**, **Caches** (`c` empties one); Tab or the arrows change the tab, `q` leaves. The commands below are for scripts.
 
 ```
 jamanager ps               pid, state, memory (MB), cpu (s), name

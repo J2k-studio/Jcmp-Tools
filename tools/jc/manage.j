@@ -405,7 +405,7 @@ int cmd_tool(String[] av, int at) {
         }
         Fs::write_text(dir + "/." + name + ".version", ver);
         cout << "installed " << name << " " << ver << " in " << dir << nl;
-        if name == "jbox" || name == "zipj" || name == "tarj" {                                             // its commands as links next to it
+        if name == "jbox" || name == "zipj" || name == "tarj" || name == "jamanager" {                                             // its commands as links next to it
             String[] ja = arr(2);
             ja.push("--install");
             ja.push(dir);

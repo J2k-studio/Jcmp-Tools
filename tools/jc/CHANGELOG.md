@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.3.1
+* **Added:** `jc install jamanager` makes the link `jmanager` next to it (the screen of the task manager), as it does for jbox, zipj and tarj.
+* **Fixed:** none.
+
 ## 0.3.0
 * **Added (jc installs the tools and the libraries itself):** `jc install NAME` (a tool of Jcmp-Tools: downloaded, checked with its SHA-256, put next to jc, with the files that come with it), `jc update [-n]`, `jc unstall NAME`, `jc tools` (the list), and `jc lib list | installed | install NAME | unstall NAME` (the libraries of J2K). It used to ask `jget tool ...`; now it needs no other program (the shared downloader is `core.j`).
 * **Changed:** jc and jget cannot be removed with `jc unstall`.

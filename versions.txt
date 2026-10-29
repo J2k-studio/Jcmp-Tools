@@ -4,11 +4,11 @@ cam 0.2.0
 coderin 0.4.2
 drive 0.4.0
 imgj 0.2.0
-jamanager 0.1.0
+jamanager 0.2.0
 jaric-os 0.14.0
 jash 0.1.0
 jbox 0.8.0
-jc 0.3.0
+jc 0.3.1
 jcmp 1.2.3.0
 jfile 0.1.0
 jget 1.0.0

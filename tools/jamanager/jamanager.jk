@@ -7,9 +7,10 @@
 //   jamanager kill PID [-9]  stop a program (-9 at once, default: ask it to stop)
 //   jamanager drives         the drives: size, used, free (the folder :/f is the home folder of Jaric)
 //   jamanager cache          the size of the caches (~/.cache, ~/.j2k, the folder for temporary files)
+//   jmanager                 (the same program under its other name) the screen: tabs Programs, Memory, Drives, Caches; CPU in percent; stop a program with k
 #import <stdlib>
 
-String jam_version() { return "0.1.0"; }
+String jam_version() { return "0.2.0"; }
 
 int fail(String msg) {
     cerr << "jamanager: " << msg << "\n";
@@ -181,13 +182,16 @@ int do_kill(String[] a) {
 }
 
 // the size of a folder (the files in it, below it): bytes
+int g_budget;                       // how many entries may still be looked at (a huge folder is measured in part)
 int folder_size(String path, int depth) {
-    if depth > 8 { return 0; }
+    if depth > 8 || g_budget <= 0 { return 0; }
     Result<String[], Error> r = Dir::list(path);
     if !r.is_ok() { return 0; }
     String[] names = r.take();
     int total = 0;
     for i in 0..names.len {
+        g_budget -= 1;
+        if g_budget <= 0 { break; }
         String p = path + "/" + names[i];
         if Dir::exists(p) { total += folder_size(p, depth + 1); }
         else {
@@ -216,6 +220,7 @@ int do_cache() {
     String[] names = arr(4);
     names.push(h + "/.cache"); names.push(h + "/.j2k"); names.push(tmp);
     for i in 0..names.len {
+        g_budget = 100000000;
         if Dir::exists(names[i]) { cout << pad_left(str(folder_size(names[i], 0) / 1024) + " KB", 12) << "  " << names[i] << "\n"; }
         else { cout << pad_left("-", 12) << "  " << names[i] << "  (not there)\n"; }
     }
@@ -240,9 +245,438 @@ int do_drives() {
     return 0;
 }
 
+// ================================================================ the screen (jmanager)
+char g_tio[64];
+bool g_raw;
+int g_rows;
+int g_cols;
+int g_tab;                         // 0 programs, 1 memory, 2 drives, 3 caches
+int g_sort;                        // 0 cpu, 1 memory, 2 pid, 3 name
+int g_sel;
+int g_top;
+String g_filter;
+String g_msg;
+bool g_pause;
+int[] g_pcpu;                      // cpu in tenths of a percent of each program of the list
+String[] pv_pid;                   // the last numbers: pid and ticks, to count the cpu between two looks
+int[] pv_ticks;
+int pv_at;
+int cpu_busy_prev;
+int cpu_total_prev;
+int g_cpu_all;                     // all the cpus, tenths of a percent
+int[] g_order;
+
+void raw_on() {
+    if g_raw || Sys::isatty(0) != 0 { return; }
+    Sys::call(29, 0, 21505, (int)@g_tio, 0, 0, 0);
+    char r[64];
+    for i in 0..64 { r[i] = g_tio[i]; }
+    r[12] = r[12] & 244;
+    Sys::call(29, 0, 21506, (int)@r, 0, 0, 0);
+    g_raw = true;
+}
+
+void raw_off() {
+    if !g_raw { return; }
+    Sys::call(29, 0, 21506, (int)@g_tio, 0, 0, 0);
+    g_raw = false;
+}
+
+int read_byte(int wait_ms) {
+    if !Input::ready(wait_ms) { return 0 - 1; }
+    char b[2];
+    int n = Sys::read(0, @b, 1);
+    if n <= 0 { return 0 - 9; }
+    return b[0] & 255;
+}
+
+int next_key(int wait_ms) {
+    int c = read_byte(wait_ms);
+    if c == 10 { return 13; }
+    if c != 27 { return c; }
+    int d = read_byte(40);
+    if d < 0 { return 27; }
+    if d == '[' || d == 'O' {
+        int e = read_byte(40);
+        if e == 'A' { return 257; }
+        if e == 'B' { return 258; }
+        if e == 'C' { return 259; }
+        if e == 'D' { return 260; }
+        if e == 'H' { return 261; }
+        if e == 'F' { return 262; }
+        if e == 'Z' { return 266; }                                  // Shift-Tab
+        int num = 0;
+        while (e >= '0' && e <= '9') || e == ';' { if e >= '0' && e <= '9' { num = num * 10 + (e - '0'); } e = read_byte(40); }
+        if e == '~' && num == 5 { return 264; }
+        if e == '~' && num == 6 { return 265; }
+        return 0 - 1;
+    }
+    return 0 - 1;
+}
+
+void get_size() {
+    char ws[8];
+    for i in 0..8 { ws[i] = 0; }
+    g_rows = 24; g_cols = 80;
+    if Sys::window_size(1, @ws) == 0 {
+        int r = (ws[0] & 255) | ((ws[1] & 255) << 8);
+        int c = (ws[2] & 255) | ((ws[3] & 255) << 8);
+        if r > 5 { g_rows = r; }
+        if c > 20 { g_cols = c; }
+    }
+}
+
+String padr(String s, int w) {
+    String r = cut_to(s, w);
+    while r.len < w { r = r + " "; }
+    return r;
+}
+
+String tenths(int t) { return str(t / 10) + "." + str(t % 10); }
+
+// the cpu of all the machine since the last look: /proc/stat (user nice system idle iowait irq softirq steal)
+void look_cpu_all() {
+    String t = read_proc("/proc/stat");
+    String[] lines = t.split("\n");
+    if lines.len == 0 { return; }
+    String[] p = lines[0].split(" ");
+    int[] v = arr(8);
+    for i in 0..p.len { if p[i].len > 0 && all_digits(p[i]) { v.push(p[i].to_int()); } }
+    if v.len < 4 { return; }
+    int total = 0;
+    for i in 0..v.len { total += v[i]; }
+    int idle = v[3];
+    if v.len > 4 { idle += v[4]; }
+    int busy = total - idle;
+    if cpu_total_prev > 0 && total > cpu_total_prev {
+        g_cpu_all = (busy - cpu_busy_prev) * 1000 / (total - cpu_total_prev);
+    }
+    cpu_busy_prev = busy;
+    cpu_total_prev = total;
+}
+
+// the programs and their cpu in tenths of a percent (a second of work in a second of time = 100.0 %)
+void look_programs() {
+    int now = Time::now_ms();
+    String[] old_pid = pv_pid;
+    int[] old_ticks = pv_ticks;
+    int old_at = pv_at;
+    g_pid = arr(64); g_name = arr(64); g_state = arr(64); g_rss = arr(64); g_cpu = arr(64);
+    Result<String[], Error> r = Dir::list("/proc");
+    g_pcpu = arr(64);
+    pv_pid = arr(64); pv_ticks = arr(64);
+    if r.is_ok() {
+        String[] names = r.take();
+        for i in 0..names.len {
+            if !all_digits(names[i]) { continue; }
+            int before = g_pid.len;
+            if !load_one(names[i]) { continue; }
+            int idx = g_pid.len - 1;
+            // the ticks in 1/100 s: load_one keeps seconds only; read again for the exact number
+            String st = read_proc("/proc/" + names[i] + "/stat");
+            int close = 0 - 1;
+            for q in 0..st.len { if st[q] == ')' { close = q; } }
+            int ticks = 0;
+            if close > 0 { String[] f = st.slice(close + 2, st.len).trim().split(" "); if f.len > 13 { ticks = f[11].to_int() + f[12].to_int(); } }
+            int pct = 0;
+            for q in 0..old_pid.len {
+                if old_pid[q] == names[i] && now > old_at { pct = (ticks - old_ticks[q]) * 10000 / (now - old_at) * 1; }
+            }
+            if pct < 0 { pct = 0; }
+            g_pcpu.push(pct / 10 * 10 / 10);
+            pv_pid.push(names[i] + ""); pv_ticks.push(ticks);
+        }
+    }
+    pv_at = now;
+}
+
+bool name_has(String name, String f) {
+    if f.len == 0 { return true; }
+    String a = name.lower();
+    String b = f.lower();
+    return a.contains(b);
+}
+
+// the order of the rows: filtered, then sorted by the key
+void make_order() {
+    int[] o = arr(g_pid.len + 1);
+    for i in 0..g_pid.len { if name_has(g_name[i], g_filter) || g_pid[i] == g_filter { o.push(i); } }
+    for i in 0..o.len {
+        int best = i;
+        for k in (i + 1)..o.len {
+            bool better = false;
+            if g_sort == 0 { better = g_pcpu[o[k]] > g_pcpu[o[best]]; }
+            else if g_sort == 1 { better = g_rss[o[k]] > g_rss[o[best]]; }
+            else if g_sort == 2 { better = g_pid[o[k]].to_int() < g_pid[o[best]].to_int(); }
+            else { String x = g_name[o[k]].lower(); String y = g_name[o[best]].lower(); better = x < y; }
+            if better { best = k; }
+        }
+        int t = o[i]; o[i] = o[best]; o[best] = t;
+    }
+    g_order = o;
+}
+
+String bar(int part, int whole, int w) {
+    if whole <= 0 { whole = 1; }
+    int n = part * w / whole;
+    if n > w { n = w; }
+    if n < 0 { n = 0; }
+    String r = "[";
+    for i in 0..w { if i < n { r = r + "#"; } else { r = r + "."; } }
+    return r + "]";
+}
+
+void mem_numbers(int^ total, int^ avail, int^ swap, int^ swapfree) {
+    String t = read_proc("/proc/meminfo");
+    String[] lines = t.split("\n");
+    for i in 0..lines.len {
+        String[] p = lines[i].split(" ");
+        String[] w = arr(4);
+        for k in 0..p.len { if p[k].len > 0 { w.push(p[k] + ""); } }
+        if w.len < 2 { continue; }
+        if w[0] == "MemTotal:" { total[0] = w[1].to_int(); }
+        if w[0] == "MemAvailable:" { avail[0] = w[1].to_int(); }
+        if w[0] == "SwapTotal:" { swap[0] = w[1].to_int(); }
+        if w[0] == "SwapFree:" { swapfree[0] = w[1].to_int(); }
+    }
+}
+
+String drive_row(String folder, int w) {
+    char buf[128];
+    int rc = Sys::call(43, (int)folder.c(), (int)@buf, 0, 0, 0, 0);
+    if rc != 0 { return ""; }
+    int bsize = 0; int blocks = 0; int avail = 0;
+    for k in 0..8 { bsize = bsize | ((buf[8 + k] & 255) << (8 * k)); blocks = blocks | ((buf[16 + k] & 255) << (8 * k)); avail = avail | ((buf[32 + k] & 255) << (8 * k)); }
+    int size = blocks / 1024 * bsize / 1024;
+    int free = avail / 1024 * bsize / 1024;
+    return padr(folder, 22) + pad_left(str(size / 1024) + "." + str((size % 1024) * 10 / 1024) + " GB", 10) + pad_left(str((size - free) * 100 / (size + 1)) + "%", 6) + "  " + bar(size - free, size, w);
+}
+
+String[] g_cache_names;
+int[] g_cache_sizes;
+
+void measure_caches() {
+    String h = home_dir();
+    String tmp = "/tmp";
+    switch Env::get("TMPDIR") {
+        Option::Some(t): { if t.len > 0 { tmp = t; } }
+        Option::None: { }
+    }
+    g_cache_names = arr(4); g_cache_sizes = arr(4);
+    g_cache_names.push(h + "/.cache"); g_cache_names.push(h + "/.j2k"); g_cache_names.push(tmp); g_cache_names.push(h + "/.neuron");
+    for i in 0..g_cache_names.len {
+        g_budget = 3000;
+        if Dir::exists(g_cache_names[i]) { g_cache_sizes.push(folder_size(g_cache_names[i], 0)); } else { g_cache_sizes.push(0 - 1); }
+    }
+}
+
+bool remove_inside(String path, int depth) {
+    if depth > 10 { return false; }
+    Result<String[], Error> r = Dir::list(path);
+    if !r.is_ok() { return false; }
+    String[] names = r.take();
+    for i in 0..names.len {
+        String p = path + "/" + names[i];
+        if names[i] == "." || names[i] == ".." { continue; }
+        if Dir::exists(p) { remove_inside(p, depth + 1); Sys::rmdir(p.c()); } else { Sys::unlink(p.c()); }
+    }
+    return true;
+}
+
+void draw_screen() {
+    get_size();
+    String e = "\e";
+    String o = e + "[?25l" + e + "[H";
+    // the head: the tabs
+    String[] tn = arr(4);
+    tn.push("Programs"); tn.push("Memory"); tn.push("Drives"); tn.push("Caches");
+    String head = " jmanager ";
+    for i in 0..4 { if i == g_tab { head = head + "[" + tn[i] + "] "; } else { head = head + " " + tn[i] + "  "; } }
+    o += e + "[7m" + padr(head, g_cols) + e + "[0m\r\n";
+    int tot = 0; int av = 0; int sw = 0; int swf = 0;
+    mem_numbers(@tot, @av, @sw, @swf);
+    String line2 = " CPU " + pad_left(tenths(g_cpu_all) + "%", 6) + " " + bar(g_cpu_all, 1000, 12) + "   MEM " + str((tot - av) / 1024) + "/" + str(tot / 1024) + " MB " + bar(tot - av, tot, 12);
+    o += padr(line2, g_cols) + "\r\n";
+    int body = g_rows - 4;
+    if g_tab == 0 {
+        make_order();
+        if g_sel >= g_order.len { g_sel = g_order.len - 1; }
+        if g_sel < 0 { g_sel = 0; }
+        if g_sel < g_top { g_top = g_sel; }
+        if g_sel >= g_top + body - 1 { g_top = g_sel - body + 2; }
+        String hdr = pad_left("PID", 7) + " S " + pad_left("CPU %", 6) + pad_left("MEM MB", 8) + "  NAME";
+        o += e + "[1m" + padr(hdr, g_cols) + e + "[0m\r\n";
+        for i in 0..(body - 1) {
+            int k = g_top + i;
+            if k < g_order.len {
+                int p = g_order[k];
+                String ln = pad_left(g_pid[p], 7) + " " + g_state[p] + " " + pad_left(tenths(g_pcpu[p]), 6) + pad_left(str(g_rss[p] / 1024), 8) + "  " + g_name[p];
+                ln = padr(ln, g_cols);
+                if k == g_sel { ln = e + "[7m" + ln + e + "[0m"; }
+                o += ln + "\r\n";
+            } else { o += padr("", g_cols) + "\r\n"; }
+        }
+    } else if g_tab == 1 {
+        int used = tot - av;
+        String[] rows = arr(8);
+        rows.push(" Memory   " + bar(used, tot, 30) + " " + str(used / 1024) + " of " + str(tot / 1024) + " MB used, " + str(av / 1024) + " MB free");
+        rows.push(" Swap     " + bar(sw - swf, sw, 30) + " " + str((sw - swf) / 1024) + " of " + str(sw / 1024) + " MB used");
+        rows.push("");
+        rows.push(" The programs that use the most memory:");
+        make_order();
+        // by memory for this tab
+        int[] big = arr(8);
+        for i in 0..g_pid.len { big.push(i); }
+        for i in 0..big.len { int best = i; for k in (i + 1)..big.len { if g_rss[big[k]] > g_rss[big[best]] { best = k; } } int t = big[i]; big[i] = big[best]; big[best] = t; }
+        for i in 0..8 { if i < big.len { rows.push("   " + pad_left(str(g_rss[big[i]] / 1024), 7) + " MB  " + g_name[big[i]] + "  (" + g_pid[big[i]] + ")"); } }
+        for i in 0..body { if i < rows.len { o += padr(rows[i], g_cols) + "\r\n"; } else { o += padr("", g_cols) + "\r\n"; } }
+    } else if g_tab == 2 {
+        String[] places = arr(4);
+        places.push(home_dir()); places.push("/sdcard"); places.push("/data"); places.push("/");
+        int shown = 0;
+        o += e + "[1m" + padr(pad_left("", 22) + "      SIZE  USED", g_cols) + e + "[0m\r\n";
+        for i in 0..places.len {
+            String row = drive_row(places[i], 24);
+            if row.len > 0 { o += padr(" " + row, g_cols) + "\r\n"; shown += 1; }
+        }
+        for i in (shown + 1)..body { o += padr("", g_cols) + "\r\n"; }
+    } else {
+        if g_cache_names.len == 0 { measure_caches(); }
+        o += e + "[1m" + padr(" the caches (c: empty the one under the cursor, r: measure again)", g_cols) + e + "[0m\r\n";
+        for i in 0..(body - 1) {
+            String ln = "";
+            if i < g_cache_names.len {
+                String sz = "not there";
+                if g_cache_sizes[i] >= 0 { sz = str(g_cache_sizes[i] / 1024) + " KB"; }
+                ln = pad_left(sz, 12) + "  " + g_cache_names[i];
+                ln = padr(" " + ln, g_cols);
+                if i == g_sel { ln = e + "[7m" + ln + e + "[0m"; }
+            } else { ln = padr("", g_cols); }
+            o += ln + "\r\n";
+        }
+    }
+    String foot = " " + g_msg;
+    if g_tab == 0 {
+        String[] sn = arr(4);
+        sn.push("cpu"); sn.push("memory"); sn.push("pid"); sn.push("name");
+        foot = " " + str(g_order.len) + " programs, sorted by " + sn[g_sort];
+        if g_filter.len > 0 { foot = foot + ", filter " + g_filter; }
+        if g_pause { foot = foot + ", paused"; }
+        foot = foot + "   " + g_msg;
+    }
+    o += e + "[7m" + padr(foot, g_cols) + e + "[0m\r\n";
+    if g_tab == 0 { o += padr(" Tab tabs  up/down choose  k stop  K stop now  s sort  / filter  p pause  q quit", g_cols); }
+    else if g_tab == 3 { o += padr(" Tab tabs  up/down choose  c empty  r measure  q quit", g_cols); }
+    else { o += padr(" Tab tabs  q quit", g_cols); }
+    cout << o;
+}
+
+String ask_line(String prompt, String dflt) {
+    String line = dflt + "";
+    while true {
+        get_size();
+        cout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << prompt << "\e[0m " << line << "\e[?25h";
+        int k = next_key(300);
+        if k == 13 { cout << "\e[?25l"; return line; }
+        if k == 27 || k == 3 || k == 0 - 9 { cout << "\e[?25l"; return dflt; }
+        if k == 127 || k == 8 { if line.len > 0 { line = line.slice(0, line.len - 1); } }
+        else if k >= 32 && k < 127 { line.push((char)k); }
+    }
+    return dflt;
+}
+
+bool confirm_key(String q) {
+    get_size();
+    cout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << q << " (y/n) \e[0m";
+    while true {
+        int k = next_key(300);
+        if k == 'y' || k == 'Y' { return true; }
+        if k == 'n' || k == 'N' || k == 27 || k == 3 || k == 0 - 9 { return false; }
+    }
+    return false;
+}
+
+int run_screen() {
+    g_filter = ""; g_msg = ""; g_tab = 0; g_sort = 0; g_sel = 0; g_top = 0; g_pause = false;
+    g_cache_names = arr(2); g_cache_sizes = arr(2); pv_pid = arr(2); pv_ticks = arr(2);
+    g_order = arr(2);
+    raw_on();
+    cout << "\e[?1049h\e[?25l";
+    look_cpu_all();
+    look_programs();
+    int last = Time::now_ms();
+    bool done = false;
+    while !done {
+        draw_screen();
+        int k = next_key(400);
+        int now = Time::now_ms();
+        if !g_pause && now - last >= 1500 { look_cpu_all(); look_programs(); last = now; }
+        if k == 0 - 1 { continue; }
+        g_msg = "";
+        if k == 'q' || k == 3 || k == 0 - 9 { done = true; continue; }
+        if k == 9 || k == 259 { g_tab = (g_tab + 1) % 4; g_sel = 0; g_top = 0; if g_tab == 3 { measure_caches(); } continue; }
+        if k == 266 || k == 260 { g_tab = (g_tab + 3) % 4; g_sel = 0; g_top = 0; if g_tab == 3 { measure_caches(); } continue; }
+        if g_tab == 0 {
+            if k == 258 || k == 'j' { g_sel += 1; }
+            else if k == 257 { g_sel -= 1; if g_sel < 0 { g_sel = 0; } }
+            else if k == 265 { g_sel += g_rows - 6; }
+            else if k == 264 { g_sel -= g_rows - 6; if g_sel < 0 { g_sel = 0; } }
+            else if k == 261 { g_sel = 0; }
+            else if k == 262 { g_sel = g_order.len - 1; }
+            else if k == 's' { g_sort = (g_sort + 1) % 4; g_sel = 0; g_top = 0; }
+            else if k == 'p' { g_pause = !g_pause; }
+            else if k == '/' { g_filter = ask_line("find", g_filter); g_sel = 0; g_top = 0; }
+            else if k == 'r' { look_cpu_all(); look_programs(); last = now; }
+            else if k == 'k' || k == 'K' {
+                if g_sel >= 0 && g_sel < g_order.len {
+                    int p = g_order[g_sel];
+                    int pid = g_pid[p].to_int();
+                    String what = "stop";
+                    if k == 'K' { what = "stop at once"; }
+                    String q = what + " " + g_name[p] + " (" + g_pid[p] + ")?";
+                    if pid <= 1 { g_msg = "refused: pid " + g_pid[p]; }
+                    else if confirm_key(q) {
+                        int sig = 15;
+                        if k == 'K' { sig = 9; }
+                        if Sys::kill(pid, sig) == 0 { g_msg = "sent the signal to " + g_pid[p]; } else { g_msg = "cannot stop " + g_pid[p] + " (not yours)"; }
+                        Time::sleep_ms(300);
+                        look_programs();
+                    }
+                }
+            }
+        } else if g_tab == 3 {
+            if k == 258 { if g_sel + 1 < g_cache_names.len { g_sel += 1; } }
+            else if k == 257 { if g_sel > 0 { g_sel -= 1; } }
+            else if k == 'r' { measure_caches(); }
+            else if k == 'c' {
+                if g_sel < g_cache_names.len && g_cache_sizes[g_sel] > 0 {
+                    String q2 = "empty " + g_cache_names[g_sel] + "?";
+                    if confirm_key(q2) { remove_inside(g_cache_names[g_sel], 0); measure_caches(); g_msg = "emptied"; }
+                }
+            }
+        }
+    }
+    cout << "\e[?25h\e[?1049l";
+    raw_off();
+    return 0;
+}
+
 int main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jamanager " << jam_version() << "\n"; return 0; }
+    if a.len > 1 && a[1] == "--install" {                        // the other name: jmanager
+        String self = "";
+        self.append((char^)Sys::arg(0));
+        String dir = Path::parent(self);
+        if dir.len == 0 { dir = "."; }
+        String link = Path::join(dir, "jmanager");
+        if !Fs::exists(link) { Sys::call(36, (int)"jamanager".c(), 0 - 100, (int)link.c(), 0, 0, 0); }
+        cout << "jamanager: jmanager linked in " << dir << "\n";
+        return 0;
+    }
+    String app = Path::name(a[0]);
+    if (app == "jmanager" || (a.len > 1 && a[1] == "ui")) && Sys::isatty(0) == 0 { return run_screen(); }
+    if app == "jmanager" && a.len < 2 { cerr << "jmanager: the screen needs a terminal (jamanager ps gives a list)\n"; return 1; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
         cout << "jamanager: the task manager of Jaric\n";
         cout << "  jamanager ps          the programs you can see (pid, memory, cpu, name)\n";
@@ -251,6 +685,7 @@ int main() {
         cout << "  jamanager kill PID [-9]   stop a program\n";
         cout << "  jamanager drives      the size and the free space of the drives\n";
         cout << "  jamanager cache       the size of the caches\n";
+        cout << "  jmanager              the same program with a screen: tabs Programs, Memory, Drives, Caches (jamanager ui)\n";
         return 0;
     }
     if a[1] == "ps" { return do_ps(a); }
