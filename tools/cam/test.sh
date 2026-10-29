@@ -1,0 +1,29 @@
+#!/bin/sh
+# cam: a pretend app (fake_app.py, on a pseudo terminal) answers the messages ESC ] 7777 ; camera ; ... BEL: a QR code is read from the pictures
+# of the "camera", a photo is saved, Esc closes, and a program without an app does not hang
+set -eu
+cd "$(dirname "$0")"; sh build.sh >/dev/null
+[ "$(./_out/cam --version)" = "cam $(cat VERSION)" ] || { echo "cam test: --version differs from VERSION"; exit 1; }
+./_out/cam --help > /dev/null || { echo "cam test: --help"; exit 1; }
+C="$PWD/_out/cam"; F="$PWD/fake_app.py"
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+python3 -I - "$T" <<'PY' || { echo "cam test: Python needs the modules qrcode and Pillow"; exit 1; }
+import sys, qrcode
+from PIL import Image
+t = sys.argv[1]
+q = qrcode.QRCode(box_size=6, border=4); q.add_data('otpauth://totp/Cam:me?secret=JBSWY3DPEHPK3PXP&issuer=Cam'); q.make(fit=True)
+qi = q.make_image(fill_color='black', back_color='white').convert('RGB').rotate(8, expand=True, fillcolor=(255, 255, 255))
+frame = Image.new('RGB', (1280, 720), (235, 235, 230)); frame.paste(qi, ((1280 - qi.width) // 2, (720 - qi.height) // 2)); frame.save(t + '/qr_frame.jpg', quality=85)
+Image.new('RGB', (1280, 720), (90, 100, 110)).save(t + '/blank.jpg')
+PY
+out=$(python3 -I "$F" scan "$C" "$T" scan --timeout 20 2>&1) || { echo "cam test: scan: $out"; exit 1; }
+echo "$out" | grep -q "otpauth://totp/Cam:me?secret=JBSWY3DPEHPK3PXP&issuer=Cam" || { echo "cam test: scan printed: $out"; exit 1; }
+[ ! -f "$T/cam-scan.jpg" ] || { echo "cam test: the picture of scan must be removed"; exit 1; }
+out=$(python3 -I "$F" photo "$C" "$T" photo "$T/p1.jpg" 2>&1) || { echo "cam test: photo: $out"; exit 1; }
+echo "$out" | grep -q "$T/p1.jpg" || { echo "cam test: photo printed: $out"; exit 1; }
+[ -s "$T/p1.jpg" ] || { echo "cam test: photo file"; exit 1; }
+python3 -I "$F" photo-auto "$C" "$T" photo "$T/p2.jpg" --after 1 2>&1 | grep -q "p2.jpg" || { echo "cam test: photo --after"; exit 1; }
+if python3 -I "$F" photo-quit "$C" "$T" photo "$T/p3.jpg" > /dev/null 2>&1; then echo "cam test: Esc must end photo with a failure"; exit 1; fi
+if python3 -I "$F" scan-none "$C" "$T" scan --timeout 3 > /dev/null 2>&1; then echo "cam test: a scan without a code must fail"; exit 1; fi
+if python3 -I "$F" no-answer "$C" "$T" scan --timeout 3 > /dev/null 2>&1; then echo "cam test: no answer of the app must fail"; exit 1; fi
+echo "cam tests passed"
