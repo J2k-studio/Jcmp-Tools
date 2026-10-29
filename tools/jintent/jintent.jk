@@ -1,0 +1,116 @@
+#import <stdlib>
+#import <files>
+using stdlib;
+// jintent 0.1.0 -- the apps of the phone from the terminal of the Jaric app.   (license: MPL-2.0)
+//   jintent view URL            opens a link / file / address in the app that the phone picks (a chooser when many)
+//   jintent send TEXT...        shares a text (the chooser of the phone)
+//   jintent share FILE          shares a file
+//   jintent pick [image]        the picker of the phone (prints nothing; the chosen file is in ~/tmp/cam-picked.bin)
+//   jintent call NUMBER         opens the dialer with the number
+//   jintent app NAME            starts an app by its name or package
+//   jintent apps                lists the apps that can be started (name, package)
+//   jintent notify TITLE [TEXT...]  shows a notification
+// It talks to the app with  ESC ] 7777 ; intent ; ... BEL  and  ESC ] 7777 ; notify ; ... BEL.
+
+char g_tio[64];
+bool g_raw;
+
+void raw_on() {
+    if g_raw || Sys::isatty(0) != 0 { return; }
+    Sys::call(29, 0, 21505, (int)@g_tio, 0, 0, 0);
+    char r[64];
+    for i in 0..64 { r[i] = g_tio[i]; }
+    r[12] = r[12] & 244;
+    Sys::call(29, 0, 21506, (int)@r, 0, 0, 0);
+    g_raw = true;
+}
+
+void raw_off() {
+    if !g_raw { return; }
+    Sys::call(29, 0, 21506, (int)@g_tio, 0, 0, 0);
+    g_raw = false;
+}
+
+int read_byte(int wait_ms) {
+    if !Input::ready(wait_ms) { return -1; }
+    char b[2];
+    int n = Sys::read(0, @b, 1);
+    if n <= 0 { return -9; }
+    return b[0] & 255;
+}
+
+// the next message of the app (the text after ESC ] 7777 ;), "" when none came within wait_ms
+String next_message(int wait_ms) {
+    int c = read_byte(wait_ms);
+    if c < 0 { return ""; }
+    if c != 27 { return ""; }
+    int d = read_byte(100);
+    if d != ']' { return ""; }
+    String m = "";
+    int e = read_byte(300);
+    while e >= 0 && e != 7 && e != 27 { m.push((char)e); e = read_byte(300); }
+    if e == 27 { read_byte(100); }
+    if m.starts_with("7777;") { return m.slice(5, m.len); }
+    return "";
+}
+
+String joined(String[] a, int from) {
+    String r = "";
+    for i in from..a.len { if i > from { r += " "; } r += a[i]; }
+    return r;
+}
+
+// sends one message and waits for the answer (intent-ok | intent-error;TEXT | intent-apps;BASE64); returns the answer, "" when the app did not answer
+String ask(String msg) {
+    raw_on();
+    cout << "\e]7777;" << msg << "\a";
+    String got = "";
+    int waited = 0;
+    while waited < 6000 {
+        String m = next_message(200);
+        if m.starts_with("intent-") { got = m; break; }
+        waited += 200;
+    }
+    raw_off();
+    return got;
+}
+
+int usage() {
+    cerr << "usage: jintent view URL | send TEXT | share FILE | pick [image] | call NUMBER | app NAME | apps | notify TITLE [TEXT]\n";
+    return 2;
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version") { cout << "jintent 0.1.0\n"; return 0; }
+    if a.len < 2 || a[1] == "--help" || a[1] == "-h" { usage(); if a.len < 2 { return 2; } return 0; }
+    String verb = a[1];
+    if verb == "notify" {
+        if a.len < 3 { return usage(); }
+        String text = joined(a, 3);
+        cout << "\e]7777;notify;" << a[2] << ";" << text << "\a";
+        return 0;
+    }
+    String msg = "";
+    if verb == "view" || verb == "share" || verb == "call" || verb == "app" {
+        if a.len < 3 { return usage(); }
+        msg = "intent;" + verb + ";" + joined(a, 2);
+    } else if verb == "send" {
+        if a.len < 3 { return usage(); }
+        msg = "intent;send;" + joined(a, 2);
+    } else if verb == "pick" {
+        String kind = "image";
+        if a.len > 2 { kind = a[2] + ""; }
+        msg = "intent;pick;" + kind;
+    } else if verb == "apps" {
+        msg = "intent;apps";
+    } else { return usage(); }
+    String r = ask(msg);
+    if r.len == 0 { cerr << "jintent: the Jaric app did not answer (is this the terminal of the Jaric app?)\n"; return 1; }
+    if r.starts_with("intent-error;") { cerr << "jintent: " << r.slice(13, r.len) << "\n"; return 1; }
+    if r.starts_with("intent-apps;") {
+        Result<String, Error> dec = Base64::decode(r.slice(12, r.len));
+        if dec.is_ok() { String text = dec.take(); cout << text; }
+    }
+    return 0;
+}
