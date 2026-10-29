@@ -17,6 +17,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [imgj](tools/imgj/README.md) | `imgj` prepares pictures for a game: reads PNG and JPEG, cuts the background, gives the real size, cuts parts, makes normal maps (MPL-2.0) |
 | [authj](tools/authj/README.md) | `authj` makes the codes of two-step logins (TOTP, like Google Authenticator) for GitHub and other sites; the secrets in a vault that a passphrase can lock (MPL-2.0) |
 | [cam](tools/cam/README.md) | `cam photo` and `cam scan`: the camera of the phone in the terminal of the Jaric app (photos, QR codes) (MPL-2.0) |
+| [jfile](tools/jfile/README.md) | `jfile`: the files of the phone (Downloads, Pictures, Documents ...) in a terminal: look, open, copy, move, delete, pictures and text (MPL-2.0) |
 | [jc](tools/jc/README.md) | install and run the programs of Jaric (`.jc` packages made by `makej pack`): `jc install`, `run`, `list`, `perm` (permissions asked once), `remove` (MPL-2.0) |
 | [jstore](tools/jstore/README.md) | the store of the programs of Jaric: `jstore list / install / update / remove`, an index file with a checksum for every package (see [store/](store/README.md)) (MPL-2.0) |
 | [jgit](tools/jgit/README.md) | git in J2K: `jgit init / add / commit / status / log / diff / branch / switch`; the format of the repository is the one of git, both read each other (packs are read; no network yet) (MPL-2.0) |
@@ -86,4 +87,4 @@ makej init -ai                    # a small neural network (library <neuron>)
 The old address `github.com/J2k-studio/Jget` leads here.
 
 ## Licences
-The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox, jpty, coderin, zipj, tarj, imgj, authj, cam and mujic** are under the Mozilla Public License 2.0: each of their folders has the text.
+The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox, jpty, coderin, zipj, tarj, imgj, authj, cam, jfile and mujic** are under the Mozilla Public License 2.0: each of their folders has the text.
