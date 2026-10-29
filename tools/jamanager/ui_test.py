@@ -37,7 +37,11 @@ assert not alive, 'the program was not stopped'
 # the other tabs
 key(b'\t', 0.8); assert 'Memory' in text() and 'swap' in text().lower() or 'Swap' in text(), 'the memory tab'
 key(b'\t', 0.8); assert 'GB' in text() or 'SIZE' in text(), 'the drives tab'
-key(b'\t', 3.5); assert 'caches' in text(), 'the caches tab'
+os.write(fd, b'\t')
+for _ in range(20):                         # the sizes of the folders are measured first: up to 10 seconds
+    pump(0.5)
+    if 'caches' in text(): break
+assert 'caches' in text(), 'the caches tab'
 key(b'q', 0.6)
 time.sleep(0.4)
 try:

@@ -465,7 +465,7 @@ void measure_caches() {
     g_cache_names = arr(4); g_cache_sizes = arr(4);
     g_cache_names.push(h + "/.cache"); g_cache_names.push(h + "/.j2k"); g_cache_names.push(tmp); g_cache_names.push(h + "/.neuron");
     for i in 0..g_cache_names.len {
-        g_budget = 3000;
+        g_budget = 1500;
         if Dir::exists(g_cache_names[i]) { g_cache_sizes.push(folder_size(g_cache_names[i], 0)); } else { g_cache_sizes.push(0 - 1); }
     }
 }
