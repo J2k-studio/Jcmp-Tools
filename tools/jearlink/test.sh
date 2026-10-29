@@ -13,4 +13,12 @@ echo "$out" | grep -q "intent;send;hello world" || { echo "jearlink test: send m
 if python3 -I "$F" "$J" error -ap nothing > /dev/null 2>&1; then echo "jearlink test: an error must fail"; exit 1; fi
 out=$(python3 -I "$F" "$J" ok -ntf Title some text 2>&1) || { echo "jearlink test: notify: $out"; exit 1; }
 echo "$out" | grep -q "notify;Title;some text" || { echo "jearlink test: notify message: $out"; exit 1; }
+# a file next to the person: the app gets the real path; a missing file fails; -viw FILE opens it
+TD=$(mktemp -d); echo hi > "$TD/Blonde.mp3"
+out=$(cd "$TD" && python3 -I "$F" "$J" ok -sh Blonde.mp3 2>&1) || { echo "jearlink test: share a file here: $out"; rm -rf "$TD"; exit 1; }
+echo "$out" | grep -q "intent;share;.*/Blonde.mp3" || { echo "jearlink test: share path: $out"; rm -rf "$TD"; exit 1; }
+if (cd "$TD" && python3 -I "$F" "$J" ok -sh nothing.mp3 > /dev/null 2>&1); then echo "jearlink test: a missing file must fail"; rm -rf "$TD"; exit 1; fi
+out=$(cd "$TD" && python3 -I "$F" "$J" ok -viw Blonde.mp3 2>&1) || true
+echo "$out" | grep -q "open;.*/Blonde.mp3" || { echo "jearlink test: view a file: $out"; rm -rf "$TD"; exit 1; }
+rm -rf "$TD"
 echo "jearlink test: ok"

@@ -1,7 +1,7 @@
 #import <stdlib>
 #import <files>
 using stdlib;
-// jearlink 0.1.0 -- the apps of the phone from the terminal of the Jaric app.   (license: MPL-2.0)
+// jearlink 0.1.1 -- the apps of the phone from the terminal of the Jaric app.   (license: MPL-2.0)
 //   jearlink -viw URL             opens a link / file / address in the app that the phone picks (a chooser when many)
 //   jearlink -snd TEXT...        shares a text (the chooser of the phone)
 //   jearlink -sh FILE          shares a file
@@ -75,6 +75,20 @@ String ask(String msg) {
     return got;
 }
 
+// the real path of a file: a name next to the program (Blonde.mp3), a path of the virtual root or a drive path all become the path the app can open; "" when there is no such file
+String real_file(String name) {
+    int fd = Sys::open_read(name.c());
+    if fd < 0 { return ""; }
+    String link = "/proc/self/fd/" + str(fd);
+    char buf[4096];
+    int n = Sys::readlink(link.c(), (char^)@buf, 4095);
+    Sys::close(fd);
+    if n <= 0 { return ""; }
+    buf[n] = 0;
+    String r = (char^)@buf;
+    return r + "";
+}
+
 int usage() {
     cerr << "usage: jearlink -viw URL | -snd TEXT | -sh FILE | -pk [image] | -cll NUMBER | -ap NAME | -aps | -ntf TITLE [TEXT]   (also: view send share pick call app apps notify)\n";
     return 2;
@@ -82,7 +96,7 @@ int usage() {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version") { cout << "jearlink 0.1.0\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version") { cout << "jearlink 0.1.1\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" { usage(); if a.len < 2 { return 2; } return 0; }
     String verb = a[1];
     if verb == "-viw" { verb = "view"; }
@@ -100,7 +114,17 @@ int main() {
         return 0;
     }
     String msg = "";
-    if verb == "view" || verb == "share" || verb == "call" || verb == "app" {
+    if verb == "share" || verb == "view" {
+        if a.len < 3 { return usage(); }
+        String shown = joined(a, 2);
+        String local = real_file(shown);
+        if local.len > 0 {                                             // a file here: the app gets its real path
+            if verb == "view" { cout << "\e]7777;open;" << local << "\a"; return 0; }
+            msg = "intent;share;" + local;
+        } else if verb == "share" { cerr << "jearlink: there is no such file: " << shown << "\n"; return 1; }
+    }
+    if msg.len > 0 { }
+    else if verb == "view" || verb == "share" || verb == "call" || verb == "app" {
         if a.len < 3 { return usage(); }
         msg = "intent;" + verb + ";" + joined(a, 2);
     } else if verb == "send" {
