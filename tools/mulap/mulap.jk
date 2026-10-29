@@ -1,7 +1,8 @@
 #import <stdlib>
 #import <files>
 #import <math>
-// mulap 0.1.0 -- record songs and make beats (this first step: the engine that makes a beat from a plan, no screen needed).   (license: MPL-2.0)
+// mulap 0.2.0 -- record songs and make beats (the engine that makes a beat from a plan; in the Jaric app `mulap` opens the studio: pads and a step grid).   (license: MPL-2.0)
+//   mulap                                (in the Jaric app 0.0.208+) the studio window in landscape: pads, step grid, play, tempo, swing, save and load
 //   mulap render PROJECT.mlp OUT.wav     plays the plan of a beat into a WAV file (44100 Hz, 16 bit, mono)
 //   mulap demo OUT.wav                   a small beat of its own
 // A plan (.mlp) is a text file:
@@ -172,7 +173,16 @@ String demo_plan() {
 
 int main() {
     String[] a = Env::args();
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "mulap 0.1.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "mulap 0.2.0\n"; return 0; }
+    bool in_app = false;
+    switch Env::get("JARIC") {
+        Option::Some(j): { if j.len > 0 { in_app = true; } }
+        Option::None: { }
+    }
+    if (a.len < 2 || a[1] == "studio") && in_app {                 // in the Jaric app: the studio, a window in landscape (pads, step grid, play, tempo, save)
+        cout << "\e]7777;mulap;open\a";
+        return 0;
+    }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" {
         cout << "mulap: record songs and make beats (first step: the engine).   mulap render PROJECT.mlp OUT.wav   mulap demo OUT.wav\n";
         cout << "  a plan: bpm = 120, bars = 2, swing = 0.1, track kick x...x...x...x...   (voices: kick snare hat openhat clap tom bass)\n";

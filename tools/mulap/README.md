@@ -4,6 +4,9 @@ An app to record songs and make beats. This first step is the **engine**: a plan
 
 ## Commands
 ```
+mulap                                  in the Jaric app: the studio window (landscape): pads, step grid, play, tempo, swing, save, load
+```
+```
 mulap demo beat.wav                    a small beat of its own (140 bpm, 2 bars)
 mulap render plan.mlp beat.wav         a beat from a plan (44100 Hz, 16 bit, mono)
 mulap --version | --help

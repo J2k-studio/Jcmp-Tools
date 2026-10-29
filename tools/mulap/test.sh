@@ -35,4 +35,8 @@ cmp -s "$T/s.wav" "$T/n.wav" && { echo "mulap test: swing changed nothing"; exit
 printf 'bpm = 5000\nbars = 1\ntrack kick x\n' > "$T/bad.mlp"
 if "$M" render "$T/bad.mlp" "$T/bad.wav" > /dev/null 2>&1; then echo "mulap test: a bad plan must fail"; exit 1; fi
 if "$M" render "$T/none.mlp" "$T/x.wav" > /dev/null 2>&1; then echo "mulap test: a missing plan must fail"; exit 1; fi
+# in the app `mulap` (and `mulap studio`) asks the app for the studio window; outside the app it only prints the help
+JARIC=1 "$M" | grep -q 'mulap;open' || { echo "mulap test: the studio message"; exit 1; }
+JARIC=1 "$M" studio | grep -q 'mulap;open' || { echo "mulap test: mulap studio"; exit 1; }
+if env -u JARIC "$M" > /dev/null 2>&1; then echo "mulap test: outside the app mulap alone must fail with the help"; exit 1; fi
 echo "mulap test: ok"
