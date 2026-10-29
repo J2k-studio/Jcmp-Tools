@@ -1,3 +1,5 @@
+> **Moved.** `python` is now a package of Jcmp-pkg: the real CPython built from the build scripts of Termux for the prefix of Jaric (full standard library, `ssl`, `sqlite3`, `ctypes`, pip as `python-pip`), updated with `jc update`. Install it with `jc install python` (or `jc pkg install python`). This launcher is no longer listed and gets no more updates.
+
 # python: Python 3.14 for the Jaric app and Android ARM64
 
 The official build of python.org for Android (`libpython3.14.so`, 21 MB packed) with a small launcher written in J2K (`python.jk`, built with `jcmp -dyn`; it opens the library with `<native>` and calls `Py_BytesMain`). The launcher sets `PYTHONHOME` and `SSL_CERT_FILE` itself, so nothing else is needed. Works in Termux and in the Jaric app. `ssl`, `sqlite3`, `zlib`, `json`, `ctypes` are there; no `pip` yet and no tkinter.

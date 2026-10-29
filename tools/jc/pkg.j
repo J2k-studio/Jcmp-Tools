@@ -181,16 +181,45 @@ int pkg_search(String index, String word) {
     return 0;
 }
 
+// the installed packages that have another version in the index: removed and installed again (dry: only shown)
+int pkg_update(String index, bool dry) {
+    String st = pkg_state();
+    if !Dir::exists(st) { cout << "no packages installed\n"; return 0; }
+    String[] mine = arr(8);
+    switch Dir::list(st) {
+        Result::Ok(names): { for i in 0..names.len { if names[i].ends_with(".list") { mine.push(names[i] + ""); } } }
+        Result::Err(e): { }
+    }
+    int shown = 0;
+    int rc = 0;
+    for i in 0..mine.len {
+        String line = pkg_line(st, mine[i] + "");
+        String[] pv = line.split("  ");
+        String name = pv[0] + "";
+        String have = pv[1] + "";
+        String[] f = pkg_entry(index, name).split("|");
+        String want = f[0] + "";
+        if want.len == 0 || want == have { continue; }
+        cout << name << ": " << have << " -> " << want << "\n";
+        shown += 1;
+        if dry { continue; }
+        if pkg_remove(name) != 0 { rc = 1; continue; }
+        if pkg_install(index, name, 0) != 0 { rc = 1; }
+    }
+    if shown == 0 { cout << "the packages are up to date\n"; }
+    return rc;
+}
+
 // jc pkg install NAME... | remove NAME... | list | search [WORD]
 int cmd_pkg(String[] a) {
-    if a.len < 3 { err("usage: jc pkg install NAME | remove NAME | list | search [WORD]\n"); return 1; }
+    if a.len < 3 { err("usage: jc pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n"); return 1; }
     String sub = a[2] + "";
     if sub == "list" { return pkg_list(); }
     if sub == "remove" && a.len >= 4 {
         for i in 3..a.len { if pkg_remove(a[i] + "") != 0 { return 1; } }
         return 0;
     }
-    if sub == "install" || sub == "search" {
+    if sub == "install" || sub == "search" || sub == "update" {
         String index = pkg_fetch_index();
         if index.len == 0 { return 1; }
         if sub == "search" {
@@ -198,10 +227,11 @@ int cmd_pkg(String[] a) {
             if a.len >= 4 { w = a[3] + ""; }
             return pkg_search(index, w);
         }
+        if sub == "update" { return pkg_update(index, a.len >= 4 && a[3] == "-n"); }
         if a.len < 4 { err("usage: jc pkg install NAME\n"); return 1; }
         for i in 3..a.len { if pkg_install(index, a[i] + "", 0) != 0 { return 1; } }
         return 0;
     }
-    err("usage: jc pkg install NAME | remove NAME | list | search [WORD]\n");
+    err("usage: jc pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n");
     return 1;
 }

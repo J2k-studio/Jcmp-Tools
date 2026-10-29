@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.5.0
+* **Added:** `jc pkg update [-n]` (installed packages with another version in the index are removed and installed again; -n only shows), and `jc update` now updates the packages too. `python` moved from the tools to the packages (the real CPython 3.14 of Jcmp-pkg), so `jc install python` gives it.
+* **Fixed:** none.
+
 ## 0.4.1
 * **Added:** `jc install NAME` installs a package of Jcmp-pkg when NAME is not a tool (`jc install git`); `jc pkg ...` stays as the explicit form.
 * **Fixed:** none.

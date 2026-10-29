@@ -18,7 +18,7 @@
 #import "pkg"
 #import "manage"
 
-String jc_version() { return "0.4.1"; }
+String jc_version() { return "0.5.0"; }
 
 int fail(String msg) {
     cerr << "jc: " << msg << "\n";
@@ -329,6 +329,12 @@ int main() {
         sw.push("update");
         Result<int, Error> sr = Proc::run("jstore", sw);       // the store is optional: not installed = nothing to do
         if rc == 0 && sr.is_ok() { rc = sr.take(); }
+        String[] pw = arr(4);                                  // and the packages of Jcmp-pkg
+        pw.push("jc");
+        pw.push("pkg");
+        pw.push("update");
+        for i in 2..a.len { if a[i] == "-n" { pw.push("-n"); } }
+        if cmd_pkg(pw) != 0 { rc = 1; }
         return rc;
     }
     if (a[1] == "unstall" || a[1] == "uninstall") && a.len >= 3 {

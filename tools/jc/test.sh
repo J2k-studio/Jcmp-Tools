@@ -22,7 +22,7 @@ make('noentry.jc', 'name = "X"\nid = "x.one"\nversion = "1"\nentry = "missing"\n
 make('evil.jc', 'name = "Evil"\nid = "evil.one"\nversion = "1"\nentry = "hello"\npermissions = []\n', {'../escape.txt': 'x'})
 open(t + '/notzip.jc', 'w').write('this is not a zip')
 PY
-[ "$("$J" --version)" = "jc 0.4.1" ] || { echo "jc test: version"; exit 1; }
+[ "$("$J" --version)" = "jc 0.5.0" ] || { echo "jc test: version"; exit 1; }
 "$J" info "$T/game.jc" | grep -q "permissions:  files,audio" || { echo "jc test: info"; exit 1; }
 "$J" info "$T/notzip.jc" > /dev/null 2>&1 && { echo "jc test: a file that is not a zip must fail"; exit 1; }
 "$J" install "$T/game.jc" > /dev/null 2>&1 && { echo "jc test: permissions without a terminal and without -y must be refused"; exit 1; }
@@ -103,4 +103,21 @@ unset JC_PKG_INDEX JC_PKG_ROOT
 export JC_PKG_INDEX="$T/index.json" JC_PKG_ROOT="$T/pkgroot2"
 "$J" install beta > /dev/null 2>&1 || { echo "jc test: install of a package by name"; exit 1; }
 [ "$("$T/pkgroot2/usr/bin/beta")" = "beta" ] || { echo "jc test: install of a package by name: files"; exit 1; }
+unset JC_PKG_INDEX JC_PKG_ROOT
+
+# jc pkg update: another version in the index = removed and installed again
+python3 - "$T" <<'PY'
+import sys, json
+t = sys.argv[1]
+idx = json.load(open(t + '/index.json'))
+for e in idx:
+    if e['name'] == 'beta': e['version'] = '2'
+json.dump(idx, open(t + '/index2.json', 'w'))
+PY
+export JC_PKG_INDEX="$T/index2.json" JC_PKG_ROOT="$T/pkgroot2"
+"$J" pkg update -n | grep -q "beta: 1 -> 2" || { echo "jc test: pkg update -n"; exit 1; }
+"$J" pkg list | grep -q "^beta  1" || { echo "jc test: pkg update -n must change nothing"; exit 1; }
+"$J" pkg update > /dev/null || { echo "jc test: pkg update"; exit 1; }
+"$J" pkg list | grep -q "^beta  2" && [ "$("$T/pkgroot2/usr/bin/beta")" = "beta" ] || { echo "jc test: pkg update result"; exit 1; }
+"$J" pkg update | grep -q "up to date" || { echo "jc test: pkg update twice"; exit 1; }
 unset JC_PKG_INDEX JC_PKG_ROOT
