@@ -1623,7 +1623,7 @@ int do_man(String[] a) {
 }
 
 int do_install(String[] args) {
-    String names_text = "dir tree find date du stat xargs sed less ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false";
+    String names_text = "dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false";
     String[] names = names_text.split(" ");
     String dir = ".";
     if args.len > 2 { dir = args[2]; }
@@ -1645,7 +1645,7 @@ int do_install(String[] args) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.9.0\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.9.1\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }

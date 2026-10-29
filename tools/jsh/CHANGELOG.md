@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.11.2
+* **Fixed:** since 0.11.1 only 23 names were sent to jbox when they were not in the PATH (`less`, `find`, `tree`, `man`, `diff` ... were "not found" without the links of `jbox --install`); all the commands of jbox are known again.
+
 ## 0.11.1
 * **Added:** a name that is not a command gets a hint: `ech` gives `(did you mean echo?)`, the name of a tool of Jaric that is not installed gives `(a tool of Jaric: jc install cam)`, a near name of a tool gives `(did you mean jfile? jc install jfile)`; nothing is guessed for nonsense.
 * **Fixed:** jsh asked the small commands (jbox) for every unknown name, and jbox gave the error without a hint; now only the names that jbox knows go to it.

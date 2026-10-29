@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.1
+* **Fixed:** `jbox --install` made no link for `man` (0.9.0).
+
 ## 0.9.0
 * **Added:** `man NAME`: the manual of a tool or a library of Jaric (a Markdown file on the phone, `~/.jaric/man/NAME.md`, or the README from GitHub, kept in `~/.cache/jaric/man/`; `man` alone lists the tools; `man language` and `man usage` are the language and the compiler), shown in the pager with headings, code and lists; the pager of `less` is better: long lines are cut at a letter, `/` finds (the matches are marked) with `n` / `N`, `g` / `G`, half pages `d` / `u`, the arrows, Home / End, Page Up / Down, a percent, `h` shows the keys.
 * **Fixed:** none.

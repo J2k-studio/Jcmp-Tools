@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.11.1"; }
+String jsh_version() { return "0.11.2"; }
 String[] history;
 int last_status;
 int running;
@@ -1594,9 +1594,9 @@ bool is_builtin_name(String n) {
         || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "login" || n == "signin" || n == "passwd" || n == "logout" || n == "signout" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "kill" || n == "fg" || n == "bg" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
-    return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
-        || n == "cp" || n == "mv" || n == "grep" || n == "sort" || n == "uniq" || n == "tee" || n == "seq" || n == "basename"
-        || n == "dirname" || n == "kill" || n == "sleep" || n == "clear" || n == "true" || n == "false";
+    String names = " dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false ";
+    String key = " " + n + " ";
+    return names.contains(key);
 }
 // the mode bits of a file (-1 when it is not there); 0x8000 = a regular file, 0x49 = the three execute bits
 int file_mode_of(String path) {

@@ -7,7 +7,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
 OUT=$(printf 'echo hello world\necho "a  b" | cat\necho one > f.txt\necho two >> f.txt\ncat < f.txt\nfalse\necho status $?\necho x | tr x y | cat\nnosuchprog\ncd /\npwd\nexit 7\n' | "$SH" 2>&1) && rc=0 || rc=$?
-WANT='jsh 0.11.1 (the shell of Jaric): help shows the commands
+WANT='jsh 0.11.2 (the shell of Jaric): help shows the commands
 hello world
 a  b
 one
@@ -24,7 +24,7 @@ T2=$(mktemp -d); trap 'rm -rf "$T" "$T2"' EXIT
 cd "$T2"; touch a.txt b.txt c.log
 printf 'echo "echo in the script"\nexport K=5\necho k=$K\n' > s.jsh
 OUT2=$(printf 'NAME=jao\necho hi $NAME\nalias say=echo\nsay aliased\necho *.txt\nfalse || echo second\ntrue && echo third\necho a ; echo b\nunset NAME\necho [$NAME]\ntype cd\nexit 0\n' | HOME="$T2" "$SH" 2>&1)
-WANT2='jsh 0.11.1 (the shell of Jaric): help shows the commands
+WANT2='jsh 0.11.2 (the shell of Jaric): help shows the commands
 hi jao
 aliased
 a.txt b.txt
@@ -280,3 +280,12 @@ case "$R19" in *"cam: command not found  (a tool of Jaric: jc install cam)"*) ;;
 case "$R19" in *"zzzzzzzz: command not found"*"did you mean"*) echo "shell test (step 19): no guess for nonsense: $R19"; exit 1 ;; esac
 rm -rf "$T19"
 echo "shell test (step 19): ok"
+# step 20: the commands of jbox work from the folder of jsh, with no links in the PATH
+T20=$(mktemp -d); mkdir "$T20/bin"; cp "$ROOT/_out/jsh" "$T20/bin/jsh"; cp "$ROOT/../jbox/_out/jbox" "$T20/bin/jbox" 2>/dev/null || true
+if [ -x "$T20/bin/jbox" ]; then
+    R20=$(cd "$T20" && printf 'seq 1 3\nless --version\nman nosuchtopic123\n' | PATH=/nonexistent "$T20/bin/jsh" 2>&1) || true
+    case "$R20" in *"jsh: seq: command not found"*) echo "shell test (step 20): jbox commands lost: $R20"; exit 1 ;; esac
+    case "$R20" in *"jsh: man: command not found"*) echo "shell test (step 20): man is not known: $R20"; exit 1 ;; esac
+fi
+rm -rf "$T20"
+echo "shell test (step 20): ok"
