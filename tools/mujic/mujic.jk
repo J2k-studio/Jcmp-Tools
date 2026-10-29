@@ -1868,7 +1868,7 @@ int do_remove_cli(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.9.0";
+    String VERSION = "0.10.0";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
@@ -1898,7 +1898,8 @@ int main() {
         if c == "get" { return do_get(args); }
         if c == "find" { return do_find(args); }
         if c == "lyrics" { return do_lyrics(args); }
-        if c == "window" || c == "-w" { cout << "\e]7777;music;open\a"; return 0; }          // the window of the player in the Jaric app (cover, buttons, queue)
+        if c == "cd" { cout << "\e]7777;music;cd\a"; return 0; }                              // the player as a CD deck: the cover is a disc that turns
+        if c == "window" || c == "-w" { cout << "\e]7777;music;window\a"; return 0; }          // the window of the player in the Jaric app (cover, buttons, queue)
         if c == "pause" || c == "resume" || c == "stop" || c == "next" || c == "prev" { return do_remote(c); }
         if c == "bg" && args.len > 2 { return do_background(args[2]); }
         if c == "play" {
@@ -1913,7 +1914,7 @@ int main() {
             cout << "mujic: a music player for the terminal (songs in " << music_dir() << ")\n";
             cout << "  mujic                 the player      mujic play NAME   start with a song\n";
             cout << "  mujic list            the songs       mujic catalog     free songs to fetch\n";
-            cout << "  mujic window          the window of the player in the Jaric app (cover, buttons, the queue)\n";
+            cout << "  mujic window          the window of the player in the Jaric app (cover, buttons, the queue)   mujic cd   the same as a CD deck\n";
             cout << "  mujic play NAME -b    play in the background (the prompt stays free)   mujic pause | resume | next | prev | stop\n";
             cout << "  mujic get NAME|URL|archive:ID [-n NAME]   fetch a song      mujic find WORDS   search archive.org\n";
             cout << "  mujic lyrics NAME [-q WORDS]              fetch the lyrics (kept as NAME.lrc)\n";
