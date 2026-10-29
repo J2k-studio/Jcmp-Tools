@@ -3,7 +3,7 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 J="$PWD/_out/jamanager"
-[ "$("$J" --version)" = "jamanager 0.2.1" ] || { echo "jamanager test: version"; exit 1; }
+[ "$("$J" --version)" = "jamanager 0.3.0" ] || { echo "jamanager test: version"; exit 1; }
 "$J" ps | grep -q "PID" || { echo "jamanager test: ps header"; exit 1; }
 "$J" ps | grep -q "jamanager" || { echo "jamanager test: ps does not list itself"; exit 1; }
 "$J" mem | grep -q "MB used" || { echo "jamanager test: mem"; exit 1; }

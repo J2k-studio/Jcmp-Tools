@@ -10,7 +10,7 @@
 //   jmanager                 (the same program under its other name) the screen: tabs Programs, Memory, Drives, Caches; CPU in percent; stop a program with k
 #import <stdlib>
 
-String jam_version() { return "0.2.1"; }
+String jam_version() { return "0.3.0"; }
 
 int fail(String msg) {
     cerr << "jamanager: " << msg << "\n";
@@ -675,7 +675,18 @@ int main() {
         return 0;
     }
     String app = Path::name(a[0]);
-    if (app == "jmanager" || (a.len > 1 && a[1] == "ui")) && Sys::isatty(0) == 0 { return run_screen(); }
+    bool want_screen = app == "jmanager" || (a.len > 1 && a[1] == "ui");
+    bool text_only = a.len > 1 && (a[1] == "-t" || a[1] == "--tui");
+    bool in_app = false;
+    switch Env::get("JARIC") {
+        Option::Some(jv): { if jv.len > 0 { in_app = true; } }
+        Option::None: { }
+    }
+    if want_screen && in_app && !text_only && Sys::isatty(0) == 0 {                     // in the Jaric app the task manager is a window (jmanager -t keeps the screen of text)
+        cout << "\e]7777;tasks;open\a";
+        return 0;
+    }
+    if (want_screen || text_only) && Sys::isatty(0) == 0 { return run_screen(); }
     if app == "jmanager" && a.len < 2 { cerr << "jmanager: the screen needs a terminal (jamanager ps gives a list)\n"; return 1; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
         cout << "jamanager: the task manager of Jaric\n";

@@ -14,6 +14,8 @@ jamanager cache            the size of ~/.cache, ~/.j2k and the folder for tempo
 ```
 Later (the plan of Jaric OS): the background programs and the sessions, the cache of the drives (`jamanager cache clear`), the drives of Jaric (`:/f`) and the tool for them.
 
+In the Jaric app `jmanager` opens a **window** (the same tabs; touch a program to stop it); `jmanager -t` is the screen of text.
+
 ## Install
 ```
 jc install jamanager                                                  # with jget
