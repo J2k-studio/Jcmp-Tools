@@ -6,6 +6,7 @@
 //   jc run ID|FILE.jc [args]     run an installed program (or a package that is not installed: it is installed first, asking once)
 //   jc list                      the installed programs with their version and the permissions they have
 //   jc perm ID [NAME on|off]     show or change the permissions of a program
+//   jc pkg install NAME | remove NAME | list | search [WORD]   the packages of Jcmp-pkg (programs built for Jaric: git, clang ...)
 //   jc remove ID                 delete a program (its folder under apps/)
 // A .jc is a zip file: manifest.toml (name, id, version, type, entry, permissions = ["files", "network", ...]), the program (entry) and assets/.
 // A program started by jc finds JC_ASSETS (its assets folder), JC_HOME (its own folder) and JC_PERMS (the permissions it has, with commas):
@@ -15,8 +16,9 @@
 #import "zipcore"
 #import "core"
 #import "manage"
+#import "pkg"
 
-String jc_version() { return "0.3.1"; }
+String jc_version() { return "0.4.0"; }
 
 int fail(String msg) {
     cerr << "jc: " << msg << "\n";
@@ -315,6 +317,7 @@ int main() {
         cout << "  jc install NAME (a tool of Jcmp-Tools) | install STORE.ID (jstore) | unstall NAME (remove a tool) | update [-n] (jsh and the tools and programs that have an update)\n";
         return 0;
     }
+    if a[1] == "pkg" { return cmd_pkg(a); }                    // the packages of Jcmp-pkg (git, clang, python ...)
     if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
     if a[1] == "update" || a[1] == "upgrade" {                 // jsh and every installed tool with a newer version, then the programs of the store
         String[] w = arr(a.len + 2);

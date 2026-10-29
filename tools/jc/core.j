@@ -276,12 +276,16 @@ bool untar(String path, String dir) {
     return untar_plain(path, dir);
 }
 
+String tar_names;                                                   // the names that untar_plain put in place, one per line (when tar_record)
+bool tar_record;
+
 bool untar_plain(String path, String dir) {
     int fd = Sys::open_read(path.c());
     if fd < 0 { err("jget: cannot read " + path + "\n"); return false; }
     char h[512];
     char blk[4096];
     bool ok = true;
+    String longname = "";                                           // from a GNU long name entry (L), used by the next entry
     while ok {
         if !read_exact(fd, @h, 512) { break; }
         if h[0] == 0 { break; }
@@ -294,10 +298,27 @@ bool untar_plain(String path, String dir) {
         if prefix.len > 0 { name = prefix + "/" + name; }
         int size = tar_number(@h + 124, 12);
         int kind = h[156] & 255;
+        if kind == 'L' || kind == 'K' {                              // GNU long name / long link target: the text is in the data
+            String text = "";
+            int tleft = size;
+            while tleft > 0 && ok {
+                int n = tleft;
+                if n > 4096 { n = 4096; }
+                if !read_exact(fd, @blk, n) { ok = false; break; }
+                for i in 0..n { if blk[i] != 0 { text.push(blk[i]); } }
+                tleft -= n;
+            }
+            int tpad = (512 - size % 512) % 512;
+            if tpad > 0 && ok { if !read_exact(fd, @blk, tpad) { ok = false; } }
+            if kind == 'L' { longname = text; }
+            continue;
+        }
+        if longname.len > 0 { name = longname; longname = ""; }
         bool bad = name.len == 0 || name[0] == '/';
         for i in 0..name.len { if name[i] == '.' && i + 1 < name.len && name[i + 1] == '.' { bad = true; } }
         if bad { err("jget: a file name in the tar is not allowed: " + name + "\n"); ok = false; break; }
         String full = dir + "/" + name;
+        if tar_record && kind != '5' { tar_names += name + "\n"; }
         if kind == '5' || name[name.len - 1] == '/' {
             if !make_dir(full) { ok = false; }
         } else if kind == '0' || kind == 0 {
@@ -319,6 +340,23 @@ bool untar_plain(String path, String dir) {
             if (mode & 64) != 0 { Sys::chmod(full.c(), 493); }          // the x bit of the tar: a program stays a program (0755)
             int pad = (512 - size % 512) % 512;
             if pad > 0 && ok { if !read_exact(fd, @blk, pad) { ok = false; } }
+        } else if kind == '2' || kind == '1' {                       // a symbolic link, a hard link
+            String target = "";
+            for i in 157..257 { if h[i] != 0 { target.push(h[i]); } else { break; } }
+            int slash2 = 0 - 1;
+            for i in 0..full.len { if full[i] == '/' { slash2 = i; } }
+            if slash2 > 0 { make_dir(full.slice(0, slash2)); }
+            Sys::unlink(full.c());
+            int lr = 0;
+            if kind == '2' {
+                if target.len == 0 || target[0] == '/' { err("jget: a link in the tar is not allowed: " + name + "\n"); ok = false; break; }
+                lr = Sys::call(36, (int)target.c(), -100, (int)full.c(), 0, 0, 0);
+            } else {
+                String from = dir + "/" + target;
+                lr = Sys::call(37, -100, (int)from.c(), -100, (int)full.c(), 0, 0);
+                if lr < 0 && install_file(from, full) { lr = 0; }          // a system that refuses hard links (Android): a copy
+            }
+            if lr < 0 { err("jget: cannot make the link " + full + ": " + Error::reason(lr) + "\n"); ok = false; break; }
         } else {
             int skip = (size + 511) / 512 * 512;                    // another kind of entry (a link ...): skipped
             while skip > 0 {

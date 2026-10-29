@@ -5,6 +5,7 @@ A `.jc` is one file that is a whole program: a zip with `manifest.toml` (name, i
 ```
 jc tools                         the tools of Jcmp-Tools
 jc lib list|installed|install NAME|unstall NAME     the libraries of J2K
+jc pkg install|remove|list|search   the packages of Jcmp-pkg (git, clang, python ...), built for Jaric
 jc info game.jc                  name, id, version, the permissions it asks for
 jc install NAME                  a tool of Jcmp-Tools (jc install NAME);  jc install STORE.ID: a store program
 jc unstall NAME                  remove a tool

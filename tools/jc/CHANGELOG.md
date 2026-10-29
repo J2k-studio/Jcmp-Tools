@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.4.0
+* **Added:** `jc pkg install NAME | remove NAME | list | search [WORD]`: the packages of Jcmp-pkg (programs built for the prefix of Jaric: git, clang, python ...). It reads `index.json`, installs the dependencies first, checks the SHA-256, unpacks the `.tar.gz` into the folder that holds `usr/` and keeps a list of the files so `remove` can take them away. The tar reader now makes symbolic links and hard links (a copy where the system refuses hard links) and understands GNU long names. An absolute link target is refused. `JC_PKG_INDEX` and `JC_PKG_ROOT` choose another index and folder.
+* **Fixed:** none.
+
 ## 0.3.1
 * **Added:** `jc install jamanager` makes the link `jmanager` next to it (the screen of the task manager), as it does for jbox, zipj and tarj.
 * **Fixed:** none.

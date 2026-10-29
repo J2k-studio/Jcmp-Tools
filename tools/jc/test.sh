@@ -22,7 +22,7 @@ make('noentry.jc', 'name = "X"\nid = "x.one"\nversion = "1"\nentry = "missing"\n
 make('evil.jc', 'name = "Evil"\nid = "evil.one"\nversion = "1"\nentry = "hello"\npermissions = []\n', {'../escape.txt': 'x'})
 open(t + '/notzip.jc', 'w').write('this is not a zip')
 PY
-[ "$("$J" --version)" = "jc 0.3.1" ] || { echo "jc test: version"; exit 1; }
+[ "$("$J" --version)" = "jc 0.4.0" ] || { echo "jc test: version"; exit 1; }
 "$J" info "$T/game.jc" | grep -q "permissions:  files,audio" || { echo "jc test: info"; exit 1; }
 "$J" info "$T/notzip.jc" > /dev/null 2>&1 && { echo "jc test: a file that is not a zip must fail"; exit 1; }
 "$J" install "$T/game.jc" > /dev/null 2>&1 && { echo "jc test: permissions without a terminal and without -y must be refused"; exit 1; }
@@ -56,3 +56,45 @@ FAKELOG="$T/fake.log"; export FAKELOG; : > "$FAKELOG"
 PATH="$T/fb:$PATH" "$J" install store.hello
 [ "$(cat "$FAKELOG")" = "jstore install store.hello" ] || { echo "jc test: a program of the store goes to jstore:"; cat "$FAKELOG"; exit 1; }
 echo "jc tests: ok"
+
+# jc pkg: packages of Jcmp-pkg (a .tar.gz of usr/ with links, an index.json with a dependency), install, list, search, remove, bad checksum
+python3 - "$T" <<'PY'
+import sys, io, tarfile, hashlib, json, os
+t = sys.argv[1]
+def pack(name, files, links=(), hard=()):
+    p = t + '/' + name + '-1-aarch64.tar.gz'
+    with tarfile.open(p, 'w:gz', format=tarfile.GNU_FORMAT) as z:
+        d = tarfile.TarInfo('usr'); d.type = tarfile.DIRTYPE; d.mode = 0o755; z.addfile(d)
+        for n, data, mode in files:
+            i = tarfile.TarInfo(n); i.size = len(data); i.mode = mode; z.addfile(i, io.BytesIO(data))
+        for n, target in links:
+            i = tarfile.TarInfo(n); i.type = tarfile.SYMTYPE; i.linkname = target; z.addfile(i)
+        for n, target in hard:
+            i = tarfile.TarInfo(n); i.type = tarfile.LNKTYPE; i.linkname = target; z.addfile(i)
+    return p, hashlib.sha256(open(p, 'rb').read()).hexdigest()
+longdir = 'usr/share/' + 'x' * 120 + '/file.txt'
+pa, sa = pack('alpha', [('usr/bin/alpha', b'#!/bin/sh\necho alpha\n', 0o755), ('usr/lib/libalpha.so.1', b'lib', 0o644), (longdir, b'long', 0o644)],
+              links=[('usr/lib/libalpha.so', 'libalpha.so.1')], hard=[('usr/bin/alpha2', 'usr/bin/alpha')])
+pb, sb = pack('beta', [('usr/bin/beta', b'#!/bin/sh\necho beta\n', 0o755)])
+pe, se = pack('evil', [('usr/bin/evil', b'x', 0o755)], links=[('usr/lib/abs', '/etc')])
+idx = [{'name': 'alpha', 'version': '1', 'url': 'file://' + pa, 'sha256': sa, 'depends': ['beta']},
+       {'name': 'beta', 'version': '1', 'url': 'file://' + pb, 'sha256': sb, 'depends': []},
+       {'name': 'bad', 'version': '1', 'url': 'file://' + pb, 'sha256': '0' * 64, 'depends': []},
+       {'name': 'evil', 'version': '1', 'url': 'file://' + pe, 'sha256': se, 'depends': []}]
+json.dump(idx, open(t + '/index.json', 'w'))
+PY
+export JC_PKG_INDEX="$T/index.json" JC_PKG_ROOT="$T/pkgroot"
+"$J" pkg search | grep -q "^alpha  1" || { echo "jc test: pkg search"; exit 1; }
+"$J" pkg install alpha > /dev/null || { echo "jc test: pkg install"; exit 1; }
+[ "$("$T/pkgroot/usr/bin/alpha")" = "alpha" ] && [ "$("$T/pkgroot/usr/bin/beta")" = "beta" ] || { echo "jc test: pkg files and dependency"; exit 1; }
+[ "$("$T/pkgroot/usr/bin/alpha2")" = "alpha" ] || { echo "jc test: pkg hard link"; exit 1; }
+[ -L "$T/pkgroot/usr/lib/libalpha.so" ] && [ "$(cat "$T/pkgroot/usr/lib/libalpha.so")" = "lib" ] || { echo "jc test: pkg symbolic link"; exit 1; }
+[ "$(cat "$T"/pkgroot/usr/share/xxxxxxxxxx*/file.txt)" = "long" ] || { echo "jc test: pkg long name"; exit 1; }
+"$J" pkg list > "$T/plist"; grep -q "^alpha  1" "$T/plist" && grep -q "^beta  1" "$T/plist" || { echo "jc test: pkg list"; cat "$T/plist"; exit 1; }
+"$J" pkg remove alpha > /dev/null || { echo "jc test: pkg remove"; exit 1; }
+[ ! -e "$T/pkgroot/usr/bin/alpha" ] && [ ! -L "$T/pkgroot/usr/lib/libalpha.so" ] && [ -e "$T/pkgroot/usr/bin/beta" ] || { echo "jc test: pkg remove leaves the others"; exit 1; }
+"$J" pkg install bad > /dev/null 2>&1 && { echo "jc test: a wrong checksum must be refused"; exit 1; }
+[ ! -e "$T/pkgroot/usr/var/lib/jcpkg/bad.list" ] || { echo "jc test: bad package was recorded"; exit 1; }
+"$J" pkg install evil > /dev/null 2>&1 && { echo "jc test: an absolute link must be refused"; exit 1; }
+"$J" pkg install nothing > /dev/null 2>&1 && { echo "jc test: an unknown package must fail"; exit 1; }
+unset JC_PKG_INDEX JC_PKG_ROOT
