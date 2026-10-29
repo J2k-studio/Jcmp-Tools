@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.1"; }
+String jsh_version() { return "0.12.2"; }
 String[] history;
 int last_status;
 int running;
@@ -3046,7 +3046,7 @@ void cover() {
     String e = esc();
     String amber = e + "[38;2;255;176;0m";
     String line1 = "   J A R I C";
-    String line2 = "   shell  jsh " + jsh_version();
+    String line2 = "   terminal and toolbox";
     while line1.len < 24 { line1 += " "; }
     while line2.len < 24 { line2 += " "; }
     String bar = "";
@@ -3055,6 +3055,9 @@ void cover() {
     cout << amber << "  │" << e << "[1;97m" << line1 << e << "[0m" << amber << "│" << e << "[0m\n";
     cout << amber << "  │" << e << "[0;37m" << line2 << e << "[0m" << amber << "│" << e << "[0m\n";
     cout << amber << "  ╰" << bar << "╯" << e << "[0m\n\n";
+    cout << e << "[0;37m  for your phone, made in J2K" << e << "[0m\n";
+    cout << e << "[2m  by J2k-studio · github.com/J2k-studio/Jcmp" << e << "[0m\n";
+    cout << e << "[2m  shell jsh " << jsh_version() << e << "[0m\n\n";
     cout << e << "[1m  Start here" << e << "[0m\n";
     cout << "  " << e << "[96mjc install X" << e << "[0m   get a tool\n";
     cout << "  " << e << "[96mcam" << e << "[0m            camera and QR\n";

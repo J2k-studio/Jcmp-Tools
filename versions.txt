@@ -11,11 +11,11 @@ jbox 0.10.0
 jc 0.3.1
 jcmp 1.2.4.0
 jearlink 0.1.0
-jfile 0.2.0
+jfile 0.3.0
 jget 1.0.0
 jgit 0.4.0
 jpty 0.1.1
-jsh 0.12.1
+jsh 0.12.2
 jstore 0.2.0
 jvp4 0.1.0
 makej 0.10.1

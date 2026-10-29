@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.2
+* **Added:** the cover says what Jaric is, who made it and where the code is (github.com/J2k-studio/Jcmp); the themes `devc` and `temple` are listed by `jaric theme`.
+* **Fixed:** none.
+
 ## 0.12.1
 * **Added:** a cover on the first screen (name, version, where to start, a tip that changes every day); the file `~/.jsh_quiet` makes it one line again.
 * **Fixed:** none.

@@ -4,7 +4,7 @@
 #import <png>
 using stdlib;
 #import "jpeg"
-// jfile 0.2.0 -- the files of the phone in a terminal: Downloads, Pictures, Documents ... look, open, copy, move, delete.   (license: MPL-2.0)
+// jfile 0.3.0 -- the files of the phone in a terminal: Downloads, Pictures, Documents ... look, open, copy, move, delete.   (license: MPL-2.0)
 //   jfile [FOLDER]            the places (Home, Downloads, Pictures, Camera, Documents, Music, Movies, all the storage u:/) or a folder
 //   jfile ls [FOLDER]         the list as text (for scripts)         jfile places
 //   jfile cp SRC DST          copy a file or a folder               jfile mv SRC DST          move or rename
@@ -786,7 +786,7 @@ int run_ui(String start) {
 int fail(String m) { cerr << "jfile: " << m << "\n"; return 1; }
 
 void usage() {
-    cout << "jfile 0.2.0: the files of the phone in a terminal\n";
+    cout << "jfile 0.3.0: the files of the phone in a terminal\n";
     cout << "  jfile [FOLDER]        the screen of places and folders (keys: ? is the last line)\n";
     cout << "  jfile ls [FOLDER]     a list as text      jfile places\n";
     cout << "  jfile cp SRC DST      jfile mv SRC DST    jfile rm PATH      jfile mkdir PATH\n";
@@ -796,7 +796,7 @@ int main() {
     String[] a = Env::args();
     g_msg = ""; g_filter = ""; g_cwd = "/"; g_app = "";
     g_clip = arr(2); g_ents = arr(2);
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "jfile 0.2.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "jfile 0.3.0\n"; return 0; }
     if a.len >= 2 && (a[1] == "help" || a[1] == "--help" || a[1] == "-h") { usage(); return 0; }
     String cmd = "";
     if a.len >= 2 { cmd = a[1]; }
@@ -842,7 +842,18 @@ int main() {
     }
     if Sys::isatty(0) != 0 { return fail("the screen of jfile needs a terminal (jfile ls PATH gives a list)"); }
     String start = "";
+    bool tui = false;
+    if cmd == "-t" || cmd == "--tui" { tui = true; cmd = ""; if a.len >= 3 { cmd = a[2] + ""; } }
     if cmd.len > 0 { start = cmd + ""; }
+    bool in_app = false;
+    switch Env::get("JARIC") {
+        Option::Some(j): { if j.len > 0 { in_app = true; } }
+        Option::None: { }
+    }
+    if in_app && !tui {                                                    // in the Jaric app the files are a window (jfile -t keeps this screen)
+        cout << "\e]7777;files;open;" << start << "\a";
+        return 0;
+    }
     return run_ui(start);
 }
 
