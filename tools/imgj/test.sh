@@ -89,4 +89,16 @@ from PIL import Image
 p=Image.open('n.png').convert('RGB').getpixel((20,20)); assert p==(128,128,255), p" || { echo "imgj test: a flat picture has the normal (128,128,255)"; exit 1; }
 "$I" credit data/art/x.png --source "Example" --license CC0 --file CREDITS.md > /dev/null || { echo "imgj test: credit"; exit 1; }
 grep -q 'x.png.*Example.*CC0' CREDITS.md || { echo "imgj test: the line of credit"; exit 1; }
+# a QR code in a picture (JPEG and PNG), and a picture without one
+python3 -I - <<'PY' || { echo "imgj test: Python needs the qrcode module for the test of scan (pip install qrcode)"; exit 1; }
+import qrcode
+from PIL import Image
+q = qrcode.QRCode(box_size=6, border=4); q.add_data('otpauth://totp/Test:me?secret=JBSWY3DPEHPK3PXP&issuer=Test'); q.make(fit=True)
+im = q.make_image(fill_color='black', back_color='white').convert('RGB')
+im.save('qr.png'); im.save('qr.jpg', quality=80, subsampling=2); im.rotate(20, expand=True, fillcolor=(255, 255, 255)).save('qr_rot.jpg', quality=75)
+PY
+for f in qr.png qr.jpg qr_rot.jpg; do
+    [ "$("$I" scan $f)" = "otpauth://totp/Test:me?secret=JBSWY3DPEHPK3PXP&issuer=Test" ] || { echo "imgj test: scan $f"; exit 1; }
+done
+if "$I" scan flat.png > /dev/null 2>&1; then echo "imgj test: a picture without a code must fail"; exit 1; fi
 echo "imgj tests passed"

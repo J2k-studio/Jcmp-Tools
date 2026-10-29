@@ -14,6 +14,7 @@ imgj scale rocket.png small.png --width 64             also --height N and --fac
 imgj meter rocket.png ship.png --height-m 110.6 --ppm 8   the object is 110.6 m tall at 8 pixels for a metre (the width follows)
 imgj slice rocket.png stage --at 0.25,0.6              stage_1.png (top 25 %), stage_2.png, stage_3.png: parts to put together in the game
 imgj normal ship.png ship_n.png [--strength 2.0]       a normal map made from the light and the dark of the picture
+imgj scan photo.jpg                                    the text of a QR code in a picture (exit 1 when there is none)
 imgj credit data/art/ship.png --source "NASA Image Library" --license "public domain" [--file CREDITS.md]
                                                        adds one line to the table of credits (do it for every picture you take)
 ```

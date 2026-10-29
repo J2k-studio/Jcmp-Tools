@@ -1,10 +1,15 @@
 #import <stdlib>
 #import <files>
 #import <crypto>
+#import <deflate>
+#import <png>
 using stdlib;
-// authj 0.2.0 -- one-time codes for two-step logins (TOTP, RFC 6238: the codes of Google Authenticator, GitHub, GitLab ...).   (license: MPL-2.0)
+#import "jpeg"
+#import "qr"
+// authj 0.3.0 -- one-time codes for two-step logins (TOTP, RFC 6238: the codes of Google Authenticator, GitHub, GitLab ...).   (license: MPL-2.0)
 //   authj add NAME SECRET [--digits 6] [--period 30] [--algo sha1]    keep an account (SECRET is the base32 text the site shows)
 //   authj add-uri 'otpauth://totp/GitHub:me?secret=ABC...&issuer=GitHub'   the same from the text of a QR code
+//   authj scan PICTURE                                                 reads the QR code of a picture (PNG or JPEG) and keeps the account
 //   authj code [NAME]                                                  the code now, and the seconds it lasts (no NAME: all accounts)
 //   authj list      authj remove NAME      authj now SECRET            a code without keeping the secret
 //   authj passwd                                                       set, change or remove the passphrase that locks the file
@@ -333,9 +338,10 @@ void show(Account ac, int now_s) {
 }
 
 void usage() {
-    cout << "authj 0.2.0: one-time codes for two-step logins (TOTP)\n";
+    cout << "authj 0.3.0: one-time codes for two-step logins (TOTP)\n";
     cout << "  authj add NAME SECRET [--digits 6] [--period 30] [--algo sha1|sha256|sha512]\n";
     cout << "  authj code NAME --raw                   only the digits (for scripts and other programs); AUTHJ_PASS opens a locked vault without asking\n";
+    cout << "  authj scan PICTURE                      reads the QR code in a PNG or JPEG picture and keeps the account\n";
     cout << "  authj add-uri 'otpauth://totp/...'      authj code [NAME]      authj list      authj remove NAME\n";
     cout << "  authj now SECRET                        a code without keeping the secret\n";
     cout << "  authj passwd                            set, change or remove the passphrase (empty = no lock)\n";
@@ -344,7 +350,7 @@ void usage() {
 
 int main() {
     String[] a = Env::args();
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "authj 0.2.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "authj 0.3.0\n"; return 0; }
     if a.len < 2 || a[1] == "help" || a[1] == "--help" || a[1] == "-h" { usage(); return 0; }
     String cmd = a[1];
     g_pass = "";
@@ -360,6 +366,27 @@ int main() {
         ac.name = "now"; ac.secret = a[2] + ""; ac.digits = opt_int(a, "--digits", 6); ac.period = opt_int(a, "--period", 30); ac.algo = opt(a, "--algo", "sha1");
         show(ac, now_s);
         return 0;
+    }
+    if cmd == "scan" {
+        if a.len < 3 { usage(); return 1; }
+        Result<String, Error> rd = Fs::read_bytes(a[2]);
+        if rd.is_err() { cerr << "authj: cannot read " << a[2] << "\n"; return 1; }
+        String bytes = rd.take();
+        bool pok = false;
+        Image im;
+        im.w = 0; im.h = 0; im.px = "";
+        if bytes.len > 4 && (bytes[0] & 255) == 255 && (bytes[1] & 255) == 216 { im = Jpeg::decode(bytes, @pok); if !pok { cerr << "authj: " << Jpeg::error() << "\n"; return 1; } }
+        else { im = Png::decode(bytes, @pok); if !pok { cerr << "authj: " << a[2] << " is not a PNG or JPEG picture\n"; return 1; } }
+        bool good = false;
+        String text = Qr::scan(im.px, im.w, im.h, @good);
+        if !good { cerr << "authj: no QR code read in " << a[2] << " (" << Qr::error() << ")\n"; return 1; }
+        String head = "";
+        if text.len >= 10 { head = text.slice(0, 10); }
+        if head != "otpauth://" { cerr << "authj: the QR code is not an otpauth:// code of a two-step login\n"; return 1; }
+        String[] na = arr(4);
+        na.push(a[0] + ""); na.push("add-uri"); na.push(text);
+        a = na;
+        cmd = "add-uri";
     }
     bool ok = true;
     Account[] accts = load_accounts(@ok);

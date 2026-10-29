@@ -65,4 +65,18 @@ AUTHJ_PASS="" "$A" passwd > /dev/null 2>&1 || true
 # for other programs: --raw gives only the digits
 [ "$(AUTHJ_PASS=secret1 AUTHJ_NOW=59 "$A" code github --raw)" = "287082" ] || { echo "authj test: --raw"; exit 1; }
 [ "$(AUTHJ_PASS=secret1 AUTHJ_NOW=59 "$A" github --raw)" = "287082" ] || { echo "authj test: --raw with the short way"; exit 1; }
+# a picture of the QR code of a site: scan keeps the account (the code is the same as from the secret)
+python3 -I - <<'PY' || { echo "authj test: Python needs the qrcode module for the test of scan (pip install qrcode)"; exit 1; }
+import qrcode
+q = qrcode.QRCode(box_size=6, border=4); q.add_data('otpauth://totp/Site:me?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ&issuer=Site'); q.make(fit=True)
+im = q.make_image(fill_color='black', back_color='white').convert('RGB')
+im.save('qr.png'); im.save('qr.jpg', quality=70, subsampling=2)
+q2 = qrcode.QRCode(box_size=6, border=4); q2.add_data('just some text'); q2.make(fit=True)
+q2.make_image(fill_color='black', back_color='white').save('text.png')
+PY
+export AUTHJ_DIR="$T/vault2"
+"$A" scan qr.jpg > /dev/null || { echo "authj test: scan of a JPEG"; exit 1; }
+[ "$(AUTHJ_NOW=59 "$A" code Site:me --raw)" = "287082" ] || { echo "authj test: the code of the scanned account"; exit 1; }
+"$A" scan qr.png > /dev/null || { echo "authj test: scan of a PNG"; exit 1; }
+if "$A" scan text.png > /dev/null 2>&1; then echo "authj test: a QR code that is not otpauth must be refused"; exit 1; fi
 echo "authj tests passed"

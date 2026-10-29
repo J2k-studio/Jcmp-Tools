@@ -4,7 +4,8 @@
 #import <png>
 using stdlib;
 #import "jpeg"
-// imgj 0.1.0 -- prepares real pictures (photos, drawings) for a game: reads PNG and JPEG, writes PNG.   (license: MPL-2.0)
+#import "qr"
+// imgj 0.2.0 -- prepares real pictures (photos, drawings) for a game: reads PNG and JPEG, writes PNG.   (license: MPL-2.0)
 //   imgj info FILE                                   size and kind of a picture
 //   imgj convert IN OUT                              any picture to PNG
 //   imgj cut IN OUT [--tol 24] [--bg RRGGBB] [--pad 0] [--hard]
@@ -14,6 +15,7 @@ using stdlib;
 //   imgj meter IN OUT --height-m 110 [--ppm 8]       scales so that the object is height-m metres tall at ppm pixels for a metre
 //   imgj slice IN OUTPREFIX --at 0.25,0.6            cuts across at those heights (0 top .. 1 bottom): OUTPREFIX_1.png ...
 //   imgj normal IN OUT [--strength 2.0]              a normal map from the light and the dark of the picture (for lit metal in a shader)
+//   imgj scan FILE                                   reads the QR code in a picture and prints its text
 //   imgj credit FILE --source TEXT --license TEXT [--file CREDITS.md]   writes one line of the table of credits
 
 // ---------- reading and writing
@@ -301,19 +303,20 @@ Image normal_map(Image im, double strength) {
 }
 
 void usage() {
-    cout << "imgj 0.1.0: prepares pictures (photos, drawings) for a game; reads PNG and JPEG, writes PNG\n";
+    cout << "imgj 0.2.0: prepares pictures (photos, drawings) for a game; reads PNG and JPEG, writes PNG\n";
     cout << "  imgj info FILE\n  imgj convert IN OUT\n";
     cout << "  imgj cut IN OUT [--tol 24] [--bg RRGGBB] [--pad 0] [--hard]     the background goes see-through, the picture is trimmed\n";
     cout << "  imgj scale IN OUT (--width N | --height N | --factor F)\n";
     cout << "  imgj meter IN OUT --height-m 110 [--ppm 8]                      the object gets its real height in pixels\n";
     cout << "  imgj slice IN OUTPREFIX --at 0.25,0.6                           cuts across at those heights (0 top .. 1 bottom)\n";
     cout << "  imgj normal IN OUT [--strength 2.0]                             a normal map for shaders (lit metal)\n";
+    cout << "  imgj scan FILE                                                  the text of the QR code in a picture (exit 1 when there is none)\n";
     cout << "  imgj credit FILE --source TEXT --license TEXT [--file CREDITS.md]\n";
 }
 
 int main() {
     String[] a = Env::args();
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "imgj 0.1.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "imgj 0.2.0\n"; return 0; }
     if a.len < 2 || a[1] == "help" || a[1] == "--help" || a[1] == "-h" { usage(); return 0; }
     String cmd = a[1];
     if cmd == "credit" {
@@ -335,11 +338,19 @@ int main() {
         cout << a[2] << ": " << im.w << " x " << im.h << ", " << t << " dots see-through\n";
         return 0;
     }
-    if a.len < 4 { usage(); return 1; }
-    String outp = a[3];
+    if cmd != "scan" && a.len < 4 { usage(); return 1; }
+    String outp = "";
+    if a.len > 3 { outp = a[3]; }
     if cmd == "convert" {
         if !save_png(outp, im) { return 1; }
         cout << outp << " " << im.w << " x " << im.h << "\n";
+        return 0;
+    }
+    if cmd == "scan" {
+        bool good = false;
+        String text = Qr::scan(im.px, im.w, im.h, @good);
+        if !good { cerr << "imgj: " << a[2] << ": " << Qr::error() << "\n"; return 1; }
+        cout << text << "\n";
         return 0;
     }
     if cmd == "cut" {

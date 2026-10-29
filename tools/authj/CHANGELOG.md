@@ -1,5 +1,9 @@
 # authj changelog
 
+## 0.3.0
+* **Added:** `authj scan PICTURE`: reads the QR code of a site from a PNG or JPEG picture (a screenshot, a photo) and keeps the account; the library `qr` and a JPEG reader are in the program.
+* **Fixed:** none.
+
 ## 0.2.0
 * **Added:** `--raw`: only the digits of the code (one for each line), so that a script or another program can ask `authj code github --raw`; with `AUTHJ_PASS` a locked vault opens without a question.
 * **Fixed:** none.
