@@ -5,12 +5,13 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 M="$PWD/_out/mujic"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export MUJIC_DIR="$T/m"; mkdir -p "$MUJIC_DIR"
-[ "$("$M" --version)" = "mujic 0.6.0" ] || { echo "mujic test: version"; exit 1; }
+[ "$("$M" --version)" = "mujic 0.7.0" ] || { echo "mujic test: version"; exit 1; }
 "$M" list | grep -q "no songs" || { echo "mujic test: an empty folder"; exit 1; }
 "$M" catalog | grep -q "sneaky-snitch" || { echo "mujic test: catalog"; exit 1; }
 printf 'ID3' > "$MUJIC_DIR/Song One.mp3"; printf 'ID3' > "$MUJIC_DIR/Song Two.mp3"
 printf '[ar:Someone]\n[00:10.00]first line\n[00:20.50]We are no strangers\n[00:30.00][00:40.00]twice\n' > "$MUJIC_DIR/Song Two.lrc"
 "$M" list | grep -q "2. Song Two  \[lyrics, synced\]" || { echo "mujic test: list shows lyrics"; exit 1; }
+python3 bg_test.py "$M" "$MUJIC_DIR" > /dev/null || { echo "mujic test: the background play"; exit 1; }
 python3 ui_test.py "$M" "$MUJIC_DIR" || { echo "mujic test: the player screen"; exit 1; }
 # /scan (mujic scan): songs of at least N seconds from every place; the length from the header (wav, mp3), a guess from the size for the others (~); hidden folders are skipped
 S="$T/scan"; mkdir -p "$S/a/b" "$S/.hid"

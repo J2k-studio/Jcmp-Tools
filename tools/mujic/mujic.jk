@@ -136,6 +136,20 @@ String move_song(String what, String folder) {
 }
 
 // the song for a number, a name or a part of a name; -1 when none
+// the real path of a file (a name next to you, a path of the virtual root): "" when there is no such file
+String real_file(String name) {
+    int fd = Sys::open_read(name.c());
+    if fd < 0 { return ""; }
+    String link = "/proc/self/fd/" + str(fd);
+    char buf[4096];
+    int n = Sys::readlink(link.c(), (char^)@buf, 4095);
+    Sys::close(fd);
+    if n <= 0 { return ""; }
+    buf[n] = 0;
+    String r = (char^)@buf;
+    return r + "";
+}
+
 int find_song(String what) {
     if !g_files_ready { load_files(); }
     bool digits = what.len > 0;
@@ -1651,7 +1665,14 @@ int do_player(String start) {
     cmd_init();
     if start.len > 0 {
         int s = find_song(start);
-        if s < 0 { return fail("no song like '" + start + "' in " + music_dir()); }
+        if s < 0 {                                               // not in the list: a file of any folder (mujic play Blonde.mp3 where the file is)
+            String here = real_file(start);
+            if here.len > 0 && is_audio(here) {
+                g_files.push(here + "");
+                s = g_files.len - 1;
+            }
+        }
+        if s < 0 { return fail("no song like '" + start + "' in " + music_dir() + " (and no such file here)"); }
         g_sel = s;
     }
     raw_on();
@@ -1741,6 +1762,36 @@ int do_player(String start) {
     return 0;
 }
 
+// mujic play NAME -b  /  mujic bg NAME: the song plays in the background and the prompt is free (the Jaric app keeps it going with its notification)
+int do_background(String what) {
+    load_files();
+    choose_backend();
+    String full = "";
+    int s = find_song(what);
+    if s >= 0 { full = abs_of(g_files[s]); }
+    else {
+        String here = real_file(what);
+        if here.len > 0 && is_audio(here) { full = here + ""; }
+    }
+    if full.len == 0 { return fail("no song like '" + what + "' in " + music_dir() + " (and no such file here)"); }
+    snd_play(full);
+    if g_msg.len > 0 { return fail(g_msg); }
+    cout << "playing " << song_title(full) << " in the background";
+    if g_backend == 1 { cout << "   (mujic pause | resume | stop)"; }
+    cout << "\n";
+    return 0;
+}
+
+// mujic pause | resume | stop: the music that plays in the background (the Jaric app, or termux-media-player)
+int do_remote(String what) {
+    choose_backend();
+    if g_backend != 1 && g_backend != 2 { return fail("only the Jaric app (or termux-media-player) can be controlled from another prompt"); }
+    if what == "pause" { g_state = 1; snd_pause(); }
+    else if what == "resume" { g_state = 2; snd_pause(); }
+    else { snd_stop(); }
+    return 0;
+}
+
 int do_list() {
     load_files();
     if g_files.len == 0 { cout << "no songs in " << music_dir() << ".  mujic catalog shows free ones, mujic get NAME fetches.\n"; return 0; }
@@ -1803,7 +1854,7 @@ int do_remove_cli(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.6.0";
+    String VERSION = "0.7.0";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
@@ -1833,15 +1884,21 @@ int main() {
         if c == "get" { return do_get(args); }
         if c == "find" { return do_find(args); }
         if c == "lyrics" { return do_lyrics(args); }
+        if c == "pause" || c == "resume" || c == "stop" { return do_remote(c); }
+        if c == "bg" && args.len > 2 { return do_background(args[2]); }
         if c == "play" {
             String w = "";
             if args.len > 2 { w = args[2] + ""; }
+            bool bgmode = false;
+            for i in 2..args.len { if args[i] == "-b" || args[i] == "--background" { bgmode = true; } }
+            if bgmode && w.len > 0 && w != "-b" && w != "--background" { return do_background(w); }
             return do_player(w);
         }
         if c == "help" || c == "-h" || c == "--help" {
             cout << "mujic: a music player for the terminal (songs in " << music_dir() << ")\n";
             cout << "  mujic                 the player      mujic play NAME   start with a song\n";
             cout << "  mujic list            the songs       mujic catalog     free songs to fetch\n";
+            cout << "  mujic play NAME -b    play in the background (the prompt stays free)   mujic pause | resume | stop\n";
             cout << "  mujic get NAME|URL|archive:ID [-n NAME]   fetch a song      mujic find WORDS   search archive.org\n";
             cout << "  mujic lyrics NAME [-q WORDS]              fetch the lyrics (kept as NAME.lrc)\n";
             cout << "  keys in the player: up/down enter space n p < > l g v s q;  put your own .lrc/.txt next to a song\n";

@@ -4,7 +4,8 @@ Songs live in a folder (`~/music`, or `$MUJIC_DIR`). The player shows the list, 
 
 ```
 mujic                       the player
-mujic play "Song"           start with a song (a number or a part of the name)
+mujic play "Song"           start with a song (a number, a part of the name, or a file of any folder: mujic play Blonde.mp3)
+mujic play Song -b          play in the background: the prompt is free; then  mujic pause | resume | stop  (Jaric app)
 mujic list                  the songs (a mark when lyrics are next to them)
 mujic catalog               free songs (Kevin MacLeod, CC BY 4.0) ;  mujic get sneaky-snitch
 mujic get URL [-n NAME]     fetch a song from an address ;  mujic get archive:ID  from the Internet Archive
