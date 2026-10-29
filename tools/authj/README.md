@@ -11,11 +11,12 @@ authj code                               the codes of all accounts
 authj github                             a short way (a part of the name is enough)
 authj list                               the accounts and their settings
 authj remove github
+authj code github --raw                 only the digits (for scripts and other programs: CODE=$(authj code github --raw))
 authj now JBSWY3DPEHPK3PXP               a code at once, nothing is kept
 authj passwd                             set, change or remove the passphrase of the file (empty = no lock)
 options of add / now:  --digits 6..10   --period 30   --algo sha1|sha256|sha512
 ```
-* The accounts are in `~/.authj/vault` (mode 600; `AUTHJ_DIR` changes the folder). **Lock it with `authj passwd`**: then the whole file is locked with a key from the passphrase (PBKDF2-HMAC-SHA256, 50 000 rounds; HMAC-SHA256 in counter mode as the cipher; an HMAC over everything, so a wrong passphrase or a changed file is refused). The passphrase is asked without an echo, or comes from `AUTHJ_PASS`.
+* The accounts are in `~/.authj/vault` (mode 600; `AUTHJ_DIR` changes the folder). **Lock it with `authj passwd`**: then the whole file is locked with a key from the passphrase (PBKDF2-HMAC-SHA256, 50 000 rounds; HMAC-SHA256 in counter mode as the cipher; an HMAC over everything, so a wrong passphrase or a changed file is refused). The passphrase is asked without an echo, or comes from `AUTHJ_PASS` (so that a script you trust can use a locked vault; any program that can read your environment can then read it too).
 * The codes are the same as the apps give for the same secret (checked with the whole table of RFC 6238 for SHA-1, SHA-256 and SHA-512, and against Python for other secrets). The clock of the device must be right.
 * It is **not** a hardware key: anyone who can read the vault and knows the passphrase (or runs the program while you are logged in) can make your codes. Keep recovery codes of your sites in a safe place.
 * A QR picture is not read: type the secret (the sites show it as text, "can't scan the code?") or paste the `otpauth://` text.

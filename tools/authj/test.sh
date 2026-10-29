@@ -62,4 +62,7 @@ cp "$T/vault/vault.bak" "$T/vault/vault"
 AUTHJ_PASS=secret1 "$A" add more JBSWY3DPEHPK3PXP > /dev/null || { echo "authj test: add to a locked vault"; exit 1; }
 head -c 6 "$T/vault/vault" | grep -q AUTHJ1 || { echo "authj test: still locked after add"; exit 1; }
 AUTHJ_PASS="" "$A" passwd > /dev/null 2>&1 || true
+# for other programs: --raw gives only the digits
+[ "$(AUTHJ_PASS=secret1 AUTHJ_NOW=59 "$A" code github --raw)" = "287082" ] || { echo "authj test: --raw"; exit 1; }
+[ "$(AUTHJ_PASS=secret1 AUTHJ_NOW=59 "$A" github --raw)" = "287082" ] || { echo "authj test: --raw with the short way"; exit 1; }
 echo "authj tests passed"

@@ -2,7 +2,7 @@
 #import <files>
 #import <crypto>
 using stdlib;
-// authj 0.1.0 -- one-time codes for two-step logins (TOTP, RFC 6238: the codes of Google Authenticator, GitHub, GitLab ...).   (license: MPL-2.0)
+// authj 0.2.0 -- one-time codes for two-step logins (TOTP, RFC 6238: the codes of Google Authenticator, GitHub, GitLab ...).   (license: MPL-2.0)
 //   authj add NAME SECRET [--digits 6] [--period 30] [--algo sha1]    keep an account (SECRET is the base32 text the site shows)
 //   authj add-uri 'otpauth://totp/GitHub:me?secret=ABC...&issuer=GitHub'   the same from the text of a QR code
 //   authj code [NAME]                                                  the code now, and the seconds it lasts (no NAME: all accounts)
@@ -321,17 +321,21 @@ String url_decode(String s) {
     return r;
 }
 
+bool g_raw = false;               // --raw: only the digits of the code, one for each line (for scripts and other programs)
+
 void show(Account ac, int now_s) {
     String key = base32_decode(ac.secret);
     int ctr = now_s / ac.period;
     String code = hotp(key, ctr, ac.digits, algo_of(ac.algo));
     int left = ac.period - now_s % ac.period;
+    if g_raw { cout << code << "\n"; return; }
     cout << code << "  " << left << "s  " << ac.name << "\n";
 }
 
 void usage() {
-    cout << "authj 0.1.0: one-time codes for two-step logins (TOTP)\n";
+    cout << "authj 0.2.0: one-time codes for two-step logins (TOTP)\n";
     cout << "  authj add NAME SECRET [--digits 6] [--period 30] [--algo sha1|sha256|sha512]\n";
+    cout << "  authj code NAME --raw                   only the digits (for scripts and other programs); AUTHJ_PASS opens a locked vault without asking\n";
     cout << "  authj add-uri 'otpauth://totp/...'      authj code [NAME]      authj list      authj remove NAME\n";
     cout << "  authj now SECRET                        a code without keeping the secret\n";
     cout << "  authj passwd                            set, change or remove the passphrase (empty = no lock)\n";
@@ -340,10 +344,11 @@ void usage() {
 
 int main() {
     String[] a = Env::args();
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "authj 0.1.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "authj 0.2.0\n"; return 0; }
     if a.len < 2 || a[1] == "help" || a[1] == "--help" || a[1] == "-h" { usage(); return 0; }
     String cmd = a[1];
     g_pass = "";
+    for i in 0..a.len { if a[i] == "--raw" { g_raw = true; } }
     int now_s = Time::now_ms() / 1000;
     Option<String> forced = Env::get("AUTHJ_NOW");                  // a fixed time (for tests)
     if forced.is_some() { String fs = forced.unwrap(); now_s = fs.to_int(); }
@@ -365,9 +370,9 @@ int main() {
         if accts.len == 0 { cout << "no accounts yet: authj add NAME SECRET\n"; }
         return 0;
     }
-    if cmd == "code" || (cmd != "add" && cmd != "add-uri" && cmd != "remove" && cmd != "passwd" && a.len == 2) {
+    if cmd == "code" || (cmd != "add" && cmd != "add-uri" && cmd != "remove" && cmd != "passwd" && cmd != "--raw" && a.len <= 3 && (a.len == 2 || a[2] == "--raw")) {
         String want = "";
-        if cmd == "code" { if a.len > 2 { want = a[2]; } } else { want = cmd; }
+        if cmd == "code" { if a.len > 2 && a[2] != "--raw" { want = a[2]; } } else { want = cmd; }
         bool any = false;
         bool exact = false;
         for i in 0..accts.len { if accts[i].name == want { exact = true; } }
