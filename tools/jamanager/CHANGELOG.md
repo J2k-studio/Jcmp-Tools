@@ -1,5 +1,8 @@
 # jamanager changelog
 
+## 0.2.1
+* **Fixed:** the tab of the caches measures at most 1500 entries of a folder (a big folder of temporary files made the screen wait); the test waits for the tab.
+
 ## 0.2.0
 * **Added:** `jmanager`, a screen like the Task Manager: tabs Programs (cpu in percent, memory, sort by cpu / memory / pid / name, find, stop with `k` and `K`, pause), Memory (bars, the biggest programs), Drives (bars), Caches (measure, empty one); the other name `jmanager` is a link that the installer makes (`jamanager --install DIR`); `jamanager ui` opens the screen too.
 * **Fixed:** none.

@@ -10,7 +10,7 @@
 //   jmanager                 (the same program under its other name) the screen: tabs Programs, Memory, Drives, Caches; CPU in percent; stop a program with k
 #import <stdlib>
 
-String jam_version() { return "0.2.0"; }
+String jam_version() { return "0.2.1"; }
 
 int fail(String msg) {
     cerr << "jamanager: " << msg << "\n";
