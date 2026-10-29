@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.3
+* **Added:** `jaric about` opens the window about Jaric and its maker (in the Jaric app).
+* **Fixed:** none.
+
 ## 0.12.2
 * **Added:** the cover says what Jaric is, who made it and where the code is (github.com/J2k-studio/Jcmp); the themes `devc` and `temple` are listed by `jaric theme`.
 * **Fixed:** none.

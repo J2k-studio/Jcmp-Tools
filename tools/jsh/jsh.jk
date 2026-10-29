@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.2"; }
+String jsh_version() { return "0.12.3"; }
 String[] history;
 int last_status;
 int running;
@@ -1467,10 +1467,10 @@ void setting_change(int i, int dir) {
     String cur = setting_value(i);
     if i == 0 {
         String[] n = arr(8);
-        n.push("black"); n.push("soft"); n.push("amber"); n.push("green"); n.push("ice"); n.push("devc"); n.push("temple");
+        n.push("black"); n.push("soft"); n.push("amber"); n.push("green"); n.push("ice"); n.push("devc"); n.push("devc-dark"); n.push("temple");
         int at = 0;
         for k in 0..n.len { if n[k] == cur { at = k; } }
-        if dir == 0 { cout << "\ntheme (black soft amber green ice devc temple): "; String t = Input::line().trim(); if t.len > 0 { kv_set(cfg, "theme", t, false); } return; }
+        if dir == 0 { cout << "\ntheme (black soft amber green ice devc devc-dark temple): "; String t = Input::line().trim(); if t.len > 0 { kv_set(cfg, "theme", t, false); } return; }
         kv_set(cfg, "theme", n[(at + dir + n.len) % n.len], false);
         return;
     }
@@ -2186,7 +2186,7 @@ bool builtin(String[] a) {
         if a.len >= 2 && (a[1] == "setting" || a[1] == "settings") {
             setting_screen();
         } else if a.len >= 2 && a[1] == "theme" {
-            if a.len == 2 { cout << "themes: black soft amber green ice devc temple   (jaric theme NAME)\n"; }
+            if a.len == 2 { cout << "themes: black soft amber green ice devc devc-dark temple   (jaric theme NAME)\n"; }
             else { cout << esc() << "]7777;theme;" << a[2] << (char)7; }
         } else if a.len >= 2 && a[1] == "video" {
             if a.len < 3 { cout << "jaric video FILE|URL   play a video over the terminal (the back key closes it);  jaric video stop\n"; }
@@ -2199,6 +2199,8 @@ bool builtin(String[] a) {
                 }
                 cout << esc() << "]7777;video;play;" << v << (char)7;
             }
+        } else if a.len >= 2 && a[1] == "about" {
+            cout << esc() << "]7777;about" << (char)7;                // the window about Jaric and its maker (in the app)
         } else if a.len >= 3 && a[1] == "font" {
             cout << esc() << "]7777;font;" << a[2] << (char)7;
         } else if a.len >= 2 && a[1] == "drives" {
@@ -2248,7 +2250,8 @@ bool builtin(String[] a) {
                 else { cout << "jaric: no command '" << a[1] << "'.\n\n"; }
             }
             cout << "jaric setting        one screen for everything: theme, font, colours, top bar, animation, the prompt, the assistant\n";
-            cout << "jaric theme [NAME]   the colours (black soft amber green ice devc temple)\n";
+            cout << "jaric about          who made Jaric (a window in the app)\n";
+            cout << "jaric theme [NAME]   the colours (black soft amber green ice devc devc-dark temple)\n";
             cout << "jaric font SIZE      the size of the letters (8 .. 28; a pinch on the screen does it too)\n";
             cout << "jaric video FILE|URL play a video (mp4, webm, 3gp, ...) over the terminal\n";
             cout << "jaric assistant [question]   talk to the assistant xaiorin (xr)\n";
