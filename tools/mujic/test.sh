@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 M="$PWD/_out/mujic"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export MUJIC_DIR="$T/m"; mkdir -p "$MUJIC_DIR"
-[ "$("$M" --version)" = "mujic 0.13.0" ] || { echo "mujic test: version"; exit 1; }
+[ "$("$M" --version)" = "mujic 0.14.0" ] || { echo "mujic test: version"; exit 1; }
 "$M" list | grep -q "no songs" || { echo "mujic test: an empty folder"; exit 1; }
 "$M" catalog | grep -q "sneaky-snitch" || { echo "mujic test: catalog"; exit 1; }
 printf 'ID3' > "$MUJIC_DIR/Song One.mp3"; printf 'ID3' > "$MUJIC_DIR/Song Two.mp3"
@@ -15,6 +15,11 @@ printf '[ar:Someone]\n[00:10.00]first line\n[00:20.50]We are no strangers\n[00:3
 mkdir -p "$T/dup"; cp "$MUJIC_DIR/Song One.mp3" "$T/dup/Song One.mp3"; printf '%s\n' "$T/dup/Song One.mp3" > "$MUJIC_DIR/.library"
 [ "$("$M" list | grep -c 'Song One')" = "1" ] || { echo "mujic test: a song twice in the list"; "$M" list; exit 1; }
 rm -f "$MUJIC_DIR/.library"
+# the folder of the songs: a folder that is made the anchor holds the songs, also in its folders
+mkdir -p "$T/jsong/album one"; printf 'ID3' > "$T/jsong/album one/Anchor Song.mp3"
+HOME="$T/home4" "$M" folder "$T/jsong" | grep -q "music folder: $T/jsong" || { echo "mujic test: folder"; exit 1; }
+env -u MUJIC_DIR HOME="$T/home4" "$M" list | grep -q "Anchor Song" || { echo "mujic test: the songs of the anchor folder"; env -u MUJIC_DIR HOME="$T/home4" "$M" list; exit 1; }
+HOME="$T/home4" "$M" folder - | grep -q "back" || { echo "mujic test: folder -"; exit 1; }
 # the colour themes: the name is kept in ~/.config/mujic/theme; a wrong name is an error
 export HOME="$T/home"; mkdir -p "$HOME"
 "$M" theme | grep -q "theme: classic" || { echo "mujic test: theme default"; exit 1; }

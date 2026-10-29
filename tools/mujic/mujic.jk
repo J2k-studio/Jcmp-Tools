@@ -14,11 +14,35 @@ int fail(String msg) {
 }
 
 // ---------------------------------------------------------------- the folder and the songs
+// the folder of the songs that the person made the anchor (mujic folder PATH), or one that has a name for it in the storage of the phone (jsong ...)
+String anchor_file() {
+    String home = "/";
+    switch Env::get("HOME") { Option::Some(v): { home = v; } Option::None: { } }
+    return Path::join(Path::join(Path::join(home, ".config"), "mujic"), "folder");
+}
+
+String anchor_dir() {
+    String f = anchor_file();
+    if Fs::exists(f) {
+        Result<String, Error> r = Fs::read_text(f);
+        if r.is_ok() { String t = r.take(); String w = t.trim(); if w.len > 0 && Dir::exists(w) { return w + ""; } }
+    }
+    String[] names = arr(8);
+    names.push("jsong"); names.push("Jsong"); names.push("JSong"); names.push("jsongs"); names.push("Jsongs"); names.push("jmusic");
+    for i in 0..names.len {
+        String a = "/sdcard/" + names[i];
+        if Dir::exists(a) { return a; }
+    }
+    return "";
+}
+
 String music_dir() {
     switch Env::get("MUJIC_DIR") {
         Option::Some(d): { if d.len > 0 { return d; } }
         Option::None: { }
     }
+    String anchored = anchor_dir();
+    if anchored.len > 0 { return anchored; }
     String home = "";
     switch Env::get("HOME") {
         Option::Some(h): { home = h; }
@@ -82,27 +106,29 @@ void library_write(String[] lines) {
     Fs::write_text(library_file(), t);
 }
 
-void load_files() {
-    g_files = arr(16);
-    g_files_ready = true;
-    String dir = music_dir();
-    if !Dir::exists(dir) { return; }
+// the songs of a folder and of the folders in it (down to three levels): a name is the way from the music folder ("album/song.mp3")
+void add_dir(String dir, String rel, int depth) {
     Result<String[], Error> r = Dir::list(dir);
     if !r.is_ok() { return; }
     String[] names = r.take();
     names.sort();
     for i in 0..names.len {
-        if is_audio(names[i]) { g_files.push(names[i] + ""); }
-        else if Dir::exists(Path::join(dir, names[i])) {
-            // one level of folders: the songs in them are named  folder/song.mp3
-            Result<String[], Error> r2 = Dir::list(Path::join(dir, names[i]));
-            if r2.is_ok() {
-                String[] sub = r2.take();
-                sub.sort();
-                for k in 0..sub.len { if is_audio(sub[k]) { g_files.push(names[i] + "/" + sub[k]); } }
-            }
-        }
+        String n = names[i];
+        if n.starts_with(".") { continue; }
+        String shown = n + "";
+        if rel.len > 0 { shown = rel + "/" + n; }
+        String p = Path::join(dir, n);
+        if is_audio(n) { g_files.push(shown); }
+        else if depth < 3 && Dir::exists(p) { add_dir(p, shown, depth + 1); }
     }
+}
+
+void load_files() {
+    g_files = arr(16);
+    g_files_ready = true;
+    String dir = music_dir();
+    if !Dir::exists(dir) { return; }
+    add_dir(dir, "", 0);
     String[] lib = library_read();                           // the songs that /scan found, still there
     for i in 0..lib.len { if Fs::exists(lib[i]) { g_files.push(lib[i] + ""); } }
     dedupe_files();
@@ -412,6 +438,9 @@ String[] lyric_dirs(String songfile) {
     int sl = 0 - 1;
     for i in 0..full.len { if full[i] == '/' { sl = i; } }
     if sl > 0 { d.push(full.slice(0, sl) + ""); }
+    d.push(music_dir() + "");
+    d.push(Path::join(music_dir(), "lrc"));
+    d.push(Path::join(music_dir(), "lyrics"));
     String cfg = lyrics_config();
     if Fs::exists(cfg) {
         Result<String[], Error> r = Fs::read_lines(cfg);
@@ -2103,7 +2132,7 @@ int do_remove_cli(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.13.0";
+    String VERSION = "0.14.0";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
@@ -2153,6 +2182,23 @@ int main() {
         if c == "-c" || c == "--cd" { cout << "\e]7777;music;cd\a"; return 0; }
         if c == "cd" { cout << "\e]7777;music;cd\a"; return 0; }                              // the player as a CD deck: the cover is a disc that turns
         if c == "window" || c == "-w" { cout << "\e]7777;music;window\a"; return 0; }          // the window of the player in the Jaric app (cover, buttons, queue)
+        if c == "folder" {                                         // the folder of the songs: the whole folder is the library (jsong in the storage of the phone is found by its name)
+            String f = anchor_file();
+            if args.len < 3 {
+                cout << "music folder: " << music_dir() << "\n";
+                cout << "  change it:  mujic folder PATH   (a name like jsong is looked for in /sdcard)     back to the default:  mujic folder -\n";
+                return 0;
+            }
+            if args[2] == "-" { Fs::remove(f); cout << "back to the default folder\n"; return 0; }
+            String want = expand_path(args[2]);
+            String named = "/sdcard/" + args[2];
+            if !Dir::exists(want) && Dir::exists(named) { want = named; }
+            if !Dir::exists(want) { return fail("no such folder: " + args[2]); }
+            Dir::make_all(Path::parent(f));
+            Fs::write_text(f, want + "\n");
+            cout << "music folder: " << want << "\n";
+            return 0;
+        }
         if c == "lyrics-dir" {                                   // the folders of lyrics: with no path they are listed, with a path it is added
             String cfg = lyrics_config();
             if args.len < 3 {
