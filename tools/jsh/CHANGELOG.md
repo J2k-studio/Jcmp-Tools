@@ -2,6 +2,7 @@
 
 ## 0.11.0 (needs jcmp 1.2.4 for the virtual root; the rest works with 1.2.3)
 * **Added:** a shell nearer to the real ones: `echo -n`, `-e` (`\\t \\n \\e \\0NNN \\xHH \\c`) and `-E`; `kill` as a built-in with signals (`-9`, `-KILL`, `-s TERM`, `-l`) and jobs (`kill %1`, `%%`); `fg` and `bg`; `jobs` shows `Running` and the ended ones are told once (`[1]+ Done`, also before the prompt); `cd /etc`, `cd /`, `cd /u` read the virtual root of Jaric (the environment `JARIC_ROOT`).
+* **Added (the grey text, better):** the history of the commands is kept in `~/.jsh_history` (the folder and the command; the last 3000 are read at the start; a line with a secret in it is not kept), so the grey text and the arrows know what you typed in the sessions before. The grey text chooses the line that you typed most often, in this folder, and lately; a tree of words made from the history guesses the next word (`git` + space gives the usual `status`; `x && git pu` gives `push`: each part after `&&` `||` `;` `|` is a command of its own); `$HO` gives `ME`. Tab still takes the grey text.
 * **Fixed:** quotes keep their meaning: `'*.txt'` and `"*.txt"` are not patterns, `'$HOME'` is not replaced, `">"` and `";"` in quotes are words and not operators, `"\\t"` keeps its backslash (only `\\$ \\` \\" \\\\` are made plain inside double quotes).
 
 ## 0.10.2

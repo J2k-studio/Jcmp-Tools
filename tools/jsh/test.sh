@@ -86,6 +86,7 @@ echo "shell test (step 8): ok"
 python3 "$ROOT/setting_test.py" "$SH" 2>/dev/null || { echo "shell test (step 9): jaric setting"; exit 1; }
 echo "shell test (step 9): ok"
 python3 "$ROOT/ghost_test.py" "$SH" >/dev/null 2>&1 || { echo "shell test (ghost): the grey text from the history tree"; exit 1; }
+python3 "$ROOT/ghost2_test.py" "$SH" >/dev/null 2>&1 || { echo "shell test (ghost2): the grey text from the history of the sessions before, the folder, the words, $NAME"; exit 1; }
 python3 "$ROOT/wrap_test.py" "$SH" >/dev/null 2>&1 || { echo "shell test (step 10): a long line and the arrows"; exit 1; }
 echo "shell test (step 10): ok"
 # step 11: the first line of a script ([#jsh], #jsh, #!jsh, none), the arguments $1 $# $0, a settings file of jash is not run

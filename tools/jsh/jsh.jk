@@ -205,25 +205,189 @@ void trie_sync() {                                            // puts the histor
     }
 }
 
-// the grey text after the cursor: the newest history line that continues the line, else the first completion
+// ---- the grey text, better: it follows what was typed before (this session and the sessions before: ~/.jsh_history keeps the command and the folder it was typed in).
+// 1. a line of the history that continues what is typed: the best one counts the times it was typed, the same folder and the newer one;
+// 2. a tree of WORDS made from the history (git -> commit -> -m ...): the word that most often follows the words typed, also after && ; | (each part is its own command);
+// 3. the first command or file name that fits; $NAME completes the names of variables.
+String[] hist_cwd;                                            // the folder of each line of the history ("" when it is not known)
+int[] w_cnt;                                                  // the tree of words: how many times the word came after these words
+int[] w_kid;
+int[] w_sib;
+int[] w_last;
+String[] w_word;
+bool w_ready;
+int w_done;
+
+int wtree_child(int node, String word) {
+    int k = w_kid[node];
+    while k > 0 {
+        if w_word[k] == word { return k; }
+        k = w_sib[k];
+    }
+    return 0 - 1;
+}
+
+// the parts of a line that are commands of their own: split at && || ; | and &
+String[] segments_of(String line) {
+    String[] out = arr(4);
+    String cur = "";
+    int i = 0;
+    bool sq = false;
+    bool dq = false;
+    while i < line.len {
+        char c = line[i];
+        if c == '\'' && !dq { sq = !sq; }
+        if c == '"' && !sq { dq = !dq; }
+        if !sq && !dq && (c == ';' || c == '|' || c == '&') {
+            String t = cur.trim();
+            if t.len > 0 { out.push(t); }
+            cur = "";
+            while i + 1 < line.len && (line[i + 1] == '|' || line[i + 1] == '&') { i += 1; }
+        } else { cur.push(c); }
+        i += 1;
+    }
+    String t2 = cur.trim();
+    if t2.len > 0 { out.push(t2); }
+    return out;
+}
+
+String[] split_words(String seg) {
+    String[] out = arr(8);
+    String[] p = seg.split(" ");
+    for i in 0..p.len { if p[i].len > 0 { out.push(p[i]); } }
+    return out;
+}
+
+void wtree_sync() {
+    if !w_ready {
+        w_ready = true;
+        w_cnt = arr(64); w_kid = arr(64); w_sib = arr(64); w_last = arr(64); w_word = arr(64);
+        w_cnt.push(0); w_kid.push(0); w_sib.push(0); w_last.push(0); w_word.push("");       // node 0: the start of a command
+    }
+    while w_done < history.len {
+        String[] segs = segments_of(history[w_done]);
+        for si in 0..segs.len {
+            String[] ws = split_words(segs[si]);
+            int node = 0;
+            int depth = ws.len;
+            if depth > 8 { depth = 8; }
+            for q in 0..depth {
+                int k = wtree_child(node, ws[q]);
+                if k < 0 {
+                    k = w_word.len;
+                    w_cnt.push(0); w_kid.push(0); w_sib.push(w_kid[node]); w_last.push(0); w_word.push(ws[q] + "");
+                    w_kid[node] = k;
+                }
+                w_cnt[k] += 1;
+                w_last[k] = w_done;
+                node = k;
+            }
+        }
+        w_done += 1;
+    }
+}
+
+// the end of the word that follows the words of the last command of the line, from the tree; "" when nothing fits well
+String word_guess(String line) {
+    String[] segs = segments_of(line);
+    if segs.len == 0 { return ""; }
+    // the last command: is the cursor after a separator (the line ends with && or |)?
+    String tail = line.trim();
+    bool ends_sep = tail.ends_with("&&") || tail.ends_with("||") || tail.ends_with(";") || tail.ends_with("|") || tail.ends_with("&");
+    if ends_sep { return ""; }
+    String seg = segs[segs.len - 1];
+    bool fresh = line.ends_with(" ");
+    String[] ws = split_words(seg);
+    String partial = "";
+    int complete = ws.len;
+    if !fresh && ws.len > 0 { partial = ws[ws.len - 1]; complete = ws.len - 1; }
+    wtree_sync();
+    int node = 0;
+    for q in 0..complete {
+        node = wtree_child(node, ws[q]);
+        if node < 0 { return ""; }
+    }
+    int best = 0 - 1;
+    int total = 0;
+    int k = w_kid[node];
+    while k > 0 {
+        total += w_cnt[k];
+        if w_word[k].starts_with(partial) && (w_word[k].len > partial.len || partial.len == 0) {
+            if best < 0 || w_cnt[k] > w_cnt[best] || (w_cnt[k] == w_cnt[best] && w_last[k] > w_last[best]) { best = k; }
+        }
+        k = w_sib[k];
+    }
+    if best < 0 { return ""; }
+    if partial.len == 0 {                                          // a new word: only a word that is clearly the usual one
+        if w_cnt[best] < 2 || w_cnt[best] * 2 < total { return ""; }
+    }
+    return w_word[best].slice(partial.len, w_word[best].len);
+}
+
+// the best line of the history that continues the typed line: counts, the folder, the newer one
+String history_guess(String line) {
+    int n = history.len;
+    if n == 0 { return ""; }
+    char cw[512];
+    String here = "";
+    if Sys::getcwd(@cw, 512) > 0 { here = (char^)@cw; }
+    String[] cand = arr(8);
+    int[] cnt = arr(8);
+    int[] newest = arr(8);
+    bool[] samedir = arr(8);
+    int lowest = n - 1500;
+    if lowest < 0 { lowest = 0; }
+    int i = n - 1;
+    while i >= lowest {
+        String h = history[i];
+        if h.len > line.len && h.starts_with(line) {
+            int at = 0 - 1;
+            for j in 0..cand.len { if cand[j] == h { at = j; } }
+            if at < 0 {
+                if cand.len < 48 { cand.push(h); cnt.push(0); newest.push(i); samedir.push(false); at = cand.len - 1; }
+            }
+            if at >= 0 {
+                cnt[at] += 1;
+                if i < hist_cwd.len && hist_cwd[i] == here { samedir[at] = true; }
+            }
+        }
+        i -= 1;
+    }
+    if cand.len == 0 { return ""; }
+    int best = 0;
+    int best_score = 0 - 1;
+    for j in 0..cand.len {
+        int score = cnt[j] * 10 + newest[j] * 9 / n;
+        if samedir[j] { score += 20; }
+        if score > best_score { best_score = score; best = j; }
+    }
+    return cand[best].slice(line.len, cand[best].len);
+}
+
+// the names of the variables for $NAM
+String var_guess(String line) {
+    int d = 0 - 1;
+    for k in 0..line.len { if line[k] == '$' { d = k; } }
+    if d < 0 { return ""; }
+    String part = line.slice(d + 1, line.len);
+    for k in 0..part.len { char c = part[k]; if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || (c >= '0' && c <= '9')) { return ""; } }
+    if part.len == 0 { return ""; }
+    for k in 0..envv.len {
+        String e = envv[k];
+        int eq = e.find("=");
+        if eq > part.len && e.starts_with(part) { return e.slice(part.len, eq); }
+    }
+    return "";
+}
+
 String suggestion_for(String line) {
     if line.len == 0 { return ""; }
-    trie_sync();
-    int node = 0;
-    for q in 0..line.len {
-        node = trie_child(node, line[q]);
-        if node < 0 { break; }
-    }
-    if node > 0 && t_new[node] >= 0 {
-        String h = history[t_new[node]];
-        if h.len > line.len { return h.slice(line.len, h.len); }
-        // the newest line through this node is the typed line itself: an older, longer one may continue it
-        int i = t_new[node] - 1;
-        while i >= 0 {
-            if history[i].len > line.len && history[i].starts_with(line) { return history[i].slice(line.len, history[i].len); }
-            i -= 1;
-        }
-    }
+    String v = var_guess(line);
+    if v.len > 0 { return v; }
+    String h = history_guess(line);
+    if h.len > 0 { return h; }
+    String w = word_guess(line);
+    if w.len > 0 { return w; }
     String[] c = candidates(line);
     if c.len == 0 { return ""; }
     int sp = 0 - 1;
@@ -2570,6 +2734,44 @@ bool looks_secret(String c) {
     return l.contains("password") || l.contains("passwd") || l.contains("token") || l.contains("secret") || l.contains("authorization") || l.contains("api_key") || l.contains("apikey");
 }
 
+// ---- the history of the commands lives in ~/.jsh_history (the folder, a tab, the command); the last 3000 are read when the shell starts
+String history_file() { return getv("HOME") + "/.jsh_history"; }
+
+void history_load() {
+    hist_cwd = arr(16);
+    Result<String, Error> r = Fs::read_text(history_file());
+    if r.is_err() { return; }
+    String[] ls = r.take().split("\n");
+    int from = ls.len - 3000;
+    if from < 0 { from = 0; }
+    for i in from..ls.len {
+        String ln = ls[i];
+        int tab = ln.find("\t");
+        if tab < 0 || ln.len == tab + 1 { continue; }
+        history.push(ln.slice(tab + 1, ln.len));
+        hist_cwd.push(ln.slice(0, tab));
+    }
+}
+
+// one line added; a command with a secret in it (a password, a token) is not kept; the file is cut to its last 4000 lines now and then
+void history_save(String cwd, String cmd) {
+    if looks_secret(cmd) { return; }
+    String one = cmd.replace("\t", " ").replace("\n", " ");
+    String file = history_file();
+    Fs::append_text(file, cwd + "\t" + one + "\n");
+    if history.len % 500 == 0 {
+        Result<String, Error> r = Fs::read_text(file);
+        if r.is_ok() {
+            String[] ls = r.take().split("\n");
+            if ls.len > 4500 {
+                String keep = "";
+                for i in (ls.len - 4000)..ls.len { if ls[i].len > 0 { keep = keep + ls[i] + "\n"; } }
+                Fs::write_text(file, keep);
+            }
+        }
+    }
+}
+
 void log_event(String cmd, int status) {
     if xr_learn_asked == 0 { xr_learn_asked = 1; if kv_get(setting_cfg(), "xr_learn", false) == "on" { xr_learn_on = 1; } }
     if xr_learn_on == 0 { return; }
@@ -2608,6 +2810,7 @@ int run_file(String path) {
 
 int main() {
     history = arr(16);
+    hist_cwd = arr(16);
     here_files = arr(4);
     envv = arr(32);
     alias_n = arr(8);
@@ -2658,6 +2861,7 @@ int main() {
     bool tty = Sys::isatty(0) == 0;
     String rc_file = getv("HOME") + "/.jshrc";
     if tty && Fs::exists(rc_file) { run_file(rc_file); }      // the settings: aliases, export, ...
+    if tty { history_load(); }                                  // the commands of the sessions before (the arrows and the grey text use them)
     while running == 1 {
         String line = "";
         if tty {
@@ -2671,6 +2875,11 @@ int main() {
         String t = line.trim();
         if t.len == 0 { continue; }
         history.push(t);
+        char cwb[512];
+        String cwd_now = "";
+        if Sys::getcwd(@cwb, 512) > 0 { cwd_now = (char^)@cwb; }
+        hist_cwd.push(cwd_now);
+        history_save(cwd_now, t);
         interrupted = 0;
         run_script_text(t);
         log_event(t, last_status);
