@@ -1,0 +1,410 @@
+#import <stdlib>
+#import <files>
+#import <deflate>
+#import <png>
+using stdlib;
+#import "jpeg"
+// imgj 0.1.0 -- prepares real pictures (photos, drawings) for a game: reads PNG and JPEG, writes PNG.   (license: MPL-2.0)
+//   imgj info FILE                                   size and kind of a picture
+//   imgj convert IN OUT                              any picture to PNG
+//   imgj cut IN OUT [--tol 24] [--bg RRGGBB] [--pad 0] [--hard]
+//                                                    the background (the colour of the corner, or --bg) goes see-through, flood-filled from the
+//                                                    border, with a soft edge (--hard: no soft edge); the picture is trimmed to what is left
+//   imgj scale IN OUT (--width N | --height N | --factor F)
+//   imgj meter IN OUT --height-m 110 [--ppm 8]       scales so that the object is height-m metres tall at ppm pixels for a metre
+//   imgj slice IN OUTPREFIX --at 0.25,0.6            cuts across at those heights (0 top .. 1 bottom): OUTPREFIX_1.png ...
+//   imgj normal IN OUT [--strength 2.0]              a normal map from the light and the dark of the picture (for lit metal in a shader)
+//   imgj credit FILE --source TEXT --license TEXT [--file CREDITS.md]   writes one line of the table of credits
+
+// ---------- reading and writing
+
+int sniff(String d) {
+    if d.len > 8 && (d[0] & 255) == 137 && (d[1] & 255) == 80 { return 1; }
+    if d.len > 4 && (d[0] & 255) == 255 && (d[1] & 255) == 216 { return 2; }
+    return 0;
+}
+
+Image load(String path, bool^ ok) {
+    Image im;
+    im.w = 0; im.h = 0; im.px = "";
+    ok[0] = false;
+    Result<String, Error> r = Fs::read_bytes(path);
+    if r.is_err() { cerr << "imgj: cannot read " << path << "\n"; return im; }
+    String d = r.take();
+    int k = sniff(d);
+    if k == 1 {
+        im = Png::decode(d, ok);
+        if !ok[0] { cerr << "imgj: " << path << ": this PNG is not read (interlaced?)\n"; }
+    } else if k == 2 {
+        im = Jpeg::decode(d, ok);
+        if !ok[0] { cerr << "imgj: " << path << ": " << Jpeg::error() << "\n"; }
+    } else {
+        cerr << "imgj: " << path << " is not a PNG or JPEG picture\n";
+    }
+    return im;
+}
+
+void put_be32(String s, int v) {
+    s.push((char)((v >> 24) & 255)); s.push((char)((v >> 16) & 255)); s.push((char)((v >> 8) & 255)); s.push((char)(v & 255));
+}
+
+void put_chunk(String out, String type, String body) {
+    put_be32(out, body.len);
+    String tb = type + body;
+    out.append(tb);
+    put_be32(out, Crc32::of(tb));
+}
+
+bool save_png(String path, Image im) {
+    String raw = "";
+    for y in 0..im.h {
+        raw.push((char)0);
+        for x in 0..(im.w * 4) { raw.push(im.px[y * im.w * 4 + x]); }
+    }
+    String z = "";
+    z.push((char)120); z.push((char)1);
+    z.append(Deflate::compress(raw));
+    int a = 1; int b = 0;
+    for i in 0..raw.len { a = (a + (raw[i] & 255)) % 65521; b = (b + a) % 65521; }
+    put_be32(z, (b << 16) | a);
+    String out = "";
+    int sig[8];
+    sig[0] = 137; sig[1] = 80; sig[2] = 78; sig[3] = 71; sig[4] = 13; sig[5] = 10; sig[6] = 26; sig[7] = 10;
+    for i in 0..8 { out.push((char)sig[i]); }
+    String ih = "";
+    put_be32(ih, im.w); put_be32(ih, im.h);
+    ih.push((char)8); ih.push((char)6); ih.push((char)0); ih.push((char)0); ih.push((char)0);
+    put_chunk(out, "IHDR", ih);
+    put_chunk(out, "IDAT", z);
+    put_chunk(out, "IEND", "");
+    Result<int, Error> r = Fs::write_text(path, out);
+    if r.is_err() { cerr << "imgj: cannot write " << path << "\n"; return false; }
+    return true;
+}
+
+// ---------- the arguments
+
+String opt(String[] a, String name, String dflt) {
+    for i in 0..a.len {
+        if a[i] == name && i + 1 < a.len { return a[i + 1]; }
+    }
+    return dflt;
+}
+
+bool flag(String[] a, String name) {
+    for i in 0..a.len { if a[i] == name { return true; } }
+    return false;
+}
+
+int hexval(char c) {
+    if c >= '0' && c <= '9' { return c - '0'; }
+    if c >= 'a' && c <= 'f' { return c - 'a' + 10; }
+    if c >= 'A' && c <= 'F' { return c - 'A' + 10; }
+    return 0;
+}
+
+// ---------- operations
+
+int absi(int x) { if x < 0 { return 0 - x; } return x; }
+
+int dist(Image im, int o, int r, int g, int b) {
+    int d = absi((im.px[o] & 255) - r);
+    int e = absi((im.px[o + 1] & 255) - g);
+    int f = absi((im.px[o + 2] & 255) - b);
+    if e > d { d = e; }
+    if f > d { d = f; }
+    return d;
+}
+
+// the background goes see-through; returns the picture trimmed to what is left
+Image cut(Image im, int tol, int br, int bg, int bb, int pad, bool soft) {
+    int w = im.w; int h = im.h;
+    int n = w * h;
+    char^ gone = (char^)alloc(n + 8);
+    for i in 0..n { gone[i] = (char)0; }
+    int^ stk = (int^)alloc((n + 8) * 8);
+    int sp = 0;
+    for x in 0..w {
+        int t = x; int bt = (h - 1) * w + x;
+        if gone[t] == 0 && dist(im, t * 4, br, bg, bb) <= tol { gone[t] = (char)1; stk[sp] = t; sp += 1; }
+        if gone[bt] == 0 && dist(im, bt * 4, br, bg, bb) <= tol { gone[bt] = (char)1; stk[sp] = bt; sp += 1; }
+    }
+    for y in 0..h {
+        int l = y * w; int r = y * w + w - 1;
+        if gone[l] == 0 && dist(im, l * 4, br, bg, bb) <= tol { gone[l] = (char)1; stk[sp] = l; sp += 1; }
+        if gone[r] == 0 && dist(im, r * 4, br, bg, bb) <= tol { gone[r] = (char)1; stk[sp] = r; sp += 1; }
+    }
+    while sp > 0 {
+        sp -= 1;
+        int p = stk[sp];
+        int px = p % w; int py = p / w;
+        for k in 0..4 {
+            int nx = px; int ny = py;
+            if k == 0 { nx = px - 1; } else if k == 1 { nx = px + 1; } else if k == 2 { ny = py - 1; } else { ny = py + 1; }
+            if nx < 0 || ny < 0 || nx >= w || ny >= h { continue; }
+            int q = ny * w + nx;
+            if gone[q] != 0 { continue; }
+            if dist(im, q * 4, br, bg, bb) <= tol { gone[q] = (char)1; stk[sp] = q; sp += 1; }
+        }
+    }
+    // the soft edge: a dot next to the background that is not far from its colour is half see-through
+    String px2 = im.px;
+    int minx = w; int miny = h; int maxx = 0 - 1; int maxy = 0 - 1;
+    for y in 0..h {
+        for x in 0..w {
+            int p = y * w + x;
+            int o = p * 4;
+            if gone[p] != 0 {
+                px2[o + 3] = (char)0;
+                continue;
+            }
+            if soft {
+                bool edge = false;
+                if x > 0 && gone[p - 1] != 0 { edge = true; }
+                if x + 1 < w && gone[p + 1] != 0 { edge = true; }
+                if y > 0 && gone[p - w] != 0 { edge = true; }
+                if y + 1 < h && gone[p + w] != 0 { edge = true; }
+                if edge {
+                    int d = dist(im, o, br, bg, bb);
+                    int a = (d - tol) * 255 / (tol * 2 + 1);
+                    if a < 0 { a = 0; }
+                    if a > 255 { a = 255; }
+                    px2[o + 3] = (char)a;
+                    if a == 0 { continue; }
+                }
+            }
+            if x < minx { minx = x; }
+            if x > maxx { maxx = x; }
+            if y < miny { miny = y; }
+            if y > maxy { maxy = y; }
+        }
+    }
+    Image out;
+    out.w = 0; out.h = 0; out.px = "";
+    if maxx < 0 { return out; }
+    minx = minx - pad; if minx < 0 { minx = 0; }
+    miny = miny - pad; if miny < 0 { miny = 0; }
+    maxx = maxx + pad; if maxx > w - 1 { maxx = w - 1; }
+    maxy = maxy + pad; if maxy > h - 1 { maxy = h - 1; }
+    out.w = maxx - minx + 1; out.h = maxy - miny + 1;
+    String op = "";
+    for y in miny..(maxy + 1) {
+        for x in minx..(maxx + 1) {
+            int o = (y * w + x) * 4;
+            op.push(px2[o]); op.push(px2[o + 1]); op.push(px2[o + 2]); op.push(px2[o + 3]);
+        }
+    }
+    out.px = op;
+    return out;
+}
+
+// a picture of another size: the mean of the dots under a new dot when it gets smaller, the mix of the 4 nearest when it gets bigger; the colours are weighted by their alpha
+Image scale(Image im, int nw, int nh) {
+    Image out;
+    out.w = nw; out.h = nh; out.px = "";
+    String op = "";
+    double sx = (double)im.w / (double)nw;
+    double sy = (double)im.h / (double)nh;
+    for y in 0..nh {
+        for x in 0..nw {
+            double r = 0.0; double g = 0.0; double b = 0.0; double a = 0.0; double wsum = 0.0;
+            if sx > 1.0 || sy > 1.0 {
+                int x0 = (int)((double)x * sx); int x1 = (int)(((double)x + 1.0) * sx);
+                int y0 = (int)((double)y * sy); int y1 = (int)(((double)y + 1.0) * sy);
+                if x1 <= x0 { x1 = x0 + 1; }
+                if y1 <= y0 { y1 = y0 + 1; }
+                if x1 > im.w { x1 = im.w; }
+                if y1 > im.h { y1 = im.h; }
+                for yy in y0..y1 {
+                    for xx in x0..x1 {
+                        int o = (yy * im.w + xx) * 4;
+                        double al = (double)(im.px[o + 3] & 255);
+                        r += (double)(im.px[o] & 255) * al; g += (double)(im.px[o + 1] & 255) * al; b += (double)(im.px[o + 2] & 255) * al;
+                        a += al; wsum += 1.0;
+                    }
+                }
+            } else {
+                double fx = ((double)x + 0.5) * sx - 0.5;
+                double fy = ((double)y + 0.5) * sy - 0.5;
+                if fx < 0.0 { fx = 0.0; }
+                if fy < 0.0 { fy = 0.0; }
+                int x0 = (int)fx; int y0 = (int)fy;
+                int x1 = x0 + 1; int y1 = y0 + 1;
+                if x1 > im.w - 1 { x1 = im.w - 1; }
+                if y1 > im.h - 1 { y1 = im.h - 1; }
+                double tx = fx - (double)x0; double ty = fy - (double)y0;
+                for k in 0..4 {
+                    int xx = x0; int yy = y0; double wt = (1.0 - tx) * (1.0 - ty);
+                    if k == 1 { xx = x1; wt = tx * (1.0 - ty); }
+                    if k == 2 { yy = y1; wt = (1.0 - tx) * ty; }
+                    if k == 3 { xx = x1; yy = y1; wt = tx * ty; }
+                    int o = (yy * im.w + xx) * 4;
+                    double al = (double)(im.px[o + 3] & 255);
+                    r += (double)(im.px[o] & 255) * al * wt; g += (double)(im.px[o + 1] & 255) * al * wt; b += (double)(im.px[o + 2] & 255) * al * wt;
+                    a += al * wt; wsum += wt;
+                }
+            }
+            int ro = 0; int go = 0; int bo = 0; int ao = 0;
+            if a > 0.0 {
+                ro = (int)(r / a + 0.5); go = (int)(g / a + 0.5); bo = (int)(b / a + 0.5);
+                ao = (int)(a / wsum + 0.5);
+            }
+            if ao > 255 { ao = 255; }
+            op.push((char)ro); op.push((char)go); op.push((char)bo); op.push((char)ao);
+        }
+    }
+    out.px = op;
+    return out;
+}
+
+Image crop(Image im, int y0, int y1) {
+    Image out;
+    out.w = im.w; out.h = y1 - y0; out.px = "";
+    String op = "";
+    for y in y0..y1 { for x in 0..(im.w * 4) { op.push(im.px[y * im.w * 4 + x]); } }
+    out.px = op;
+    return out;
+}
+
+// the normal map of the lightness (alpha is kept): the slope of the lightness gives the tilt of the surface
+Image normal_map(Image im, double strength) {
+    int w = im.w; int h = im.h;
+    Image out;
+    out.w = w; out.h = h; out.px = "";
+    double[] lum = arr(w * h);
+    for i in 0..(w * h) {
+        int o = i * 4;
+        lum.push(((double)(im.px[o] & 255) * 0.299 + (double)(im.px[o + 1] & 255) * 0.587 + (double)(im.px[o + 2] & 255) * 0.114) / 255.0);
+    }
+    String op = "";
+    for y in 0..h {
+        for x in 0..w {
+            int xl = x - 1; if xl < 0 { xl = 0; }
+            int xr = x + 1; if xr > w - 1 { xr = w - 1; }
+            int yu = y - 1; if yu < 0 { yu = 0; }
+            int yd = y + 1; if yd > h - 1 { yd = h - 1; }
+            double dx = (lum[y * w + xr] - lum[y * w + xl]) * 0.5 + (lum[yu * w + xr] - lum[yu * w + xl]) * 0.25 + (lum[yd * w + xr] - lum[yd * w + xl]) * 0.25;
+            double dy = (lum[yd * w + x] - lum[yu * w + x]) * 0.5 + (lum[yd * w + xl] - lum[yu * w + xl]) * 0.25 + (lum[yd * w + xr] - lum[yu * w + xr]) * 0.25;
+            double nx = 0.0 - dx * strength;
+            double ny = dy * strength;
+            double nz = 1.0;
+            double len = Math::sqrt(nx * nx + ny * ny + nz * nz);
+            nx /= len; ny /= len; nz /= len;
+            op.push((char)(int)((nx * 0.5 + 0.5) * 255.0 + 0.5));
+            op.push((char)(int)((ny * 0.5 + 0.5) * 255.0 + 0.5));
+            op.push((char)(int)((nz * 0.5 + 0.5) * 255.0 + 0.5));
+            op.push(im.px[(y * w + x) * 4 + 3]);
+        }
+    }
+    out.px = op;
+    return out;
+}
+
+void usage() {
+    cout << "imgj 0.1.0: prepares pictures (photos, drawings) for a game; reads PNG and JPEG, writes PNG\n";
+    cout << "  imgj info FILE\n  imgj convert IN OUT\n";
+    cout << "  imgj cut IN OUT [--tol 24] [--bg RRGGBB] [--pad 0] [--hard]     the background goes see-through, the picture is trimmed\n";
+    cout << "  imgj scale IN OUT (--width N | --height N | --factor F)\n";
+    cout << "  imgj meter IN OUT --height-m 110 [--ppm 8]                      the object gets its real height in pixels\n";
+    cout << "  imgj slice IN OUTPREFIX --at 0.25,0.6                           cuts across at those heights (0 top .. 1 bottom)\n";
+    cout << "  imgj normal IN OUT [--strength 2.0]                             a normal map for shaders (lit metal)\n";
+    cout << "  imgj credit FILE --source TEXT --license TEXT [--file CREDITS.md]\n";
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "imgj 0.1.0\n"; return 0; }
+    if a.len < 2 || a[1] == "help" || a[1] == "--help" || a[1] == "-h" { usage(); return 0; }
+    String cmd = a[1];
+    if cmd == "credit" {
+        if a.len < 3 { usage(); return 1; }
+        String file = opt(a, "--file", "CREDITS.md");
+        String line = "| `" + a[2] + "` | " + opt(a, "--source", "?") + " | " + opt(a, "--license", "?") + " |\n";
+        Result<int, Error> r = Fs::append_text(file, line);
+        if r.is_err() { cerr << "imgj: cannot write " << file << "\n"; return 1; }
+        cout << "added to " << file << ": " << line;
+        return 0;
+    }
+    if a.len < 3 { usage(); return 1; }
+    bool ok = false;
+    Image im = load(a[2], @ok);
+    if !ok { return 1; }
+    if cmd == "info" {
+        int t = 0;
+        for i in 0..(im.w * im.h) { if (im.px[i * 4 + 3] & 255) < 255 { t += 1; } }
+        cout << a[2] << ": " << im.w << " x " << im.h << ", " << t << " dots see-through\n";
+        return 0;
+    }
+    if a.len < 4 { usage(); return 1; }
+    String outp = a[3];
+    if cmd == "convert" {
+        if !save_png(outp, im) { return 1; }
+        cout << outp << " " << im.w << " x " << im.h << "\n";
+        return 0;
+    }
+    if cmd == "cut" {
+        int tol = opt(a, "--tol", "24").to_int();
+        int br = im.px[0] & 255; int bg = im.px[1] & 255; int bb = im.px[2] & 255;
+        String bgs = opt(a, "--bg", "");
+        if bgs.len == 6 {
+            br = hexval(bgs[0]) * 16 + hexval(bgs[1]); bg = hexval(bgs[2]) * 16 + hexval(bgs[3]); bb = hexval(bgs[4]) * 16 + hexval(bgs[5]);
+        }
+        Image c = cut(im, tol, br, bg, bb, opt(a, "--pad", "0").to_int(), !flag(a, "--hard"));
+        if c.w == 0 { cerr << "imgj: nothing is left (the whole picture is background: lower --tol)\n"; return 1; }
+        if !save_png(outp, c) { return 1; }
+        cout << outp << " " << c.w << " x " << c.h << " (from " << im.w << " x " << im.h << ", background " << br << "," << bg << "," << bb << ")\n";
+        return 0;
+    }
+    if cmd == "scale" || cmd == "meter" {
+        int nw = 0; int nh = 0;
+        if cmd == "meter" {
+            double hm = opt(a, "--height-m", "0").to_double();
+            double ppm = opt(a, "--ppm", "8").to_double();
+            if hm <= 0.0 { cerr << "imgj: meter needs --height-m\n"; return 1; }
+            nh = (int)(hm * ppm + 0.5);
+            nw = (int)((double)im.w * (double)nh / (double)im.h + 0.5);
+        } else if opt(a, "--factor", "") != "" {
+            double f = opt(a, "--factor", "1").to_double();
+            nw = (int)((double)im.w * f + 0.5); nh = (int)((double)im.h * f + 0.5);
+        } else if opt(a, "--width", "") != "" {
+            nw = opt(a, "--width", "0").to_int();
+            nh = (int)((double)im.h * (double)nw / (double)im.w + 0.5);
+        } else if opt(a, "--height", "") != "" {
+            nh = opt(a, "--height", "0").to_int();
+            nw = (int)((double)im.w * (double)nh / (double)im.h + 0.5);
+        }
+        if nw < 1 || nh < 1 { cerr << "imgj: the new size is empty (give --width, --height or --factor)\n"; return 1; }
+        Image s = scale(im, nw, nh);
+        if !save_png(outp, s) { return 1; }
+        cout << outp << " " << nw << " x " << nh << "\n";
+        return 0;
+    }
+    if cmd == "slice" {
+        String at = opt(a, "--at", "");
+        if at == "" { cerr << "imgj: slice needs --at 0.25,0.6\n"; return 1; }
+        String[] parts = at.split(",");
+        int prev = 0;
+        int k = 1;
+        for i in 0..(parts.len + 1) {
+            int y1 = im.h;
+            if i < parts.len { y1 = (int)(parts[i].to_double() * (double)im.h + 0.5); }
+            if y1 > im.h { y1 = im.h; }
+            if y1 <= prev { continue; }
+            Image part = crop(im, prev, y1);
+            String name = outp + "_" + str(k) + ".png";
+            if !save_png(name, part) { return 1; }
+            cout << name << " " << part.w << " x " << part.h << "\n";
+            prev = y1;
+            k += 1;
+        }
+        return 0;
+    }
+    if cmd == "normal" {
+        Image nmap = normal_map(im, opt(a, "--strength", "2.0").to_double());
+        if !save_png(outp, nmap) { return 1; }
+        cout << outp << " " << nmap.w << " x " << nmap.h << "\n";
+        return 0;
+    }
+    usage();
+    return 1;
+}

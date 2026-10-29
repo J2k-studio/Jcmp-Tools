@@ -1,12 +1,13 @@
 calc 0.1.1
 coderin 0.4.2
 drive 0.4.0
+imgj 0.1.0
 jamanager 0.1.0
 jaric-os 0.14.0
 jash 0.1.0
 jbox 0.8.0
 jc 0.3.0
-jcmp 1.2.1.0
+jcmp 1.2.2.0
 jget 1.0.0
 jgit 0.3.1
 jpty 0.1.1
