@@ -11,6 +11,8 @@ jfile places              the names and the folders of the places
 jfile cp SRC DST          copy a file or a folder with all that is in it
 jfile mv SRC DST          move or rename           jfile rm PATH   delete          jfile mkdir PATH
 ```
+The **places** are the folders you use most. Standard ones (Home, Downloads, Documents, Pictures, Camera, Music, Movies, Desktop, `u:/`) are always there; a folder that is missing is made when you press Enter on it. Make your own: `n` in the places screen makes a new folder in `u:/` and keeps it as a place, `+` inside any folder keeps it, `d` takes one of yours away (they are kept in `~/.jfile_places`).
+
 Keys in the screen: **up / down**, PageUp / PageDown, **Enter** or right = open a folder or look at a file, **Backspace** or left = up, **Space** = mark (and go down), `a` mark all, `c` copy, `x` cut, `v` paste (a name that is taken gets `(2)`), `d` delete (asks `y`), `r` rename, `n` new folder, `/` find in the folder, `s` sort (name, size, date), `.` hidden files, `g` the places, `o` open with the phone, `i` picture, `t` text, `q` quit.
 * A picture (png, jpg) is shown over the terminal (touch or `q` closes); a text file in pages; a video or a song is played by the app; a pdf, an apk or another kind is opened by the app of the phone that knows it (app 0.0.149 or newer).
 * `rm` and `d` delete for good (there is no bin). `rm /` is refused.

@@ -58,3 +58,30 @@ try:
 except ChildProcessError:
     pass
 print('ui ok')
+
+# the places: a new place made with n, kept in ~/.jfile_places, there again in the next start; a missing standard folder is made when asked
+import shutil
+home2 = work + '/home2'; sd = work + '/sd'
+os.makedirs(home2, exist_ok=True); os.makedirs(sd, exist_ok=True)
+def start():
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.environ['TERM'] = 'xterm'; os.environ['HOME'] = home2; os.environ['JFILE_STORAGE'] = sd
+        os.execv(jfile, [jfile])
+    return pid, fd
+pid, fd = start(); screen = b''
+pump(1.2)
+assert 'places' in re.sub(rb'\x1b\[[0-9;?]*[A-Za-z]', b'', screen).decode(errors='replace'), 'the places screen'
+key(b'n'); key(b'Projects'); key(b'\r', 0.8)
+assert os.path.isdir(sd + '/Projects'), 'n made no folder in the storage'
+assert 'Projects' in open(home2 + '/.jfile_places').read(), 'the place is not kept'
+key(b'q', 0.5)
+pid, fd = start(); screen = b''
+pump(1.2)
+assert 'Projects' in re.sub(rb'\x1b\[[0-9;?]*[A-Za-z]', b'', screen).decode(errors='replace'), 'the place is there in the next start'
+# Documents is not there yet: Enter asks, y makes it
+key(b'j'); key(b'j', 0.4)
+key(b'\r', 0.6); key(b'y', 0.9)
+assert os.path.isdir(sd + '/Documents'), 'a missing standard folder was not made'
+key(b'q', 0.4); key(b'q', 0.4)
+print('places ok')

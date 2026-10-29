@@ -4,11 +4,12 @@
 #import <png>
 using stdlib;
 #import "jpeg"
-// jfile 0.1.0 -- the files of the phone in a terminal: Downloads, Pictures, Documents ... look, open, copy, move, delete.   (license: MPL-2.0)
+// jfile 0.2.0 -- the files of the phone in a terminal: Downloads, Pictures, Documents ... look, open, copy, move, delete.   (license: MPL-2.0)
 //   jfile [FOLDER]            the places (Home, Downloads, Pictures, Camera, Documents, Music, Movies, all the storage u:/) or a folder
 //   jfile ls [FOLDER]         the list as text (for scripts)         jfile places
 //   jfile cp SRC DST          copy a file or a folder               jfile mv SRC DST          move or rename
 //   jfile rm PATH             delete (a folder with all that is in it)    jfile mkdir PATH
+// Places: n makes a new folder in u:/ as a place, + (in a folder) saves it as a place, d takes one of yours away (~/.jfile_places).
 // Keys: up/down, PageUp/PageDown, Enter or right = open a folder / look at a file, Backspace or left = up, Space = mark, a = mark all,
 //   c copy, x cut, v paste, d delete, r rename, n new folder, / filter, s sort (name, size, date), . hidden, g places, o open with the phone, i picture, t text, q quit.
 
@@ -239,32 +240,64 @@ bool move_any(String from, String to) {
 
 // ---------------------------------------------------------------- the places of the phone
 
-String storage() { return "/sdcard"; }
-
-String[] place_names() {
-    String[] p = arr(10);
-    p.push("Home"); p.push("Downloads"); p.push("Pictures"); p.push("Camera"); p.push("Documents"); p.push("Music"); p.push("Movies"); p.push("All the storage (u:/)"); p.push("Jaric root (/)");
-    return p;
+String storage() {
+    Option<String> e = Env::get("JFILE_STORAGE");                // (the tests use another folder)
+    if e.is_some() { return e.unwrap(); }
+    return "/sdcard";
 }
 
-String place_path(int i) {
+String[] g_pn;                     // the places: names and folders (the standard ones, then the ones of the person)
+String[] g_pp;
+int g_nstd;                        // how many are the standard ones
+
+String places_file() {
     Option<String> h = Env::get("HOME");
     String home = "/";
     if h.is_some() { home = h.unwrap(); }
-    if i == 0 { return home; }
-    if i == 1 { return storage() + "/Download"; }
-    if i == 2 { return storage() + "/Pictures"; }
-    if i == 3 { return storage() + "/DCIM"; }
-    if i == 4 { return storage() + "/Documents"; }
-    if i == 5 { return storage() + "/Music"; }
-    if i == 6 { return storage() + "/Movies"; }
-    if i == 7 { return storage(); }
-    return "/";
+    return join(home, ".jfile_places");
 }
 
+void places_load() {
+    g_pn = arr(16); g_pp = arr(16);
+    Option<String> h = Env::get("HOME");
+    String home = "/";
+    if h.is_some() { home = h.unwrap(); }
+    g_pn.push("Home"); g_pp.push(home);
+    g_pn.push("Downloads"); g_pp.push(storage() + "/Download");
+    g_pn.push("Documents"); g_pp.push(storage() + "/Documents");
+    g_pn.push("Pictures"); g_pp.push(storage() + "/Pictures");
+    g_pn.push("Camera"); g_pp.push(storage() + "/DCIM");
+    g_pn.push("Music"); g_pp.push(storage() + "/Music");
+    g_pn.push("Movies"); g_pp.push(storage() + "/Movies");
+    g_pn.push("Desktop"); g_pp.push(storage() + "/Desktop");
+    g_pn.push("All the storage (u:/)"); g_pp.push(storage());
+    g_pn.push("Jaric root (/)"); g_pp.push("/");
+    g_nstd = g_pn.len;
+    Result<String, Error> r = Fs::read_text(places_file());
+    if r.is_ok() {
+        String[] ls = r.take().split("\n");
+        for i in 0..ls.len {
+            int tab = ls[i].find("\t");
+            if tab <= 0 || tab + 1 >= ls[i].len { continue; }
+            g_pn.push(ls[i].slice(0, tab)); g_pp.push(ls[i].slice(tab + 1, ls[i].len));
+        }
+    }
+}
+
+void places_save() {
+    String t = "";
+    for i in g_nstd..g_pn.len { t = t + g_pn[i] + "\t" + g_pp[i] + "\n"; }
+    Fs::write_text(places_file(), t);
+}
+
+String[] place_names() { return g_pn; }
+String place_path(int i) { if i >= 0 && i < g_pp.len { return g_pp[i]; } return "/"; }
+
 String shown(String p) {
-    if p == "/sdcard" { return "u:/"; }
-    if p.starts_with("/sdcard/") { return "u:/" + p.slice(8, p.len); }
+    String st = storage();
+    if p == st { return "u:/"; }
+    String stslash = st + "/";
+    if p.starts_with(stslash) { return "u:/" + p.slice(stslash.len, p.len); }
     return p;
 }
 
@@ -381,8 +414,8 @@ void draw() {
             } else { line = pad("", g_cols); }
             o += line + "\r\n";
         }
-        o += pad(" Enter: go   q: quit   " + g_msg, g_cols) + "\r\n";
-        o += pad(" up/down choose", g_cols);
+        o += pad(" Enter: go   n: new place   d: take one of yours away   q: quit   " + g_msg, g_cols) + "\r\n";
+        o += pad(" up/down choose   (in a folder: + makes it a place)", g_cols);
         cout << o;
         return;
     }
@@ -613,6 +646,7 @@ String[] chosen() {
 
 int run_ui(String start) {
     g_clip = arr(4);
+    places_load();
     g_msg = "";
     g_filter = "";
     g_sort = 0;
@@ -631,11 +665,34 @@ int run_ui(String start) {
         g_msg = "";
         if k == 'q' || k == 3 || k == 0 - 9 { done = true; continue; }
         if g_places {
-            if k == 258 || k == 'j' { if g_cur < 8 { g_cur += 1; } }
+            if k == 258 || k == 'j' { if g_cur + 1 < g_pn.len { g_cur += 1; } }
             else if k == 257 || k == 'k' { if g_cur > 0 { g_cur -= 1; } }
             else if k == 13 || k == 259 {
                 String p = place_path(g_cur);
-                if is_dir(p) { enter_folder(p); } else { g_msg = "there is no such folder (yet)"; }
+                if is_dir(p) { enter_folder(p); }
+                else {
+                    String qn = "this folder is not there yet: make " + shown(p) + "?";
+                    if confirm(qn) { if Sys::mkdir(p.c(), 493) == 0 { enter_folder(p); } else { g_msg = "cannot make it"; } }
+                }
+            }
+            else if k == 'n' {                                               // a new place: a new folder in the storage of the user
+                String nn = ask("new folder in u:/ (a place of its own)", "");
+                if nn.len > 0 {
+                    String full = join(storage(), nn);
+                    if is_dir(full) || Sys::mkdir(full.c(), 493) == 0 { g_pn.push(nn + ""); g_pp.push(full); places_save(); g_msg = "made the place " + nn; g_cur = g_pn.len - 1; }
+                    else { g_msg = "cannot make " + full; }
+                }
+            }
+            else if k == 'd' || k == 263 {
+                if g_cur >= g_nstd {
+                    String qd = "take " + g_pn[g_cur] + " away from the places? (the folder stays)";
+                    if confirm(qd) {
+                        String[] n2 = arr(16); String[] p2 = arr(16);
+                        for i in 0..g_pn.len { if i != g_cur { n2.push(g_pn[i]); p2.push(g_pp[i]); } }
+                        g_pn = n2; g_pp = p2; places_save();
+                        if g_cur >= g_pn.len { g_cur = g_pn.len - 1; }
+                    }
+                } else { g_msg = "a standard place stays"; }
             }
             continue;
         }
@@ -652,7 +709,8 @@ int run_ui(String start) {
             }
         }
         else if k == 127 || k == 8 || k == 260 {
-            if g_cwd == "/" || g_cwd == "/sdcard" { g_places = true; g_cur = 0; }
+            String stor = storage();
+            if g_cwd == "/" || g_cwd == stor { g_places = true; g_cur = 0; }
             else { String old = base_of(g_cwd); enter_folder(parent_of(g_cwd)); for i in 0..g_ents.len { if g_ents[i].name == old { g_cur = i; } } }
         }
         else if k == ' ' { if g_cur < g_ents.len { g_ents[g_cur].sel = !g_ents[g_cur].sel; if g_cur + 1 < g_ents.len { g_cur += 1; } } }
@@ -710,6 +768,10 @@ int run_ui(String start) {
         else if k == 's' { g_sort = (g_sort + 1) % 3; String[] sn = arr(3); sn.push("name"); sn.push("size"); sn.push("date"); g_msg = "sorted by " + sn[g_sort]; reload(); }
         else if k == '.' { g_hidden = !g_hidden; reload(); }
         else if k == 'g' { g_places = true; g_cur = 0; }
+        else if k == '+' {                                                    // this folder becomes a place
+            String nm = ask("name of this place", base_of(g_cwd));
+            if nm.len > 0 { g_pn.push(nm + ""); g_pp.push(g_cwd + ""); places_save(); g_msg = "added to the places: " + nm; }
+        }
         else if k == 'o' { if g_cur < g_ents.len && !g_ents[g_cur].dir { open_with_phone(join(g_cwd, g_ents[g_cur].name)); } }
         else if k == 'i' { if g_cur < g_ents.len && !g_ents[g_cur].dir { view_picture(join(g_cwd, g_ents[g_cur].name)); cout << "\e[2J"; } }
         else if k == 't' { if g_cur < g_ents.len && !g_ents[g_cur].dir { view_text(join(g_cwd, g_ents[g_cur].name)); cout << "\e[2J"; } }
@@ -724,7 +786,7 @@ int run_ui(String start) {
 int fail(String m) { cerr << "jfile: " << m << "\n"; return 1; }
 
 void usage() {
-    cout << "jfile 0.1.0: the files of the phone in a terminal\n";
+    cout << "jfile 0.2.0: the files of the phone in a terminal\n";
     cout << "  jfile [FOLDER]        the screen of places and folders (keys: ? is the last line)\n";
     cout << "  jfile ls [FOLDER]     a list as text      jfile places\n";
     cout << "  jfile cp SRC DST      jfile mv SRC DST    jfile rm PATH      jfile mkdir PATH\n";
@@ -734,11 +796,12 @@ int main() {
     String[] a = Env::args();
     g_msg = ""; g_filter = ""; g_cwd = "/"; g_app = "";
     g_clip = arr(2); g_ents = arr(2);
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "jfile 0.1.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "jfile 0.2.0\n"; return 0; }
     if a.len >= 2 && (a[1] == "help" || a[1] == "--help" || a[1] == "-h") { usage(); return 0; }
     String cmd = "";
     if a.len >= 2 { cmd = a[1]; }
     if cmd == "places" {
+        places_load();
         String[] pn = place_names();
         for i in 0..pn.len { cout << pn[i] << "   " << shown(place_path(i)) << "\n"; }
         return 0;
