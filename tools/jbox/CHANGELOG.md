@@ -1,7 +1,7 @@
 # Changelog
 
 ## 0.10.0
-* **Added:** `curl` (`-s -L -i -I -X -H -d -u -o`, http and https; exit 22 for an answer of 400 or more), `df [-h] [FOLDER...]` (size, use, free of a drive), `ps` (the programs you can see: pid, state, memory, cpu, name) and `xxd FILE` (the bytes in hex).
+* **Added:** `df [-h] [FOLDER...]` (size, use, free of a drive), `ps` (the programs you can see: pid, state, memory, cpu, name) and `hex FILE` (the bytes in hex). The web is fetched by `jget` (`jget URL -o -` writes the answer to the screen), not by a second program in jbox.
 * **Fixed:** none.
 
 ## 0.9.1

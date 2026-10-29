@@ -1,7 +1,7 @@
 # Changelog
 
 ## 0.11.3
-* **Added:** the new commands of jbox 0.10.0 (`curl`, `df`, `ps`, `xxd`) are known to the shell (they are found from the folder of jsh when no link is in the PATH).
+* **Added:** the new commands of jbox 0.10.0 (`df`, `ps`, `hex`) are known to the shell (they are found from the folder of jsh when no link is in the PATH).
 * **Fixed:** none.
 
 ## 0.11.2
