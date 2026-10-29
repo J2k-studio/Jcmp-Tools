@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 M="$PWD/_out/mujic"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export MUJIC_DIR="$T/m"; mkdir -p "$MUJIC_DIR"
-[ "$("$M" --version)" = "mujic 0.14.0" ] || { echo "mujic test: version"; exit 1; }
+[ "$("$M" --version)" = "mujic 0.15.0" ] || { echo "mujic test: version"; exit 1; }
 "$M" list | grep -q "no songs" || { echo "mujic test: an empty folder"; exit 1; }
 "$M" catalog | grep -q "sneaky-snitch" || { echo "mujic test: catalog"; exit 1; }
 printf 'ID3' > "$MUJIC_DIR/Song One.mp3"; printf 'ID3' > "$MUJIC_DIR/Song Two.mp3"
@@ -19,6 +19,9 @@ rm -f "$MUJIC_DIR/.library"
 mkdir -p "$T/jsong/album one"; printf 'ID3' > "$T/jsong/album one/Anchor Song.mp3"
 HOME="$T/home4" "$M" folder "$T/jsong" | grep -q "music folder: $T/jsong" || { echo "mujic test: folder"; exit 1; }
 env -u MUJIC_DIR HOME="$T/home4" "$M" list | grep -q "Anchor Song" || { echo "mujic test: the songs of the anchor folder"; env -u MUJIC_DIR HOME="$T/home4" "$M" list; exit 1; }
+mkdir -p "$T/jsong/yungtarr" "$T/jsong/p6"; printf 'ID3' > "$T/jsong/yungtarr/Blonde.mp3"; printf 'ID3x' > "$T/jsong/yungtarr/Other.mp3"; printf 'ID3' > "$T/jsong/p6/Seaside.mp3"
+env -u MUJIC_DIR HOME="$T/home4" "$M" albums | grep -q "yungtarr   2 songs" || { echo "mujic test: albums yungtarr"; env -u MUJIC_DIR HOME="$T/home4" "$M" albums; exit 1; }
+env -u MUJIC_DIR HOME="$T/home4" "$M" albums | grep -q "p6   1 songs" || { echo "mujic test: albums p6"; exit 1; }
 HOME="$T/home4" "$M" folder - | grep -q "back" || { echo "mujic test: folder -"; exit 1; }
 # the colour themes: the name is kept in ~/.config/mujic/theme; a wrong name is an error
 export HOME="$T/home"; mkdir -p "$HOME"

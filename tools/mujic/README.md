@@ -6,6 +6,7 @@ Songs live in a folder (`~/music`, or `$MUJIC_DIR`). The player shows the list, 
 mujic                       the player
 mujic play "Song"           start with a song (a number, a part of the name, or a file of any folder: mujic play Blonde.mp3)
 mujic                       (Jaric app) a start page: Terminal, Window or CD deck;  d keeps the answer;  mujic mode terminal|window|cd|ask;  mujic -t goes to the terminal
+mujic albums                the albums: the folders of the music folder (in the player: /albums)
 mujic window                the window of the player in the Jaric app (cover, buttons, queue)
 mujic cd                    the player as a CD deck: the cover is a disc that flies in and turns; touch the disc to play / pause, Eject to choose a song
 mujic play Song -b          play in the background: the prompt is free; then  mujic pause | resume | next | prev | stop  (Jaric app)
