@@ -3,7 +3,7 @@ os.environ['MUJIC_DIR']=sys.argv[2]; os.environ['JARIC']='1'; os.environ['TERM']
 pid,fd=pty.fork()
 if pid==0:
     fcntl.ioctl(0,termios.TIOCSWINSZ,struct.pack('HHHH',28,70,0,0))
-    os.execv(sys.argv[1],['mujic'])
+    os.execv(sys.argv[1],['mujic','-t'])
 out=b''
 def rd(t=0.5):
     global out

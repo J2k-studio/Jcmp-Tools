@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 M="$PWD/_out/mujic"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export MUJIC_DIR="$T/m"; mkdir -p "$MUJIC_DIR"
-[ "$("$M" --version)" = "mujic 0.11.0" ] || { echo "mujic test: version"; exit 1; }
+[ "$("$M" --version)" = "mujic 0.12.0" ] || { echo "mujic test: version"; exit 1; }
 "$M" list | grep -q "no songs" || { echo "mujic test: an empty folder"; exit 1; }
 "$M" catalog | grep -q "sneaky-snitch" || { echo "mujic test: catalog"; exit 1; }
 printf 'ID3' > "$MUJIC_DIR/Song One.mp3"; printf 'ID3' > "$MUJIC_DIR/Song Two.mp3"
@@ -22,6 +22,7 @@ export HOME="$T/home"; mkdir -p "$HOME"
 "$M" theme | grep -q "theme: temple" || { echo "mujic test: theme kept"; exit 1; }
 if "$M" theme nosuch > /dev/null 2>&1; then echo "mujic test: a wrong theme must fail"; exit 1; fi
 "$M" theme classic > /dev/null
+mkdir -p "$T/home2"; python3 mode_test.py "$M" "$MUJIC_DIR" "$T/home2" > /dev/null || { echo "mujic test: the start page"; exit 1; }
 python3 bg_test.py "$M" "$MUJIC_DIR" > /dev/null || { echo "mujic test: the background play"; exit 1; }
 python3 ui_test.py "$M" "$MUJIC_DIR" || { echo "mujic test: the player screen"; exit 1; }
 # /scan (mujic scan): songs of at least N seconds from every place; the length from the header (wav, mp3), a guess from the size for the others (~); hidden folders are skipped

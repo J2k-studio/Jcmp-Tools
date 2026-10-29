@@ -1881,6 +1881,80 @@ int do_remote(String what) {
     return 0;
 }
 
+// ---- the start page in the Jaric app: how to open the player: the terminal (this screen), the window (old programs), or the CD deck
+String mode_file() {
+    String home = "/";
+    switch Env::get("HOME") { Option::Some(v): { home = v; } Option::None: { } }
+    return Path::join(Path::join(Path::join(home, ".config"), "mujic"), "mode");
+}
+
+String mode_get() {
+    String f = mode_file();
+    if Fs::exists(f) {
+        Result<String, Error> r = Fs::read_text(f);
+        if r.is_ok() { String t = r.take(); String w = t.trim(); if w == "terminal" || w == "window" || w == "cd" { return w + ""; } }
+    }
+    return "ask";
+}
+
+void mode_set(String m) {
+    String f = mode_file();
+    Dir::make_all(Path::parent(f));
+    Fs::write_text(f, m + "\n");
+}
+
+// 0 the terminal, 1 the window, 2 the CD deck, -1 leave
+int choose_mode() {
+    int sel = 0;
+    bool remember = false;
+    int rows = Term::rows();
+    int cols = Term::cols();
+    if rows < 10 { rows = 24; }
+    if cols < 20 { cols = 40; }
+    raw_on();
+    cout << "\e[?1049h" << t_base << "\e[2J\e[?25l";
+    String[] names = arr(3);
+    names.push("Terminal"); names.push("Window"); names.push("CD deck");
+    String[] about = arr(3);
+    about.push("this screen: type, search, /commands");
+    about.push("a window like the old programs: cover, keys, lyrics");
+    about.push("a CD player: the cover is a disc that turns");
+    int result = -1;
+    bool done = false;
+    while !done {
+        String f = "\e[1;1H" + sgr(t_head, pad("  mujic  -  how do you want to listen?", cols));
+        for i in 0..3 {
+            int row = 4 + i * 4;
+            String mark = "  ";
+            String line1 = "  " + str(i + 1) + "   " + names[i];
+            String line2 = "      " + about[i];
+            if i == sel { line1 = sgr("7", pad(line1, cols)); line2 = sgr("7", pad(line2, cols)); }
+            else { line1 = pad(line1, cols); line2 = sgr("2", pad(line2, cols)); }
+            f = f + "\e[" + str(row) + ";1H" + line1 + "\e[" + str(row + 1) + ";1H" + line2;
+        }
+        String box = "[ ]";
+        if remember { box = "[x]"; }
+        f = f + "\e[" + str(rows - 3) + ";1H" + pad("  " + box + " d   do not ask again (mujic mode ask  brings this page back)", cols);
+        f = f + "\e[" + str(rows) + ";1H" + sgr("2", pad("  1 2 3 or up/down and Enter     Esc leave", cols));
+        cout << f;
+        int ev = next_event(300);
+        if ev == 27 || ev == 3 || ev == 'q' || ev == -9 { done = true; result = -1; }
+        else if ev == 257 { if sel > 0 { sel -= 1; } }
+        else if ev == 258 { if sel < 2 { sel += 1; } }
+        else if ev == 'd' { remember = !remember; }
+        else if ev == '1' || ev == '2' || ev == '3' { sel = ev - '1'; result = sel; done = true; }
+        else if ev == 13 || ev == 10 { result = sel; done = true; }
+    }
+    cout << "\e[0m\e[?25h\e[?1049l";
+    raw_off();
+    if result >= 0 && remember {
+        String[] key = arr(3);
+        key.push("terminal"); key.push("window"); key.push("cd");
+        mode_set(key[result]);
+    }
+    return result;
+}
+
 int do_list() {
     load_files();
     if g_files.len == 0 { cout << "no songs in " << music_dir() << ".  mujic catalog shows free ones, mujic get NAME fetches.\n"; return 0; }
@@ -1943,7 +2017,7 @@ int do_remove_cli(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.11.0";
+    String VERSION = "0.12.0";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
@@ -1981,6 +2055,16 @@ int main() {
             if !ok { return fail("no such theme: " + args[2]); }
             theme_set(args[2]); theme_save(); cout << "theme " << g_theme << "\n"; return 0;
         }
+        if c == "-t" || c == "--terminal" { return do_player(""); }
+        if c == "mode" {
+            if args.len < 3 { cout << "mode: " << mode_get() << "   (mujic mode terminal | window | cd | ask)\n"; return 0; }
+            String m = args[2] + "";
+            if m != "terminal" && m != "window" && m != "cd" && m != "ask" { return fail("mode: terminal, window, cd or ask"); }
+            if m == "ask" { Fs::remove(mode_file()); } else { mode_set(m); }
+            cout << "mode " << m << "\n";
+            return 0;
+        }
+        if c == "-c" || c == "--cd" { cout << "\e]7777;music;cd\a"; return 0; }
         if c == "cd" { cout << "\e]7777;music;cd\a"; return 0; }                              // the player as a CD deck: the cover is a disc that turns
         if c == "window" || c == "-w" { cout << "\e]7777;music;window\a"; return 0; }          // the window of the player in the Jaric app (cover, buttons, queue)
         if c == "pause" || c == "resume" || c == "stop" || c == "next" || c == "prev" { return do_remote(c); }
@@ -2005,6 +2089,21 @@ int main() {
             return 0;
         }
         return do_player(c);
+    }
+    // no arguments: in the Jaric app a start page asks how to listen (the answer can be kept: mujic mode terminal|window|cd|ask)
+    bool in_app2 = false;
+    switch Env::get("JARIC") {
+        Option::Some(j): { if j.len > 0 { in_app2 = true; } }
+        Option::None: { }
+    }
+    if in_app2 && Sys::isatty(0) == 0 {
+        theme_load();
+        String saved = mode_get();
+        int how = 0;
+        if saved == "window" { how = 1; } else if saved == "cd" { how = 2; } else if saved == "ask" { how = choose_mode(); }
+        if how < 0 { return 0; }
+        if how == 1 { cout << "\e]7777;music;window\a"; return 0; }
+        if how == 2 { cout << "\e]7777;music;cd\a"; return 0; }
     }
     return do_player("");
 }
