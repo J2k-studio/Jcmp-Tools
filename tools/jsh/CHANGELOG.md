@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.3
+* **Added:** the new commands of jbox 0.10.0 (`curl`, `df`, `ps`, `xxd`) are known to the shell (they are found from the folder of jsh when no link is in the PATH).
+* **Fixed:** none.
+
 ## 0.11.2
 * **Fixed:** since 0.11.1 only 23 names were sent to jbox when they were not in the PATH (`less`, `find`, `tree`, `man`, `diff` ... were "not found" without the links of `jbox --install`); all the commands of jbox are known again.
 

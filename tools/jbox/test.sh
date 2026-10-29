@@ -51,6 +51,27 @@ mkdir -p "$T/app/home" "$T/app/usr/bin"; echo x > "$T/app/usr/bin/tool"
   export JC_ROOT=1; "$J" cp "$T/app/usr/bin/tool" "$T/app/usr/bin/tool2" && "$J" rm "$T/app/usr/bin/tool2" || { echo "jbox test: root may change usr/bin"; exit 1; }
   unset JC_ROOT; echo y > "$T/app/home/f"; "$J" rm "$T/app/home/f" || { echo "jbox test: home is free"; exit 1; }
 )
+# curl against a small web server; df, ps, xxd
+python3 -I "$OLDPWD/curl_server.py" "$T/port" > /dev/null 2>&1 &
+SP=$!
+trap 'kill $SP 2>/dev/null; rm -rf "$T"' EXIT
+for i in 1 2 3 4 5 6 7 8 9 10; do [ -s "$T/port" ] && break; sleep 0.4; done
+U="http://127.0.0.1:$(cat "$T/port")"
+check "$("$J" curl -s $U/hello)" "hello world" curl-get
+"$J" curl -s -o "$T/got.bin" $U/file.bin; [ "$(wc -c < "$T/got.bin")" = "5120" ] && [ "$(head -c 256 "$T/got.bin" | od -An -tx1 | tr -d ' \n' | head -c 16)" = "0001020304050607" ] || { echo "jbox test: curl -o of a binary file"; exit 1; }
+check "$("$J" curl -s -d 'a=1&b=2' -H 'X-Test: yes' $U/echo)" "POST a=1&b=2 yes application/x-www-form-urlencoded" curl-post
+check "$("$J" curl -s -H 'X-Test: abc' $U/echo)" "GET /echo abc" curl-header
+check "$("$J" curl -s -L $U/redir)" "hello world" curl-redirect
+check "$("$J" curl -s $U/redir | wc -c | tr -d ' ')" "0" curl-no-redirect
+"$J" curl -i -s $U/hello | grep -q "^HTTP/1" || { echo "jbox test: curl -i"; exit 1; }
+if "$J" curl -s $U/nothere > /dev/null 2>&1; then echo "jbox test: curl of a 404 must fail"; exit 1; fi
+if "$J" curl -s http://127.0.0.1:1/x > /dev/null 2>&1; then echo "jbox test: curl of a closed port must fail"; exit 1; fi
+"$J" df | grep -q "FOLDER" || { echo "jbox test: df"; exit 1; }
+"$J" df -h / | grep -q "/$" || { echo "jbox test: df of a folder"; exit 1; }
+"$J" ps | grep -q "PID" || { echo "jbox test: ps"; exit 1; }
+"$J" ps | grep -q "jbox" || { echo "jbox test: ps lists itself"; exit 1; }
+printf 'ABC\n' > "$T/x.txt"
+check "$("$J" xxd "$T/x.txt")" "00000000: 4142 430a                                ABC." xxd
 echo "jbox test: ok"
 check "$(echo 'a b a' | "$J" sed 's/a/X/g')" "X b X" sed-g
 check "$(echo 'a b a' | "$J" sed 's/a/X/')" "X b a" sed-first
