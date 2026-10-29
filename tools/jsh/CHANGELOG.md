@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.4
+* **Added:** the cover leaves room at its left for the picture of the maker (the Jaric app draws it; other terminals show a blank space).
+* **Fixed:** none.
+
 ## 0.12.3
 * **Added:** `jaric about` opens the window about Jaric and its maker (in the Jaric app).
 * **Fixed:** none.
