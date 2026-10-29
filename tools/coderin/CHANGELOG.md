@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+* **Added:** the look of Dev-C++: the colour scheme `devcpp` (white page, navy keywords) with a **menu bar** (F10, or a touch: File, Edit, Search, Run, Help; arrows and Enter); **compile and run** from the editor: F9 compiles (`jcmp`), F11 compiles and runs, F5 runs, the log or the output shows in a pane under the text (Esc closes it), the lines with an error get a red number and F8 goes to the next error; **examples** (File > Examples: hello, loops, struct, read a file, arguments); the function keys F1-F12 are read (also from the key rows of the Jaric app); `set menubar on` gives the menu bar and the keys to any scheme.
+* **Fixed:** none.
+
 ## 0.4.2
 * Esc leaves (a second Esc when there are unsaved changes), like Ctrl-Q; an open menu or prompt takes the Esc first.
 

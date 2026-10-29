@@ -2,6 +2,7 @@
 # builds coderin and jpty, and drives the editor through a pseudo terminal with keys: typing with auto indent, select + copy + paste, find, save, quit
 set -eu
 cd "$(dirname "$0")"
+HERE=$PWD
 sh build.sh >/dev/null
 [ "$(./_out/coderin --version)" = "coderin $(cat VERSION)" ] || { echo "coderin test: --version differs from VERSION"; exit 1; }
 sh ../jpty/build.sh >/dev/null
@@ -67,4 +68,17 @@ grep -aq 'error 1/' frames || { echo "coderin test: the errors of the compiler";
 rm -f p.jk
 ( sleep 0.3; printf 'whi'; sleep 0.3; printf '\r'; sleep 0.2; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 80 -h 24 "$ED" p.jk > /dev/null
 [ "$(cat p.jk)" = 'while' ] || { echo "coderin test: the list of words"; cat -A p.jk; exit 1; }
+# the menu bar and the keys F9 / F11 (scheme devcpp): compile, run, errors; the examples compile
+JC="$(command -v "${JCMP:-jcmp}")"
+BT=$(mktemp -d)
+PATH="$(dirname "$JC"):$PATH" python3 "$HERE/build_test.py" "$ED" "$BT" > /dev/null || { echo "coderin test: the menu / compile / run"; rm -rf "$BT"; exit 1; }
+# every example of the menu compiles and runs
+for n in 1 2 3 5; do
+    "$ED" --example $n > "$BT/ex$n.jk"
+    "${JCMP:-jcmp}" "$BT/ex$n.jk" -o "$BT/ex$n" > "$BT/ex$n.log" 2>&1 || { echo "coderin test: the example $n does not compile"; cat "$BT/ex$n.log"; rm -rf "$BT"; exit 1; }
+    "$BT/ex$n" > /dev/null || { echo "coderin test: the example $n does not run"; rm -rf "$BT"; exit 1; }
+done
+"$ED" --example 4 > "$BT/ex4.jk"
+"${JCMP:-jcmp}" "$BT/ex4.jk" -o "$BT/ex4" > "$BT/ex4.log" 2>&1 || { echo "coderin test: the example 4 does not compile"; cat "$BT/ex4.log"; rm -rf "$BT"; exit 1; }
+rm -rf "$BT"
 echo "coderin test: ok"

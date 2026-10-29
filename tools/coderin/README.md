@@ -15,6 +15,7 @@ coderin FILE
   * `bindings`: lines `Ctrl-s = save`. Actions: `save quit find goto copy cut paste selectall duplicate deleteline command undo redo`.
   * `colors/NAME`: lines `keyword = #RRGGBB` (`keyword string number comment type text gutter selection`).
 * Colours for J2K, line numbers, auto indent.
+* **The look of Dev-C++** (`set colorscheme devcpp`): a white page, a **menu bar** on the first row (F10 or a touch: File, Edit, Search, Run, Help), and the keys for building programs: **F9** compile, **F11** compile and run, **F5** run, **F8** the next error, **F1** the keys. The log of the compiler or the output of the program shows in a pane under the text (Esc closes it); a line with an error gets a red number. File > Examples puts a small program (hello, loops, struct, read a file, arguments) in the text. `set menubar on` gives the menu bar and the keys to the other schemes. Needs `jcmp` (`jc install jcmp`).
 
 * **Extensions** (switch them with  `extensions = undo j2k`  in the settings; both are on): **undo** (Ctrl-Z) and **redo** (Ctrl-Y), typing and deleting in one go are one step; **j2k**: Tab after `main`, `for`, `while`, `if`, `ife`, `struct`, `enum`, `switch`, `try`, `cout`, `fn` or `exp` at the start of a line writes the snippet and puts the cursor in it, and Tab after the start of a word (2 letters or more) completes it with the words of J2K and of the text (the common start; again to see the choices).
 

@@ -49,6 +49,7 @@ int c_txt;
 int c_gut;
 int c_sel;
 int K_MOUSE = 1020;
+bool menubar;                 // the menu bar of the old programs on the first row (F10), and the keys F5 F9 F11 (set menubar on; the scheme devcpp has it)
 bool helpbar = true;          // a line with the keys under the text, as nano shows it (set helpbar off)
 bool ext_undo = true;         // the extensions that are on (the setting  extensions = undo j2k ): undo and redo; help for writing J2K
 bool ext_j2k = true;
@@ -80,6 +81,7 @@ int K_ENTER = 1010;
 int K_BS = 1011;
 int K_TAB = 1012;
 int K_ESC = 1013;
+int K_F = 1500;               // + n : the function key Fn (F1 .. F12)
 int K_SHIFT = 100;            // + K_UP .. K_END : the arrow with Shift
 int K_CTRL = 200;             // + K_UP .. K_END : the arrow with Ctrl
 
@@ -135,6 +137,7 @@ int read_key(int ms) {
             int c3 = rd();
             if c3 == 72 { return K_HOME; }
             if c3 == 70 { return K_END; }
+            if c3 >= 80 && c3 <= 83 { return K_F + 1 + (c3 - 80); }                // ESC O P Q R S : F1 .. F4
             return K_ESC;
         }
         if c2 != 91 { return K_ESC; }
@@ -174,6 +177,16 @@ int read_key(int ms) {
             if p1 == 3 { return K_DEL; }
             if p1 == 5 { return K_PGUP; }
             if p1 == 6 { return K_PGDN; }
+            if p1 >= 15 && p1 <= 24 {                                       // ESC [ 15 ~ ... : F5 .. F12
+                if p1 == 15 { return K_F + 5; }
+                if p1 == 17 { return K_F + 6; }
+                if p1 == 18 { return K_F + 7; }
+                if p1 == 19 { return K_F + 8; }
+                if p1 == 20 { return K_F + 9; }
+                if p1 == 21 { return K_F + 10; }
+                if p1 == 23 { return K_F + 11; }
+                if p1 == 24 { return K_F + 12; }
+            }
         }
         return K_ESC;
     }
@@ -696,6 +709,7 @@ void apply_scheme(String name) {
     if name == "light" { c_kw = 0xCF222E; c_str = 0x0A3069; c_num = 0x8250DF; c_com = 0x6E7781; c_typ = 0x0550AE; c_txt = 0x1F2328; c_gut = 0x8C959F; c_sel = 0xB6D6F2; c_bg = 0xFAFAFA; }
     else if name == "mono" { c_kw = 0xFFFFFF; c_str = 0xCCCCCC; c_num = 0xCCCCCC; c_com = 0x808080; c_typ = 0xFFFFFF; c_txt = 0xE0E0E0; c_gut = 0x808080; c_sel = 0x444444; c_bg = 0x000000; }
     else if name == "amber" { c_kw = 0xFFB000; c_str = 0xFFD060; c_num = 0xFFD060; c_com = 0x9A6B00; c_typ = 0xFFC030; c_txt = 0xFFB000; c_gut = 0x9A6B00; c_sel = 0x553A00; c_bg = 0x120C00; }
+    if name == "devcpp" { c_kw = 0x000080; c_str = 0x800080; c_num = 0xCC0000; c_com = 0x008000; c_typ = 0x000080; c_txt = 0x000000; c_gut = 0x808080; c_sel = 0xC0C0FF; c_bg = 0xFFFFFF; menubar = true; }
     String file = config_dir() + "/colors/" + name;
     Result<String, Error> r = Fs::read_text(file);
     if r.is_ok() {
@@ -739,9 +753,22 @@ int gutter() {
     return nstr.len + 2;
 }
 
+String[] pane;                // the log of the compiler / the output of the program, under the text (Esc closes it)
+String pane_title;
+bool pane_on;
+int pane_rows() {
+    if !pane_on { return 0; }
+    int n = pane.len;
+    if n > 8 { n = 8; }
+    return n + 1;
+}
+int row_off() { if menubar { return 1; } return 0; }
+
 int text_rows_count() {
-    if helpbar { return rows - 2; }
-    return rows - 1;
+    int t = rows - 1 - row_off() - pane_rows();
+    if helpbar { t -= 1; }
+    if t < 3 { t = 3; }
+    return t;
 }
 
 void scroll_to_cursor() {
@@ -798,19 +825,285 @@ String draw_line(int y) {
     return out;
 }
 
+String ask(String prompt) {
+    String e = esc();
+    String text = "";
+    while true {
+        String line = prompt + text;
+        cout << e << "[" << str(rows) << ";1H" << e << "[7m" << line << " ".repeat(cols - line.len) << e << "[0m" << e << "[" << str(rows) << ";" << str(line.len + 1) << "H";
+        int k = read_key(0 - 1);
+        if k == K_ENTER { return text; }
+        if k == K_ESC { return ""; }
+        if k == K_BS { if text.len > 0 { text = text.slice(0, prev_char(text, text.len)); } }
+        else if k == K_TEXT { text = text + key_text; }
+    }
+    return text;
+}
+
+// ---------------------------------------------------------------- the menu bar of the old programs (F10): File Edit Search Run Help
+int menu_on;                          // the open menu, -1 none (set at the start)
+int room(int n) { if n < 0 { return 0; } return n; }
+int menu_item;
+String[] menu_names() { String[] n = arr(5); n.push("File"); n.push("Edit"); n.push("Search"); n.push("Run"); n.push("Help"); return n; }
+// "label|action" of the items of a menu
+String[] menu_list(int m) {
+    String[] r = arr(8);
+    if m == 0 { r.push("Save|save"); r.push("Examples...|examples"); r.push("Quit|quit"); }
+    else if m == 1 { r.push("Undo|undo"); r.push("Redo|redo"); r.push("Cut|cut"); r.push("Copy|copy"); r.push("Paste|paste"); r.push("Select all|selectall"); r.push("Delete line|deleteline"); }
+    else if m == 2 { r.push("Find...|find"); r.push("Replace...|replace"); r.push("Go to line...|goto"); }
+    else if m == 3 { r.push("Compile  F9|compile"); r.push("Run  F5|run"); r.push("Compile and run  F11|buildrun"); r.push("Next error  F8|nexterror"); }
+    else { r.push("Keys  F1|keys"); r.push("About|about"); }
+    return r;
+}
+String menu_label(String item) { int bar = 0 - 1; for i in 0..item.len { if item[i] == '|' { bar = i; } } return item.slice(0, bar); }
+String menu_action(String item) { int bar = 0 - 1; for i in 0..item.len { if item[i] == '|' { bar = i; } } return item.slice(bar + 1, item.len); }
+int menu_x(int m) {                    // the column (1-based) where the name of menu m starts
+    String[] n = menu_names();
+    int x = 2;
+    for i in 0..m { x += n[i].len + 3; }
+    return x;
+}
+
+String draw_menubar() {
+    String e = esc();
+    String[] n = menu_names();
+    String f = e + "[1;1H" + e + "[48;2;192;192;192m" + e + "[38;2;0;0;0m";
+    String line = " ";
+    for i in 0..n.len { line = line + " " + n[i] + "  "; }
+    f = f + line + " ".repeat(room(cols - line.len)) + e + "[0m";
+    if menu_on >= 0 {
+        String[] items = menu_list(menu_on);
+        int w = 0;
+        for i in 0..items.len { String lb = menu_label(items[i]); if lb.len > w { w = lb.len; } }
+        w += 2;
+        int x = menu_x(menu_on) - 1;
+        if x + w > cols { x = cols - w; }
+        if x < 1 { x = 1; }
+        // the open name is lit
+        f = f + e + "[1;" + str(menu_x(menu_on)) + "H" + e + "[48;2;0;0;128m" + e + "[38;2;255;255;255m" + " " + n[menu_on] + " " + e + "[0m";
+        for i in 0..items.len {
+            String lb = " " + menu_label(items[i]);
+            String t = lb + " ".repeat(w - lb.len);
+            if i == menu_item { f = f + e + "[" + str(i + 2) + ";" + str(x) + "H" + e + "[48;2;0;0;128m" + e + "[38;2;255;255;255m" + t + e + "[0m"; }
+            else { f = f + e + "[" + str(i + 2) + ";" + str(x) + "H" + e + "[48;2;192;192;192m" + e + "[38;2;0;0;0m" + t + e + "[0m"; }
+        }
+    }
+    return f;
+}
+
+// the log under the text: a title bar, then the last lines (a line with an error is red)
+String draw_pane(int row) {
+    String e = esc();
+    int n = pane.len;
+    int show = n;
+    if show > 8 { show = 8; }
+    int first = n - show;
+    String t = " " + pane_title + "     Esc closes";
+    String f = e + "[" + str(row) + ";1H" + e + "[48;2;0;0;128m" + e + "[38;2;255;255;255m" + t + " ".repeat(room(cols - t.len)) + e + "[0m";
+    for i in 0..show {
+        String l = pane[first + i];
+        if l.len > cols - 2 { l = l.slice(0, cols - 2); }
+        String code = e + "[48;2;192;192;192m" + e + "[38;2;0;0;0m";
+        if l.contains(": error") || l.contains("error:") { code = e + "[48;2;192;192;192m" + e + "[38;2;170;0;0m"; }
+        f = f + e + "[" + str(row + 1 + i) + ";1H" + code + " " + l + " ".repeat(room(cols - l.len - 1)) + e + "[0m";
+    }
+    return f;
+}
+
+// the errors of the compiler in the lines of its text (file:line:col: error: ...): the lines get a red number, show_error goes to the first
+void parse_errors(String[] ls) {
+    err_line = arr(8);
+    err_msg = arr(8);
+    err_i = 0;
+    for i in 0..ls.len {
+        String l = ls[i];
+        int at = 0;
+        bool found = false;
+        while at + 9 <= l.len && !found { if l.slice(at, at + 9) == ": error: " { found = true; } else { at += 1; } }
+        if !found { continue; }
+        String[] parts = l.slice(0, at).split(":");
+        if parts.len < 3 { continue; }
+        int ln = parts[parts.len - 2].to_int();
+        if ln < 1 { continue; }
+        err_line.push(ln - 1);
+        err_msg.push(l.slice(at + 9, l.len) + "");
+    }
+}
+
+String[] text_lines(String text) {
+    String[] ls = text.replace("\r", "").split("\n");
+    int last = ls.len;
+    while last > 0 && ls[last - 1].len == 0 { last -= 1; }          // the empty lines at the end go
+    int from = 0;
+    if last > 200 { from = last - 200; }
+    String[] r = arr(16);
+    for i in from..last { r.push(ls[i] + ""); }
+    return r;
+}
+
+// F9 / F11 / F5: compile the file (jcmp), show the log, go to the first error; when run is true and it compiled, run it and show what it printed
+void build_run(bool run) {
+    if !(path.ends_with(".jk") || path.ends_with(".j")) { msg = "compile: this is not a .jk / .j file"; return; }
+    if dirty { save(); }
+    String exe = path.slice(0, path.len - 2);
+    if path.ends_with(".jk") { exe = path.slice(0, path.len - 3); }
+    String[] a = arr(4);
+    a.push("-c");
+    a.push("jcmp '" + path + "' -o '" + exe + "' 2>&1");
+    Result<String, Error> r = Proc::output("sh", a);
+    String text = "";
+    if r.is_ok() { text = r.take(); }
+    String[] ls = text_lines(text);
+    parse_errors(ls);
+    pane_title = "Compile Log";
+    int nlines = ls.len;
+    pane = arr(4);
+    for i in 0..nlines { pane.push(ls[i] + ""); }
+    if err_line.len > 0 {
+        pane_on = true;
+        show_error();
+        return;
+    }
+    if nlines == 0 { pane.push("Compiled: " + exe); }
+    pane_on = true;
+    if !run { msg = "compiled " + exe; return; }
+    String runp = exe;
+    if !exe.starts_with("/") { runp = "./" + exe; }
+    String[] b = arr(4);
+    b.push("-c");
+    b.push("timeout 20 '" + runp + "' < /dev/null 2>&1; echo \"[exit $?]\"");
+    Result<String, Error> o = Proc::output("sh", b);
+    String out = "";
+    if o.is_ok() { out = o.take(); }
+    String[] outl = text_lines(out);
+    int nout = outl.len;
+    pane = arr(4);
+    for i in 0..nout { pane.push(outl[i] + ""); }
+    pane_title = "Output of " + exe;
+    msg = "ran " + exe;
+}
+
+String example_text(int n) {
+    String t = "#import <stdlib>\n\n";
+    if n == 1 { t = t + "void main() {\n    cout << \"Hello from J2K!\\n\";\n}\n"; }
+    else if n == 2 { t = t + "void main() {\n    int sum = 0;\n    for i in 1..11 { sum += i; }\n    cout << \"sum of 1 to 10 = \" << sum << \"\\n\";\n    int n = 0;\n    while n < 3 {\n        cout << \"n = \" << n << \"\\n\";\n        n += 1;\n    }\n}\n"; }
+    else if n == 3 { t = t + "struct Point {\n    int x;\n    int y;\n}\n\nvoid main() {\n    Point a;\n    a.x = 3;\n    a.y = 4;\n    cout << \"x * x + y * y = \" << a.x * a.x + a.y * a.y << \"\\n\";\n}\n"; }
+    else if n == 4 { t = "#import <stdlib>\n#import <files>\n\nvoid main() {\n    Result<String, Error> r = Fs::read_text(\"hello.jk\");\n    if r.is_ok() {\n        String text = r.take();\n        cout << \"hello.jk has \" << text.len << \" bytes\\n\";\n    } else {\n        cout << \"cannot read hello.jk\\n\";\n    }\n}\n"; }
+    else { t = t + "void main() {\n    String[] a = Env::args();\n    cout << \"arguments: \" << a.len - 1 << \"\\n\";\n    for i in 1..a.len { cout << a[i] << \"\\n\"; }\n}\n"; }
+    return t;
+}
+
+void examples_menu() {
+    String c = ask("example: 1 hello  2 loops  3 struct  4 read a file  5 arguments  > ").trim();
+    int n = c.to_int();
+    if n < 1 || n > 5 { msg = "no such example"; return; }
+    if dirty { msg = "save first (Ctrl-S): an example replaces the text"; return; }
+    set_from_text(example_text(n));
+    cy = 0; cx = 0; top = 0; left = 0; sel = false;
+    dirty = true;
+    msg = "example " + str(n) + "  (F11 builds and runs it)";
+}
+
+void pane_text(String title, String body) {
+    pane_title = title;
+    String[] bl = text_lines(body);
+    int nb = bl.len;
+    pane = arr(4);
+    for i in 0..nb { pane.push(bl[i] + ""); }
+    pane_on = true;
+}
+
+// an action of a menu: the ones that are keys (Ctrl-S ...) are done as that key
+void menu_do(String act) {
+    if act == "compile" { build_run(false); return; }
+    if act == "run" || act == "buildrun" { build_run(true); return; }
+    if act == "nexterror" { if err_line.len > 0 { err_i = (err_i + 1) % err_line.len; } show_error(); return; }
+    if act == "examples" { examples_menu(); return; }
+    if act == "keys" { pane_text("Keys", "F10 menu   F9 compile   F5 run   F11 compile and run   F8 next error   Esc closes the log\nCtrl-S save  Ctrl-Q quit  Ctrl-F find  Ctrl-G go to line  Ctrl-Z undo  Ctrl-Y redo\nCtrl-C copy  Ctrl-X cut  Ctrl-V paste  Ctrl-A select all  Ctrl-K delete line  Ctrl-E commands"); return; }
+    if act == "about" { pane_text("About", "coderin 0.5.0: a text editor for the terminal and the Jaric app.  J2k-studio  github.com/J2k-studio/Jcmp-Tools"); return; }
+    if act == "replace" {
+        String a1 = ask("replace: ");
+        if a1.len == 0 { return; }
+        String a2 = ask("with: ");
+        begin_edit(0);
+        int n = 0;
+        for y in 0..lines.len {
+            String l = lines[y];
+            String nl = l.replace(a1, a2);
+            if nl != l { lines[y] = nl; n += 1; dirty = true; }
+        }
+        msg = "replaced in " + str(n) + " lines";
+        return;
+    }
+    String kn = binding_key_of(act);                       // "Ctrl-S"
+    if kn.len == 6 && kn.starts_with("Ctrl-") { handle_key((kn[5] & 255) - 64); return; }
+    msg = act + ": no key for it";
+}
+
+// the keys while a menu is open
+void menu_key(int k) {
+    if k == K_ESC || k == K_F + 10 { menu_on = 0 - 1; return; }
+    if k == K_LEFT { menu_on = (menu_on + 4) % 5; menu_item = 0; return; }
+    if k == K_RIGHT { menu_on = (menu_on + 1) % 5; menu_item = 0; return; }
+    String[] items = menu_list(menu_on);
+    if k == K_DOWN { menu_item = (menu_item + 1) % items.len; return; }
+    if k == K_UP { menu_item = (menu_item + items.len - 1) % items.len; return; }
+    if k == K_ENTER {
+        String act = menu_action(items[menu_item]);
+        menu_on = 0 - 1;
+        menu_do(act);
+        return;
+    }
+    if k == K_MOUSE { menu_click(); }
+}
+
+// a touch while a menu is open (or on the bar): choose
+void menu_click() {
+    if !m_press { return; }
+    String[] n = menu_names();
+    if m_y == 1 {
+        for i in 0..5 { if m_x >= menu_x(i) - 1 && m_x <= menu_x(i) + n[i].len + 1 { if menu_on == i { menu_on = 0 - 1; } else { menu_on = i; menu_item = 0; } return; } }
+        menu_on = 0 - 1;
+        return;
+    }
+    if menu_on >= 0 {
+        String[] items = menu_list(menu_on);
+        int i = m_y - 2;
+        if i >= 0 && i < items.len {
+            String act = menu_action(items[i]);
+            menu_on = 0 - 1;
+            menu_do(act);
+            return;
+        }
+    }
+    menu_on = 0 - 1;
+}
+
+void fkey(int n) {
+    if n == 5 { build_run(true); }
+    else if n == 9 { build_run(false); }
+    else if n == 11 { build_run(true); }
+    else if n == 8 { if err_line.len > 0 { err_i = (err_i + 1) % err_line.len; } show_error(); }
+    else if n == 10 { if menubar { menu_on = 0; menu_item = 0; } else { msg = "set menubar on  (or  set colorscheme devcpp)"; } }
+    else if n == 1 { menu_do("keys"); }
+}
+
 void draw() {
     scroll_to_cursor();
     String e = esc();
     String f = e + "[?25l";
+    int off = row_off();
     for r in 0..text_rows_count() {
         int y = top + r;
-        f = f + e + "[" + str(r + 1) + ";1H";
+        f = f + e + "[" + str(r + 1 + off) + ";1H";
         if y < lines.len { f = f + draw_line(y); }
         else { f = f + bgs() + rgb(c_gut) + "~" + e + "[0m" + bgs() + e + "[K"; }
     }
+    if pane_on { f = f + draw_pane(off + text_rows_count() + 1); }
     if helpbar {                                                  // the keys, in the way of nano: the key reversed, then what it does
         String hints = "";
         String acts = "save:Save quit:Quit find:Find goto:Goto undo:Undo copy:Copy cut:Cut paste:Paste command:Command";
+        if menubar { hints = e + "[7mF10" + e + "[0m Menu  " + e + "[7mF9" + e + "[0m Compile  " + e + "[7mF5" + e + "[0m Run  " + e + "[7mF11" + e + "[0m Build+Run  "; }
         String[] as = acts.split(" ");
         for i in 0..as.len {
             String[] an = as[i].split(":");
@@ -828,9 +1121,10 @@ void draw() {
     String bar = left_text + " ".repeat(room - left_text.len) + right;
     f = f + e + "[" + str(rows) + ";1H" + e + "[7m" + bar + e + "[0m";
     int g = gutter();
-    int sr = cy - top + 1;
+    int sr = cy - top + 1 + off;
     int sc = col_of(lines[cy], cx) - left + g + 1;
     if pop_on { f = f + draw_popup(sr, sc); }
+    if menubar { f = f + draw_menubar(); }
     f = f + e + "[" + str(sr) + ";" + str(sc) + "H" + e + "[?25h";
     cout << f;
 }
@@ -843,20 +1137,6 @@ void move_to(int y, int x, bool extend) {
     cx = x;
 }
 
-String ask(String prompt) {
-    String e = esc();
-    String text = "";
-    while true {
-        String line = prompt + text;
-        cout << e << "[" << str(rows) << ";1H" << e << "[7m" << line << " ".repeat(cols - line.len) << e << "[0m" << e << "[" << str(rows) << ";" << str(line.len + 1) << "H";
-        int k = read_key(0 - 1);
-        if k == K_ENTER { return text; }
-        if k == K_ESC { return ""; }
-        if k == K_BS { if text.len > 0 { text = text.slice(0, prev_char(text, text.len)); } }
-        else if k == K_TEXT { text = text + key_text; }
-    }
-    return text;
-}
 
 void find_next(String what, int from_y, int from_x) {
     if what.len == 0 { return; }
@@ -1048,7 +1328,7 @@ void command_bar() {
 
 // ---------------------------------------------------------------- the mouse
 void mouse_pos(int^ yy, int^ xx) {
-    int y = top + m_y - 1;
+    int y = top + m_y - 1 - row_off();
     if y >= lines.len { y = lines.len - 1; }
     if y < 0 { y = 0; }
     int col = m_x - 1 - gutter() + left;
@@ -1066,7 +1346,7 @@ void on_mouse() {
         free_scroll = true;
         return;
     }
-    if m_y > text_rows_count() { return; }                        // the lines of keys and of status
+    if m_y > text_rows_count() + row_off() || m_y <= row_off() { return; }      // the bar, the log, the lines of keys and of status
     int y = 0;
     int x = 0;
     mouse_pos(@y, @x);
@@ -1349,6 +1629,10 @@ void handle_key(int k) {
 }
 
 void handle(int k) {
+    if menu_on >= 0 { menu_key(k); return; }
+    if k == K_MOUSE && menubar && m_y == 1 && m_press { menu_click(); return; }
+    if k == K_ESC && pane_on { pane_on = false; return; }
+    if k >= K_F && k <= K_F + 12 { fkey(k - K_F); return; }
     if pop_on {
         if k == K_DOWN { pop_i = (pop_i + 1) % pop_c.len; return; }
         if k == K_UP { pop_i = (pop_i + pop_c.len - 1) % pop_c.len; return; }
@@ -1408,12 +1692,13 @@ int ex_mode(String[] a) {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "coderin 0.4.2\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "coderin 0.5.0\n"; return 0; }
     if a.len > 1 && (a[1] == "--help" || a[1] == "-h") {
         cout << "coderin: a text editor for the terminal.   coderin FILE   open (or make) a file;   coderin -ex [NAME]   list / install extensions\n";
         cout << "  keys: Ctrl-S save, Ctrl-Q leave, Ctrl-F find, Ctrl-Z undo, Ctrl-C/X/V copy cut paste (the full list: jget docs GUIDE.md, section coderin)\n";
         return 0;
     }
+    if a.len > 2 && a[1] == "--example" { cout << example_text(a[2].to_int()); return 0; }          // the text of an example (the tests compile them)
     if a.len > 1 && a[1] == "-ex" { return ex_mode(a); }
     if a.len < 2 { cerr << "usage: coderin FILE   |   coderin -ex [NAME]\n"; return 2; }
     if Sys::isatty(0) != 0 { cerr << "coderin: it needs a terminal\n"; return 2; }
@@ -1422,6 +1707,9 @@ int main() {
     msg = "";
     undo_text = arr(16); undo_cy = arr(16); undo_cx = arr(16);
     redo_text = arr(8); redo_cy = arr(8); redo_cx = arr(8);
+    menu_on = 0 - 1;
+    pane = arr(1);
+    pane_title = "";
     bind_default();
     apply_scheme("dark");
     err_line = arr(1);
