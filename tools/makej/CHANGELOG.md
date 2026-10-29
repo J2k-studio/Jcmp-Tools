@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+* **Added:** an app made with `render = "gl"` unpacks the files of `assets/` to its own folder (`files/data`) the first time (and when the version changes), and sets `JC_ASSETS` and `HOME` for the game; a game in a shared library cannot read the environment, so it opens its pictures from `/data/data/ID/files/data/`.
+* **Fixed:** none.
+
 ## 0.10.0 (needs jcmp 1.2.3 and the libraries canvas2d, glcanvas, glapp for render = "gl")
 * **Added:** `render = "gl"` (and `main = "src/main.jk"`) in manifest.toml: `makej apk` builds a game that is a shared library (`libgame.so`, jcmp -l) inside an app with a GLSurfaceView that calls it (the library `<glapp>`: game_init / game_resize / game_frame / game_touch). The game draws with OpenGL ES itself; no jpty, no terminal. The library is stored and aligned in the apk.
 * **Fixed:** none.
