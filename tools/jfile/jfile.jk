@@ -1,0 +1,789 @@
+#import <stdlib>
+#import <files>
+#import <deflate>
+#import <png>
+using stdlib;
+#import "jpeg"
+// jfile 0.1.0 -- the files of the phone in a terminal: Downloads, Pictures, Documents ... look, open, copy, move, delete.   (license: MPL-2.0)
+//   jfile [FOLDER]            the places (Home, Downloads, Pictures, Camera, Documents, Music, Movies, all the storage u:/) or a folder
+//   jfile ls [FOLDER]         the list as text (for scripts)         jfile places
+//   jfile cp SRC DST          copy a file or a folder               jfile mv SRC DST          move or rename
+//   jfile rm PATH             delete (a folder with all that is in it)    jfile mkdir PATH
+// Keys: up/down, PageUp/PageDown, Enter or right = open a folder / look at a file, Backspace or left = up, Space = mark, a = mark all,
+//   c copy, x cut, v paste, d delete, r rename, n new folder, / filter, s sort (name, size, date), . hidden, g places, o open with the phone, i picture, t text, q quit.
+
+struct Entry {
+    String name;
+    bool dir;
+    int size;
+    int mtime;
+    bool sel;
+}
+
+Entry[] g_ents;
+String g_cwd;
+int g_cur;
+int g_top;
+bool g_hidden;
+int g_sort;
+String g_filter;
+String[] g_clip;
+bool g_cut;
+String g_msg;
+bool g_places;
+int g_rows;
+int g_cols;
+char g_tio[64];
+bool g_raw;
+
+// ---------------------------------------------------------------- files
+
+String join(String a, String b) {
+    if a.ends_with("/") { return a + b; }
+    return a + "/" + b;
+}
+
+String base_of(String p) {
+    String q = p + "";
+    while q.len > 1 && q.ends_with("/") { q = q.slice(0, q.len - 1); }
+    int k = 0 - 1;
+    for i in 0..q.len { if q[i] == '/' { k = i; } }
+    if k < 0 { return q; }
+    return q.slice(k + 1, q.len);
+}
+
+String parent_of(String p) {
+    String q = p + "";
+    while q.len > 1 && q.ends_with("/") { q = q.slice(0, q.len - 1); }
+    int k = 0 - 1;
+    for i in 0..q.len { if q[i] == '/' { k = i; } }
+    if k <= 0 { return "/"; }
+    return q.slice(0, k);
+}
+
+// 0 not there, 1 a file, 2 a folder; the size and the time of change in the numbers
+int stat_of(String path, int^ size, int^ mtime) {
+    int st[18];
+    if Sys::stat(path.c(), @st) != 0 { return 0; }
+    int mode = st[2] & 4294967295 & 61440;
+    size[0] = st[6];
+    mtime[0] = st[11];
+    if mode == 16384 { return 2; }
+    return 1;
+}
+
+bool is_dir(String path) { int s = 0; int m = 0; return stat_of(path, @s, @m) == 2; }
+bool exists(String path) { int s = 0; int m = 0; return stat_of(path, @s, @m) != 0; }
+
+int lower_cmp(String a, String b) {
+    String x = a.lower();
+    String y = b.lower();
+    if x < y { return 0 - 1; }
+    if x > y { return 1; }
+    return 0;
+}
+
+// the entries of a folder, sorted: folders first
+Entry[] read_folder(String path, bool hidden, int sort, String filter) {
+    Entry[] out = arr(16);
+    Result<String[], Error> r = Dir::list(path);
+    if r.is_err() { return out; }
+    String[] names = r.take();
+    String fl = filter.lower();
+    for i in 0..names.len {
+        String n = names[i];
+        if n == "." || n == ".." { continue; }
+        if !hidden && n.starts_with(".") { continue; }
+        if fl.len > 0 { String nl = n.lower(); if !nl.contains(fl) { continue; } }
+        Entry e;
+        e.name = n + "";
+        int sz = 0; int mt = 0;
+        int k = stat_of(join(path, n), @sz, @mt);
+        e.dir = k == 2;
+        e.size = sz;
+        e.mtime = mt;
+        e.sel = false;
+        out.push(e);
+    }
+    // a simple insertion sort (the lists are short)
+    for i in 1..out.len {
+        Entry cur = out[i];
+        int j = i - 1;
+        while j >= 0 && before(cur, out[j], sort) {
+            out[j + 1] = out[j];
+            j -= 1;
+        }
+        out[j + 1] = cur;
+    }
+    return out;
+}
+
+// should a stand before b?
+bool before(Entry a, Entry b, int sort) {
+    if a.dir && !b.dir { return true; }
+    if !a.dir && b.dir { return false; }
+    if sort == 1 { if a.size != b.size { return a.size > b.size; } }
+    if sort == 2 { if a.mtime != b.mtime { return a.mtime > b.mtime; } }
+    return lower_cmp(a.name, b.name) < 0;
+}
+
+String human(int n) {
+    if n < 1024 { return str(n) + " B"; }
+    double d = (double)n;
+    String[] u = arr(4);
+    u.push("KB"); u.push("MB"); u.push("GB"); u.push("TB");
+    int k = 0;
+    d = d / 1024.0;
+    while d >= 1024.0 && k < 3 { d = d / 1024.0; k += 1; }
+    int t = (int)(d * 10.0 + 0.5);
+    return str(t / 10) + "." + str(t % 10) + " " + u[k];
+}
+
+String date_of(int t) {
+    if t <= 0 { return ""; }
+    // days since 1970 to y-m-d (civil from days, Howard Hinnant)
+    int z = t / 86400 + 719468;
+    int era = z / 146097;
+    int doe = z - era * 146097;
+    int yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    int y = yoe + era * 400;
+    int doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    int mp = (5 * doy + 2) / 153;
+    int d = doy - (153 * mp + 2) / 5 + 1;
+    int m = mp + 3;
+    if m > 12 { m -= 12; }
+    if m <= 2 { y += 1; }
+    String ms = str(m); if ms.len < 2 { ms = "0" + ms; }
+    String ds = str(d); if ds.len < 2 { ds = "0" + ds; }
+    return str(y) + "-" + ms + "-" + ds;
+}
+
+// copy the bytes of a file in pieces of 64 KB
+bool copy_file(String from, String to) {
+    int in_fd = Sys::open_read(from.c());
+    if in_fd < 0 { return false; }
+    int out_fd = Sys::open_write(to.c());
+    if out_fd < 0 { Sys::close(in_fd); return false; }
+    char^ buf = (char^)alloc(65536);
+    bool ok = true;
+    int n = Sys::read(in_fd, buf, 65536);
+    while n > 0 {
+        int off = 0;
+        while off < n {
+            int w = Sys::write(out_fd, (char^)(buf + off), n - off);
+            if w <= 0 { ok = false; break; }
+            off += w;
+        }
+        if !ok { break; }
+        n = Sys::read(in_fd, buf, 65536);
+    }
+    if n < 0 { ok = false; }
+    Sys::close(in_fd);
+    Sys::close(out_fd);
+    return ok;
+}
+
+bool copy_any(String from, String to) {
+    if is_dir(from) {
+        if !is_dir(to) { if Sys::mkdir(to.c(), 493) != 0 { return false; } }
+        Result<String[], Error> r = Dir::list(from);
+        if r.is_err() { return false; }
+        String[] names = r.take();
+        bool ok = true;
+        for i in 0..names.len {
+            String n = names[i];
+            if n == "." || n == ".." { continue; }
+            if !copy_any(join(from, n), join(to, n)) { ok = false; }
+        }
+        return ok;
+    }
+    return copy_file(from, to);
+}
+
+bool remove_any(String path) {
+    if is_dir(path) {
+        Result<String[], Error> r = Dir::list(path);
+        if r.is_ok() {
+            String[] names = r.take();
+            for i in 0..names.len {
+                String n = names[i];
+                if n == "." || n == ".." { continue; }
+                remove_any(join(path, n));
+            }
+        }
+        return Sys::rmdir(path.c()) == 0;
+    }
+    return Sys::unlink(path.c()) == 0;
+}
+
+// a new name that is not taken: name (2).ext
+String free_name(String dir, String name) {
+    if !exists(join(dir, name)) { return name; }
+    int dot = 0 - 1;
+    for i in 0..name.len { if name[i] == '.' && i > 0 { dot = i; } }
+    String stem = name + "";
+    String ext = "";
+    if dot > 0 { stem = name.slice(0, dot); ext = name.slice(dot, name.len); }
+    for k in 2..1000 {
+        String cand = stem + " (" + str(k) + ")" + ext;
+        if !exists(join(dir, cand)) { return cand; }
+    }
+    return name;
+}
+
+bool move_any(String from, String to) {
+    if Sys::rename(from.c(), to.c()) == 0 { return true; }
+    if !copy_any(from, to) { return false; }          // another disk: copy, then delete
+    return remove_any(from);
+}
+
+// ---------------------------------------------------------------- the places of the phone
+
+String storage() { return "/sdcard"; }
+
+String[] place_names() {
+    String[] p = arr(10);
+    p.push("Home"); p.push("Downloads"); p.push("Pictures"); p.push("Camera"); p.push("Documents"); p.push("Music"); p.push("Movies"); p.push("All the storage (u:/)"); p.push("Jaric root (/)");
+    return p;
+}
+
+String place_path(int i) {
+    Option<String> h = Env::get("HOME");
+    String home = "/";
+    if h.is_some() { home = h.unwrap(); }
+    if i == 0 { return home; }
+    if i == 1 { return storage() + "/Download"; }
+    if i == 2 { return storage() + "/Pictures"; }
+    if i == 3 { return storage() + "/DCIM"; }
+    if i == 4 { return storage() + "/Documents"; }
+    if i == 5 { return storage() + "/Music"; }
+    if i == 6 { return storage() + "/Movies"; }
+    if i == 7 { return storage(); }
+    return "/";
+}
+
+String shown(String p) {
+    if p == "/sdcard" { return "u:/"; }
+    if p.starts_with("/sdcard/") { return "u:/" + p.slice(8, p.len); }
+    return p;
+}
+
+// ---------------------------------------------------------------- the terminal
+
+void raw_on() {
+    if g_raw || Sys::isatty(0) != 0 { return; }
+    Sys::call(29, 0, 21505, (int)@g_tio, 0, 0, 0);
+    char r[64];
+    for i in 0..64 { r[i] = g_tio[i]; }
+    r[12] = r[12] & 244;
+    Sys::call(29, 0, 21506, (int)@r, 0, 0, 0);
+    g_raw = true;
+}
+
+void raw_off() {
+    if !g_raw { return; }
+    Sys::call(29, 0, 21506, (int)@g_tio, 0, 0, 0);
+    g_raw = false;
+}
+
+int read_byte(int wait_ms) {
+    if !Input::ready(wait_ms) { return 0 - 1; }
+    char b[2];
+    int n = Sys::read(0, @b, 1);
+    if n <= 0 { return 0 - 9; }
+    return b[0] & 255;
+}
+
+// a key: its code, 257 up 258 down 259 right 260 left 261 home 262 end 263 delete 264 page up 265 page down, 13 Enter, 127 Backspace, 27 Esc, -1 nothing, -9 the input ended.
+// A message of the app (ESC ] 7777 ; ... BEL) is read and kept in g_app.
+String g_app;
+
+int next_key(int wait_ms) {
+    int c = read_byte(wait_ms);
+    if c == 10 { return 13; }                                  // the terminal turns Enter (13) into 10
+    if c != 27 { return c; }
+    int d = read_byte(40);
+    if d < 0 { return 27; }
+    if d == '[' || d == 'O' {
+        int e = read_byte(40);
+        if e == 'A' { return 257; }
+        if e == 'B' { return 258; }
+        if e == 'C' { return 259; }
+        if e == 'D' { return 260; }
+        if e == 'H' { return 261; }
+        if e == 'F' { return 262; }
+        int num = 0;
+        while (e >= '0' && e <= '9') || e == ';' { if e >= '0' && e <= '9' { num = num * 10 + (e - '0'); } e = read_byte(40); }
+        if e == '~' && num == 3 { return 263; }
+        if e == '~' && num == 5 { return 264; }
+        if e == '~' && num == 6 { return 265; }
+        if e == '~' && num == 1 { return 261; }
+        if e == '~' && num == 4 { return 262; }
+        return 0 - 1;
+    }
+    if d == ']' {
+        String m = "";
+        int e = read_byte(100);
+        while e >= 0 && e != 7 && e != 27 { m.push((char)e); e = read_byte(100); }
+        if e == 27 { read_byte(40); }
+        g_app = m + "";
+        return 0 - 1;
+    }
+    return 0 - 1;
+}
+
+void get_size() {
+    char ws[8];
+    for i in 0..8 { ws[i] = 0; }
+    g_rows = 24; g_cols = 80;
+    if Sys::window_size(1, @ws) == 0 {
+        int r = (ws[0] & 255) | ((ws[1] & 255) << 8);
+        int c = (ws[2] & 255) | ((ws[3] & 255) << 8);
+        if r > 5 { g_rows = r; }
+        if c > 20 { g_cols = c; }
+    }
+}
+
+String fit(String s, int w) {
+    if w <= 0 { return ""; }
+    // Thai and other letters take more than one byte: cut at a letter, not in the middle of one
+    if s.len <= w { return s; }
+    int cut = w - 1;
+    while cut > 0 && (s[cut] & 192) == 128 { cut -= 1; }
+    return s.slice(0, cut) + "~";
+}
+
+String pad(String s, int w) {
+    String r = fit(s, w);
+    // the width is counted in bytes: good for Latin letters (a rough fit for others)
+    while r.len < w { r = r + " "; }
+    return r;
+}
+
+// ---------------------------------------------------------------- the picture of the screen
+
+void draw() {
+    get_size();
+    String e = "\e";
+    String o = e + "[?25l" + e + "[H";
+    String title = " jfile  " + shown(g_cwd);
+    if g_places { title = " jfile  places"; }
+    if g_filter.len > 0 { title = title + "   filter: " + g_filter; }
+    o += e + "[7m" + pad(title, g_cols) + e + "[0m\r\n";
+    int body = g_rows - 3;
+    if g_places {
+        String[] pn = place_names();
+        for i in 0..body {
+            String line = "";
+            if i < pn.len {
+                line = pad("  " + pn[i], g_cols);
+                if i == g_cur { line = e + "[7m" + line + e + "[0m"; }
+            } else { line = pad("", g_cols); }
+            o += line + "\r\n";
+        }
+        o += pad(" Enter: go   q: quit   " + g_msg, g_cols) + "\r\n";
+        o += pad(" up/down choose", g_cols);
+        cout << o;
+        return;
+    }
+    if g_cur >= g_ents.len { g_cur = g_ents.len - 1; }
+    if g_cur < 0 { g_cur = 0; }
+    if g_cur < g_top { g_top = g_cur; }
+    if g_cur >= g_top + body { g_top = g_cur - body + 1; }
+    for i in 0..body {
+        int k = g_top + i;
+        if k < g_ents.len {
+            Entry en = g_ents[k];
+            String mark = " ";
+            if en.sel { mark = "*"; }
+            String name = en.name;
+            if en.dir { name = name + "/"; }
+            String right = "";
+            if !en.dir { right = human(en.size); }
+            right = right + "  " + date_of(en.mtime);
+            int namew = g_cols - right.len - 3;
+            if namew < 8 { namew = 8; right = ""; }
+            String line = mark + " " + pad(name, namew) + " " + right;
+            line = pad(line, g_cols);
+            if k == g_cur { line = e + "[7m" + line + e + "[0m"; }
+            else if en.dir { line = e + "[1;34m" + line + e + "[0m"; }
+            o += line + "\r\n";
+        } else {
+            o += pad("", g_cols) + "\r\n";
+        }
+    }
+    int nsel = 0;
+    for i in 0..g_ents.len { if g_ents[i].sel { nsel += 1; } }
+    String st = " " + str(g_ents.len) + " items";
+    if nsel > 0 { st = st + ", " + str(nsel) + " marked"; }
+    if g_clip.len > 0 {
+        String how = "copy";
+        if g_cut { how = "cut"; }
+        st = st + ", " + str(g_clip.len) + " in the clipboard (" + how + ")";
+    }
+    st = st + "   " + g_msg;
+    o += e + "[7m" + pad(st, g_cols) + e + "[0m\r\n";
+    o += pad(" Enter open  Space mark  c copy  x cut  v paste  d delete  r rename  n new  / find  s sort  . hidden  g places  q quit", g_cols);
+    cout << o;
+}
+
+// ---------------------------------------------------------------- a line typed at the bottom of the screen
+
+String ask(String prompt, String dflt) {
+    String line = dflt + "";
+    while true {
+        get_size();
+        cout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << prompt << "\e[0m " << line << "\e[?25h";
+        int k = next_key(300);
+        if k == 13 { cout << "\e[?25l"; return line; }
+        if k == 27 || k == 3 || k == 0 - 9 { cout << "\e[?25l"; return ""; }
+        if k == 127 || k == 8 { if line.len > 0 { int cut = line.len - 1; while cut > 0 && (line[cut] & 192) == 128 { cut -= 1; } line = line.slice(0, cut); } }
+        else if k >= 32 && k < 127 { line.push((char)k); }
+        else if k >= 194 && k < 248 {                                      // a letter that is not ASCII: all its bytes
+            line.push((char)k);
+            int need = 1;
+            if k >= 240 { need = 3; } else if k >= 224 { need = 2; }
+            for q in 0..need { int b = read_byte(40); if b >= 0 { line.push((char)b); } }
+        }
+    }
+    return "";
+}
+
+bool confirm(String question) {
+    get_size();
+    cout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << question << " (y/n) \e[0m";
+    while true {
+        int k = next_key(300);
+        if k == 'y' || k == 'Y' { return true; }
+        if k == 'n' || k == 'N' || k == 27 || k == 3 || k == 0 - 9 { return false; }
+    }
+    return false;
+}
+
+// ---------------------------------------------------------------- looking at a file
+
+String lower_ext(String name) {
+    int dot = 0 - 1;
+    for i in 0..name.len { if name[i] == '.' { dot = i; } }
+    if dot < 0 { return ""; }
+    return name.slice(dot + 1, name.len).lower();
+}
+
+bool in_list(String x, String list) {
+    String[] p = list.split(" ");
+    for i in 0..p.len { if p[i] == x { return true; } }
+    return false;
+}
+
+// text: pages of the first 200 KB
+void view_text(String path) {
+    Result<String, Error> r = Fs::read_bytes(path);
+    if r.is_err() { g_msg = "cannot read the file"; return; }
+    String t = r.take();
+    if t.len > 204800 { t = t.slice(0, 204800); }
+    String[] lines = t.split("\n");
+    int top = 0;
+    while true {
+        get_size();
+        int body = g_rows - 2;
+        String o = "\e[?25l\e[H\e[7m" + pad(" " + base_of(path) + "   (q leaves, up/down, space = next page)", g_cols) + "\e[0m\r\n";
+        for i in 0..body {
+            int k = top + i;
+            String ln = "";
+            if k < lines.len { ln = lines[k]; }
+            ln = ln.replace("\t", "    ").replace("\r", "");
+            o += "\e[2K" + fit(ln, g_cols) + "\r\n";
+        }
+        o += "\e[7m" + pad(" line " + str(top + 1) + " of " + str(lines.len), g_cols) + "\e[0m";
+        cout << o;
+        int k = next_key(500);
+        if k == 'q' || k == 27 || k == 0 - 9 { return; }
+        if k == 258 || k == 'j' { if top + 1 < lines.len { top += 1; } }
+        if k == 257 || k == 'k' { if top > 0 { top -= 1; } }
+        if k == ' ' || k == 265 { top += body; if top >= lines.len { top = lines.len - 1; } if top < 0 { top = 0; } }
+        if k == 264 { top -= body; if top < 0 { top = 0; } }
+        if k == 261 { top = 0; }
+        if k == 262 { top = lines.len - 1; if top < 0 { top = 0; } }
+    }
+}
+
+// a picture over the terminal (the app shows the file of pixels; touch or the back key closes it)
+void view_picture(String path) {
+    Result<String, Error> r = Fs::read_bytes(path);
+    if r.is_err() { g_msg = "cannot read the file"; return; }
+    String data = r.take();
+    bool ok = false;
+    Image im;
+    im.w = 0; im.h = 0; im.px = "";
+    if data.len > 4 && (data[0] & 255) == 255 && (data[1] & 255) == 216 { im = Jpeg::decode(data, @ok); if !ok { g_msg = Jpeg::error(); return; } }
+    else { im = Png::decode(data, @ok); if !ok { g_msg = "this picture cannot be read"; return; } }
+    // the size of the screen of the app (540 x H), the picture fits inside it
+    int sw = 540; int sh = 960;
+    Option<String> js = Env::get("JARIC_SCREEN");
+    if js.is_some() {
+        String[] p = js.unwrap().split("x");
+        if p.len == 2 { sw = p[0].to_int(); sh = p[1].to_int(); }
+    }
+    double scale = (double)sw / (double)im.w;
+    double s2 = (double)sh / (double)im.h;
+    if s2 < scale { scale = s2; }
+    int dw = (int)((double)im.w * scale);
+    int dh = (int)((double)im.h * scale);
+    if dw < 1 { dw = 1; }
+    if dh < 1 { dh = 1; }
+    // pixels: blue, green, red, alpha; black round the picture
+    String out = "";
+    for y in 0..sh {
+        for x in 0..sw {
+            int px = x - (sw - dw) / 2;
+            int py = y - (sh - dh) / 2;
+            if px < 0 || py < 0 || px >= dw || py >= dh { out.push((char)0); out.push((char)0); out.push((char)0); out.push((char)255); continue; }
+            int sx = (int)((double)px / scale);
+            int sy = (int)((double)py / scale);
+            if sx >= im.w { sx = im.w - 1; }
+            if sy >= im.h { sy = im.h - 1; }
+            int o = (sy * im.w + sx) * 4;
+            out.push(im.px[o + 2]); out.push(im.px[o + 1]); out.push(im.px[o]); out.push((char)255);
+        }
+    }
+    Option<String> tmpd = Env::get("TMPDIR");
+    String tmp = "/tmp";
+    if tmpd.is_some() { tmp = tmpd.unwrap(); }
+    String file = join(tmp, "jfile-view.bgra");
+    Result<int, Error> w = Fs::write_text(file, out);
+    if w.is_err() { g_msg = "cannot write the picture"; return; }
+    cout << "\e]7777;gfx;open;" << sw << ";" << sh << ";" << file << "\a";
+    cout << "\e]7777;gfx;present\a";
+    g_app = "";
+    int t0 = Time::now_ms();
+    bool leave = false;
+    while !leave {
+        int k = next_key(300);
+        if k == 'q' || k == 27 || k == 3 || k == 0 - 9 { leave = true; }
+        if g_app.starts_with("gfx-closed") { leave = true; }
+        if g_app.starts_with("touch;D") { leave = true; }
+        g_app = "";
+    }
+    cout << "\e]7777;gfx;close\a";
+    Sys::unlink(file.c());
+}
+
+// the app opens a file for its kind (video, sound) or asks the phone to open it
+void open_with_phone(String path) {
+    String ext = lower_ext(path);
+    if in_list(ext, "mp4 mkv webm 3gp mov") { cout << "\e]7777;video;play;" << path << "\a"; g_msg = "playing (the back key stops)"; return; }
+    if in_list(ext, "mp3 ogg wav m4a flac aac opus") { cout << "\e]7777;audio;play;" << path << "\a"; g_msg = "playing"; return; }
+    cout << "\e]7777;open;" << path << "\a";
+    g_msg = "asked the phone to open it";
+}
+
+void open_entry(Entry en) {
+    String path = join(g_cwd, en.name);
+    String ext = lower_ext(en.name);
+    if in_list(ext, "png jpg jpeg") { view_picture(path); return; }
+    if in_list(ext, "txt md json csv log jk j c h py sh jsh toml xml html htm yml yaml ini conf cfg java js css tex srt") { view_text(path); return; }
+    open_with_phone(path);
+}
+
+// ---------------------------------------------------------------- the screen of the folder
+
+void enter_folder(String path) {
+    g_cwd = path + "";
+    g_places = false;
+    g_filter = "";
+    g_ents = read_folder(g_cwd, g_hidden, g_sort, g_filter);
+    g_cur = 0; g_top = 0;
+}
+
+void reload() {
+    String keep = "";
+    if g_cur >= 0 && g_cur < g_ents.len { keep = g_ents[g_cur].name + ""; }
+    g_ents = read_folder(g_cwd, g_hidden, g_sort, g_filter);
+    g_cur = 0;
+    for i in 0..g_ents.len { if g_ents[i].name == keep { g_cur = i; } }
+}
+
+// the names the action works on: the marked ones, or the one under the cursor
+String[] chosen() {
+    String[] r = arr(8);
+    for i in 0..g_ents.len { if g_ents[i].sel { r.push(join(g_cwd, g_ents[i].name)); } }
+    if r.len == 0 && g_cur >= 0 && g_cur < g_ents.len { r.push(join(g_cwd, g_ents[g_cur].name)); }
+    return r;
+}
+
+int run_ui(String start) {
+    g_clip = arr(4);
+    g_msg = "";
+    g_filter = "";
+    g_sort = 0;
+    g_hidden = false;
+    g_ents = arr(4);
+    g_cwd = "/";
+    g_places = true;
+    if start.len > 0 && is_dir(start) { enter_folder(start); }
+    raw_on();
+    cout << "\e[?1049h\e[?25l";
+    bool done = false;
+    while !done {
+        draw();
+        int k = next_key(500);
+        if k == 0 - 1 { continue; }
+        g_msg = "";
+        if k == 'q' || k == 3 || k == 0 - 9 { done = true; continue; }
+        if g_places {
+            if k == 258 || k == 'j' { if g_cur < 8 { g_cur += 1; } }
+            else if k == 257 || k == 'k' { if g_cur > 0 { g_cur -= 1; } }
+            else if k == 13 || k == 259 {
+                String p = place_path(g_cur);
+                if is_dir(p) { enter_folder(p); } else { g_msg = "there is no such folder (yet)"; }
+            }
+            continue;
+        }
+        if k == 258 || k == 'j' { if g_cur + 1 < g_ents.len { g_cur += 1; } }
+        else if k == 257 || k == 'k' { if g_cur > 0 { g_cur -= 1; } }
+        else if k == 265 { g_cur += g_rows - 4; if g_cur >= g_ents.len { g_cur = g_ents.len - 1; } if g_cur < 0 { g_cur = 0; } }
+        else if k == 264 { g_cur -= g_rows - 4; if g_cur < 0 { g_cur = 0; } }
+        else if k == 261 { g_cur = 0; }
+        else if k == 262 { g_cur = g_ents.len - 1; if g_cur < 0 { g_cur = 0; } }
+        else if k == 13 || k == 259 {
+            if g_cur < g_ents.len {
+                if g_ents[g_cur].dir { enter_folder(join(g_cwd, g_ents[g_cur].name)); }
+                else { open_entry(g_ents[g_cur]); cout << "\e[2J"; }
+            }
+        }
+        else if k == 127 || k == 8 || k == 260 {
+            if g_cwd == "/" || g_cwd == "/sdcard" { g_places = true; g_cur = 0; }
+            else { String old = base_of(g_cwd); enter_folder(parent_of(g_cwd)); for i in 0..g_ents.len { if g_ents[i].name == old { g_cur = i; } } }
+        }
+        else if k == ' ' { if g_cur < g_ents.len { g_ents[g_cur].sel = !g_ents[g_cur].sel; if g_cur + 1 < g_ents.len { g_cur += 1; } } }
+        else if k == 'a' { bool all = false; for i in 0..g_ents.len { if !g_ents[i].sel { all = true; } } for i in 0..g_ents.len { g_ents[i].sel = all; } }
+        else if k == 'c' || k == 'x' {
+            g_clip = chosen();
+            g_cut = k == 'x';
+            g_msg = str(g_clip.len) + " in the clipboard";
+        }
+        else if k == 'v' {
+            int done_n = 0;
+            for i in 0..g_clip.len {
+                String src = g_clip[i];
+                String nm = free_name(g_cwd, base_of(src));
+                String dst = join(g_cwd, nm);
+                String dslash = dst + "/";
+                String sslash = src + "/";
+                bool inside = is_dir(src) && dslash.starts_with(sslash);
+                if src == dst || inside { g_msg = "cannot put a folder into itself"; continue; }
+                bool ok = false;
+                if g_cut { ok = move_any(src, dst); } else { ok = copy_any(src, dst); }
+                if ok { done_n += 1; } else { g_msg = "failed: " + base_of(src); }
+            }
+            if g_msg.len == 0 { g_msg = str(done_n) + " done"; }
+            if g_cut { g_clip = arr(4); }
+            reload();
+        }
+        else if k == 'd' || k == 263 {
+            String[] what = chosen();
+            String question = "delete " + str(what.len) + " item(s)?";
+            if what.len > 0 && confirm(question) {
+                int n = 0;
+                for i in 0..what.len { if remove_any(what[i]) { n += 1; } }
+                g_msg = str(n) + " deleted";
+                reload();
+            }
+        }
+        else if k == 'r' {
+            if g_cur < g_ents.len {
+                String nn = ask("new name", g_ents[g_cur].name);
+                if nn.len > 0 && nn != g_ents[g_cur].name {
+                    if Sys::rename(join(g_cwd, g_ents[g_cur].name).c(), join(g_cwd, nn).c()) == 0 { g_msg = "renamed"; } else { g_msg = "cannot rename"; }
+                    reload();
+                }
+            }
+        }
+        else if k == 'n' {
+            String nn = ask("new folder", "");
+            if nn.len > 0 {
+                if Sys::mkdir(join(g_cwd, nn).c(), 493) == 0 { g_msg = "made " + nn; } else { g_msg = "cannot make the folder"; }
+                reload();
+            }
+        }
+        else if k == '/' { g_filter = ask("find", g_filter); reload(); }
+        else if k == 's' { g_sort = (g_sort + 1) % 3; String[] sn = arr(3); sn.push("name"); sn.push("size"); sn.push("date"); g_msg = "sorted by " + sn[g_sort]; reload(); }
+        else if k == '.' { g_hidden = !g_hidden; reload(); }
+        else if k == 'g' { g_places = true; g_cur = 0; }
+        else if k == 'o' { if g_cur < g_ents.len && !g_ents[g_cur].dir { open_with_phone(join(g_cwd, g_ents[g_cur].name)); } }
+        else if k == 'i' { if g_cur < g_ents.len && !g_ents[g_cur].dir { view_picture(join(g_cwd, g_ents[g_cur].name)); cout << "\e[2J"; } }
+        else if k == 't' { if g_cur < g_ents.len && !g_ents[g_cur].dir { view_text(join(g_cwd, g_ents[g_cur].name)); cout << "\e[2J"; } }
+    }
+    cout << "\e[?25h\e[?1049l";
+    raw_off();
+    return 0;
+}
+
+// ---------------------------------------------------------------- the commands
+
+int fail(String m) { cerr << "jfile: " << m << "\n"; return 1; }
+
+void usage() {
+    cout << "jfile 0.1.0: the files of the phone in a terminal\n";
+    cout << "  jfile [FOLDER]        the screen of places and folders (keys: ? is the last line)\n";
+    cout << "  jfile ls [FOLDER]     a list as text      jfile places\n";
+    cout << "  jfile cp SRC DST      jfile mv SRC DST    jfile rm PATH      jfile mkdir PATH\n";
+}
+
+int main() {
+    String[] a = Env::args();
+    g_msg = ""; g_filter = ""; g_cwd = "/"; g_app = "";
+    g_clip = arr(2); g_ents = arr(2);
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "jfile 0.1.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "help" || a[1] == "--help" || a[1] == "-h") { usage(); return 0; }
+    String cmd = "";
+    if a.len >= 2 { cmd = a[1]; }
+    if cmd == "places" {
+        String[] pn = place_names();
+        for i in 0..pn.len { cout << pn[i] << "   " << shown(place_path(i)) << "\n"; }
+        return 0;
+    }
+    if cmd == "ls" {
+        String d = ".";
+        if a.len > 2 { d = a[2] + ""; }
+        if !is_dir(d) { return fail("not a folder: " + d); }
+        Entry[] es = read_folder(d, flag_hidden(a), 0, "");
+        for i in 0..es.len {
+            String name = es[i].name;
+            if es[i].dir { name = name + "/"; }
+            cout << name << "\t" << es[i].size << "\t" << date_of(es[i].mtime) << "\n";
+        }
+        return 0;
+    }
+    if cmd == "cp" || cmd == "mv" {
+        if a.len < 4 { usage(); return 1; }
+        String dst = a[3] + "";
+        if is_dir(dst) { dst = join(dst, base_of(a[2])); }
+        if !exists(a[2]) { return fail("there is no " + a[2]); }
+        bool ok = false;
+        if cmd == "cp" { ok = copy_any(a[2], dst); } else { ok = move_any(a[2], dst); }
+        if !ok { return fail("the " + cmd + " failed"); }
+        return 0;
+    }
+    if cmd == "rm" {
+        if a.len < 3 { usage(); return 1; }
+        if a[2] == "/" || a[2] == "/sdcard" || a[2] == "/data" { return fail("this folder is not deleted"); }
+        if !exists(a[2]) { return fail("there is no " + a[2]); }
+        if !remove_any(a[2]) { return fail("could not delete " + a[2]); }
+        return 0;
+    }
+    if cmd == "mkdir" {
+        if a.len < 3 { usage(); return 1; }
+        if Sys::mkdir(a[2].c(), 493) != 0 { return fail("could not make " + a[2]); }
+        return 0;
+    }
+    if Sys::isatty(0) != 0 { return fail("the screen of jfile needs a terminal (jfile ls PATH gives a list)"); }
+    String start = "";
+    if cmd.len > 0 { start = cmd + ""; }
+    return run_ui(start);
+}
+
+bool flag_hidden(String[] a) {
+    for i in 0..a.len { if a[i] == "-a" { return true; } }
+    return false;
+}

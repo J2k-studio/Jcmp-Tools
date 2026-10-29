@@ -617,8 +617,8 @@ void drives_load() {
     dr_name = arr(8);
     dr_path = arr(8);
     drive_add("f", getv("HOME"));
-    if Dir::exists("/storage/emulated/0") { drive_add("0", "/storage/emulated/0"); }
-    else if Dir::exists("/sdcard") { drive_add("0", "/sdcard"); }
+    if Dir::exists("/storage/emulated/0") { drive_add("u", "/storage/emulated/0"); drive_add("0", "/storage/emulated/0"); }      // u: the files of the user (photos, Download, Documents ...); 0: is the old name of it
+    else if Dir::exists("/sdcard") { drive_add("u", "/sdcard"); drive_add("0", "/sdcard"); }
     String file = getv("HOME") + "/.jsh_drives";
     if Fs::exists(file) {
         Result<String, Error> r = Fs::read_text(file);
@@ -698,7 +698,7 @@ int drive_command(String[] a) {
         String name = a[2];
         String path = a[3];
         if !drive_name_ok(name) { cerr << "drive: the name is letters, digits and _ (up to 12)\n"; return 1; }
-        if name == "f" || name == "r" || name == "0" { cerr << "drive: " << name << " is a drive of the system and cannot be changed\n"; return 1; }
+        if name == "f" || name == "r" || name == "0" || name == "u" { cerr << "drive: " << name << " is a drive of the system and cannot be changed\n"; return 1; }
         if !path.starts_with("/") { cerr << "drive: the folder must be a full path (it starts with /)\n"; return 1; }
         if !Dir::exists(path) { cerr << "drive: " << path << " is not a folder\n"; return 1; }
         String text = "";

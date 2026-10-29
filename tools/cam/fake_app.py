@@ -35,6 +35,10 @@ while time.time() - t0 < 30 and not done:
                     path = cmd.split(';')[2]
                     time.sleep(0.5)
                     open(path, 'wb').write(open(jpeg, 'rb').read()); say('camera-shot;%s;1234' % path)
+                if mode == 'ui-pick':
+                    time.sleep(0.4); pk = os.path.join(work, 'picked.bin'); open(pk, 'wb').write(open(jpeg, 'rb').read()); say('camera-picked;' + pk)
+                if mode == 'ui-pick-none':
+                    time.sleep(0.4); pk = os.path.join(work, 'picked2.bin'); open(pk, 'wb').write(open(os.path.join(work, 'blank.jpg'), 'rb').read()); say('camera-picked;' + pk)
                 if mode == 'photo-quit':
                     time.sleep(0.5); os.write(fd, b'\x1b')
             elif cmd.startswith('shot;'):
@@ -44,8 +48,10 @@ while time.time() - t0 < 30 and not done:
                 open(path, 'wb').write(open(src, 'rb').read()); say('camera-shot;%s;1234' % path)
             elif cmd.startswith('result;'):
                 b64 = cmd[7:]
-                if mode == 'ui-use': say('camera-action;use;' + b64)
+                if mode in ('ui-use', 'ui-pick'): say('camera-action;use;' + b64)
                 if mode == 'ui-add': say('camera-action;add;' + b64)
+            elif cmd.startswith('toast;'):
+                open(os.path.join(work, 'toast.txt'), 'w').write(cmd[6:])
             elif cmd == 'close':
                 pass
         out += buf if False else b''

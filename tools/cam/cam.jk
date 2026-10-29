@@ -105,6 +105,24 @@ bool open_camera(bool front, String path, String megadots, String modes) {
     return false;
 }
 
+// the text of the QR code in a picture file (JPEG or PNG): ok = false when the file is no picture or has no code
+String scan_file(String path, bool^ ok) {
+    ok[0] = false;
+    Result<String, Error> rd = Fs::read_bytes(path);
+    if rd.is_err() { return ""; }
+    String bytes = rd.take();
+    bool pok = false;
+    Image im;
+    im.w = 0; im.h = 0; im.px = "";
+    if bytes.len > 4 && (bytes[0] & 255) == 255 && (bytes[1] & 255) == 216 { im = Jpeg::decode(bytes, @pok); }
+    else { im = Png::decode(bytes, @pok); }
+    if !pok { return ""; }
+    bool good = false;
+    String text = Qr::scan(im.px, im.w, im.h, @good);
+    ok[0] = good;
+    return text;
+}
+
 // the camera with both tabs: the app shows the card of a code that was read; the person touches what to do (open, copy, add to authj, use)
 int interactive(bool front) {
     String folder = work_dir() + "/";
@@ -131,6 +149,16 @@ int interactive(bool front) {
         else if m.starts_with("camera-error") { cerr << "cam: " << m.slice(13, m.len) << "\n"; rc = 1; done = true; }
         else if m.starts_with("camera-mode;") { scan_mode = m == "camera-mode;scan"; if scan_mode { paused = false; } }
         else if m == "camera-resume" { paused = false; next_shot = now_ms() + 300; }
+        else if m == "camera-busy" { waiting = false; next_shot = now_ms() + 700; }
+        else if m.starts_with("camera-picked;") {
+            // a picture of the gallery: its code is read like a code in front of the camera
+            String pfile = m.slice(14, m.len);
+            bool pgood = false;
+            String ptext = scan_file(pfile, @pgood);
+            Sys::unlink(pfile.c());
+            if pgood { last = ptext + ""; last_at = now_ms(); paused = true; send("result;" + Base64::encode(ptext)); }
+            else { send("toast;No QR code was read in this picture"); }
+        }
         else if m.starts_with("camera-shot") {
             String[] p = m.split(";");
             if p.len > 1 && p[1] == tmp {

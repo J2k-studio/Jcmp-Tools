@@ -33,4 +33,10 @@ out=$(python3 -I "$F" ui-use "$C" "$T" 2>&1) || { echo "cam test: ui-use: $out";
 echo "$out" | grep -q "otpauth://totp/Cam:me?secret=JBSWY3DPEHPK3PXP&issuer=Cam" || { echo "cam test: ui-use printed: $out"; exit 1; }
 python3 -I "$F" ui-add "$C" "$T" > /dev/null 2>&1 || { echo "cam test: ui-add"; exit 1; }
 grep -q "add-uri otpauth://totp/Cam:me" "$T/authj.args" || { echo "cam test: authj was not asked to add the account"; exit 1; }
+# a picture of the gallery: the app sends camera-picked and the code in it comes back as a card (use prints it); a picture without a code gives a message
+rm -f "$T/toast.txt"
+out=$(python3 -I "$F" ui-pick "$C" "$T" 2>&1) || { echo "cam test: ui-pick: $out"; exit 1; }
+echo "$out" | grep -q "otpauth://totp/Cam:me" || { echo "cam test: the picked picture was not read: $out"; exit 1; }
+python3 -I "$F" ui-pick-none "$C" "$T" > /dev/null 2>&1 || true
+grep -q "No QR code" "$T/toast.txt" || { echo "cam test: a picture without a code must give the message"; exit 1; }
 echo "cam tests passed"
