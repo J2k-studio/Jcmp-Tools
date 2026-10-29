@@ -16,6 +16,7 @@ mujic find WORDS            search the Internet Archive (check the licence of wh
 mujic lyrics NAME [-q "artist title"]   fetch the lyrics from lrclib.net, kept as NAME.lrc (with times) or NAME.txt
 ```
 The player is a screen like the chat of Claude Code: the songs (or the lyrics) above, a **typing box** below. Type words and Enter to find a song and play it (several matches open a list to choose from). Type `/` and a **menu of commands** opens (arrows, Tab to complete, Enter to run): `/play` (a picker of your songs), `/pause`, `/next`, `/prev`, `/stop`, `/queue`, `/lyrics` (and `/lyrics get`), `/get` (a picker of the free catalog, or a name, an address, `archive:ID`), `/find words` (search the Internet Archive, then choose), `/shuffle`, `/repeat`, `/volume 80`, `/seek +10`, `/help`, `/quit`. With an empty box: Enter plays the song under the cursor, Space pauses, left / right seek 10 s (Jaric app), Tab switches songs / lyrics, Esc leaves.
+Lyrics from a folder: a folder of `.lrc` files (`/sdcard/lrc`, `/sdcard/Lyrics`, or one you name: `mujic lyrics-dir PATH`) is used by the name of the song (the same words: `Blonde (Official Lyrics Video).lrc` is for `Blonde.mp3`).
 Your own lyrics: put `Song.lrc` (`[01:23.45]words`) or `Song.txt` next to `Song.mp3`.
 
 Sound: in the Jaric app the app plays (mp3, ogg, m4a, flac, wav); elsewhere `termux-media-player`, `mpv`, `ffplay` or `mpg123` when one is installed.

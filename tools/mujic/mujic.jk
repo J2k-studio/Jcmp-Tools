@@ -375,6 +375,83 @@ void lyrics_parse(String text) {
     }
 }
 
+// ---- lyrics found by name: a folder of .lrc files anywhere (Lyrics, lrc, the folder the person names), names that are the same song
+// the letters, digits and Thai letters of a name, in small letters, without (..) and [..], and without the words songs carry
+String plain_name(String file) {
+    String n = strip_ext(file);
+    int sl = 0 - 1;
+    for i in 0..n.len { if n[i] == '/' { sl = i; } }
+    if sl >= 0 { n = n.slice(sl + 1, n.len); }
+    n = n.lower();
+    String cut = "";
+    int depth = 0;
+    for i in 0..n.len {                                        // text in (..) and [..] is dropped
+        if n[i] == '(' || n[i] == '[' { depth += 1; }
+        else if (n[i] == ')' || n[i] == ']') && depth > 0 { depth -= 1; }
+        else if depth == 0 { cut.push(n[i]); }
+    }
+    cut = cut.replace("official", " ").replace("lyrics", " ").replace("lyric", " ").replace("video", " ").replace("audio", " ").replace("music", " ");
+    String r = "";
+    for i in 0..cut.len {
+        int ch = cut[i] & 255;
+        if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch >= 128 { r.push((char)ch); }
+    }
+    return r;
+}
+
+String lyrics_config() {
+    String home = "/";
+    switch Env::get("HOME") { Option::Some(v): { home = v; } Option::None: { } }
+    return Path::join(Path::join(Path::join(home, ".config"), "mujic"), "lyrics");
+}
+
+// the folders where lyrics may be: next to the song, the folders the person named, the usual names
+String[] lyric_dirs(String songfile) {
+    String[] d = arr(16);
+    String full = abs_of(songfile);
+    int sl = 0 - 1;
+    for i in 0..full.len { if full[i] == '/' { sl = i; } }
+    if sl > 0 { d.push(full.slice(0, sl) + ""); }
+    String cfg = lyrics_config();
+    if Fs::exists(cfg) {
+        Result<String[], Error> r = Fs::read_lines(cfg);
+        if r.is_ok() { String[] ls = r.take(); for i in 0..ls.len { String t = ls[i].trim(); if t.len > 0 { d.push(expand_path(t)); } } }
+    }
+    String[] usual = arr(8);
+    usual.push("/sdcard/lrc"); usual.push("/sdcard/LRC"); usual.push("/sdcard/Lyrics"); usual.push("/sdcard/lyrics"); usual.push("/sdcard/Download"); usual.push("/sdcard/Documents");
+    for i in 0..usual.len { d.push(usual[i] + ""); }
+    return d;
+}
+
+// the .lrc (or .txt) whose name is the name of the song or holds it; "" when there is none
+String find_lyrics_file(String songfile) {
+    String want = plain_name(songfile);
+    if want.len < 3 { return ""; }
+    String best = "";
+    int best_score = 0;
+    String[] dirs = lyric_dirs(songfile);
+    for k in 0..dirs.len {
+        if !Dir::exists(dirs[k]) { continue; }
+        Result<String[], Error> r = Dir::list(dirs[k]);
+        if !r.is_ok() { continue; }
+        String[] names = r.take();
+        for i in 0..names.len {
+            String n = names[i];
+            String low = n.lower();
+            if !(low.ends_with(".lrc") || low.ends_with(".txt")) { continue; }
+            String have = plain_name(n);
+            if have.len < 3 { continue; }
+            int score = 0;
+            if have == want { score = 100; }
+            else if have.contains(want) || want.contains(have) { score = 50; }
+            if score > 0 && low.ends_with(".lrc") { score += 1; }
+            if score > best_score { best_score = score; best = Path::join(dirs[k], n); }
+        }
+    }
+    if best_score >= 50 { return best; }
+    return "";
+}
+
 bool lyrics_load_for(String file) {
     lyrics_clear();
     String base = strip_ext(abs_of(file));
@@ -385,6 +462,11 @@ bool lyrics_load_for(String file) {
             Result<String, Error> r = Fs::read_text(path);
             if r.is_ok() { lyrics_parse(r.take()); return true; }
         }
+    }
+    String found = find_lyrics_file(file);                      // by name, in the folders of lyrics
+    if found.len > 0 {
+        Result<String, Error> r2 = Fs::read_text(found);
+        if r2.is_ok() { lyrics_parse(r2.take()); return true; }
     }
     return false;
 }
@@ -1962,6 +2044,10 @@ int do_list() {
         String base = strip_ext(abs_of(g_files[i]));
         String mark = "";
         if Fs::exists(base + ".lrc") { mark = "  [lyrics, synced]"; } else if Fs::exists(base + ".txt") { mark = "  [lyrics]"; }
+        else {
+            String other = find_lyrics_file(g_files[i]);               // in a folder of lyrics, by the name
+            if other.len > 0 { if other.lower().ends_with(".lrc") { mark = "  [lyrics, synced]"; } else { mark = "  [lyrics]"; } }
+        }
         cout << "  " << i + 1 << ". " << song_title(g_files[i]) << mark << "\n";
     }
     return 0;
@@ -2017,7 +2103,7 @@ int do_remove_cli(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.12.0";
+    String VERSION = "0.13.0";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
@@ -2067,6 +2153,24 @@ int main() {
         if c == "-c" || c == "--cd" { cout << "\e]7777;music;cd\a"; return 0; }
         if c == "cd" { cout << "\e]7777;music;cd\a"; return 0; }                              // the player as a CD deck: the cover is a disc that turns
         if c == "window" || c == "-w" { cout << "\e]7777;music;window\a"; return 0; }          // the window of the player in the Jaric app (cover, buttons, queue)
+        if c == "lyrics-dir" {                                   // the folders of lyrics: with no path they are listed, with a path it is added
+            String cfg = lyrics_config();
+            if args.len < 3 {
+                cout << "folders of lyrics (a .lrc or .txt with the name of the song is used from there):\n";
+                String[] seen = lyric_dirs("");
+                for i in 0..seen.len { if i > 0 && Dir::exists(seen[i]) { cout << "  " << seen[i] << "\n"; } }
+                cout << "add one:  mujic lyrics-dir PATH\n";
+                return 0;
+            }
+            String add = expand_path(args[2]);
+            if !Dir::exists(add) { return fail("no such folder: " + add); }
+            String old = "";
+            if Fs::exists(cfg) { Result<String, Error> rr = Fs::read_text(cfg); if rr.is_ok() { old = rr.take(); } }
+            Dir::make_all(Path::parent(cfg));
+            Fs::write_text(cfg, old + add + "\n");
+            cout << "added " << add << "\n";
+            return 0;
+        }
         if c == "pause" || c == "resume" || c == "stop" || c == "next" || c == "prev" { return do_remote(c); }
         if c == "bg" && args.len > 2 { return do_background(args[2]); }
         if c == "play" {

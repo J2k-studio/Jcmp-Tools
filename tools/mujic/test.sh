@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 M="$PWD/_out/mujic"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export MUJIC_DIR="$T/m"; mkdir -p "$MUJIC_DIR"
-[ "$("$M" --version)" = "mujic 0.12.0" ] || { echo "mujic test: version"; exit 1; }
+[ "$("$M" --version)" = "mujic 0.13.0" ] || { echo "mujic test: version"; exit 1; }
 "$M" list | grep -q "no songs" || { echo "mujic test: an empty folder"; exit 1; }
 "$M" catalog | grep -q "sneaky-snitch" || { echo "mujic test: catalog"; exit 1; }
 printf 'ID3' > "$MUJIC_DIR/Song One.mp3"; printf 'ID3' > "$MUJIC_DIR/Song Two.mp3"
@@ -25,6 +25,13 @@ if "$M" theme nosuch > /dev/null 2>&1; then echo "mujic test: a wrong theme must
 mkdir -p "$T/home2"; python3 mode_test.py "$M" "$MUJIC_DIR" "$T/home2" > /dev/null || { echo "mujic test: the start page"; exit 1; }
 python3 bg_test.py "$M" "$MUJIC_DIR" > /dev/null || { echo "mujic test: the background play"; exit 1; }
 python3 ui_test.py "$M" "$MUJIC_DIR" || { echo "mujic test: the player screen"; exit 1; }
+# lyrics from a folder of .lrc files, found by the name of the song (the same words, not the same letters)
+printf 'ID3' > "$MUJIC_DIR/Zed.mp3"; mkdir -p "$T/lrcs"; printf '[00:01.00]hello line\n[00:02.00]second line\n' > "$T/lrcs/Zed (Official Lyrics Video).lrc"
+"$M" list | grep 'Zed' | grep -q "lyrics" && { echo "mujic test: lyrics before the folder is named"; exit 1; }
+HOME="$T/home3" "$M" lyrics-dir "$T/lrcs" | grep -q "added" || { echo "mujic test: lyrics-dir"; exit 1; }
+HOME="$T/home3" "$M" lyrics-dir | grep -q "$T/lrcs" || { echo "mujic test: lyrics-dir list"; exit 1; }
+HOME="$T/home3" "$M" list | grep 'Zed' | grep -q "lyrics, synced" || { echo "mujic test: lyrics by name"; HOME="$T/home3" "$M" list; exit 1; }
+rm -f "$MUJIC_DIR/Zed.mp3"
 # /scan (mujic scan): songs of at least N seconds from every place; the length from the header (wav, mp3), a guess from the size for the others (~); hidden folders are skipped
 S="$T/scan"; mkdir -p "$S/a/b" "$S/.hid"
 python3 - "$S" <<'PY'
