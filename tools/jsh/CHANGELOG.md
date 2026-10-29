@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.0 (needs jcmp 1.2.4 for the virtual root; the rest works with 1.2.3)
+* **Added:** a shell nearer to the real ones: `echo -n`, `-e` (`\\t \\n \\e \\0NNN \\xHH \\c`) and `-E`; `kill` as a built-in with signals (`-9`, `-KILL`, `-s TERM`, `-l`) and jobs (`kill %1`, `%%`); `fg` and `bg`; `jobs` shows `Running` and the ended ones are told once (`[1]+ Done`, also before the prompt); `cd /etc`, `cd /`, `cd /u` read the virtual root of Jaric (the environment `JARIC_ROOT`).
+* **Fixed:** quotes keep their meaning: `'*.txt'` and `"*.txt"` are not patterns, `'$HOME'` is not replaced, `">"` and `";"` in quotes are words and not operators, `"\\t"` keeps its backslash (only `\\$ \\` \\" \\\\` are made plain inside double quotes).
+
 ## 0.10.2
 * **Added:** `./script.jsh` (or `dir/script.jsh`) runs a jsh script: the file needs the execute right (`chmod +x`), else jsh says `permission denied (chmod +x NAME)`; arguments become `$1 $2 ... $#`. A script is a file ending in `.jsh` or with `[#jsh]`, `#jsh` or `#!jsh` on the first line.
 * **Fixed:** none.

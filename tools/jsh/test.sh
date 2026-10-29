@@ -7,7 +7,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
 OUT=$(printf 'echo hello world\necho "a  b" | cat\necho one > f.txt\necho two >> f.txt\ncat < f.txt\nfalse\necho status $?\necho x | tr x y | cat\nnosuchprog\ncd /\npwd\nexit 7\n' | "$SH" 2>&1) && rc=0 || rc=$?
-WANT='jsh 0.10.2 (the shell of Jaric): help shows the commands
+WANT='jsh 0.11.0 (the shell of Jaric): help shows the commands
 hello world
 a  b
 one
@@ -24,7 +24,7 @@ T2=$(mktemp -d); trap 'rm -rf "$T" "$T2"' EXIT
 cd "$T2"; touch a.txt b.txt c.log
 printf 'echo "echo in the script"\nexport K=5\necho k=$K\n' > s.jsh
 OUT2=$(printf 'NAME=jao\necho hi $NAME\nalias say=echo\nsay aliased\necho *.txt\nfalse || echo second\ntrue && echo third\necho a ; echo b\nunset NAME\necho [$NAME]\ntype cd\nexit 0\n' | HOME="$T2" "$SH" 2>&1)
-WANT2='jsh 0.10.2 (the shell of Jaric): help shows the commands
+WANT2='jsh 0.11.0 (the shell of Jaric): help shows the commands
 hi jao
 aliased
 a.txt b.txt
@@ -225,3 +225,48 @@ R17=$(cd "$T17" && "$SH" -c './nofile; echo rc=$?' 2>&1) || true
 case "$R17" in *"command not found"*"rc=127"*) ;; *) echo "shell test (step 17): a missing file: $R17"; exit 1 ;; esac
 rm -rf "$T17"
 echo "shell test (step 17): ok"
+
+# step 18: a shell like the real ones: echo -n / -e, quotes keep their meaning (no pattern, no $, no operator), jobs, kill %N, the virtual root
+T18=$(mktemp -d)
+cd "$T18"; touch a.txt b.txt
+cat > q.jsh <<'EOS'
+#jsh
+echo -n "a"; echo " b"
+echo -e "x\ty" | tr '\t' '_'
+echo '*.txt' "*.txt" *.txt
+echo '$HOME' "$HOME"
+echo ">" '|' ";" end
+echo "tab:\there"
+x='*.txt'; echo $x
+EOS
+R18=$(HOME="$T18" "$SH" q.jsh 2>&1)
+WANT18='a b
+x_y
+*.txt *.txt a.txt b.txt
+$HOME '"$T18"'
+> | ; end
+tab:\there
+a.txt b.txt'
+[ "$R18" = "$WANT18" ] || { echo "shell test (step 18): quotes and echo differ"; echo "$R18"; exit 1; }
+cat > j.jsh <<'EOS'
+#jsh
+sleep 30 &
+sleep 0.3 &
+jobs
+sleep 0.8
+jobs
+kill %1
+sleep 0.2
+jobs
+EOS
+R18=$(HOME="$T18" "$SH" j.jsh 2>&1)
+case "$R18" in *"[1]  Running"*"[2]  Running"*"Done"*) ;; *) echo "shell test (step 18): jobs: $R18"; exit 1 ;; esac
+case "$R18" in *"no such job"*) echo "shell test (step 18): kill %1 did not find the job: $R18"; exit 1 ;; esac
+# the virtual root: JARIC_ROOT=DIR makes /etc and /home folders of DIR for jsh and for the programs of J2K (cd / lists them)
+mkdir -p "$T18/root/etc" "$T18/root/home"; echo "motd of the root" > "$T18/root/etc/motd"
+printf '#jsh\ncd /etc\npwd\ncat motd\ncd /\ndir\n' > r.jsh
+R18=$(JARIC_ROOT="$T18/root" HOME="$T18" "$SH" r.jsh 2>&1)
+case "$R18" in *"motd of the root"*) ;; *) echo "shell test (step 18): cd /etc in the virtual root: $R18"; exit 1 ;; esac
+case "$R18" in *"etc"*"home"*) ;; *) echo "shell test (step 18): dir of / in the virtual root: $R18"; exit 1 ;; esac
+rm -rf "$T18"
+echo "shell test (step 18): ok"

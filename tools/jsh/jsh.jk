@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.10.2"; }
+String jsh_version() { return "0.11.0"; }
 String[] history;
 int last_status;
 int running;
@@ -425,6 +425,15 @@ bool read_command(String prompt) {
 
 // ---------------------------------------------------------------- reading the words of a line
 // single and double quotes group words; a backslash escapes the next character; the characters of | < > >> & are words of their own
+// a letter of a quoted word is put in the word; the letters that mean something to the shell get the mark \x02 in front of them: the later steps (the expansion of $ ~,
+// the patterns * ?, the words | > ; & that are operators) skip them. all = true marks also $ and `.
+void push_lit(String cur, char c, bool all) {
+    bool special = c == '*' || c == '?' || c == '~' || c == '[' || c == ']' || c == '<' || c == '>' || c == '|' || c == '&' || c == ';' || c == 2 || c == '\\' || c == '\'' || c == '"';
+    if all && (c == '$' || c == '`' || c == '(' || c == ')' || c == '#' || c == '!' || c == '{' || c == '}' || c == '=') { special = true; }
+    if special { cur.push((char)2); }
+    cur.push(c);
+}
+
 String[] words_of(String line) {
     String[] w = arr(8);
     String cur = "";
@@ -435,19 +444,31 @@ String[] words_of(String line) {
         if c == '\'' {
             have = true;
             i += 1;
-            while i < line.len && line[i] != '\'' { cur.push(line[i]); i += 1; }
+            while i < line.len && line[i] != '\'' { push_lit(cur, line[i], true); i += 1; }       // single quotes: everything is as written
         } else if c == '"' {
             have = true;
             i += 1;
             while i < line.len && line[i] != '"' {
-                if line[i] == '\\' && i + 1 < line.len { i += 1; }
-                cur.push(line[i]);
+                if line[i] == '\\' && i + 1 < line.len {
+                    char nx = line[i + 1];
+                    if nx == '$' || nx == '`' || nx == '"' || nx == '\\' { i += 1; push_lit(cur, line[i], true); }      // in double quotes a backslash only makes these plain
+                    else { cur.push('\\'); }
+                } else if line[i] == '$' && i + 1 < line.len && line[i + 1] == '(' {      // "$( ... )": the command inside is left as it is (it is run later)
+                    int depth = 0;
+                    while i < line.len {
+                        char d = line[i];
+                        cur.push(d);
+                        if d == '(' { depth += 1; }
+                        if d == ')' { depth -= 1; if depth == 0 { break; } }
+                        i += 1;
+                    }
+                } else { push_lit(cur, line[i], false); }                          // $ stays (it is expanded), the other special letters are plain
                 i += 1;
             }
         } else if c == '\\' && i + 1 < line.len {
             have = true;
             i += 1;
-            cur.push(line[i]);
+            push_lit(cur, line[i], true);
         } else if c == '$' && i + 1 < line.len && line[i + 1] == '(' {
             have = true;                                            // $( ... ) with its spaces is one word (it is run later, by expand)
             int depth = 0;
@@ -575,11 +596,11 @@ String real_dir(String path) {
     if path == "/" || !Dir::exists(path) { return path; }
     char old[512];
     if Sys::getcwd(@old, 512) <= 0 { return path; }
-    if Sys::call(49, (int)path.c(), 0, 0, 0, 0, 0) < 0 { return path; }
+    if Sys::chdir(path.c()) < 0 { return path; }
     char now[512];
     String r = path;
     if Sys::getcwd(@now, 512) > 0 { r = (char^)@now; }
-    Sys::call(49, (int)@old, 0, 0, 0, 0, 0);
+    Sys::chdir((char^)@old);
     return r;
 }
 
@@ -849,6 +870,7 @@ String expand(String w) {
         i = dtaken;
     }
     while i < w.len {
+        if w[i] == 2 && i + 1 < w.len { r.push(w[i + 1]); i += 2; continue; }            // a marked letter (it was quoted) is just itself
         if w[i] == '$' && i + 1 < w.len {
             if w[i + 1] == '(' && i + 2 < w.len && w[i + 2] == '(' {  // $(( expression ))
                 int depth = 0;
@@ -1347,7 +1369,7 @@ bool have_program(String name) {
 
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "login" || n == "signin" || n == "passwd" || n == "logout" || n == "signout" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "login" || n == "signin" || n == "passwd" || n == "logout" || n == "signout" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "kill" || n == "fg" || n == "bg" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     return n == "dir" || n == "cat" || n == "head" || n == "tail" || n == "wc" || n == "mkdir" || n == "rmdir" || n == "rm" || n == "touch"
@@ -1373,6 +1395,49 @@ bool looks_like_jsh(String path) {
     if nl >= 0 { first = text.slice(0, nl); }
     first = first.trim();
     return first == "[#jsh]" || first == "#jsh" || first == "#!jsh";
+}
+
+// the pid of a job: %N (the Nth, 1 is the first), %% or %+ (the last), or a plain number; -1 when there is no such job
+int job_pid(String spec) {
+    if spec.len > 0 && spec[0] == '%' {
+        String rest = spec.slice(1, spec.len);
+        if rest == "" || rest == "%" || rest == "+" { if jobs.len == 0 { return 0 - 1; } return jobs[jobs.len - 1]; }
+        int n = rest.to_int();
+        if n < 1 || n > jobs.len { return 0 - 1; }
+        return jobs[n - 1];
+    }
+    return spec.to_int();
+}
+
+// a signal by number or name (HUP INT QUIT KILL USR1 USR2 TERM CONT STOP TSTP, with or without SIG); -1 when unknown
+int signal_of(String name) {
+    String n = name.upper();
+    if n.starts_with("SIG") { n = n.slice(3, n.len); }
+    if n == "HUP" { return 1; }
+    if n == "INT" { return 2; }
+    if n == "QUIT" { return 3; }
+    if n == "KILL" { return 9; }
+    if n == "USR1" { return 10; }
+    if n == "USR2" { return 12; }
+    if n == "TERM" { return 15; }
+    if n == "CONT" { return 18; }
+    if n == "STOP" { return 19; }
+    if n == "TSTP" { return 20; }
+    if n.len > 0 && n[0] >= '0' && n[0] <= '9' { return n.to_int(); }
+    return 0 - 1;
+}
+
+// the background jobs that ended are taken away and told ([1]+ Done); alive ones stay
+void reap_jobs(bool tell) {
+    int[] alive = arr(8);
+    for i in 0..jobs.len {
+        int st = 0;
+        int r = Sys::call(260, jobs[i], (int)@st, 1, 0, 0, 0);          // wait4 with WNOHANG
+        if r == jobs[i] {
+            if tell { cout << "[" << i + 1 << "]+ Done  (" << jobs[i] << ")\n"; }
+        } else { alive.push(jobs[i]); }
+    }
+    jobs = alive;
 }
 
 bool builtin(String[] a) {
@@ -1450,11 +1515,57 @@ bool builtin(String[] a) {
         return true;
     }
     if name == "echo" {
-        for i in 1..a.len {
-            if i > 1 { cout << " "; }
-            cout << a[i];
+        bool newline = true;
+        bool escapes = false;
+        int first = 1;
+        // the flags -n (no new line), -e (backslash letters) and -E, alone or together (-ne); anything else is a word
+        while first < a.len && a[first].len > 1 && a[first][0] == '-' {
+            bool flags = true;
+            for k in 1..a[first].len { char fc = a[first][k]; if fc != 'n' && fc != 'e' && fc != 'E' { flags = false; } }
+            if !flags { break; }
+            for k in 1..a[first].len {
+                char fc = a[first][k];
+                if fc == 'n' { newline = false; } else if fc == 'e' { escapes = true; } else { escapes = false; }
+            }
+            first += 1;
         }
-        cout << "\n";
+        for i in first..a.len {
+            if i > first { cout << " "; }
+            if escapes {
+                String w = a[i];
+                int k = 0;
+                while k < w.len {
+                    char c = w[k];
+                    if c == '\\' && k + 1 < w.len {
+                        char d = w[k + 1];
+                        k += 2;
+                        if d == 'n' { cout << "\n"; }
+                        else if d == 't' { cout << "\t"; }
+                        else if d == 'r' { cout << "\r"; }
+                        else if d == 'e' { cout << "\e"; }
+                        else if d == 'a' { cout << "\a"; }
+                        else if d == 'b' { cout << "\b"; }
+                        else if d == '\\' { cout << "\\"; }
+                        else if d == 'c' { newline = false; i = a.len; k = w.len; }
+                        else if d == '0' {
+                            int v = 0; int cnt = 0;
+                            while k < w.len && cnt < 3 && w[k] >= '0' && w[k] <= '7' { v = v * 8 + (w[k] - '0'); k += 1; cnt += 1; }
+                            cout << (char)v;
+                        } else if d == 'x' {
+                            int v = 0; int cnt = 0;
+                            while k < w.len && cnt < 2 && ((w[k] >= '0' && w[k] <= '9') || (w[k] >= 'a' && w[k] <= 'f') || (w[k] >= 'A' && w[k] <= 'F')) {
+                                char h = w[k];
+                                int hv = 0;
+                                if h >= '0' && h <= '9' { hv = h - '0'; } else if h >= 'a' && h <= 'f' { hv = h - 'a' + 10; } else { hv = h - 'A' + 10; }
+                                v = v * 16 + hv; k += 1; cnt += 1;
+                            }
+                            cout << (char)v;
+                        } else { cout << "\\" << d; }
+                    } else { cout << c; k += 1; }
+                }
+            } else { cout << a[i]; }
+        }
+        if newline { cout << "\n"; }
         bcode = 0;
         return true;
     }
@@ -1571,8 +1682,57 @@ bool builtin(String[] a) {
         if n <= 0 && got.len == 0 { bcode = 1; }
         return true;
     }
+    if name == "kill" {
+        int sig = 15;
+        int first = 1;
+        if a.len > 1 && a[1].len > 1 && a[1][0] == '-' {
+            if a[1] == "-l" {
+                cout << "HUP INT QUIT KILL USR1 USR2 TERM CONT STOP TSTP\n";
+                bcode = 0;
+                return true;
+            }
+            String sn = a[1].slice(1, a[1].len);
+            if sn == "s" && a.len > 2 { sn = a[2] + ""; first = 3; } else { first = 2; }
+            sig = signal_of(sn);
+            if sig < 0 { cerr << "jsh: kill: " << sn << ": unknown signal\n"; bcode = 1; return true; }
+        }
+        if a.len <= first { cerr << "jsh: kill: give a process number or a job (kill %1)\n"; bcode = 2; return true; }
+        bcode = 0;
+        for i in first..a.len {
+            int pid = job_pid(a[i]);
+            if pid <= 0 { cerr << "jsh: kill: " << a[i] << ": no such job or process\n"; bcode = 1; continue; }
+            if Sys::kill(pid, sig) < 0 { cerr << "jsh: kill: " << a[i] << ": cannot send the signal\n"; bcode = 1; }
+        }
+        return true;
+    }
+    if name == "fg" {
+        // the job is waited for here: there is one terminal (no stopped jobs yet)
+        String spec = "%+";
+        if a.len > 1 { spec = a[1] + ""; }
+        int pid = job_pid(spec);
+        if pid <= 0 { cerr << "jsh: fg: no such job\n"; bcode = 1; return true; }
+        Sys::kill(pid, 18);
+        int st = 0;
+        Sys::wait(pid, @st);
+        last_status = status_of(st);
+        int[] rest = arr(8);
+        for i in 0..jobs.len { if jobs[i] != pid { rest.push(jobs[i]); } }
+        jobs = rest;
+        bcode = last_status;
+        return true;
+    }
+    if name == "bg" {
+        String spec = "%+";
+        if a.len > 1 { spec = a[1] + ""; }
+        int pid = job_pid(spec);
+        if pid <= 0 { cerr << "jsh: bg: no such job\n"; bcode = 1; return true; }
+        Sys::kill(pid, 18);
+        bcode = 0;
+        return true;
+    }
     if name == "jobs" {
-        for i in 0..jobs.len { cout << "[" << i + 1 << "] " << jobs[i] << "\n"; }
+        reap_jobs(true);
+        for i in 0..jobs.len { cout << "[" << i + 1 << "]  Running  " << jobs[i] << "\n"; }
         bcode = 0;
         return true;
     }
@@ -2031,6 +2191,23 @@ void run_while(String[] b, bool until) {
     }
 }
 
+// is there a * or ? in the word that is not quoted? (a quoted letter has the mark \x02 in front of it)
+bool raw_has_glob(String e) {
+    int k = 0;
+    while k < e.len {
+        char c = e[k];
+        if c == 2 { k += 2; continue; }
+        if c == '*' || c == '?' { return true; }
+        k += 1;
+    }
+    return false;
+}
+
+bool has_quote(String e) {
+    for k in 0..e.len { if e[k] == 2 { return true; } }
+    return false;
+}
+
 void run_for(String[] b) {
     int d = find_kw(b, 0, "do", "");
     if d < 2 || b[1] != "in" { bad_script("for NAME in WORDS; do ... done"); return; }
@@ -2039,8 +2216,8 @@ void run_for(String[] b) {
     for i in 2..d {
         if b[i] == ";" { continue; }
         String x = expand(b[i]);
-        bool star = false;
-        for k in 0..x.len { if x[k] == '*' || x[k] == '?' { star = true; } }
+        bool star = raw_has_glob(b[i]);
+        if !star && !has_quote(b[i]) { for k in 0..x.len { if x[k] == '*' || x[k] == '?' { star = true; } } }       // a * that comes from $variable is a pattern too
         if star { glob_into(vals, x); } else { vals.push(x); }
     }
     String[] body = slice_t(b, d + 1, b.len);
@@ -2152,6 +2329,11 @@ int run_script_text(String text) {
     return run_tokens(all);
 }
 
+// the words of the shell that are not words of a command: pipes, redirects, the end of a command, background
+bool is_operator_word(String x) {
+    return x == "|" || x == "<" || x == ">" || x == ">>" || x == "&" || x == ";" || x == "2>" || x == "2>>" || x == "2>&1" || x == "1>&2" || x == ">&2" || x == ">&1" || x == "1>" || x == "1>>" || x == "&>" || x == "&>>" || x == "<<<" || x == "&&" || x == "||";
+}
+
 void run_words(String[] raw0) {
     String[] raw = raw0;
     if raw.len == 0 { return; }
@@ -2180,9 +2362,11 @@ void run_words(String[] raw0) {
         if e == "|" || e == "<" || e == ">" || e == ">>" || e == "&" || e == "2>" || e == "2>>" || e == "2>&1" || e == "1>&2" || e == ">&2" || e == ">&1" || e == "1>" || e == "1>>" || e == "&>" || e == "&>>" || e == "<<<" { w.push(e); }
         else {
             String x = expand(e);
-            bool star = false;
-            for k in 0..x.len { if x[k] == '*' || x[k] == '?' { star = true; } }
-            if star { glob_into(w, x); } else { w.push(x); }
+            bool star = raw_has_glob(e);
+            if !star && !has_quote(e) { for k in 0..x.len { if x[k] == '*' || x[k] == '?' { star = true; } } }       // a * that comes from $variable is a pattern too
+            if star { glob_into(w, x); }
+            else if has_quote(e) && is_operator_word(x) { w.push("\x02" + x); }               // ">" in quotes is a word, not a redirect: the mark is taken off when the command is made
+            else { w.push(x); }
         }
     }
     bool background = w[w.len - 1] == "&";
@@ -2217,7 +2401,12 @@ void run_words(String[] raw0) {
                 here_files.push(in_file);
                 i += 2;
             }
-            else { argv.push(w[i]); i += 1; }
+            else {
+                String word = w[i];
+                if word.len > 1 && word[0] == 2 { word = word.slice(1, word.len); }                 // the mark of a quoted operator word
+                argv.push(word);
+                i += 1;
+            }
         }
         bool more = i < nwords;
         if more { i += 1; }
@@ -2472,6 +2661,7 @@ int main() {
     while running == 1 {
         String line = "";
         if tty {
+            reap_jobs(true);
             if !read_command(prompt_text()) { break; }
             line = got_line;
         } else {
