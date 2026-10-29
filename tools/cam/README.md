@@ -5,7 +5,7 @@
 ## Commands
 ```
 cam                            the camera with two tabs: SCAN (point it at a QR code: a card shows a link to touch, a Wi-Fi password to copy, a login code to add to authj) and PHOTO
-cam photo                      the camera opens; touch the round button: the picture is saved as photo-TIME.jpg (the path is printed)
+cam photo                      the camera opens; touch the round button: the picture is saved as u:/DCIM/Jaric/photo-TIME.jpg (the path is printed)
 cam photo out.jpg --after 3    taken by itself after 3 seconds
 cam photo --front              the front camera (the button with the two arrows on the screen turns it)
 cam scan                       reads a QR code with the camera and prints its text; Esc, q, Ctrl-C or the cross on the screen close it
@@ -13,7 +13,7 @@ cam scan --timeout 30 --keep last.jpg     give up after 30 seconds; keep the las
 ```
 * A scan looks at a picture about once a second (2 million dots) and stops at the first code that is read. Hold the code still, light on it, 15 to 30 cm away.
 * Use it with `authj`:  `authj add-uri "$(cam scan)"`  (the code of GitHub or another site becomes an account).
-* The pictures are JPEG files in the folder you name (or in `$TMPDIR`, or `$HOME`). Photos have up to 12 million dots.
+* The pictures are JPEG files in the folder you name (by default `u:/DCIM/Jaric/`, which the gallery shows). Photos have up to 12 million dots.
 * It works only in the terminal of the Jaric app (app 0.0.146 or newer): the messages `ESC ] 7777 ; camera ; ... BEL` are answered by the app. In another terminal it says so and ends.
 
 ```

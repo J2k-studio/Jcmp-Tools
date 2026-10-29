@@ -5,7 +5,7 @@
 using stdlib;
 #import "jpeg"
 #import "qr"
-// cam 0.2.0 -- the camera of the phone for the programs of the terminal of the Jaric app: pictures and QR codes.   (license: MPL-2.0)
+// cam 0.2.1 -- the camera of the phone for the programs of the terminal of the Jaric app: pictures and QR codes.   (license: MPL-2.0)
 //   cam                                               the camera with two tabs (PHOTO, SCAN): point it at a code and a card shows what it is; touch a link to open it
 //   cam photo [OUT.jpg] [--front] [--after SECONDS]   shows the camera; touch the round button to take the picture (or --after: it is taken by itself)
 //   cam scan [--front] [--timeout 60] [--keep FILE]  shows the camera and reads QR codes until one is read; prints its text (exit 1: none)
@@ -72,6 +72,13 @@ bool flag(String[] a, String name) {
 
 int now_ms() { return Time::now_ms(); }
 
+// where the photos go: u:/DCIM/Jaric (the gallery of the phone shows it); CAM_DIR changes it
+String photo_dir() {
+    Option<String> d = Env::get("CAM_DIR");
+    if d.is_some() { String x = d.unwrap(); if !x.ends_with("/") { x = x + "/"; } return x; }
+    return "/sdcard/DCIM/Jaric/";
+}
+
 String work_dir() {
     Option<String> t = Env::get("TMPDIR");
     if t.is_some() { return t.unwrap(); }
@@ -81,7 +88,7 @@ String work_dir() {
 }
 
 void usage() {
-    cout << "cam 0.2.0: the camera of the phone (the terminal of the Jaric app)\n";
+    cout << "cam 0.2.1: the camera of the phone (the terminal of the Jaric app)\n";
     cout << "  cam photo [OUT.jpg] [--front] [--after SECONDS]    touch the round button (or wait --after seconds): the picture is saved\n";
     cout << "  cam scan [--front] [--timeout 60] [--keep FILE]    reads a QR code with the camera and prints its text\n";
     cout << "  Esc, q or Ctrl-C closes the camera; the cross on the screen too\n";
@@ -125,9 +132,7 @@ String scan_file(String path, bool^ ok) {
 
 // the camera with both tabs: the app shows the card of a code that was read; the person touches what to do (open, copy, add to authj, use)
 int interactive(bool front) {
-    String folder = work_dir() + "/";
-    Option<String> dcim = Env::get("CAM_DIR");
-    if dcim.is_some() { folder = dcim.unwrap(); if !folder.ends_with("/") { folder = folder + "/"; } }
+    String folder = photo_dir();
     String tmp = work_dir() + "/cam-scan.jpg";
     raw_on();
     if !open_camera(front, folder, "2", "both") { raw_off(); return 1; }
@@ -215,7 +220,7 @@ bool unlink_ok(String p) { return Sys::unlink(p.c()) == 0; }
 
 int main() {
     String[] a = Env::args();
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "cam 0.2.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "cam 0.2.1\n"; return 0; }
     if a.len >= 2 && (a[1] == "help" || a[1] == "--help" || a[1] == "-h") { usage(); return 0; }
     String cmd = "ui";
     if a.len >= 2 { cmd = a[1]; }
@@ -228,7 +233,7 @@ int main() {
     if cmd == "photo" {
         String out = "";
         if a.len > 2 && a[2].len > 0 && a[2][0] != '-' { out = a[2] + ""; }
-        if out.len == 0 { out = work_dir() + "/photo-" + str(now_ms() / 1000) + ".jpg"; }
+        if out.len == 0 { out = photo_dir() + "photo-" + str(now_ms() / 1000) + ".jpg"; }
         raw_on();
         if !open_camera(front, out, "12", "photo") { raw_off(); return 1; }
         String after = opt(a, "--after", "");

@@ -1,5 +1,9 @@
 # cam changelog
 
+## 0.2.1
+* **Changed:** photos are kept in `u:/DCIM/Jaric/` (the gallery of the phone shows them; it was the folder for temporary files); `CAM_DIR` chooses another folder.
+* **Fixed:** none.
+
 ## 0.2.0
 * **Added:** `cam` alone: the camera with the tabs PHOTO and SCAN (app 0.0.147): pinch to zoom, a light, the turn of the camera, a frame for the code; a code that is read shows a **card** with what it is: a link opens with one touch, a Wi-Fi code copies its password, a two-step login code goes to `authj`, any text can be copied or used (printed). `cam photo` and `cam scan` stay for scripts.
 * **Fixed:** none.
