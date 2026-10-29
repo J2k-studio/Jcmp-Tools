@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.5.1
+* **Added:** none.
+* **Fixed:** a package of Jcmp-pkg can have a symbolic link to an absolute path of the prefix (python-pip: `cacert.pem`); the unpacking used to stop there. Tool archives still refuse absolute links.
+
 ## 0.5.0
 * **Added:** `jc pkg update [-n]` (installed packages with another version in the index are removed and installed again; -n only shows), and `jc update` now updates the packages too. `python` moved from the tools to the packages (the real CPython 3.14 of Jcmp-pkg), so `jc install python` gives it.
 * **Fixed:** none.
