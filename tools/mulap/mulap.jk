@@ -1,0 +1,197 @@
+#import <stdlib>
+#import <files>
+#import <math>
+// mulap 0.1.0 -- record songs and make beats (this first step: the engine that makes a beat from a plan, no screen needed).   (license: MPL-2.0)
+//   mulap render PROJECT.mlp OUT.wav     plays the plan of a beat into a WAV file (44100 Hz, 16 bit, mono)
+//   mulap demo OUT.wav                   a small beat of its own
+// A plan (.mlp) is a text file:
+//     bpm = 120          the speed: beats a minute (a beat is four steps)
+//     bars = 2           how many bars (a bar is 16 steps)
+//     swing = 0.15       0 .. 0.5: the odd steps come later
+//     track kick  x...x...x...x...            x = a hit, X = a strong hit, . = silence; the pattern repeats if it is shorter than the song
+//     track snare ....x.......x...  gain 0.9
+// The voices (the name of the track): kick, snare, hat, openhat, clap, tom, bass. They are made by the program (no sample files needed).
+
+int RATE = 44100;
+double PI = 3.141592653589793;
+int noise_state;
+double hp_prev;
+
+void noise_seed() { noise_state = 12345; hp_prev = 0.0; }
+double noise() {
+    noise_state = (noise_state * 1103515245 + 12345) & 2147483647;
+    return ((double)((noise_state >> 8) & 65535) / 32768.0) - 1.0;
+}
+
+// the length of a voice in seconds
+double voice_len(String v) {
+    if v == "kick" { return 0.45; }
+    if v == "snare" { return 0.30; }
+    if v == "hat" { return 0.10; }
+    if v == "openhat" { return 0.40; }
+    if v == "clap" { return 0.30; }
+    if v == "tom" { return 0.40; }
+    if v == "bass" { return 0.90; }
+    return 0.0;
+}
+
+// the sample of a voice t seconds after the hit
+double voice_at(String v, double t) {
+    if v == "kick" {
+        double ph = 2.0 * PI * (45.0 * t + 3.5 * (1.0 - Math::exp(0.0 - 30.0 * t)));
+        return Math::sin(ph) * Math::exp(0.0 - 8.0 * t);
+    }
+    if v == "snare" {
+        double n = noise();
+        return n * Math::exp(0.0 - 22.0 * t) * 0.8 + Math::sin(2.0 * PI * 185.0 * t) * Math::exp(0.0 - 28.0 * t) * 0.5;
+    }
+    if v == "hat" || v == "openhat" {
+        double n2 = noise();
+        double hp = n2 - hp_prev;                      // the difference of two noises: the high part
+        hp_prev = n2;
+        double k = 70.0;
+        if v == "openhat" { k = 11.0; }
+        return hp * 0.5 * Math::exp(0.0 - k * t);
+    }
+    if v == "clap" {
+        double n3 = noise();
+        double env = Math::exp(0.0 - 26.0 * t);
+        if t < 0.03 { env = env + 0.8 * (1.0 - (t - 0.01) * (t - 0.01) * 2500.0); }          // the small bursts at the start
+        if env < 0.0 { env = 0.0; }
+        return n3 * env * 0.7;
+    }
+    if v == "tom" {
+        double ph2 = 2.0 * PI * (110.0 * t + 1.2 * (1.0 - Math::exp(0.0 - 14.0 * t)));
+        return Math::sin(ph2) * Math::exp(0.0 - 7.0 * t);
+    }
+    if v == "bass" {
+        return Math::sin(2.0 * PI * 55.0 * t) * Math::exp(0.0 - 3.2 * t) * 0.9;
+    }
+    return 0.0;
+}
+
+String g_w;                  // the WAV that is being made
+void put_le(int v, int n) { for i in 0..n { g_w.push((char)((v >> (8 * i)) & 255)); } }
+
+// the plan
+double bpm;
+int bars;
+double swing;
+String[] tv;
+String[] tp;
+String[] tg;                 // the gain of each track as text ("" = 1.0)
+
+int fail(String m) { cerr << "mulap: " << m << "\n"; return 1; }
+
+bool parse_plan(String text) {
+    bpm = 120.0; bars = 1; swing = 0.0;
+    tv = arr(4); tp = arr(4); tg = arr(4);
+    String[] ls = text.replace("\r", "").split("\n");
+    for i in 0..ls.len {
+        String l = ls[i].trim();
+        if l.len == 0 || l[0] == '#' { continue; }
+        String[] w = l.split(" ");
+        String[] a = arr(8);
+        for k in 0..w.len { if w[k].len > 0 { a.push(w[k] + ""); } }
+        if a.len == 0 { continue; }
+        if a[0] == "bpm" && a.len >= 3 { bpm = a[2].to_double(); }
+        else if a[0] == "bars" && a.len >= 3 { bars = a[2].to_int(); }
+        else if a[0] == "swing" && a.len >= 3 { swing = a[2].to_double(); }
+        else if a[0] == "track" && a.len >= 3 {
+            tv.push(a[1] + "");
+            tp.push(a[2] + "");
+            String g = "";
+            if a.len >= 5 && a[3] == "gain" { g = a[4] + ""; }
+            tg.push(g);
+        }
+    }
+    if bpm < 20.0 || bpm > 400.0 { return false; }
+    if bars < 1 || bars > 256 { return false; }
+    if swing < 0.0 { swing = 0.0; }
+    if swing > 0.5 { swing = 0.5; }
+    return tv.len > 0;
+}
+
+// the whole beat as 16 bit mono samples in a WAV file
+String render() {
+    int step = (int)(60.0 / bpm / 4.0 * (double)RATE);
+    int total = bars * 16 * step + (int)(0.7 * (double)RATE);
+    double[] mix = arr(total + 1);
+    for i in 0..total { mix.push(0.0); }
+    for t in 0..tv.len {
+        String v = tv[t];
+        double len = voice_len(v);
+        if len == 0.0 { continue; }
+        double gain = 1.0;
+        if tg[t].len > 0 { gain = tg[t].to_double(); }
+        String pat = tp[t];
+        int n = (int)(len * (double)RATE);
+        for s in 0..bars * 16 {
+            int c = pat[s % pat.len];
+            if c != 'x' && c != 'X' { continue; }
+            double g = gain;
+            if c == 'X' { g = gain * 1.3; }
+            int at = s * step;
+            if s % 2 == 1 { at += (int)(swing * (double)step); }
+            noise_seed();
+            for k in 0..n {
+                if at + k >= total { break; }
+                mix[at + k] = mix[at + k] + voice_at(v, (double)k / (double)RATE) * g;
+            }
+        }
+    }
+    double peak = 0.0;
+    for i in 0..total { double a = mix[i]; if a < 0.0 { a = 0.0 - a; } if a > peak { peak = a; } }
+    double scale = 0.0;
+    if peak > 0.0 { scale = 0.9 / peak; }
+    String data = "";
+    for i in 0..total {
+        int v16 = (int)(mix[i] * scale * 32767.0);
+        data.push((char)(v16 & 255));
+        data.push((char)((v16 >> 8) & 255));
+    }
+    g_w = "RIFF";
+    put_le(36 + data.len, 4);
+    g_w = g_w + "WAVEfmt ";
+    put_le(16, 4); put_le(1, 2); put_le(1, 2); put_le(RATE, 4); put_le(RATE * 2, 4); put_le(2, 2); put_le(16, 2);
+    g_w = g_w + "data";
+    put_le(data.len, 4);
+    g_w = g_w + data;
+    return g_w;
+}
+
+String demo_plan() {
+    String t = "bpm = 140\nbars = 2\nswing = 0.1\n";
+    t = t + "track kick  x.......x.x.....\n";
+    t = t + "track snare ....x.......x...\n";
+    t = t + "track hat   x.x.x.x.x.x.x.xx\n";
+    t = t + "track clap  ............x...  gain 0.6\n";
+    t = t + "track bass  x...........x...  gain 0.8\n";
+    return t;
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "mulap 0.1.0\n"; return 0; }
+    if a.len < 2 || a[1] == "--help" || a[1] == "-h" {
+        cout << "mulap: record songs and make beats (first step: the engine).   mulap render PROJECT.mlp OUT.wav   mulap demo OUT.wav\n";
+        cout << "  a plan: bpm = 120, bars = 2, swing = 0.1, track kick x...x...x...x...   (voices: kick snare hat openhat clap tom bass)\n";
+        if a.len < 2 { return 2; }
+        return 0;
+    }
+    String text = "";
+    String out = "";
+    if a[1] == "demo" && a.len >= 3 { text = demo_plan(); out = a[2] + ""; }
+    else if a[1] == "render" && a.len >= 4 {
+        Result<String, Error> r = Fs::read_text(a[2]);
+        if !r.is_ok() { return fail("cannot read " + a[2]); }
+        text = r.take();
+        out = a[3] + "";
+    } else { return fail("usage: mulap render PROJECT.mlp OUT.wav   |   mulap demo OUT.wav"); }
+    if !parse_plan(text) { return fail("the plan needs bpm (20-400), bars (1-256) and at least one track"); }
+    String wav = render();
+    Result<int, Error> w = Fs::write_bytes(out, wav);
+    if !w.is_ok() { return fail("cannot write " + out); }
+    cout << out << ": " << (wav.len - 44) / 2 / RATE << " s, " << bars << " bars at " << (int)bpm << " bpm\n";
+    return 0;
+}
