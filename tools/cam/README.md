@@ -4,6 +4,7 @@
 
 ## Commands
 ```
+cam                            the camera with two tabs: SCAN (point it at a QR code: a card shows a link to touch, a Wi-Fi password to copy, a login code to add to authj) and PHOTO
 cam photo                      the camera opens; touch the round button: the picture is saved as photo-TIME.jpg (the path is printed)
 cam photo out.jpg --after 3    taken by itself after 3 seconds
 cam photo --front              the front camera (the button with the two arrows on the screen turns it)

@@ -5,7 +5,8 @@
 using stdlib;
 #import "jpeg"
 #import "qr"
-// cam 0.1.0 -- the camera of the phone for the programs of the terminal of the Jaric app: pictures and QR codes.   (license: MPL-2.0)
+// cam 0.2.0 -- the camera of the phone for the programs of the terminal of the Jaric app: pictures and QR codes.   (license: MPL-2.0)
+//   cam                                               the camera with two tabs (PHOTO, SCAN): point it at a code and a card shows what it is; touch a link to open it
 //   cam photo [OUT.jpg] [--front] [--after SECONDS]   shows the camera; touch the round button to take the picture (or --after: it is taken by itself)
 //   cam scan [--front] [--timeout 60] [--keep FILE]  shows the camera and reads QR codes until one is read; prints its text (exit 1: none)
 //   cam flip                                          (while a camera is open in another tab) not needed: the button on the screen turns it
@@ -80,17 +81,17 @@ String work_dir() {
 }
 
 void usage() {
-    cout << "cam 0.1.0: the camera of the phone (the terminal of the Jaric app)\n";
+    cout << "cam 0.2.0: the camera of the phone (the terminal of the Jaric app)\n";
     cout << "  cam photo [OUT.jpg] [--front] [--after SECONDS]    touch the round button (or wait --after seconds): the picture is saved\n";
     cout << "  cam scan [--front] [--timeout 60] [--keep FILE]    reads a QR code with the camera and prints its text\n";
     cout << "  Esc, q or Ctrl-C closes the camera; the cross on the screen too\n";
 }
 
 // waits for the camera to be ready: true; false with the reason printed
-bool open_camera(bool front, String path, String megadots) {
+bool open_camera(bool front, String path, String megadots, String modes) {
     String side = "back";
     if front { side = "front"; }
-    send("open;" + side + ";" + path + ";" + megadots);
+    send("open;" + side + ";" + path + ";" + megadots + ";" + modes);
     int t0 = now_ms();
     while now_ms() - t0 < 20000 {
         String m = next_message(300);
@@ -104,19 +105,104 @@ bool open_camera(bool front, String path, String megadots) {
     return false;
 }
 
+// the camera with both tabs: the app shows the card of a code that was read; the person touches what to do (open, copy, add to authj, use)
+int interactive(bool front) {
+    String folder = work_dir() + "/";
+    Option<String> dcim = Env::get("CAM_DIR");
+    if dcim.is_some() { folder = dcim.unwrap(); if !folder.ends_with("/") { folder = folder + "/"; } }
+    String tmp = work_dir() + "/cam-scan.jpg";
+    raw_on();
+    if !open_camera(front, folder, "2", "both") { raw_off(); return 1; }
+    bool scan_mode = true;
+    bool paused = false;
+    bool waiting = false;
+    int next_shot = now_ms() + 600;
+    String last = "";
+    int last_at = 0;
+    int rc = 0;
+    String out_text = "";
+    String add_text = "";
+    bool done = false;
+    while !done {
+        if scan_mode && !paused && !waiting && now_ms() >= next_shot { send("shot;" + tmp); waiting = true; }
+        String m = next_message(120);
+        if m.len == 0 { continue; }
+        if m == "#quit" || m == "camera-closed" { done = true; rc = 0; }
+        else if m.starts_with("camera-error") { cerr << "cam: " << m.slice(13, m.len) << "\n"; rc = 1; done = true; }
+        else if m.starts_with("camera-mode;") { scan_mode = m == "camera-mode;scan"; if scan_mode { paused = false; } }
+        else if m == "camera-resume" { paused = false; next_shot = now_ms() + 300; }
+        else if m.starts_with("camera-shot") {
+            String[] p = m.split(";");
+            if p.len > 1 && p[1] == tmp {
+                waiting = false;
+                Result<String, Error> rd = Fs::read_bytes(tmp);
+                if rd.is_ok() {
+                    String bytes = rd.take();
+                    bool pok = false;
+                    Image im = Jpeg::decode(bytes, @pok);
+                    if pok {
+                        bool good = false;
+                        String text = Qr::scan(im.px, im.w, im.h, @good);
+                        if good && (text != last || now_ms() - last_at > 4000) {
+                            last = text + "";
+                            last_at = now_ms();
+                            paused = true;
+                            send("result;" + Base64::encode(text));
+                        }
+                    }
+                }
+                next_shot = now_ms() + 250;
+            } else if p.len > 1 {
+                cout << "photo: " << p[1] << "\n";
+            }
+        }
+        else if m.starts_with("camera-action;") {
+            String[] p = m.split(";");
+            if p.len >= 3 {
+                Result<String, Error> dec = Base64::decode(p[2]);
+                if dec.is_ok() {
+                    String text = dec.take();
+                    if p[1] == "use" { out_text = text + ""; done = true; }
+                    else if p[1] == "add" { add_text = text + ""; done = true; }
+                }
+            }
+        }
+    }
+    send("close");
+    raw_off();
+    if add_text.len > 0 {
+        String[] aargs = arr(2);
+        aargs.push("add-uri");
+        aargs.push(add_text + "");
+        Result<int, Error> pr = Proc::run("authj", aargs);
+        if pr.is_err() { cerr << "cam: authj is not installed (jc install authj)\n"; return 1; }
+        return pr.take();
+    }
+    if out_text.len > 0 { cout << out_text << "\n"; }
+    if unlink_ok(tmp) { }
+    return rc;
+}
+
+bool unlink_ok(String p) { return Sys::unlink(p.c()) == 0; }
+
 int main() {
     String[] a = Env::args();
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "cam 0.1.0\n"; return 0; }
-    if a.len < 2 || a[1] == "help" || a[1] == "--help" || a[1] == "-h" { usage(); return 0; }
-    String cmd = a[1];
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "cam 0.2.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "help" || a[1] == "--help" || a[1] == "-h") { usage(); return 0; }
+    String cmd = "ui";
+    if a.len >= 2 { cmd = a[1]; }
     bool front = flag(a, "--front");
+    if a.len >= 2 && a[1] == "--front" { cmd = "ui"; }
     if Sys::isatty(0) != 0 { cerr << "cam: it needs the terminal of the Jaric app\n"; return 1; }
+    if cmd == "ui" || cmd == "camera" {
+        return interactive(front);
+    }
     if cmd == "photo" {
         String out = "";
         if a.len > 2 && a[2].len > 0 && a[2][0] != '-' { out = a[2] + ""; }
         if out.len == 0 { out = work_dir() + "/photo-" + str(now_ms() / 1000) + ".jpg"; }
         raw_on();
-        if !open_camera(front, out, "12") { raw_off(); return 1; }
+        if !open_camera(front, out, "12", "photo") { raw_off(); return 1; }
         String after = opt(a, "--after", "");
         int shot_at = 0 - 1;
         if after.len > 0 { shot_at = now_ms() + (int)(after.to_double() * 1000.0); }
@@ -145,7 +231,7 @@ int main() {
         String tos = opt(a, "--timeout", "60");
         int deadline = now_ms() + tos.to_int() * 1000;
         raw_on();
-        if !open_camera(front, tmp, "2") { raw_off(); return 1; }
+        if !open_camera(front, tmp, "2", "scan") { raw_off(); return 1; }
         int rc = 1;
         bool done = false;
         bool waiting = false;                         // a picture was asked for and has not come yet

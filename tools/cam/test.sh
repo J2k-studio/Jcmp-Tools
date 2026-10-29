@@ -26,4 +26,11 @@ python3 -I "$F" photo-auto "$C" "$T" photo "$T/p2.jpg" --after 1 2>&1 | grep -q 
 if python3 -I "$F" photo-quit "$C" "$T" photo "$T/p3.jpg" > /dev/null 2>&1; then echo "cam test: Esc must end photo with a failure"; exit 1; fi
 if python3 -I "$F" scan-none "$C" "$T" scan --timeout 3 > /dev/null 2>&1; then echo "cam test: a scan without a code must fail"; exit 1; fi
 if python3 -I "$F" no-answer "$C" "$T" scan --timeout 3 > /dev/null 2>&1; then echo "cam test: no answer of the app must fail"; exit 1; fi
+# the two tabs: `cam` alone: a code that is read goes to the app as a card; the person chooses "use" (the text is printed) or "add" (authj gets it)
+mkdir -p "$T/bin"
+printf '#!/bin/sh\necho "$@" > "%s/authj.args"\n' "$T" > "$T/bin/authj"; chmod +x "$T/bin/authj"
+out=$(python3 -I "$F" ui-use "$C" "$T" 2>&1) || { echo "cam test: ui-use: $out"; exit 1; }
+echo "$out" | grep -q "otpauth://totp/Cam:me?secret=JBSWY3DPEHPK3PXP&issuer=Cam" || { echo "cam test: ui-use printed: $out"; exit 1; }
+python3 -I "$F" ui-add "$C" "$T" > /dev/null 2>&1 || { echo "cam test: ui-add"; exit 1; }
+grep -q "add-uri otpauth://totp/Cam:me" "$T/authj.args" || { echo "cam test: authj was not asked to add the account"; exit 1; }
 echo "cam tests passed"

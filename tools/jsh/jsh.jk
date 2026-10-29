@@ -1407,7 +1407,7 @@ bool builtin(String[] a) {
         else {
             target = getv("HOME");
         }
-        if Sys::call(49, (int)target.c(), 0, 0, 0, 0, 0) < 0 {
+        if Sys::chdir(target.c()) < 0 {
             cerr << "jsh: cd: " << target << ": cannot enter this folder\n";
             bcode = 1;
             if target.starts_with("/sdcard") || target.starts_with("/storage") {        // the files of the phone: the app asks to be allowed (once)

@@ -8,6 +8,8 @@ jpeg = os.path.join(work, 'qr_frame.jpg')       # what the "camera" sees
 pid, fd = pty.fork()
 if pid == 0:
     os.environ['TMPDIR'] = work
+    os.environ['PATH'] = work + '/bin:' + os.environ.get('PATH', '')
+    os.environ['CAM_DIR'] = work + '/dcim/'
     os.execv(cam, [cam] + args)
 buf = b''
 out = b''
@@ -38,8 +40,12 @@ while time.time() - t0 < 30 and not done:
             elif cmd.startswith('shot;'):
                 path = cmd[5:]
                 shots += 1
-                src = jpeg if (mode == 'scan' and shots >= 3) or mode == 'photo-auto' else os.path.join(work, 'blank.jpg')
+                src = jpeg if (mode in ('scan', 'ui-use', 'ui-add') and shots >= 3) or mode == 'photo-auto' else os.path.join(work, 'blank.jpg')
                 open(path, 'wb').write(open(src, 'rb').read()); say('camera-shot;%s;1234' % path)
+            elif cmd.startswith('result;'):
+                b64 = cmd[7:]
+                if mode == 'ui-use': say('camera-action;use;' + b64)
+                if mode == 'ui-add': say('camera-action;add;' + b64)
             elif cmd == 'close':
                 pass
         out += buf if False else b''
