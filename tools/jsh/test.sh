@@ -7,7 +7,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
 OUT=$(printf 'echo hello world\necho "a  b" | cat\necho one > f.txt\necho two >> f.txt\ncat < f.txt\nfalse\necho status $?\necho x | tr x y | cat\nnosuchprog\ncd /\npwd\nexit 7\n' | "$SH" 2>&1) && rc=0 || rc=$?
-WANT='jsh 0.11.3 (the shell of Jaric): help shows the commands
+WANT='jsh 0.12.0 (the shell of Jaric): help shows the commands
 hello world
 a  b
 one
@@ -24,7 +24,7 @@ T2=$(mktemp -d); trap 'rm -rf "$T" "$T2"' EXIT
 cd "$T2"; touch a.txt b.txt c.log
 printf 'echo "echo in the script"\nexport K=5\necho k=$K\n' > s.jsh
 OUT2=$(printf 'NAME=jao\necho hi $NAME\nalias say=echo\nsay aliased\necho *.txt\nfalse || echo second\ntrue && echo third\necho a ; echo b\nunset NAME\necho [$NAME]\ntype cd\nexit 0\n' | HOME="$T2" "$SH" 2>&1)
-WANT2='jsh 0.11.3 (the shell of Jaric): help shows the commands
+WANT2='jsh 0.12.0 (the shell of Jaric): help shows the commands
 hi jao
 aliased
 a.txt b.txt
@@ -289,3 +289,43 @@ if [ -x "$T20/bin/jbox" ]; then
 fi
 rm -rf "$T20"
 echo "shell test (step 20): ok"
+# step 21: ${...} expansions and case ... esac
+T21=$(mktemp -d)
+cat > "$T21/p.jsh" <<'EOS'
+x=hello.txt
+echo ${x%.txt} ${#x} ${x:1:3} ${y:-dflt} ${x/l/L} ${x//l/L} ${x#he} ${x##*l} ${x%%.*}
+f=/a/b/c.tar.gz
+echo ${f##*/} ${f%/*} ${f%%.*}
+echo ${y:=set} $y ${y:+yes}
+for f in a.txt b.png c.jk zzz; do
+  case $f in
+    *.txt) echo "$f text" ;;
+    *.png|*.jpg) echo "$f image" ;;
+    c.*)
+      if true; then echo "$f code"; fi
+      ;;
+    *) echo "$f other" ;;
+  esac
+done
+a=hello
+if [[ $a == he* ]]; then echo yes; fi
+if [[ $a != x ]]; then echo ne; fi
+if [[ $a == zz ]]; then echo BAD; else echo no; fi
+r=$RANDOM
+if [ $r -ge 0 ]; then echo rnd; fi
+EOS
+R21=$(cd "$T21" && HOME="$T21" "$SH" p.jsh 2>&1)
+EXP21="hello 9 ell dflt heLlo.txt heLLo.txt llo.txt o.txt hello
+c.tar.gz /a/b /a/b/c
+set set yes
+a.txt text
+b.png image
+c.jk code
+zzz other
+yes
+ne
+no
+rnd"
+[ "$R21" = "$EXP21" ] || { echo "shell test (step 21): $R21"; exit 1; }
+rm -rf "$T21"
+echo "shell test (step 21): ok"

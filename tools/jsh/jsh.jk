@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.11.3"; }
+String jsh_version() { return "0.12.0"; }
 String[] history;
 int last_status;
 int running;
@@ -1022,6 +1022,87 @@ String drive_expand(String w, int^ taken) {
     return root + "/";
 }
 
+// ${...}: the value of a variable with a change: ${x:-d} ${x:=d} ${x:+d} ${#x} ${x:off:len} ${x#p} ${x##p} ${x%p} ${x%%p} ${x/p/r} ${x//p/r}
+String param_exp(String body) {
+    if body.len > 1 && body[0] == '#' { return str(getv(body.slice(1, body.len)).len); }
+    int k = 0;
+    String name = "";
+    while k < body.len && ((body[k] >= 'A' && body[k] <= 'Z') || (body[k] >= 'a' && body[k] <= 'z') || body[k] == '_' || (body[k] >= '0' && body[k] <= '9')) { name.push(body[k]); k += 1; }
+    String v = getv(name);
+    if k >= body.len { return v; }
+    String rest = body.slice(k, body.len);
+    if rest.starts_with(":-") { if v.len == 0 { return expand(rest.slice(2, rest.len)); } return v; }
+    if rest.starts_with(":=") { if v.len == 0 { v = expand(rest.slice(2, rest.len)); setv(name, v); } return v; }
+    if rest.starts_with(":+") { if v.len > 0 { return expand(rest.slice(2, rest.len)); } return ""; }
+    if rest[0] == ':' {                                                    // ${x:offset:length}
+        String spec = rest.slice(1, rest.len);
+        int colon = 0 - 1;
+        for c in 0..spec.len { if spec[c] == ':' && colon < 0 { colon = c; } }
+        int off = arith(expand(spec));
+        int cnt = v.len;
+        if colon >= 0 { off = arith(expand(spec.slice(0, colon))); cnt = arith(expand(spec.slice(colon + 1, spec.len))); }
+        if off < 0 { off = v.len + off; if off < 0 { off = 0; } }
+        if off > v.len { off = v.len; }
+        int e = off + cnt;
+        if e > v.len { e = v.len; }
+        if e < off { e = off; }
+        return v.slice(off, e);
+    }
+    if rest[0] == '#' || rest[0] == '%' {
+        bool longest = rest.len > 1 && rest[1] == rest[0];
+        String pat = expand(rest.slice(1, rest.len));
+        if longest { pat = expand(rest.slice(2, rest.len)); }
+        if rest[0] == '#' {
+            int a = 0;
+            int best = 0 - 1;
+            while a <= v.len {
+                if wild(pat, 0, v.slice(0, a), 0) { best = a; if !longest { break; } }
+                a += 1;
+            }
+            if best < 0 { return v; }
+            return v.slice(best, v.len);
+        }
+        int b = v.len;
+        int best2 = 0 - 1;
+        while b >= 0 {
+            if wild(pat, 0, v.slice(b, v.len), 0) { best2 = b; if !longest { break; } }
+            b -= 1;
+        }
+        if best2 < 0 { return v; }
+        return v.slice(0, best2);
+    }
+    if rest[0] == '/' {                                                    // ${x/pattern/new}, ${x//pattern/new}
+        bool all = rest.len > 1 && rest[1] == '/';
+        String spec2 = rest.slice(1, rest.len);
+        if all { spec2 = rest.slice(2, rest.len); }
+        int sl = 0 - 1;
+        for c in 0..spec2.len { if spec2[c] == '/' && sl < 0 { sl = c; } }
+        String pat2 = spec2;
+        String rep = "";
+        if sl >= 0 { pat2 = spec2.slice(0, sl); rep = expand(spec2.slice(sl + 1, spec2.len)); }
+        pat2 = expand(pat2);
+        String out = "";
+        int p = 0;
+        while p < v.len {
+            int hit = 0 - 1;
+            int q = v.len;
+            while q > p {                                                  // the longest piece from p that fits
+                if wild(pat2, 0, v.slice(p, q), 0) { hit = q; break; }
+                q -= 1;
+            }
+            if hit > p && pat2.len > 0 {
+                out += rep;
+                p = hit;
+                if !all { out += v.slice(p, v.len); return out; }
+            } else { out.push(v[p]); p += 1; }
+        }
+        return out;
+    }
+    return v;
+}
+
+int rand_state;
+
 String expand(String w) {
     String r = "";
     int i = 0;
@@ -1060,7 +1141,23 @@ String expand(String w) {
                 i = j + 1;
                 continue;
             }
+            if w[i + 1] == '{' {                                     // ${name...}
+                int jb = i + 2;
+                while jb < w.len && w[jb] != '}' { jb += 1; }
+                if jb < w.len {
+                    r = r + param_exp(w.slice(i + 2, jb));
+                    i = jb + 1;
+                    continue;
+                }
+            }
             if w[i + 1] == '?' { r = r + str(last_status); i += 2; continue; }
+            if w.slice(i + 1, w.len).starts_with("RANDOM") && (i + 7 >= w.len || !((w[i + 7] >= 'A' && w[i + 7] <= 'Z') || (w[i + 7] >= 'a' && w[i + 7] <= 'z') || w[i + 7] == '_' || (w[i + 7] >= '0' && w[i + 7] <= '9'))) {
+                if rand_state == 0 { rand_state = Time::now_ms() & 2147483647; }
+                rand_state = (rand_state * 1103515245 + 12345) & 2147483647;
+                r = r + str((rand_state >> 8) % 32768);
+                i += 7;
+                continue;
+            }
             if w[i + 1] == '#' { r = r + getv("#"); i += 2; continue; }               // $#: the number of arguments
             int j = i + 1;
             String name = "";
@@ -1591,7 +1688,7 @@ bool have_program(String name) {
 
 bool is_builtin_name(String n) {
     return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
-        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "login" || n == "signin" || n == "passwd" || n == "logout" || n == "signout" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "kill" || n == "fg" || n == "bg" || n == "test" || n == "[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
+        || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "login" || n == "signin" || n == "passwd" || n == "logout" || n == "signout" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "kill" || n == "fg" || n == "bg" || n == "test" || n == "[" || n == "[[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
     String names = " df ps hex dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false ";
@@ -1885,6 +1982,22 @@ bool builtin(String[] a) {
         bcode = test_eval(a);
         return true;
     }
+    if name == "[[" {                                         // [[ a == pattern ]], [[ a != pattern ]]; the rest as test
+        int last = a.len;
+        if last > 1 && a[last - 1] == "]]" { last -= 1; }
+        if last == 4 && (a[2] == "==" || a[2] == "!=" || a[2] == "=") {
+            bool m = wild(a[3], 0, a[1], 0);
+            bcode = 1;
+            if m == (a[2] != "!=") { bcode = 0; }
+            return true;
+        }
+        String[] ta = arr(last + 1);
+        ta.push("[");
+        for k in 1..last { if a[k] == "==" { ta.push("="); } else if a[k] == "&&" { ta.push("-a"); } else if a[k] == "||" { ta.push("-o"); } else { ta.push(a[k]); } }
+        ta.push("]");
+        bcode = test_eval(ta);
+        return true;
+    }
     if name == "break" || name == "continue" {
         if name == "break" { loop_ctl = 1; } else { loop_ctl = 2; }
         bcode = 0;
@@ -1899,7 +2012,9 @@ bool builtin(String[] a) {
             got.append((char^)@one);
             n = Sys::read(0, @one, 1);
         }
-        if a.len > 1 { setv(a[1], got); }
+        int rv = 1;
+        while rv < a.len && a[rv].len > 1 && a[rv][0] == '-' { rv += 1; }                // read -r NAME
+        if rv < a.len { setv(a[rv], got); }
         bcode = 0;
         if n <= 0 && got.len == 0 { bcode = 1; }
         return true;
@@ -2349,7 +2464,8 @@ int match_end(String[] t, int i) {
         if open == "if" && w == "if" { depth += 1; }
         if loop && (w == "while" || w == "until" || w == "for") { depth += 1; }
         if open == "{" && w == "{" { depth += 1; }
-        if (open == "if" && w == "fi") || (loop && w == "done") || (open == "{" && w == "}") {
+        if open == "case" && w == "case" { depth += 1; }
+        if (open == "if" && w == "fi") || (loop && w == "done") || (open == "{" && w == "}") || (open == "case" && w == "esac") {
             depth -= 1;
             if depth == 0 { return k; }
         }
@@ -2472,12 +2588,52 @@ void call_fn(int f, String[] words) {
 }
 
 // the statements of a list of words (the new lines are ";"): the compound ones here, the simple ones by run_andor
+// case WORD in pattern) commands ;; ... esac: the words between "in" and "esac" are run for the first pattern that fits
+void run_case(String[] b) {
+    String subject = "";
+    if b.len > 0 { subject = expand(b[0]); }
+    int i = 2;                                                       // b[1] is "in"
+    while i < b.len && running == 1 && returning == 0 && loop_ctl == 0 {
+        if b[i] == ";" { i += 1; continue; }
+        String pats = "";                                            // the pattern words up to the one that ends with )
+        while i < b.len {
+            String x = b[i];
+            i += 1;
+            bool end = x.ends_with(")");
+            if end { x = x.slice(0, x.len - 1); }
+            if x.starts_with("(") { x = x.slice(1, x.len); }
+            pats += x;
+            if end { break; }
+        }
+        int s = i;
+        int depth = 0;
+        while i < b.len {                                            // the commands: up to ;; at the level of the case itself
+            String w = b[i];
+            if i > s && !cmd_pos(b, i) && w != "case" { i += 1; continue; }
+            if w == "case" || w == "if" || w == "while" || w == "until" || w == "for" { depth += 1; }
+            else if w == "esac" || w == "fi" || w == "done" { depth -= 1; }
+            else if depth == 0 && w == ";" && i + 1 < b.len && b[i + 1] == ";" { break; }
+            i += 1;
+        }
+        bool hit = false;
+        String[] alts = pats.split("|");
+        for a in 0..alts.len { String pa = expand(alts[a]); if !hit && wild(pa, 0, subject, 0) { hit = true; } }
+        if hit { run_tokens(slice_t(b, s, i)); return; }
+        i += 2;
+    }
+}
+
 int run_tokens(String[] t) {
     int i = 0;
     while i < t.len && running == 1 && returning == 0 && loop_ctl == 0 && interrupted == 0 {
         String w = t[i];
         if w == ";" { i += 1; continue; }
-        if w == "if" || w == "while" || w == "until" || w == "for" {
+        if w == "case" && i + 2 < t.len && t[i + 2] == "in" {
+            int e = match_end(t, i);
+            if e < 0 { return bad_script("a case that is not closed with esac"); }
+            run_case(slice_t(t, i + 1, e));
+            i = e + 1;
+        } else if w == "if" || w == "while" || w == "until" || w == "for" {
             int e = match_end(t, i);
             if e < 0 { return bad_script("a " + w + " that is not closed"); }
             String[] inner = slice_t(t, i + 1, e);

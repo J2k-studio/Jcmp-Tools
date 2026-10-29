@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0
+* **Added:** parameter expansion `${x:-d}` `${x:=d}` `${x:+d}` `${#x}` `${x:off:len}` `${x#p}` `${x##p}` `${x%p}` `${x%%p}` `${x/p/r}` `${x//p/r}`; `case WORD in pattern|pattern) ... ;; esac`; `[[ a == pattern ]]` and `!=` (other forms as `test`); `$RANDOM`; `read -r NAME`.
+* **Fixed:** none.
+
 ## 0.11.3
 * **Added:** the new commands of jbox 0.10.0 (`df`, `ps`, `hex`) are known to the shell (they are found from the folder of jsh when no link is in the PATH).
 * **Fixed:** none.
