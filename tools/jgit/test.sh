@@ -2,10 +2,10 @@
 # jgit: the repositories of jgit are read by git (fsck, log, tree, status) and the repositories of git are read by jgit; packed objects are said clearly
 set -eu
 cd "$(dirname "$0")"; export J2K_PATH="${J2K_PATH:-$HOME/Jcmp/build/libs}"; sh build.sh >/dev/null
-J="$PWD/_out/jgit"
+J="$PWD/_out/jgit"; ROOT="$PWD"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export JGIT_NAME="Tester" JGIT_EMAIL="t@example.org" HOME="$T/home"; mkdir -p "$HOME"
-[ "$("$J" --version)" = "jgit 0.3.1" ] || { echo "jgit test: version"; exit 1; }
+[ "$("$J" --version)" = "jgit 0.4.0" ] || { echo "jgit test: version"; exit 1; }
 cd "$T"; "$J" init r1 > /dev/null; cd r1
 "$J" status > /dev/null 2>&1 && true
 mkdir -p src/deep; echo hello > a.txt; echo world > src/b.txt; printf '#!/bin/sh\necho x\n' > src/run.sh; chmod 755 src/run.sh; head -c 3000 /dev/urandom > bin.dat; echo deep > src/deep/c.txt
@@ -86,4 +86,5 @@ fi
   true
 ) || exit 1
 echo "jgit tests: ok"
-
+# the network: a real git server (git http-backend) and git itself check the clone, the push and the pull
+bash "$ROOT/net_test.sh" "$J" || { echo "jgit test: the network"; exit 1; }

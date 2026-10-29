@@ -1,5 +1,9 @@
 # jgit changelog
 
+## 0.4.0
+* **Added:** the network over http and https (the smart protocol of git): `jgit clone URL [DIR]`, `jgit remote [-v] | add | remove`, `jgit fetch`, `jgit pull` (fast-forward), `jgit push`, `jgit token HOST TOKEN` (the password of a server, kept for you only). The result is checked by git itself against a real git server: `git fsck --strict`, `git log` and a `git clone` read what jgit made.
+* **Fixed:** none. Not yet: ssh addresses, merges, tags.
+
 ## 0.3.1
 * **Fixed:** `jgit login` outside a repository stopped with `panic: the String is null` (the path of the repository was not set yet); it works anywhere now. `jgit -login` and `--login` are accepted like `login`.
 

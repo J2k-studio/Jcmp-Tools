@@ -9,7 +9,7 @@
 #import <stdlib>
 #import <deflate>
 
-String jgit_version() { return "0.3.1"; }
+String jgit_version() { return "0.4.0"; }
 
 int fail(String msg) {
     cerr << "jgit: " << msg << "\n";
@@ -977,6 +977,8 @@ int do_diff() {
     return 0;
 }
 
+#import "jgitnet"
+
 int main() {
     String[] a = Env::args();
     g_git = "";
@@ -988,6 +990,8 @@ int main() {
     }
     if a[1] == "login" || a[1] == "-login" || a[1] == "--login" { return do_login(a); }
     if a[1] == "init" { return do_init(a); }
+    if a[1] == "clone" { return do_clone(a); }
+    if a[1] == "token" { return do_token(a); }
     if !find_repo() { return fail("this is not a repository (jgit init)"); }
     if a[1] == "add" { return do_add(a); }
     if a[1] == "commit" { return do_commit(a); }
@@ -997,6 +1001,10 @@ int main() {
     if a[1] == "cat" { return do_cat(a); }
     if a[1] == "branch" { return do_branch(a); }
     if a[1] == "switch" { return do_switch(a); }
+    if a[1] == "remote" { return do_remote(a); }
+    if a[1] == "fetch" { String rem = "origin"; if a.len > 2 { rem = a[2] + ""; } return do_fetch_remote(rem, false); }
+    if a[1] == "pull" { return do_pull(a); }
+    if a[1] == "push" { return do_push(a); }
     cerr << "jgit: unknown command '" << a[1] << "' (jgit help)\n";
     return 2;
 }

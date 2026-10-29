@@ -12,7 +12,7 @@ jc 0.3.1
 jcmp 1.2.3.0
 jfile 0.2.0
 jget 1.0.0
-jgit 0.3.1
+jgit 0.4.0
 jpty 0.1.1
 jsh 0.11.0
 jstore 0.2.0
