@@ -1020,7 +1020,7 @@ void menu_do(String act) {
     if act == "nexterror" { if err_line.len > 0 { err_i = (err_i + 1) % err_line.len; } show_error(); return; }
     if act == "examples" { examples_menu(); return; }
     if act == "keys" { pane_text("Keys", "F10 menu   F9 compile   F5 run   F11 compile and run   F8 next error   Esc closes the log\nCtrl-S save  Ctrl-Q quit  Ctrl-F find  Ctrl-G go to line  Ctrl-Z undo  Ctrl-Y redo\nCtrl-C copy  Ctrl-X cut  Ctrl-V paste  Ctrl-A select all  Ctrl-K delete line  Ctrl-E commands"); return; }
-    if act == "about" { pane_text("About", "coderin 0.5.0: a text editor for the terminal and the Jaric app.  J2k-studio  github.com/J2k-studio/Jcmp-Tools"); return; }
+    if act == "about" { pane_text("About", "coderin 0.5.1: a text editor for the terminal and the Jaric app.  J2k-studio  github.com/J2k-studio/Jcmp-Tools"); return; }
     if act == "replace" {
         String a1 = ask("replace: ");
         if a1.len == 0 { return; }
@@ -1247,6 +1247,35 @@ void set_option(String name, String val) {
     }
     else if name == "colorscheme" { apply_scheme(val); }
     else { msg = "unknown setting " + name; }
+}
+
+// the settings that the Jaric app keeps for all its programs (jaric settings): ~/.config/jaric/settings, lines  name = value ; "" when there is none
+String jaric_setting(String name) {
+    Option<String> h = Env::get("HOME");
+    String home = "";
+    if h.is_some() { home = h.unwrap(); }
+    Result<String, Error> r = Fs::read_text(home + "/.config/jaric/settings");
+    if !r.is_ok() { return ""; }
+    String[] ls = r.take().split("\n");
+    for i in 0..ls.len {
+        String l = ls[i].trim();
+        if l.len == 0 || l[0] == '#' { continue; }
+        String[] kv = l.split("=");
+        if kv.len != 2 { continue; }
+        String key = kv[0].trim();
+        if key == name { return kv[1].trim() + ""; }
+    }
+    return "";
+}
+
+// the look of the editor when its own settings do not say: what jaric settings says; in the Jaric app the look of Dev-C++; elsewhere dark
+void choose_default_scheme() {
+    String js = jaric_setting("coderin");
+    if js.len > 0 { apply_scheme(js); return; }
+    String jv = "";
+    Option<String> j = Env::get("JARIC");
+    if j.is_some() { jv = j.unwrap(); }
+    if jv.len > 0 { apply_scheme("devcpp"); }
 }
 
 void load_settings() {
@@ -1692,7 +1721,7 @@ int ex_mode(String[] a) {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "coderin 0.5.0\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "coderin 0.5.1\n"; return 0; }
     if a.len > 1 && (a[1] == "--help" || a[1] == "-h") {
         cout << "coderin: a text editor for the terminal.   coderin FILE   open (or make) a file;   coderin -ex [NAME]   list / install extensions\n";
         cout << "  keys: Ctrl-S save, Ctrl-Q leave, Ctrl-F find, Ctrl-Z undo, Ctrl-C/X/V copy cut paste (the full list: jget docs GUIDE.md, section coderin)\n";
@@ -1716,6 +1745,7 @@ int main() {
     err_msg = arr(1);
     pop_c = arr(1);
     load_extensions();
+    choose_default_scheme();
     load_settings();
     load_bindings();
     load(path);

@@ -42,4 +42,20 @@ assert 'Examples' in o and 'Quit' in o and ' File ' in o, o[-500:]
 # the menu with a key: Down to Examples, Enter: the prompt of the example appears
 o = session('good.jk', [(F10, 0.4), (b'\x1b[B', 0.3), (b'\r', 0.6)])
 assert 'example:' in o, o[-500:]
+# no setting at all: in the Jaric app (JARIC set) the look is Dev-C++; jaric settings (coderin = dark) changes it; the settings of coderin come first
+os.remove(work + '/.config/coderin/settings')
+def with_env(extra, fname='good.jk'):
+    os.environ.update(extra)
+    try: return session(fname, [(b'', 0.5)])
+    finally:
+        for k in extra: os.environ.pop(k, None)
+o = with_env({'JARIC': '1'})
+assert ' File ' in o and 'Search' in o, o[-300:]
+os.makedirs(work + '/.config/jaric', exist_ok=True)
+open(work + '/.config/jaric/settings', 'w').write('coderin = dark\n')
+o = with_env({'JARIC': '1'})
+assert ' File ' not in o, o[-300:]
+open(work + '/.config/coderin/settings', 'w').write('colorscheme = devcpp\n')
+o = with_env({'JARIC': '1'})
+assert ' File ' in o, o[-300:]
 print('ok')

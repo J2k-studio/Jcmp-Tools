@@ -27,6 +27,7 @@ String anchor_dir() {
         Result<String, Error> r = Fs::read_text(f);
         if r.is_ok() { String t = r.take(); String w = t.trim(); if w.len > 0 && Dir::exists(w) { return w + ""; } }
     }
+    switch Env::get("MUJIC_AUTOFOLDER") { Option::Some(v): { if v == "off" { return ""; } } Option::None: { } }        // (the tests do not look at the phone's folders)
     String[] names = arr(8);
     names.push("jsong"); names.push("Jsong"); names.push("JSong"); names.push("jsongs"); names.push("Jsongs"); names.push("jmusic");
     for i in 0..names.len {
@@ -1046,8 +1047,26 @@ String theme_file() {
     switch Env::get("HOME") { Option::Some(v): { home = v; } Option::None: { } }
     return Path::join(Path::join(Path::join(home, ".config"), "mujic"), "theme");
 }
+// what jaric settings keeps for the programs of Jaric: ~/.config/jaric/settings, lines  name = value ; "" when there is none
+String jaric_setting(String name) {
+    String home = "/";
+    switch Env::get("HOME") { Option::Some(v): { home = v; } Option::None: { } }
+    Result<String, Error> r = Fs::read_text(Path::join(Path::join(Path::join(home, ".config"), "jaric"), "settings"));
+    if !r.is_ok() { return ""; }
+    String[] ls = r.take().split("\n");
+    for i in 0..ls.len {
+        String[] kv = ls[i].trim().split("=");
+        if kv.len != 2 { continue; }
+        String key = kv[0].trim();
+        if key == name { return kv[1].trim() + ""; }
+    }
+    return "";
+}
+
 void theme_load() {
     theme_set("classic");
+    String js = jaric_setting("mujic");                        // the choice of jaric settings, until mujic itself is told another
+    if js.len > 0 { theme_set(js); }
     String f = theme_file();
     if Fs::exists(f) {
         Result<String, Error> r = Fs::read_text(f);
@@ -2190,7 +2209,7 @@ int do_remove_cli(String[] a) {
 
 int main() {
     g_album = "";
-    String VERSION = "0.15.0";
+    String VERSION = "0.15.1";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
