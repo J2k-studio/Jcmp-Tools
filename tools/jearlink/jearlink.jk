@@ -1,15 +1,15 @@
 #import <stdlib>
 #import <files>
 using stdlib;
-// jintent 0.1.0 -- the apps of the phone from the terminal of the Jaric app.   (license: MPL-2.0)
-//   jintent view URL            opens a link / file / address in the app that the phone picks (a chooser when many)
-//   jintent send TEXT...        shares a text (the chooser of the phone)
-//   jintent share FILE          shares a file
-//   jintent pick [image]        the picker of the phone (prints nothing; the chosen file is in ~/tmp/cam-picked.bin)
-//   jintent call NUMBER         opens the dialer with the number
-//   jintent app NAME            starts an app by its name or package
-//   jintent apps                lists the apps that can be started (name, package)
-//   jintent notify TITLE [TEXT...]  shows a notification
+// jearlink 0.1.0 -- the apps of the phone from the terminal of the Jaric app.   (license: MPL-2.0)
+//   jearlink -viw URL             opens a link / file / address in the app that the phone picks (a chooser when many)
+//   jearlink -snd TEXT...        shares a text (the chooser of the phone)
+//   jearlink -sh FILE          shares a file
+//   jearlink -pk [image]        the picker of the phone (prints nothing; the chosen file is in ~/tmp/cam-picked.bin)
+//   jearlink -cll NUMBER         opens the dialer with the number
+//   jearlink -ap NAME            starts an app by its name or package
+//   jearlink -aps               lists the apps that can be started (name, package)
+//   jearlink -ntf TITLE [TEXT...]  shows a notification
 // It talks to the app with  ESC ] 7777 ; intent ; ... BEL  and  ESC ] 7777 ; notify ; ... BEL.
 
 char g_tio[64];
@@ -76,15 +76,23 @@ String ask(String msg) {
 }
 
 int usage() {
-    cerr << "usage: jintent view URL | send TEXT | share FILE | pick [image] | call NUMBER | app NAME | apps | notify TITLE [TEXT]\n";
+    cerr << "usage: jearlink -viw URL | -snd TEXT | -sh FILE | -pk [image] | -cll NUMBER | -ap NAME | -aps | -ntf TITLE [TEXT]   (also: view send share pick call app apps notify)\n";
     return 2;
 }
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version") { cout << "jintent 0.1.0\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version") { cout << "jearlink 0.1.0\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" { usage(); if a.len < 2 { return 2; } return 0; }
     String verb = a[1];
+    if verb == "-viw" { verb = "view"; }
+    else if verb == "-snd" { verb = "send"; }
+    else if verb == "-sh" { verb = "share"; }
+    else if verb == "-pk" { verb = "pick"; }
+    else if verb == "-cll" { verb = "call"; }
+    else if verb == "-ap" { verb = "app"; }
+    else if verb == "-aps" { verb = "apps"; }
+    else if verb == "-ntf" { verb = "notify"; }
     if verb == "notify" {
         if a.len < 3 { return usage(); }
         String text = joined(a, 3);
@@ -106,8 +114,8 @@ int main() {
         msg = "intent;apps";
     } else { return usage(); }
     String r = ask(msg);
-    if r.len == 0 { cerr << "jintent: the Jaric app did not answer (is this the terminal of the Jaric app?)\n"; return 1; }
-    if r.starts_with("intent-error;") { cerr << "jintent: " << r.slice(13, r.len) << "\n"; return 1; }
+    if r.len == 0 { cerr << "jearlink: the Jaric app did not answer (is this the terminal of the Jaric app?)\n"; return 1; }
+    if r.starts_with("intent-error;") { cerr << "jearlink: " << r.slice(13, r.len) << "\n"; return 1; }
     if r.starts_with("intent-apps;") {
         Result<String, Error> dec = Base64::decode(r.slice(12, r.len));
         if dec.is_ok() { String text = dec.take(); cout << text; }
