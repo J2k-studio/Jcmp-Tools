@@ -1,0 +1,450 @@
+#import <stdlib>
+#import <files>
+#import <crypto>
+using stdlib;
+// authj 0.1.0 -- one-time codes for two-step logins (TOTP, RFC 6238: the codes of Google Authenticator, GitHub, GitLab ...).   (license: MPL-2.0)
+//   authj add NAME SECRET [--digits 6] [--period 30] [--algo sha1]    keep an account (SECRET is the base32 text the site shows)
+//   authj add-uri 'otpauth://totp/GitHub:me?secret=ABC...&issuer=GitHub'   the same from the text of a QR code
+//   authj code [NAME]                                                  the code now, and the seconds it lasts (no NAME: all accounts)
+//   authj list      authj remove NAME      authj now SECRET            a code without keeping the secret
+//   authj passwd                                                       set, change or remove the passphrase that locks the file
+// The accounts live in ~/.authj/vault (mode 600). With a passphrase the whole file is locked: key = PBKDF2-HMAC-SHA256 (50 000 rounds),
+// cipher = HMAC-SHA256 in counter mode, then an HMAC-SHA256 over everything (a wrong passphrase or a changed file is refused).
+// The passphrase comes from the environment AUTHJ_PASS, or is asked without an echo.
+
+// ---------- SHA-1 (FIPS 180-4) and HMAC (RFC 2104)
+
+int rotl(int x, int n) { return ((x << n) | (x >> (32 - n))) & 4294967295; }
+
+// the 20 bytes of the SHA-1 of data
+String sha1(String data) {
+    String m = data + "";
+    int ml = data.len * 8;
+    m.push((char)128);
+    while m.len % 64 != 56 { m.push((char)0); }
+    for i in 0..8 { m.push((char)((ml >> (56 - 8 * i)) & 255)); }
+    int h0 = 1732584193; int h1 = 4023233417; int h2 = 2562383102; int h3 = 271733878; int h4 = 3285377520;
+    int w[80];
+    int blocks = m.len / 64;
+    for b in 0..blocks {
+        for t in 0..16 {
+            int o = b * 64 + t * 4;
+            w[t] = ((m[o] & 255) << 24) | ((m[o + 1] & 255) << 16) | ((m[o + 2] & 255) << 8) | (m[o + 3] & 255);
+        }
+        for t in 16..80 { w[t] = rotl(w[t - 3] xor w[t - 8] xor w[t - 14] xor w[t - 16], 1); }
+        int a = h0; int bb = h1; int c = h2; int d = h3; int e = h4;
+        for t in 0..80 {
+            int f = 0; int k = 0;
+            if t < 20 { f = (bb & c) | ((bb xor 4294967295) & d); k = 1518500249; }
+            else if t < 40 { f = bb xor c xor d; k = 1859775393; }
+            else if t < 60 { f = (bb & c) | (bb & d) | (c & d); k = 2400959708; }
+            else { f = bb xor c xor d; k = 3395469782; }
+            int tmp = (rotl(a, 5) + f + e + k + w[t]) & 4294967295;
+            e = d; d = c; c = rotl(bb, 30); bb = a; a = tmp;
+        }
+        h0 = (h0 + a) & 4294967295; h1 = (h1 + bb) & 4294967295; h2 = (h2 + c) & 4294967295; h3 = (h3 + d) & 4294967295; h4 = (h4 + e) & 4294967295;
+    }
+    String out = "";
+    int hs[5];
+    hs[0] = h0; hs[1] = h1; hs[2] = h2; hs[3] = h3; hs[4] = h4;
+    for i in 0..5 { for j in 0..4 { out.push((char)((hs[i] >> (24 - 8 * j)) & 255)); } }
+    return out;
+}
+
+// HMAC with SHA-1, SHA-256 or SHA-512 (algo 1, 256, 512); the answer is a String of bytes
+String hmac(int algo, String key, String msg) {
+    if algo == 1 {
+        String k = key + "";
+        if k.len > 64 { k = sha1(k); }
+        while k.len < 64 { k.push((char)0); }
+        String ipad = ""; String opad = "";
+        for i in 0..64 { ipad.push((char)((k[i] & 255) xor 54)); opad.push((char)((k[i] & 255) xor 92)); }
+        return sha1(opad + sha1(ipad + msg));
+    }
+    int hs = Crypto::hash_size(algo);
+    char out[64];
+    String kk = key + "";
+    String mm = msg + "";
+    char kz[1];
+    kz[0] = 0;
+    char^ kp = kk.c();
+    char^ mp = mm.c();
+    if kk.len == 0 { kp = (char^)@kz; }
+    if mm.len == 0 { mp = (char^)@kz; }
+    Crypto::hmac(algo, kp, kk.len, mp, mm.len, (char^)@out);
+    String r = "";
+    for i in 0..hs { r.push(out[i]); }
+    return r;
+}
+
+// ---------- base32 (RFC 4648), the code
+
+int b32(char c) {
+    if c >= 'A' && c <= 'Z' { return c - 'A'; }
+    if c >= 'a' && c <= 'z' { return c - 'a'; }
+    if c >= '2' && c <= '7' { return c - '2' + 26; }
+    return 0 - 1;
+}
+
+// the bytes of a base32 text (spaces, hyphens and = are skipped); "" when a letter is wrong
+String base32_decode(String s) {
+    String out = "";
+    int buf = 0; int bits = 0;
+    for i in 0..s.len {
+        char c = s[i];
+        if c == ' ' || c == '-' || c == '=' { continue; }
+        int v = b32(c);
+        if v < 0 { return ""; }
+        buf = (buf << 5) | v; bits += 5;
+        if bits >= 8 { bits -= 8; out.push((char)((buf >> bits) & 255)); buf = buf & ((1 << bits) - 1); }
+    }
+    return out;
+}
+
+int pow10(int n) { int r = 1; for i in 0..n { r *= 10; } return r; }
+
+// the code of the counter (HOTP, RFC 4226)
+String hotp(String key, int counter, int digits, int algo) {
+    String msg = "";
+    for i in 0..8 { msg.push((char)((counter >> (56 - 8 * i)) & 255)); }
+    String h = hmac(algo, key, msg);
+    int off = h[h.len - 1] & 15;
+    int bin = ((h[off] & 127) << 24) | ((h[off + 1] & 255) << 16) | ((h[off + 2] & 255) << 8) | (h[off + 3] & 255);
+    int code = bin % pow10(digits);
+    String s = str(code);
+    while s.len < digits { s = "0" + s; }
+    return s;
+}
+
+int algo_of(String name) {
+    String n = name.lower();
+    if n == "sha256" { return 256; }
+    if n == "sha512" { return 512; }
+    return 1;
+}
+
+// ---------- the file: accounts, locked with a passphrase
+
+struct Account {
+    String name;
+    String secret;                  // base32, as typed (kept to show and to write back)
+    int digits;
+    int period;
+    String algo;
+}
+
+String hex_of(String s) {
+    String r = "";
+    String d = "0123456789abcdef";
+    for i in 0..s.len { int b = s[i] & 255; r.push(d[b >> 4]); r.push(d[b & 15]); }
+    return r;
+}
+
+String random_bytes(int n) {
+    String r = "";
+    char b[64];
+    int fd = Sys::open_read("/dev/urandom");
+    if fd >= 0 {
+        int got = Sys::read(fd, @b, n);
+        Sys::close(fd);
+        for i in 0..got { r.push(b[i]); }
+    }
+    return r;
+}
+
+// PBKDF2-HMAC-SHA256 (RFC 8018): 32 bytes
+String pbkdf2(String pass, String salt, int rounds) {
+    String u = hmac(256, pass, salt + "\x00\x00\x00\x01");
+    String t = u + "";
+    for r in 1..rounds {
+        u = hmac(256, pass, u);
+        for i in 0..32 { t[i] = (char)((t[i] & 255) xor (u[i] & 255)); }
+    }
+    return t;
+}
+
+// a stream of bytes from HMAC-SHA256(key, nonce || counter)
+String xor_stream(String key, String nonce, String data) {
+    String out = "";
+    int pos = 0;
+    int ctr = 0;
+    while pos < data.len {
+        String blk = hmac(256, key, nonce + str(ctr));
+        for i in 0..32 {
+            if pos >= data.len { break; }
+            out.push((char)((data[pos] & 255) xor (blk[i] & 255)));
+            pos += 1;
+        }
+        ctr += 1;
+    }
+    return out;
+}
+
+String ask_passphrase(String prompt) {
+    Option<String> e = Env::get("AUTHJ_PASS");
+    if e.is_some() { return e.unwrap(); }
+    cerr << prompt;
+    char t[64];
+    bool tty = Sys::isatty(0) == 0;
+    if tty {
+        Sys::call(29, 0, 21505, (int)@t, 0, 0, 0);
+        char raw[64];
+        for i in 0..64 { raw[i] = t[i]; }
+        raw[12] = raw[12] & 245;
+        Sys::call(29, 0, 21506, (int)@raw, 0, 0, 0);
+    }
+    String pw = "";
+    char b[2];
+    int n = Sys::read(0, @b, 1);
+    while n > 0 && b[0] != 10 && b[0] != 13 {
+        if b[0] == 127 || b[0] == 8 { if pw.len > 0 { pw = pw.slice(0, pw.len - 1); } }
+        else { pw.push(b[0]); }
+        n = Sys::read(0, @b, 1);
+    }
+    if tty { Sys::call(29, 0, 21506, (int)@t, 0, 0, 0); }
+    cerr << "\n";
+    return pw;
+}
+
+String vault_dir() {
+    Option<String> h = Env::get("AUTHJ_DIR");
+    if h.is_some() { return h.unwrap(); }
+    Option<String> home = Env::get("HOME");
+    String base = "/tmp";
+    if home.is_some() { base = home.unwrap(); }
+    return base + "/.authj";
+}
+
+String vault_path() { return vault_dir() + "/vault"; }
+
+String text_of(Account[] a) {
+    String s = "";
+    for i in 0..a.len {
+        s += a[i].name + "\t" + a[i].secret + "\t" + str(a[i].digits) + "\t" + str(a[i].period) + "\t" + a[i].algo + "\n";
+    }
+    return s;
+}
+
+Account[] parse_accounts(String text) {
+    Account[] out = arr(4);
+    String[] lines = text.split("\n");
+    for i in 0..lines.len {
+        if lines[i].len == 0 { continue; }
+        String[] f = lines[i].split("\t");
+        if f.len < 5 { continue; }
+        Account ac;
+        ac.name = f[0] + ""; ac.secret = f[1] + ""; ac.digits = f[2].to_int(); ac.period = f[3].to_int(); ac.algo = f[4] + "";
+        out.push(ac);
+    }
+    return out;
+}
+
+String g_pass;                    // the passphrase in use (empty = the file is not locked); set in main
+bool g_have_pass = false;
+
+// reads the accounts; ok = false when the file is locked and the passphrase is wrong
+Account[] load_accounts(bool^ ok) {
+    ok[0] = true;
+    Account[] none = arr(4);
+    Result<String, Error> r = Fs::read_bytes(vault_path());
+    if r.is_err() { return none; }
+    String d = r.take();
+    String magic = "";
+    if d.len >= 6 { magic = d.slice(0, 6); }
+    if magic == "AUTHJ1" {
+        if d.len < 6 + 16 + 16 + 32 { cerr << "authj: the vault is damaged\n"; ok[0] = false; return none; }
+        String salt = d.slice(6, 22);
+        String nonce = d.slice(22, 38);
+        String ct = d.slice(38, d.len - 32);
+        String mac = d.slice(d.len - 32, d.len);
+        if !g_have_pass { g_pass = ask_passphrase("Passphrase: "); g_have_pass = true; }
+        String key = pbkdf2(g_pass, salt, 50000);
+        String ke = hmac(256, key, "enc");
+        String km = hmac(256, key, "mac");
+        String want = hmac(256, km, salt + nonce + ct);
+        int diff = 0;
+        for i in 0..mac.len { diff = diff | ((want[i] & 255) xor (mac[i] & 255)); }
+        if diff != 0 { cerr << "authj: the passphrase is wrong (or the vault was changed)\n"; ok[0] = false; return none; }
+        return parse_accounts(xor_stream(ke, nonce, ct));
+    }
+    return parse_accounts(d);
+}
+
+bool save_accounts(Account[] a) {
+    String text = text_of(a);
+    String data = text;
+    if g_pass.len > 0 {
+        String salt = random_bytes(16);
+        String nonce = random_bytes(16);
+        String key = pbkdf2(g_pass, salt, 50000);
+        String ke = hmac(256, key, "enc");
+        String km = hmac(256, key, "mac");
+        String ct = xor_stream(ke, nonce, text);
+        data = "AUTHJ1" + salt + nonce + ct + hmac(256, km, salt + nonce + ct);
+    }
+    String dir = vault_dir();
+    Sys::mkdir(dir.c(), 448);
+    Result<int, Error> w = Fs::write_text(vault_path(), data);
+    if w.is_err() { cerr << "authj: cannot write " << vault_path() << "\n"; return false; }
+    Sys::chmod(vault_path().c(), 384);
+    return true;
+}
+
+// ---------- commands
+
+String opt(String[] a, String name, String dflt) {
+    for i in 0..a.len { if a[i] == name && i + 1 < a.len { return a[i + 1]; } }
+    return dflt;
+}
+
+int opt_int(String[] a, String name, int dflt) {
+    String v = opt(a, name, "");
+    if v.len == 0 { return dflt; }
+    return v.to_int();
+}
+
+int hexv(char c) {
+    if c >= '0' && c <= '9' { return c - '0'; }
+    if c >= 'a' && c <= 'f' { return c - 'a' + 10; }
+    if c >= 'A' && c <= 'F' { return c - 'A' + 10; }
+    return 0;
+}
+
+String url_decode(String s) {
+    String r = "";
+    int i = 0;
+    while i < s.len {
+        if s[i] == '%' && i + 2 < s.len + 0 { r.push((char)(hexv(s[i + 1]) * 16 + hexv(s[i + 2]))); i += 3; }
+        else if s[i] == '+' { r.push(' '); i += 1; }
+        else { r.push(s[i]); i += 1; }
+    }
+    return r;
+}
+
+void show(Account ac, int now_s) {
+    String key = base32_decode(ac.secret);
+    int ctr = now_s / ac.period;
+    String code = hotp(key, ctr, ac.digits, algo_of(ac.algo));
+    int left = ac.period - now_s % ac.period;
+    cout << code << "  " << left << "s  " << ac.name << "\n";
+}
+
+void usage() {
+    cout << "authj 0.1.0: one-time codes for two-step logins (TOTP)\n";
+    cout << "  authj add NAME SECRET [--digits 6] [--period 30] [--algo sha1|sha256|sha512]\n";
+    cout << "  authj add-uri 'otpauth://totp/...'      authj code [NAME]      authj list      authj remove NAME\n";
+    cout << "  authj now SECRET                        a code without keeping the secret\n";
+    cout << "  authj passwd                            set, change or remove the passphrase (empty = no lock)\n";
+    cout << "the accounts are in ~/.authj/vault (AUTHJ_DIR changes the folder, AUTHJ_PASS gives the passphrase)\n";
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "authj 0.1.0\n"; return 0; }
+    if a.len < 2 || a[1] == "help" || a[1] == "--help" || a[1] == "-h" { usage(); return 0; }
+    String cmd = a[1];
+    g_pass = "";
+    int now_s = Time::now_ms() / 1000;
+    Option<String> forced = Env::get("AUTHJ_NOW");                  // a fixed time (for tests)
+    if forced.is_some() { String fs = forced.unwrap(); now_s = fs.to_int(); }
+    if cmd == "now" {
+        if a.len < 3 { usage(); return 1; }
+        String key = base32_decode(a[2]);
+        if key.len == 0 { cerr << "authj: the secret is not base32 text\n"; return 1; }
+        Account ac;
+        ac.name = "now"; ac.secret = a[2] + ""; ac.digits = opt_int(a, "--digits", 6); ac.period = opt_int(a, "--period", 30); ac.algo = opt(a, "--algo", "sha1");
+        show(ac, now_s);
+        return 0;
+    }
+    bool ok = true;
+    Account[] accts = load_accounts(@ok);
+    if !ok { return 1; }
+    // does the file have a lock? then the same passphrase is used when it is saved again
+    if cmd == "list" {
+        for i in 0..accts.len { cout << accts[i].name << "  (" << accts[i].digits << " digits, " << accts[i].period << " s, " << accts[i].algo << ")\n"; }
+        if accts.len == 0 { cout << "no accounts yet: authj add NAME SECRET\n"; }
+        return 0;
+    }
+    if cmd == "code" || (cmd != "add" && cmd != "add-uri" && cmd != "remove" && cmd != "passwd" && a.len == 2) {
+        String want = "";
+        if cmd == "code" { if a.len > 2 { want = a[2]; } } else { want = cmd; }
+        bool any = false;
+        bool exact = false;
+        for i in 0..accts.len { if accts[i].name == want { exact = true; } }
+        for i in 0..accts.len {
+            String nl = accts[i].name.lower();
+            String wl = want.lower();
+            bool hit = want.len == 0 || accts[i].name == want;
+            if !exact && nl.contains(wl) { hit = true; }
+            if hit { show(accts[i], now_s); any = true; }
+        }
+        if !any { cerr << "authj: no account named " << want << " (authj list)\n"; return 1; }
+        return 0;
+    }
+    if cmd == "add" || cmd == "add-uri" {
+        Account ac;
+        ac.digits = 6; ac.period = 30; ac.algo = "sha1";
+        if cmd == "add" {
+            if a.len < 4 { usage(); return 1; }
+            ac.name = a[2] + ""; ac.secret = a[3].upper();
+            ac.digits = opt_int(a, "--digits", 6); ac.period = opt_int(a, "--period", 30); ac.algo = opt(a, "--algo", "sha1");
+        } else {
+            if a.len < 3 { usage(); return 1; }
+            String u = a[2] + "";
+            int q = u.find("?");
+            String path = u; String query = "";
+            if q >= 0 { path = u.slice(0, q); query = u.slice(q + 1, u.len); }
+            int sl = path.find("//");
+            String label = path;
+            if sl >= 0 { String rest = path.slice(sl + 2, path.len); int s2 = rest.find("/"); if s2 >= 0 { label = rest.slice(s2 + 1, rest.len); } }
+            ac.name = url_decode(label);
+            String[] kv = query.split("&");
+            for i in 0..kv.len {
+                int e = kv[i].find("=");
+                if e < 0 { continue; }
+                String k = kv[i].slice(0, e);
+                String vraw = kv[i].slice(e + 1, kv[i].len);
+                String v = url_decode(vraw);
+                if k == "secret" { ac.secret = v.upper(); }
+                else if k == "digits" { ac.digits = v.to_int(); }
+                else if k == "period" { ac.period = v.to_int(); }
+                else if k == "algorithm" { ac.algo = v.lower(); }
+            }
+            if ac.name.len == 0 { ac.name = "account"; }
+        }
+        if base32_decode(ac.secret).len == 0 { cerr << "authj: the secret is not base32 text (letters A-Z and digits 2-7)\n"; return 1; }
+        if ac.digits < 6 || ac.digits > 10 || ac.period < 1 { cerr << "authj: digits must be 6..10, period at least 1\n"; return 1; }
+        Account[] out = arr(4);
+        for i in 0..accts.len { if accts[i].name != ac.name { out.push(accts[i]); } }
+        out.push(ac);
+        if !save_accounts(out) { return 1; }
+        cout << "saved " << ac.name << "\n";
+        show(ac, now_s);
+        return 0;
+    }
+    if cmd == "remove" {
+        if a.len < 3 { usage(); return 1; }
+        Account[] out = arr(4);
+        bool found = false;
+        for i in 0..accts.len { if accts[i].name == a[2] { found = true; } else { out.push(accts[i]); } }
+        if !found { cerr << "authj: no account named " << a[2] << "\n"; return 1; }
+        if !save_accounts(out) { return 1; }
+        cout << "removed " << a[2] << "\n";
+        return 0;
+    }
+    if cmd == "passwd" {
+        String p1 = ask_passphrase("New passphrase (empty: no lock): ");
+        Option<String> envp = Env::get("AUTHJ_PASS");
+        if p1.len > 0 && envp.is_none() {
+            String p2 = ask_passphrase("Again: ");
+            if p1 != p2 { cerr << "authj: the two are not the same\n"; return 1; }
+        }
+        g_pass = p1 + "";
+        g_have_pass = true;
+        if !save_accounts(accts) { return 1; }
+        if p1.len > 0 { cout << "the vault is locked with the new passphrase\n"; } else { cout << "the vault is not locked\n"; }
+        return 0;
+    }
+    usage();
+    return 1;
+}

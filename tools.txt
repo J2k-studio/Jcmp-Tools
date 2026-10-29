@@ -9,6 +9,7 @@ jcmp|The J2K compiler and its library (the language): jc install jcmp
 zipj|Make and open zip files (zipj, unj): folders, a password, deflate, also .gz
 tarj|Make and open tar archives (.tar, .tar.gz, .tgz) and gzip files (tarj, gzj)
 imgj|Prepare pictures for a game: read PNG and JPEG, cut the background, real size, parts, normal maps, credits
+authj|One-time codes for two-step logins (TOTP like Google Authenticator) for GitHub and other sites; a vault locked with a passphrase
 mujic|A music player for the terminal: your songs, free songs to fetch, synced lyrics (mujic)
 jvp4|A video player made only of J2K (today: jvp4 info reads mp4 / mov files)
 python|Python 3.14 for Android ARM64 (the official build, started by a small J2K launcher): python, python3, ssl, sqlite3
