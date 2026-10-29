@@ -5,12 +5,23 @@ cd "$(dirname "$0")"; sh build.sh >/dev/null
 M="$PWD/_out/mujic"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export MUJIC_DIR="$T/m"; mkdir -p "$MUJIC_DIR"
-[ "$("$M" --version)" = "mujic 0.10.0" ] || { echo "mujic test: version"; exit 1; }
+[ "$("$M" --version)" = "mujic 0.11.0" ] || { echo "mujic test: version"; exit 1; }
 "$M" list | grep -q "no songs" || { echo "mujic test: an empty folder"; exit 1; }
 "$M" catalog | grep -q "sneaky-snitch" || { echo "mujic test: catalog"; exit 1; }
 printf 'ID3' > "$MUJIC_DIR/Song One.mp3"; printf 'ID3' > "$MUJIC_DIR/Song Two.mp3"
 printf '[ar:Someone]\n[00:10.00]first line\n[00:20.50]We are no strangers\n[00:30.00][00:40.00]twice\n' > "$MUJIC_DIR/Song Two.lrc"
 "$M" list | grep -q "2. Song Two  \[lyrics, synced\]" || { echo "mujic test: list shows lyrics"; exit 1; }
+# the same song in two places (the music folder and a copy that /scan found) is listed once
+mkdir -p "$T/dup"; cp "$MUJIC_DIR/Song One.mp3" "$T/dup/Song One.mp3"; printf '%s\n' "$T/dup/Song One.mp3" > "$MUJIC_DIR/.library"
+[ "$("$M" list | grep -c 'Song One')" = "1" ] || { echo "mujic test: a song twice in the list"; "$M" list; exit 1; }
+rm -f "$MUJIC_DIR/.library"
+# the colour themes: the name is kept in ~/.config/mujic/theme; a wrong name is an error
+export HOME="$T/home"; mkdir -p "$HOME"
+"$M" theme | grep -q "theme: classic" || { echo "mujic test: theme default"; exit 1; }
+"$M" theme temple | grep -q "theme temple" || { echo "mujic test: theme set"; exit 1; }
+"$M" theme | grep -q "theme: temple" || { echo "mujic test: theme kept"; exit 1; }
+if "$M" theme nosuch > /dev/null 2>&1; then echo "mujic test: a wrong theme must fail"; exit 1; fi
+"$M" theme classic > /dev/null
 python3 bg_test.py "$M" "$MUJIC_DIR" > /dev/null || { echo "mujic test: the background play"; exit 1; }
 python3 ui_test.py "$M" "$MUJIC_DIR" || { echo "mujic test: the player screen"; exit 1; }
 # /scan (mujic scan): songs of at least N seconds from every place; the length from the header (wav, mp3), a guess from the size for the others (~); hidden folders are skipped
