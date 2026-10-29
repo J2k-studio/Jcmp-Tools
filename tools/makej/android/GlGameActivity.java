@@ -1,6 +1,7 @@
 package com.j2k.gamerun;
 
 import android.app.Activity;
+import android.content.res.AssetManager;
 import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
@@ -8,6 +9,12 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -26,6 +33,7 @@ public class GlGameActivity extends Activity {
         super.onCreate(b);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        unpackAssets();
         view = new GLSurfaceView(this);
         view.setEGLContextClientVersion(3);
         view.setEGLConfigChooser(8, 8, 8, 8, 0, 0);
@@ -63,6 +71,52 @@ public class GlGameActivity extends Activity {
         view.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
         setContentView(view);
         hideBars();
+    }
+
+    /** The files of assets/ of the project (they are in assets/data/ of the apk) are copied to files/data/ when the version of the app changes,
+     *  and the game finds them by the environment variable JC_ASSETS (the same name that jcmp's libraries use); HOME is the folder files/ for saves. */
+    private void unpackAssets() {
+        try {
+            File files = getFilesDir();
+            File dir = new File(files, "data");
+            File mark = new File(files, "data.version");
+            String now = String.valueOf(getPackageManager().getPackageInfo(getPackageName(), 0).versionCode);
+            boolean fresh = false;
+            if (mark.exists()) {
+                java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(mark));
+                try { fresh = now.equals(r.readLine()); } finally { r.close(); }
+            }
+            if (!fresh) {
+                copyAssets("data", dir);
+                FileOutputStream m = new FileOutputStream(mark);
+                try { m.write(now.getBytes()); } finally { m.close(); }
+            }
+            android.system.Os.setenv("JC_ASSETS", dir.getPath(), true);
+            android.system.Os.setenv("HOME", files.getPath(), true);
+        } catch (Exception e) {
+            // a game without files goes on
+        }
+    }
+
+    private void copyAssets(String path, File to) throws IOException {
+        AssetManager am = getAssets();
+        String[] list = am.list(path);
+        if (list != null && list.length > 0) {
+            to.mkdirs();
+            for (int i = 0; i < list.length; i++) { copyAssets(path + "/" + list[i], new File(to, list[i])); }
+            return;
+        }
+        InputStream in = am.open(path);
+        try {
+            File dir = to.getParentFile();
+            if (dir != null) { dir.mkdirs(); }
+            OutputStream out = new FileOutputStream(to);
+            try {
+                byte[] buf = new byte[16384];
+                int n;
+                while ((n = in.read(buf)) > 0) { out.write(buf, 0, n); }
+            } finally { out.close(); }
+        } finally { in.close(); }
     }
 
     private void hideBars() {
