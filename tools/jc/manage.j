@@ -341,7 +341,15 @@ int cmd_tool(String[] av, int at) {
         bool known = false;
         String[] ls = text.split("\n");
         for i in 0..ls.len { if ls[i].starts_with(name + "|") { known = true; } }
-        if !known { err("jc: there is no tool '" + name + "' (jc tools shows them)\n"); rc = 1; continue; }
+        if !known {                                                  // not a tool: maybe a package of Jcmp-pkg (git, clang ...)
+            String[] pw = arr(4);
+            pw.push("jc");
+            pw.push("pkg");
+            pw.push("install");
+            pw.push(name + "");
+            if cmd_pkg(pw) != 0 { err("jc: there is no tool or package '" + name + "' (jc tools, jc pkg search)\n"); rc = 1; }
+            continue;
+        }
         String lv = dir + "/." + name + ".latest";
         if !download(tools_raw() + "/tools/" + name + "/LATEST", lv, true) { rc = 1; continue; }
         String ver = "";
