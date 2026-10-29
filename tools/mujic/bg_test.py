@@ -28,10 +28,13 @@ d = os.path.join(folder, '..', 'elsewhere'); os.makedirs(d, exist_ok=True)
 open(os.path.join(d, 'Blonde.mp3'), 'wb').write(b'ID3')
 rc, out = run(['play', 'Blonde.mp3', '-b'], cwd=d)
 assert rc == 0, ('rc', rc, out)
-assert '\x1b]7777;audio;play;' in out and 'Blonde.mp3' in out, out
+assert '\x1b]7777;audio;playlist;' in out or '\x1b]7777;audio;play;' in out, out
+assert 'in the background' in out, out
 assert 'in the background' in out, out
 rc, out = run(['pause']); assert rc == 0 and 'audio;pause' in out, out
 rc, out = run(['resume']); assert rc == 0 and 'audio;resume' in out, out
 rc, out = run(['stop']); assert rc == 0 and 'audio;stop' in out, out
+rc, out = run(['next']); assert rc == 0 and 'audio;next' in out, out
+rc, out = run(['prev']); assert rc == 0 and 'audio;prev' in out, out
 rc, out = run(['play', 'NoSuchSong.mp3', '-b'], cwd=d); assert rc != 0, (rc, out)
 print('ok')

@@ -1774,18 +1774,32 @@ int do_background(String what) {
         if here.len > 0 && is_audio(here) { full = here + ""; }
     }
     if full.len == 0 { return fail("no song like '" + what + "' in " + music_dir() + " (and no such file here)"); }
-    snd_play(full);
-    if g_msg.len > 0 { return fail(g_msg); }
+    if g_backend == 1 {
+        // the app plays the whole list from this song: the next song starts by itself, the control panel and the notification have the buttons
+        String all = "";
+        int at = 0;
+        for i in 0..g_files.len {
+            String one = abs_of(g_files[i]);
+            if one == full { at = i; }
+            all += one + "\n";
+        }
+        if s < 0 { all = full + "\n"; at = 0; }
+        osc_audio("playlist;" + str(at) + ";" + Base64::encode(all));
+    } else {
+        snd_play(full);
+        if g_msg.len > 0 { return fail(g_msg); }
+    }
     cout << "playing " << song_title(full) << " in the background";
-    if g_backend == 1 { cout << "   (mujic pause | resume | stop)"; }
+    if g_backend == 1 { cout << "   (mujic pause | resume | next | prev | stop)"; }
     cout << "\n";
     return 0;
 }
 
-// mujic pause | resume | stop: the music that plays in the background (the Jaric app, or termux-media-player)
+// mujic pause | resume | next | prev | stop: the music that plays in the background (the Jaric app, or termux-media-player)
 int do_remote(String what) {
     choose_backend();
     if g_backend != 1 && g_backend != 2 { return fail("only the Jaric app (or termux-media-player) can be controlled from another prompt"); }
+    if what == "next" || what == "prev" { if g_backend == 1 { osc_audio(what); } else { return fail("next and prev need the Jaric app"); } return 0; }
     if what == "pause" { g_state = 1; snd_pause(); }
     else if what == "resume" { g_state = 2; snd_pause(); }
     else { snd_stop(); }
@@ -1854,7 +1868,7 @@ int do_remove_cli(String[] a) {
 }
 
 int main() {
-    String VERSION = "0.7.0";
+    String VERSION = "0.8.0";
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
@@ -1884,7 +1898,7 @@ int main() {
         if c == "get" { return do_get(args); }
         if c == "find" { return do_find(args); }
         if c == "lyrics" { return do_lyrics(args); }
-        if c == "pause" || c == "resume" || c == "stop" { return do_remote(c); }
+        if c == "pause" || c == "resume" || c == "stop" || c == "next" || c == "prev" { return do_remote(c); }
         if c == "bg" && args.len > 2 { return do_background(args[2]); }
         if c == "play" {
             String w = "";
@@ -1898,7 +1912,7 @@ int main() {
             cout << "mujic: a music player for the terminal (songs in " << music_dir() << ")\n";
             cout << "  mujic                 the player      mujic play NAME   start with a song\n";
             cout << "  mujic list            the songs       mujic catalog     free songs to fetch\n";
-            cout << "  mujic play NAME -b    play in the background (the prompt stays free)   mujic pause | resume | stop\n";
+            cout << "  mujic play NAME -b    play in the background (the prompt stays free)   mujic pause | resume | next | prev | stop\n";
             cout << "  mujic get NAME|URL|archive:ID [-n NAME]   fetch a song      mujic find WORDS   search archive.org\n";
             cout << "  mujic lyrics NAME [-q WORDS]              fetch the lyrics (kept as NAME.lrc)\n";
             cout << "  keys in the player: up/down enter space n p < > l g v s q;  put your own .lrc/.txt next to a song\n";
