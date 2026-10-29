@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.6
+* **Added:** `jaric settings` opens the settings of the Jaric app in a window (colours, font, size of the letters, keyboard, battery, music).
+* **Fixed:** none.
+
 ## 0.12.5
 * **Added:** the cover has the words of the app (what it is, who made it, where the code is) beside the picture instead of the frame.
 * **Fixed:** none.

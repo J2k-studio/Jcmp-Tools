@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.5"; }
+String jsh_version() { return "0.12.6"; }
 String[] history;
 int last_status;
 int running;
@@ -2199,6 +2199,8 @@ bool builtin(String[] a) {
                 }
                 cout << esc() << "]7777;video;play;" << v << (char)7;
             }
+        } else if a.len >= 2 && a[1] == "settings" {
+            cout << esc() << "]7777;settings;open" << (char)7;           // the settings in a window (in the app)
         } else if a.len >= 2 && a[1] == "about" {
             cout << esc() << "]7777;about" << (char)7;                // the window about Jaric and its maker (in the app)
         } else if a.len >= 3 && a[1] == "font" {
@@ -2250,6 +2252,7 @@ bool builtin(String[] a) {
                 else { cout << "jaric: no command '" << a[1] << "'.\n\n"; }
             }
             cout << "jaric setting        one screen for everything: theme, font, colours, top bar, animation, the prompt, the assistant\n";
+            cout << "jaric settings       the settings in a window: colours, font, keyboard, battery, music\n";
             cout << "jaric about          who made Jaric (a window in the app)\n";
             cout << "jaric theme [NAME]   the colours (black soft amber green ice devc devc-dark temple)\n";
             cout << "jaric font SIZE      the size of the letters (8 .. 28; a pinch on the screen does it too)\n";
