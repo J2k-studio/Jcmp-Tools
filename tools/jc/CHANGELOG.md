@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.5.3
+* **Added:** `jc install island` makes the links `timer` and `alarm` next to `island` (as it does for jbox, zipj, tarj and jamanager).
+* **Fixed:** none.
+
 ## 0.5.2
 * **Added:** none.
 * **Fixed:** `jc update` (and `jget tool update`) printed "no packages installed" / "the packages are up to date" after its own answer, so "everything is up to date" was no longer the whole output; the package part is silent now unless something is updated.

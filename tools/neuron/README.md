@@ -8,6 +8,9 @@ neuron run MODEL.jw "start of a text" [-n 200] [-t 0.8]                      wri
 neuron chat [MODEL.jw]                                                       talk: you type a line, the model answers; an empty line leaves
 neuron install MODEL.jw                                                      make it the assistant (~/.neuron/assistant.jw): then  neuron chat
 neuron info MODEL.jw                                                         what is in the file
+neuron gpt train FOLDER|FILE [size=small] [minutes=0] [steps=2000]          a GPT with attention (new, 0.5.0): see "The GPT" below
+neuron gpt write MODEL.gpt "start" [n=200] [temp=0.8]   neuron gpt info MODEL.gpt
+neuron llama MODEL.gguf "start" [n=100]    neuron bench MODEL.gguf              run GGUF models of the Llama family
 neuron ask MODEL.jw X1 X2 ...                                                a numeric model made with the library neuron
 ```
 How it learns: for every place of the text the model sees the last `-k` bytes and must guess the next one; a wrong guess changes the numbers a little (rate `-r`); one pass over the text is a round (`-e` rounds). A text of 3 KB takes about 10 seconds for 6 rounds; 1 MB takes hours: start small. `-k` is how far back it looks, `-d` the numbers for each byte, `-h` the neurons (more = remembers more, slower).
@@ -44,3 +47,24 @@ In jsh: `jc install neuron`.
 5. Keep it: `neuron install chat.jw`; from now `neuron chat` opens it. `makej init -ai` makes a project that does these steps (`makej train`, `makej ask`, `makej install`).
 
 License: MPL-2.0. Test: `sh test.sh`.
+
+
+## The GPT (neuron 0.5.0): a model with attention that you train on any text
+`neuron gpt train` trains a GPT, the kind of model behind chat assistants, only small, on a file or on a whole folder (every `.md .txt .j .jk .sh .json .c .py ...` inside). It works byte by byte, so Thai, English and code need no tokenizer.
+```
+neuron gpt train notes.txt                       # one file
+neuron gpt train docs/ size=medium minutes=10    # a folder, a bigger model, stops by itself after 10 minutes
+neuron gpt write model.gpt "the cat" n=200       # write with it (temp=0 always the most likely letter, 1.0 surprises)
+```
+Every 100 steps it prints the loss on the text it learns from, the **check** loss on the last tenth of the text that it never learns from (the number to trust: when it stops falling while the first keeps falling, the model is only remembering), the time per step and a sample. It saves each time (`out=model.gpt` and `model.gpt.cfg`); `resume=1` goes on from there.
+
+| size | context | width | layers | numbers | step (batch 8) on a Kirin 990 |
+|---|---|---|---|---|---|
+| tiny | 32 | 32 | 1 | 0.03 M | ~30 ms |
+| small (default) | 64 | 64 | 2 | 0.14 M | ~290 ms |
+| medium | 128 | 128 | 4 | 1.0 M | seconds |
+| large | 256 | 192 | 6 | 3.2 M | tens of seconds |
+
+Other options: `batch=8` `lr=0.003` `ctx= d= heads= layers=` (the width of a head, d / heads, must be a multiple of 4) `every=100` `prompt=text`. An honest word: a model trained on a phone has thousands to some millions of numbers and reads megabytes of text; it learns the style and the habits of the text it reads and can complete a line, it does not know the world like the big models. For the assistant of the phone (xr) the search stays in front of any model.
+
+`neuron llama MODEL.gguf "start"` runs small GGUF models of the Llama family (e.g. `stories15M-q4_0.gguf` from Hugging Face `ggml-org/tiny-llamas`) with the weights kept as int8 and the SDOT instruction.

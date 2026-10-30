@@ -16,8 +16,9 @@
 #import <stdlib>
 #import <math>
 #import <neuron>
+#import <llama>
 
-String neuron_version() { return "0.4.1"; }
+String neuron_version() { return "0.5.0"; }
 
 int fail(String msg) {
     cerr << "neuron: " << msg << "\n";
@@ -866,6 +867,221 @@ String program_name() {
     return path.slice(cut + 1, path.len);
 }
 
+int gpt_rng;
+int gpt_rand() {
+    int x = gpt_rng;
+    x = x xor (x << 13);
+    x = x xor ((x >> 7) & 72057594037927935);
+    x = x xor (x << 17);
+    gpt_rng = x;
+    return x & 2147483647;
+}
+
+String gopt(String[] a, int from, String name, String fallback) {
+    String key = name + "=";
+    for i in from..a.len { if a[i].starts_with(key) { return a[i].slice(key.len, a[i].len) + ""; } }
+    return fallback;
+}
+
+// the text of a file, or of every text file of a folder (and its folders): .md .txt .j .jk .sh .toml .json .c .h .py .html .css .js .rs .java
+bool text_name(String n) {
+    String[] ext = arr(16);
+    ext.push(".md"); ext.push(".txt"); ext.push(".j"); ext.push(".jk"); ext.push(".sh"); ext.push(".toml"); ext.push(".json"); ext.push(".c"); ext.push(".h");
+    ext.push(".py"); ext.push(".html"); ext.push(".css"); ext.push(".js"); ext.push(".rs"); ext.push(".java");
+    for i in 0..ext.len { if n.ends_with(ext[i]) { return true; } }
+    return false;
+}
+
+String gathered;
+int gathered_files;
+
+void gather(String path, int depth) {
+    if Dir::exists(path) {
+        if depth > 6 { return; }
+        String[] names = arr(64);
+        switch Dir::list(path) {
+            Result::Ok(ls): { for i in 0..ls.len { names.push(ls[i] + ""); } }
+            Result::Err(e): { }
+        }
+        for i in 0..names.len {
+            if names[i].starts_with(".") { continue; }
+            gather(path + "/" + names[i], depth + 1);
+        }
+        return;
+    }
+    if !text_name(path) { return; }
+    Result<String, Error> r = Fs::read_bytes(path);
+    if r.is_ok() {
+        String t = r.take();
+        if t.len > 0 && t.len < 2000000 { gathered = gathered + t + "\n\n"; gathered_files += 1; }
+    }
+}
+
+String text_of_path(String path) {
+    gathered = "";
+    gathered_files = 0;
+    if Dir::exists(path) {
+        gather(path, 0);
+        return gathered + "";
+    }
+    Result<String, Error> r = Fs::read_bytes(path);
+    if r.is_ok() { gathered_files = 1; return r.take(); }
+    return "";
+}
+
+int gpt_train(String[] a) {
+    if a.len < 3 { cerr << "usage: neuron gpt train FILE|FOLDER [size=small|tiny|medium|large] [steps=2000] [minutes=0] [batch=8] [lr=0.003] [out=model.gpt] [resume=1] [every=100] [prompt=text]\n"; return 1; }
+    String text = text_of_path(a[2]);
+    if text.len == 0 { cerr << "neuron gpt: no text found in " << a[2] << "\n"; return 1; }
+    String size = gopt(a, 3, "size", "small");
+    int ctx = 64; int d = 64; int heads = 4; int layers = 2;
+    if size == "tiny" { ctx = 32; d = 32; heads = 2; layers = 1; }
+    else if size == "medium" { ctx = 128; d = 128; heads = 4; layers = 4; }
+    else if size == "large" { ctx = 256; d = 192; heads = 6; layers = 6; }
+    else if size != "small" { cerr << "neuron: size is tiny, small, medium or large\n"; return 1; }
+    ctx = gopt(a, 3, "ctx", str(ctx)).to_int();
+    d = gopt(a, 3, "d", str(d)).to_int();
+    heads = gopt(a, 3, "heads", str(heads)).to_int();
+    layers = gopt(a, 3, "layers", str(layers)).to_int();
+    int steps = gopt(a, 3, "steps", "2000").to_int();
+    double minutes = gopt(a, 3, "minutes", "0").to_double();
+    int batch = gopt(a, 3, "batch", "8").to_int();
+    double lr = gopt(a, 3, "lr", "0.003").to_double();
+    String out = gopt(a, 3, "out", "model.gpt");
+    int every = gopt(a, 3, "every", "100").to_int();
+    String prompt = gopt(a, 3, "prompt", "");
+    if d % heads != 0 || (d / heads) % 4 != 0 { cerr << "neuron: d must be a multiple of 4 * heads (the width of a head a multiple of 4)\n"; return 1; }
+    int[] data = Gpt::bytes(text);
+    if data.len < ctx * 4 + 2 { cerr << "neuron: the text is too short for ctx=" << ctx << " (" << data.len << " bytes)\n"; return 1; }
+    int cut = data.len * 9 / 10;
+    gpt_rng = 88172645463325252;
+    Gpt m = Gpt::make(256, ctx, d, heads, layers, 1);
+    if gopt(a, 3, "resume", "0") == "1" {
+        Gpt old = Gpt::load(out);
+        if old.vocab == 256 { m = old; cout << "resumed from " << out << "\n"; }
+    }
+    int params = 0;
+    for n in 0..m.g.keep { params += m.g.value(n).d.len; }
+    cout << gathered_files << " file(s), " << data.len << " bytes (" << cut << " to learn from, the rest to check), model: " << params << " numbers, ctx " << m.ctx << ", width " << m.d << ", " << m.heads << " heads, " << m.layers << " layers\n";
+    int t0 = Time::now_ms();
+    double window = 0.0;
+    int count = 0;
+    int step = 0;
+    int warm = 10;
+    bool timed = minutes > 0.0;
+    if timed { steps = 1000000; }
+    while step < steps {
+        if timed && step == 8 {                                      // 8 steps measured: how many fit in the time
+            double per = (double)(Time::now_ms() - t0) / 8.0;
+            steps = (int)(minutes * 60000.0 / per);
+            if steps < 20 { steps = 20; }
+            cout << "about " << per << " ms per step: " << steps << " steps in " << minutes << " minutes\n";
+            warm = steps / 20 + 1;
+        }
+        if !timed && step == 0 { warm = steps / 20 + 1; }
+        int[] starts = arr(batch + 1);
+        for q in 0..batch { starts.push(gpt_rand() % (cut - m.ctx - 1)); }
+        double rate = lr;
+        if !timed || step >= 8 { rate = Sched::cosine(step, steps, warm, lr, lr / 10.0); }
+        window += m.step(data, starts, rate, 0.01, 1.0);
+        count += 1;
+        step += 1;
+        if step % every == 0 || step == steps {
+            int[] vs = arr(9);
+            for q in 0..8 { vs.push(cut + (q * (data.len - cut - m.ctx - 1)) / 8); }
+            double val = m.loss_on(data, vs);
+            double ms = (double)(Time::now_ms() - t0) / (double)step;
+            cout << "step " << step << "/" << steps << "  loss " << window / (double)count << "  check " << val << "  " << ms << " ms/step\n";
+            window = 0.0;
+            count = 0;
+            m.save(out);
+            int[] pr = Gpt::bytes(prompt);
+            if pr.len == 0 { for i in 0..8 { pr.push(data[i]); } }
+            cout << "  [" << Gpt::text_of(pr) << m.write(pr, 120, 0.8, 20, step) << "]\n";
+        }
+    }
+    m.save(out);
+    cout << "saved " << out << " (write with:  neuron gpt write " << out << " \"start\")\n";
+    return 0;
+}
+
+int gpt_write(String[] a) {
+    if a.len < 3 { cerr << "usage: neuron gpt write MODEL \"start of the text\" [n=200] [temp=0.8] [topk=20] [seed=1]\n"; return 1; }
+    Gpt m = Gpt::load(a[2]);
+    if m.vocab != 256 { cerr << "neuron: cannot read the model " << a[2] << "\n"; return 1; }
+    String start = "";
+    if a.len >= 4 && !a[3].contains("=") { start = a[3] + ""; }
+    int n = gopt(a, 3, "n", "200").to_int();
+    double temp = gopt(a, 3, "temp", "0.8").to_double();
+    int topk = gopt(a, 3, "topk", "20").to_int();
+    int seed = gopt(a, 3, "seed", "1").to_int();
+    int[] pr = Gpt::bytes(start);
+    if pr.len == 0 { pr.push(10); }
+    cout << start << m.write(pr, n, temp, topk, seed) << "\n";
+    return 0;
+}
+
+int gpt_info(String[] a) {
+    if a.len < 3 { cerr << "usage: neuron gpt info MODEL\n"; return 1; }
+    Gpt m = Gpt::load(a[2]);
+    if m.vocab != 256 { cerr << "neuron: cannot read the model " << a[2] << "\n"; return 1; }
+    int params = 0;
+    for n in 0..m.g.keep { params += m.g.value(n).d.len; }
+    cout << a[2] << ": a byte-level GPT, " << params << " numbers (" << params * 4 / 1024 << " KB as float32), context " << m.ctx << ", width " << m.d << ", " << m.heads << " heads, " << m.layers << " layers\n";
+    return 0;
+}
+
+int llama_run(String[] a) {
+    if a.len < 3 { cerr << "usage: neuron llama MODEL.gguf \"start of the text\" [n=100] [temp=0.8] [topk=40] [topp=0.95] [seed=1]\n"; return 1; }
+    String start = "Once upon a time";
+    if a.len >= 4 && !a[3].contains("=") { start = a[3] + ""; }
+    int n = gopt(a, 3, "n", "100").to_int();
+    double temp = gopt(a, 3, "temp", "0.8").to_double();
+    int topk = gopt(a, 3, "topk", "40").to_int();
+    double topp = gopt(a, 3, "topp", "0.95").to_double();
+    int seed = gopt(a, 3, "seed", "1").to_int();
+    switch Lm::load(a[2]) {
+        Result::Ok(m): {
+            int[] ids = m.encode(start);
+            cout << start << m.generate(ids, n, temp, topk, topp, seed) << "\n";
+            return 0;
+        }
+        Result::Err(e): { cerr << "neuron: cannot load " << a[2] << ": " << e.message << "\n"; return 1; }
+    }
+    return 1;
+}
+
+int llama_bench(String[] a) {
+    if a.len < 3 { cerr << "usage: neuron bench MODEL.gguf [n=64]\n"; return 1; }
+    int n = gopt(a, 3, "n", "64").to_int();
+    int t0 = Time::now_ms();
+    switch Lm::load(a[2]) {
+        Result::Ok(m): {
+            int t1 = Time::now_ms();
+            cout << "model: " << m.embd << " wide, " << m.layers << " layers, " << m.heads << " heads (" << m.kv_heads << " kv), vocab " << m.vocab << ", load " << (t1 - t0) << " ms\n";
+            int[] ids = m.encode("Once upon a time");
+            m.reset();
+            Tensor32 lg = Tensor32::zeros(1, 1);
+            int p0 = Time::now_ms();
+            for i in 0..ids.len { lg = m.step(ids[i]); }
+            int p1 = Time::now_ms();
+            int made = 0;
+            for k in 0..n {
+                if m.pos >= m.ctx { break; }
+                lg = m.step(m.sample(lg, 0.0, 0, 1.0));
+                made += 1;
+            }
+            int p2 = Time::now_ms();
+            double dg = (double)(p2 - p1);
+            if dg < 1.0 { dg = 1.0; }
+            cout << "prompt: " << ids.len << " tokens in " << (p1 - p0) << " ms; new tokens: " << made << " in " << (p2 - p1) << " ms = " << (double)made * 1000.0 / dg << " tokens/s\n";
+            return 0;
+        }
+        Result::Err(e): { cerr << "neuron: cannot load " << a[2] << ": " << e.message << "\n"; return 1; }
+    }
+    return 1;
+}
+
 int main() {
     String[] a = Env::args();
     String me = program_name();
@@ -879,8 +1095,22 @@ int main() {
         cout << "  neuron install MODEL.jw                             make it the assistant of this phone\n";
         cout << "  neuron eval MODEL.jw TEST.txt                       how many questions that were never learned are answered right\n";
         cout << "  neuron info MODEL.jw      neuron ask MODEL.jw X1 X2 ...   (a numeric model)\n";
+        cout << "  neuron gpt train FILE|FOLDER [size=small|tiny|medium|large] [steps=2000] [minutes=0] [batch=8] [lr=0.003] [out=model.gpt] [resume=1]   a GPT (attention), byte by byte\n";
+        cout << "  neuron gpt write MODEL \"start\" [n=200] [temp=0.8] [topk=20] [seed=1]      neuron gpt info MODEL\n";
+        cout << "  neuron llama MODEL.gguf \"start\" [n=100] [temp=0.8] [topk=40] [topp=0.95]   run a GGUF model (Llama family)      neuron bench MODEL.gguf\n";
         return 0;
     }
+    if a[1] == "gpt" {                                                    // the GPT of the library gpt: neuron gpt train | write | info
+        String[] b = arr(a.len);
+        for i in 1..a.len { b.push(a[i] + ""); }
+        if b.len >= 2 && b[1] == "train" { return gpt_train(b); }
+        if b.len >= 2 && b[1] == "write" { return gpt_write(b); }
+        if b.len >= 2 && b[1] == "info" { return gpt_info(b); }
+        cerr << "usage: neuron gpt train FILE|FOLDER [size=small] ... | neuron gpt write MODEL \"start\" | neuron gpt info MODEL  (neuron help)\n";
+        return 1;
+    }
+    if a[1] == "llama" { return llama_run(a); }
+    if a[1] == "bench" { return llama_bench(a); }
     if a[1] == "train" { return do_train(a); }
     if a[1] == "run" { return do_run(a); }
     if a[1] == "chat" { return do_chat(a); }

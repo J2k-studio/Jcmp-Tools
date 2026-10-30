@@ -1,5 +1,9 @@
 # neuron changelog
 
+## 0.5.0
+* **Added:** `neuron gpt train FILE|FOLDER` trains a GPT with attention (the library `neuron`) byte by byte on a file or on every text file of a folder: sizes tiny / small / medium / large, `minutes=N` to stop by itself, the loss on a tenth of the text that is never learned (the check), samples while it learns, saving after each report, `resume=1`. `neuron gpt write MODEL "start"` and `neuron gpt info MODEL`. `neuron llama MODEL.gguf "start"` runs GGUF models of the Llama family (Q8_0 / Q4_0 kept as int8, SDOT products: about 120 tokens per second for a 15 M model) and `neuron bench MODEL.gguf` measures them. Step (d) of TRAINING-PLAN.md (a small attention model for free text) is this.
+* **Fixed:** none.
+
 ## 0.4.1
 * **Changed:** `xr` answers "I do not know that. Ask me about the tools of Jaric ..." when no question of the talk is like yours, instead of the noise that the small model writes (`xr what` printed letters in a mess). A model without a talk still writes freely; `jash set xr.free_text on` brings the writing back for a model with a talk.
 

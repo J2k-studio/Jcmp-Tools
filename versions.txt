@@ -4,11 +4,12 @@ cam 0.3.1
 coderin 0.5.1
 drive 0.4.0
 imgj 0.2.0
+island 0.1.0
 jamanager 0.3.0
 jaric-os 0.14.0
 jash 0.1.0
 jbox 0.10.0
-jc 0.5.2
+jc 0.5.3
 jcmp 1.2.4.0
 jearlink 0.1.1
 jfile 0.3.0
@@ -22,7 +23,7 @@ jvp4 0.1.0
 makej 0.10.1
 mujic 0.15.1
 mulap 0.2.0
-neuron 0.4.1
+neuron 0.5.0
 python 3.14.0.3
 tarj 0.1.1
 yt-dlp 2026.10.21

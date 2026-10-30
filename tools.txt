@@ -1,4 +1,5 @@
 # The tools of Jcmp-Tools: NAME|what it is
+island|Alarms, timers and notices on the island of the Jaric app, from the terminal (also the commands timer and alarm)
 jget|Download files from the web (https, a progress bar), and the libraries of the J2K language
 makej|A build tool for J2K projects: the build file is a plain file (nano makej) or a J2K program
 jsh|A small shell for J2K machines: line editing, ghost text, pipes, variables, aliases, scripts
@@ -20,7 +21,7 @@ jvp4|A video player made only of J2K (today: jvp4 info reads mp4 / mov files)
 yt-dlp|Downloads audio and video from many sites with yt-dlp (needs the tool python); use it only for what you may download
 jamanager|The task manager of Jaric: programs, memory, stop a program, drives, caches (jamanager ps, top, mem, kill, drives, cache)
 jash|The settings of your programs in one file (~/.jash) and the command to read and change it (jash list, get, set, edit, import)
-neuron|Small AI models on the phone: train a language model, chat with it, make it the assistant xaiorin (xr) that runs in the background (.jw files)
+neuron|Small AI models on the phone: train a GPT (attention) or a small model on your text, chat with it, run GGUF models, the assistant xaiorin (xr)
 jc|Install and run the programs of Jaric (.jc packages) with permissions: jc install, run, list, perm, remove
 jstore|The store of the programs of Jaric (.jc): list, install, update with a checksum for every download (needs jc)
 jgit|git written in J2K: init, add, commit, status, log, diff, branch, switch; the repositories are the repositories of git, also packed ones (no network yet)
