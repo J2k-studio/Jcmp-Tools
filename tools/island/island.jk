@@ -1,0 +1,156 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// island: the island of the Jaric app (alarms, timers, notices, the music at the top of the screen) from the terminal. Also installed as `timer` and `alarm`.
+//   timer 5m [label]        timer 90        timer 1h30m        timer list        timer cancel ID|all
+//   alarm 07:30 [label] [daily]            alarm list         alarm cancel ID|all
+//   island on|off|app|over|hole|middle     island notice TEXT     island list
+#import <stdlib>
+
+String island_version() { return "0.1.0"; }
+
+void osc(String body) { cout << "\e]7777;island;" << body << "\a"; }
+
+// the name this program was started under (timer and alarm are links to island): the last part of argv[0]
+String program_name(String[] a) {
+    String path = a[0] + "";
+    int cut = -1;
+    for i in 0..path.len { if path[i] == '/' { cut = i; } }
+    return path.slice(cut + 1, path.len) + "";
+}
+
+// "5m", "90s", "1h30m", "2h", "45" (seconds) in seconds; -1 when it is not a duration
+int duration(String t) {
+    int total = 0;
+    int cur = 0;
+    bool any = false;
+    bool pending = false;
+    for i in 0..t.len {
+        int c = t[i];
+        if c >= '0' && c <= '9' { cur = cur * 10 + (c - '0'); pending = true; any = true; }
+        else if c == 'h' { total += cur * 3600; cur = 0; pending = false; }
+        else if c == 'm' { total += cur * 60; cur = 0; pending = false; }
+        else if c == 's' { total += cur; cur = 0; pending = false; }
+        else { return -1; }
+    }
+    if pending { total += cur; }
+    if !any { return -1; }
+    return total;
+}
+
+String words(String[] a, int from, int to) {
+    String s = "";
+    for i in from..to { if s.len > 0 { s.push(' '); } s.append(a[i]); }
+    return s;
+}
+
+int do_list(String kind) {
+    String home = "";
+    switch Env::get("HOME") { Option::Some(h): { home = h + ""; } Option::None: { } }
+    Result<String, Error> r = Fs::read_text(home + "/.config/jaric/island.txt");
+    if !r.is_ok() { cout << "nothing set (or this is not the Jaric app)\n"; return 0; }
+    String[] ls = r.take().split("\n");
+    int shown = 0;
+    int now = Time::now_ms() / 1000;
+    for i in 0..ls.len {
+        if ls[i].len == 0 { continue; }
+        String[] w = ls[i].split(" ");
+        if w.len < 3 { continue; }
+        if kind.len > 0 && w[1] != kind { continue; }
+        if w[1] == "timer" {
+            int left = w[2].to_int() - now;
+            if left < 0 { left = 0; }
+            int m = left / 60;
+            int h = m / 60;
+            String lab = "";
+            for k in 3..w.len { if lab.len > 0 { lab.push(' '); } lab.append(w[k]); }
+            cout << w[0] << "  timer  " << h << "h " << m % 60 << "m " << left % 60 << "s left  " << lab << "\n";
+        } else { cout << ls[i] << "\n"; }
+        shown += 1;
+    }
+    if shown == 0 { cout << "nothing set\n"; }
+    return 0;
+}
+
+int do_timer(String[] a, int from) {
+    if a.len <= from { cerr << "usage: timer 5m [label] | timer list | timer cancel ID|all\n"; return 1; }
+    if a[from] == "list" { return do_list("timer"); }
+    if a[from] == "cancel" {
+        if a.len <= from + 1 { cerr << "usage: timer cancel ID|all\n"; return 1; }
+        if a[from + 1] == "all" { osc("cancelall;timer"); } else { osc("cancel;" + a[from + 1]); }
+        return 0;
+    }
+    int secs = duration(a[from]);
+    if secs <= 0 { cerr << "timer: a time like 5m, 90s, 1h30m or 45 (seconds)\n"; return 1; }
+    osc("timer;" + str(secs) + ";" + words(a, from + 1, a.len));
+    return 0;
+}
+
+int do_alarm(String[] a, int from) {
+    if a.len <= from { cerr << "usage: alarm 07:30 [label] [daily] | alarm list | alarm cancel ID|all\n"; return 1; }
+    if a[from] == "list" { return do_list("alarm"); }
+    if a[from] == "cancel" {
+        if a.len <= from + 1 { cerr << "usage: alarm cancel ID|all\n"; return 1; }
+        if a[from + 1] == "all" { osc("cancelall;alarm"); } else { osc("cancel;" + a[from + 1]); }
+        return 0;
+    }
+    String t = a[from] + "";
+    if t.find(":") < 0 { t = t + ":00"; }
+    String[] hm = t.split(":");
+    int hh = hm[0].to_int();
+    int mm = hm[1].to_int();
+    if hh < 0 || hh > 23 || mm < 0 || mm > 59 { cerr << "alarm: a time like 07:30\n"; return 1; }
+    bool daily = false;
+    int last = a.len;
+    if last > from + 1 && a[last - 1] == "daily" { daily = true; last -= 1; }
+    String label = words(a, from + 1, last);
+    String tail = "";
+    if daily { tail = "daily"; }
+    osc("alarm;" + t + ";" + label + ";" + tail);
+    return 0;
+}
+
+// next to this program: the links timer and alarm
+int install_links(String dir) {
+    String me = dir + "/island";
+    String[] names = arr(2);
+    names.push("timer");
+    names.push("alarm");
+    for i in 0..names.len {
+        String to = dir + "/" + names[i];
+        Sys::unlink(to.c());
+        int r = Sys::call(36, (int)me.c(), -100, (int)to.c(), 0, 0, 0);
+        if r < 0 { cerr << "island: cannot make the link " << to << "\n"; }
+    }
+    return 0;
+}
+
+int main() {
+    String[] a = Env::args();
+    String me = program_name(a);
+    if me == "timer" { return do_timer(a, 1); }
+    if me == "alarm" { return do_alarm(a, 1); }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "island " << island_version() << "\n"; return 0; }
+    if a.len > 2 && a[1] == "--install" { return install_links(a[2] + ""); }
+    if a.len < 2 || a[1] == "help" || a[1] == "--help" || a[1] == "-h" {
+        cout << "island: the island of the Jaric app (alarms, timers, notices, music at the top of the screen)\n";
+        cout << "  timer 5m [label]   timer 90   timer 1h30m   timer list   timer cancel ID|all\n";
+        cout << "  alarm 07:30 [label] [daily]   alarm list   alarm cancel ID|all\n";
+        cout << "  island on|off          show it in the app (on) or hide it (off)\n";
+        cout << "  island app|over        in the window of Jaric, or over every app (the phone asks to allow it once)\n";
+        cout << "  island hole|middle     near the camera hole, or in the middle\n";
+        cout << "  island notice TEXT     a short notice     island list     what is set\n";
+        cout << "(timer and alarm are links to island, made by  jc install island)\n";
+        return 0;
+    }
+    String c = a[1] + "";
+    if c == "on" { osc("on"); return 0; }
+    if c == "off" { osc("off"); return 0; }
+    if c == "app" || c == "over" { osc("mode;" + c); return 0; }
+    if c == "hole" || c == "middle" { osc("place;" + c); return 0; }
+    if c == "notice" && a.len > 2 { osc("notice;" + words(a, 2, a.len)); return 0; }
+    if c == "list" { return do_list(""); }
+    if c == "timer" { return do_timer(a, 2); }
+    if c == "alarm" { return do_alarm(a, 2); }
+    cerr << "island: unknown command '" << c << "' (island help)\n";
+    return 2;
+}
