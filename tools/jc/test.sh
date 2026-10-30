@@ -22,7 +22,7 @@ make('noentry.jc', 'name = "X"\nid = "x.one"\nversion = "1"\nentry = "missing"\n
 make('evil.jc', 'name = "Evil"\nid = "evil.one"\nversion = "1"\nentry = "hello"\npermissions = []\n', {'../escape.txt': 'x'})
 open(t + '/notzip.jc', 'w').write('this is not a zip')
 PY
-[ "$("$J" --version)" = "jc 0.5.3" ] || { echo "jc test: version"; exit 1; }
+[ "$("$J" --version)" = "jc 0.5.4" ] || { echo "jc test: version"; exit 1; }
 "$J" info "$T/game.jc" | grep -q "permissions:  files,audio" || { echo "jc test: info"; exit 1; }
 "$J" info "$T/notzip.jc" > /dev/null 2>&1 && { echo "jc test: a file that is not a zip must fail"; exit 1; }
 "$J" install "$T/game.jc" > /dev/null 2>&1 && { echo "jc test: permissions without a terminal and without -y must be refused"; exit 1; }
@@ -55,7 +55,6 @@ printf '#!/bin/sh\necho "jstore $*" >> "$FAKELOG"\n' > "$T/fb/jstore"; chmod 755
 FAKELOG="$T/fake.log"; export FAKELOG; : > "$FAKELOG"
 PATH="$T/fb:$PATH" "$J" install store.hello
 [ "$(cat "$FAKELOG")" = "jstore install store.hello" ] || { echo "jc test: a program of the store goes to jstore:"; cat "$FAKELOG"; exit 1; }
-echo "jc tests: ok"
 
 # jc pkg: packages of Jcmp-pkg (a .tar.gz of usr/ with links, an index.json with a dependency), install, list, search, remove, bad checksum
 python3 - "$T" <<'PY'
@@ -122,3 +121,9 @@ export JC_PKG_INDEX="$T/index2.json" JC_PKG_ROOT="$T/pkgroot2"
 "$J" pkg list | grep -q "^beta  2" && [ "$("$T/pkgroot2/usr/bin/beta")" = "beta" ] || { echo "jc test: pkg update result"; exit 1; }
 "$J" pkg update | grep -q "up to date" || { echo "jc test: pkg update twice"; exit 1; }
 unset JC_PKG_INDEX JC_PKG_ROOT
+
+# jc update asks quietly about packages: with none installed it prints nothing more and does not fetch the index (a wrong index address must not matter)
+P=$(mktemp -d)
+JC_PKG_ROOT="$P" JC_PKG_INDEX="$P/no-such-index.json" "$J" pkg update --quiet > "$P/q.txt" 2>&1 || { echo "jc test: pkg update --quiet with no packages"; exit 1; }
+[ ! -s "$P/q.txt" ] || { echo "jc test: pkg update --quiet printed: $(cat "$P/q.txt")"; exit 1; }
+echo "jc tests: ok"

@@ -214,6 +214,10 @@ int pkg_update(String index, bool dry, bool quiet) {
 int cmd_pkg(String[] a) {
     if a.len < 3 { err("usage: jc pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n"); return 1; }
     String sub = a[2] + "";
+    // jc update asks quietly: with no package installed there is nothing to update, so the index is not even fetched
+    String statedir = pkg_state();
+    bool quiet_ask = sub == "update" && a[a.len - 1] == "--quiet";
+    if quiet_ask && !Dir::exists(statedir) { return 0; }
     if sub == "list" { return pkg_list(); }
     if sub == "remove" && a.len >= 4 {
         for i in 3..a.len { if pkg_remove(a[i] + "") != 0 { return 1; } }

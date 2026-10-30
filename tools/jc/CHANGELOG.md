@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.5.4
+* **Fixed:** `jc update` with no package installed no longer fetches the package index at all (nothing to update); a crash after "everything is up to date" on a phone is looked at with this smaller path.
+* **Added:** none.
+
 ## 0.5.3
 * **Added:** `jc install island` makes the links `timer` and `alarm` next to `island` (as it does for jbox, zipj, tarj and jamanager).
 * **Fixed:** none.
