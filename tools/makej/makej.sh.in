@@ -8,11 +8,12 @@ case "${1:-}" in -h|--help|help)
     echo "makej: a build tool for J2K projects (the build file is the file makej in the folder)"
     echo "  makej [target] [-v] [-n] [-j N]     build (-n: only show, -v: say more, -j: many jobs; -j alone = all cores)"
     echo "  makej list | clean | install FOLDER | run | test | doc [LIBRARY]"
-    echo "  makej init [-pro NAME | -game | -apk | -ai]     start a project (-apk: an Android app);   makej apk | pack | dist | targets   (for games)"
+    echo "  makej init                                    at a terminal: asks what you want to make;  makej kinds  lists the kinds"
+    echo "  makej init [-pro NAME | -tool NAME | -lib NAME | -game | -apk | -ai]     start a project (-apk: an Android app, -tool: a program for jc install);   makej apk | pack | dist | targets   (for games)"
     echo "  makej --version"
     exit 0 ;;
 esac
-case "${1:-}" in -pro|-game|-ai|-apk) first=$1; shift; set -- init "$first" "$@" ;; esac
+case "${1:-}" in -pro|-game|-ai|-apk|-tool|-lib) first=$1; shift; set -- init "$first" "$@" ;; esac
 # makej is built with jcmp 1.2.0.0 or newer (its library uses forms that older compilers do not know: they stop with "unknown escape sequence")
 need_jcmp() {
     have="$(jcmp -version 2>/dev/null | cut -d' ' -f2)"
@@ -630,6 +631,131 @@ MAKEJ_GAME_README_EOF
         [ -z "$miss" ] && echo "makej: every tool for an apk is there" || echo "makej: to build the apk you still need:$miss   (pkg install aapt2 ecj dx apksigner; android.jar: see README.md)"
     fi
     exit 0
+fi
+
+# the kinds of projects that makej init can start
+if [ "${1:-}" = "kinds" ] || { [ "${1:-}" = "init" ] && [ "${2:-}" = "-list" ]; }; then
+    cat <<'MAKEJ_KINDS_EOF'
+makej init                 one small program (a file makej and src/hello.jk)
+makej init -pro NAME       a real project: src/, tests/, docs/, scripts/, steps run / test / release
+makej init -tool NAME      a command-line program that people install with jc install NAME (VERSION, CHANGELOG, test.sh, release: dist/ with SHA256SUMS)
+makej init -lib NAME       a J2K library (libs/NAME.j, a test, a page in docs/, a lesson) to share with jc lib install NAME
+makej init -apk            an Android app (needs aapt2, ecj, d8, zipalign, apksigner and android.jar: makej doctor checks)
+makej init -game           a game with Jaric Engine (android, jaric, linux)
+makej init -ai             a project that trains a small AI with neuron (data, train, test, run steps)
+MAKEJ_KINDS_EOF
+    exit 0
+fi
+# makej init with no kind, at a terminal: ask
+if [ "${1:-}" = "init" ] && [ -z "${2:-}" ] && [ -t 0 ] && [ -t 1 ] && [ ! -e makej ]; then
+    echo "What do you want to make?"
+    echo "  1) a small program     2) a real project (-pro)     3) a tool for jc install (-tool)     4) a library (-lib)"
+    echo "  5) an Android app (-apk)     6) a game (-game)     7) a small AI (-ai)"
+    printf 'Number [1]: '; read -r pick || pick=1
+    case "$pick" in 2) k=-pro ;; 3) k=-tool ;; 4) k=-lib ;; 5) k=-apk ;; 6) k=-game ;; 7) k=-ai ;; *) k= ;; esac
+    if [ -n "$k" ]; then
+        case "$k" in -pro|-tool|-lib) printf 'Name: '; read -r nm || nm=; set -- init "$k" "$nm" ;; *) set -- init "$k" ;; esac
+    fi
+fi
+# makej init -tool NAME: a command-line program for the store of Jcmp-Tools (or your own): the files that jc install and release.sh of the others have
+if [ "${1:-}" = "init" ] && [ "${2:-}" = "-tool" ]; then
+    nm=${3:-}
+    [ -n "$nm" ] || { echo "makej: the name of the tool is missing: makej init -tool NAME" >&2; exit 2; }
+    [ -e "$nm" ] && { echo "makej: $nm exists already" >&2; exit 2; }
+    mkdir -p "$nm" && cd "$nm"
+    cat > "$nm.jk" <<MAKEJ_TOOL_EOF
+#import <stdlib>
+
+String ${nm}_version() { return "0.1.0"; }
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "$nm " << ${nm}_version() << "\\n"; return 0; }
+    if a.len > 1 && (a[1] == "--help" || a[1] == "-h") { cout << "$nm: what it does\\n  $nm [words]\\n"; return 0; }
+    cout << "hello from $nm\\n";
+    return 0;
+}
+MAKEJ_TOOL_EOF
+    echo 0.1.0 > VERSION; echo 0.1.0 > LATEST
+    printf '# %s changelog\n\n## 0.1.0\n* **Added:** the first version.\n* **Fixed:** none.\n' "$nm" > CHANGELOG.md
+    printf '# %s\n\nWhat it does, in two lines.\n\n    %s --help\n\nInstall: `jc install %s` (when it is in the store of Jcmp-Tools).\n' "$nm" "$nm" "$nm" > README.md
+    cat > test.sh <<MAKEJ_TOOL_EOF
+#!/bin/sh
+# tests of $nm: makej test
+set -eu
+cd "\$(dirname "\$0")"
+[ "\$(_out/$nm --version)" = "$nm 0.1.0" ] || { echo "$nm test: version"; exit 1; }
+[ "\$(_out/$nm)" = "hello from $nm" ] || { echo "$nm test: hello"; exit 1; }
+echo "$nm test: ok"
+MAKEJ_TOOL_EOF
+    cat > release.sh <<MAKEJ_TOOL_EOF
+#!/bin/sh
+# release.sh: test, then dist/$nm and dist/SHA256SUMS (upload them to a GitHub release called $nm-vX.Y.Z)
+set -eu
+cd "\$(dirname "\$0")"
+makej test
+rm -rf dist; mkdir dist
+cp _out/$nm dist/$nm
+( cd dist && sha256sum $nm > SHA256SUMS && ls -l )
+MAKEJ_TOOL_EOF
+    cat > makej <<MAKEJ_TOOL_EOF
+# the build file of the tool $nm (makej init -tool).
+#   makej            build           makej test    build and test           makej run    build and run
+#   sh release.sh    test and make dist/ with the checksums
+[makej]
+out = "_out"
+
+[program.$nm]
+main = "$nm.jk"
+flags = ""
+
+[step.test]
+run = "sh test.sh"
+needs = "$nm"
+
+[step.run]
+run = "_out/$nm"
+needs = "$nm"
+MAKEJ_TOOL_EOF
+    echo "makej: wrote the tool $nm/ (cd $nm; makej; makej test; edit $nm.jk; sh release.sh)"; exit 0
+fi
+# makej init -lib NAME: a J2K library to share: libs/NAME.j, a test, a page and a lesson
+if [ "${1:-}" = "init" ] && [ "${2:-}" = "-lib" ]; then
+    nm=${3:-}
+    [ -n "$nm" ] || { echo "makej: the name of the library is missing: makej init -lib NAME" >&2; exit 2; }
+    [ -e "$nm" ] && { echo "makej: $nm exists already" >&2; exit 2; }
+    mkdir -p "$nm/libs" "$nm/docs" "$nm/lessons" "$nm/test" && cd "$nm"
+    cat > "libs/$nm.j" <<MAKEJ_LIB_EOF
+// $nm 0.1.0 -- what the library does, in one line.   #import <$nm>
+//   int twice = ${nm}_double(21);          // 42
+int ${nm}_double(int x) { return x * 2; }
+MAKEJ_LIB_EOF
+    cat > "test/test_$nm.jk" <<MAKEJ_LIB_EOF
+#import <stdlib>
+#import <$nm>
+int main() {
+    cout << ${nm}_double(21) << "\\n";
+    return 0;
+}
+MAKEJ_LIB_EOF
+    echo 42 > "test/test_$nm.out"
+    printf '# %s 0.1.0\n\nWhat it does. `#import <%s>`.\n\n| call | gives |\n|---|---|\n| `%s_double(x)` | twice x |\n' "$nm" "$nm" "$nm" > "docs/$nm.md"
+    printf '# Lesson: `<%s>`\n\n## Syntax\n\n## Step 1\n\n## Exercises\n' "$nm" > "lessons/$nm.md"
+    cat > makej <<MAKEJ_LIB_EOF
+# the build file of the library $nm (makej init -lib). The library is found with  J2K_PATH=libs
+#   makej test      build and run the test in test/       makej doc    the page of the library
+[makej]
+out = "_out"
+
+[program.test_$nm]
+main = "test/test_$nm.jk"
+flags = "-I libs"
+
+[step.test]
+run = "_out/test_$nm | diff - test/test_$nm.out && echo test ok"
+needs = "test_$nm"
+MAKEJ_LIB_EOF
+    echo "makej: wrote the library $nm/ (cd $nm; makej test; edit libs/$nm.j; copy it to Jcmp-libs to share)"; exit 0
 fi
 if [ "${1:-}" = "init" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
