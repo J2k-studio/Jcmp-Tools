@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.6"; }
+String jsh_version() { return "0.12.7"; }
 String[] history;
 int last_status;
 int running;
@@ -1619,6 +1619,7 @@ void setting_draw(int sel) {
         if o[k] < 0 { lines.push(e + "[36m" + section_title(0 - o[k]) + e + "[0m"); continue; }
         int i = o[k];
         String val = setting_value(i);
+        if val.len > cols - 44 && cols > 46 { val = val.slice(0, cols - 44); }          // a long value must not wrap either
         String line = "  " + setting_label(i);
         while line.len < 40 { line = line + " "; }
         line = line + val;
@@ -1636,7 +1637,12 @@ void setting_draw(int sel) {
         if top < 0 { top = 0; }
         if top > lines.len - room { top = lines.len - room; }
     }
-    String out = e + "[H" + e + "[1mjaric setting" + e + "[0m  " + e + "[2m(" + cfg_dir() + "/config.local; jash import)" + e + "[0m" + e + "[K";
+    // no line may be longer than the screen is wide: a line that wraps on the last row scrolls the whole screen up, and every redraw leaves a copy of the title behind
+    String tail = "(" + cfg_dir() + "/config.local; jash import)";
+    int tailRoom = cols - 1 - 15;
+    if tailRoom < 0 { tailRoom = 0; }
+    if tail.len > tailRoom { tail = tail.slice(0, tailRoom); }
+    String out = e + "[H" + e + "[1mjaric setting" + e + "[0m  " + e + "[2m" + tail + e + "[0m" + e + "[K";
     for r in 0..room {
         int li = top + r;
         out = out + e + "[" + str(r + 2) + ";1H";
@@ -1646,6 +1652,7 @@ void setting_draw(int sel) {
     String help = "up/down choose  left/right change  Enter type  q leave";
     if top > 0 { help = help + "  (more above)"; }
     if top + room < lines.len { help = help + "  (more below)"; }
+    if help.len > cols - 1 { help = help.slice(0, cols - 1); }
     out = out + e + "[" + str(rows) + ";1H" + e + "[2m" + help + e + "[0m" + e + "[K";
     cout << out;
 }

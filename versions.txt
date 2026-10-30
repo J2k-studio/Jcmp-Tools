@@ -17,7 +17,7 @@ jget 1.0.0
 jgit 0.4.0
 jpty 0.1.1
 jrawser 0.1.0
-jsh 0.12.6
+jsh 0.12.7
 jstore 0.2.0
 jvp4 0.1.0
 makej 0.10.1

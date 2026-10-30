@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.7
+* **Fixed:** `jaric setting` printed its title again and again (the title and the help line were longer than the screen, so the last row wrapped and scrolled the screen at every key, leaving a copy of the title in the history). Every line of the screen is now cut to the width of the screen.
+* **Added:** none.
+
 ## 0.12.6
 * **Added:** `jaric settings` opens the settings of the Jaric app in a window (colours, font, size of the letters, keyboard, battery, music).
 * **Fixed:** none.
