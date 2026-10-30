@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.6.0
+See the CHANGELOG of Jcmp.
+
 ## 1.2.5.0
 See the CHANGELOG of Jcmp.
 
