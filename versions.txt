@@ -4,7 +4,6 @@ cam 0.3.1
 coderin 0.5.1
 drive 0.4.0
 imgj 0.2.0
-island 0.1.0
 jamanager 0.3.0
 jaric-os 0.14.0
 jash 0.1.0
