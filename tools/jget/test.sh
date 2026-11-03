@@ -40,6 +40,17 @@ t "download: -O names the file after the address (the default in a terminal)" '$
 t "download: -o names the file" '$J -q http://127.0.0.1:$PORT/page.txt -o mine.txt && [ "$(cat mine.txt)" = "hello jget" ]'
 t "download: -o - writes to the screen" '[ "$($J http://127.0.0.1:$PORT/page.txt -o - 2>/dev/null)" = "hello jget" ]'
 t "download: -h URL is the same" '$J -q -h http://127.0.0.1:$PORT/page.txt -o h.txt && [ "$(cat h.txt)" = "hello jget" ]'
+PORT2=$((PORT + 2))
+(cd "$HERE" && exec python3 echo_server.py $PORT2 >/dev/null 2>&1) &
+for w in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do (exec 3<>/dev/tcp/127.0.0.1/$PORT2) 2>/dev/null && break; sleep 0.5; done
+t "request: -d sends a POST with the data (and joins two -d with &)" '[ "$($J -d a=1 -d b=2 http://127.0.0.1:$PORT2/echo)" = "POST:a=1&b=2" ]'
+t "request: -X and -H" '$J -i -X POST -H "X-Test: seven" -d z http://127.0.0.1:$PORT2/echo | grep -q "^X-Got: seven"'
+t "request: -d @file reads the data from a file" 'printf "from file" > "$W/body.txt" && [ "$($J -d @$W/body.txt http://127.0.0.1:$PORT2/echo)" = "POST:from file" ]'
+t "request: -u sends Basic authorization" '$J -i -u me:pw http://127.0.0.1:$PORT2/q | grep -q "^X-Auth: Basic bWU6cHc="'
+t "request: a redirect is followed (and --no-location stops it)" '[ "$($J -H "A: b" http://127.0.0.1:$PORT2/r)" = "GET /echo" ] && $J -i --no-location http://127.0.0.1:$PORT2/r | head -1 | grep -q 302'
+t "request: -I asks for the head only" '$J -I http://127.0.0.1:$PORT2/x | head -1 | grep -q "200" && [ -z "$($J -I http://127.0.0.1:$PORT2/x | tail -n +20 | tr -d "\r\n")" ]'
+t "request: -f makes a 404 an error (exit 22), without it the body is shown" '$J -f -H "A: b" http://127.0.0.1:$PORT2/nf >/dev/null 2>&1; [ $? = 22 ] && [ "$($J -H "A: b" http://127.0.0.1:$PORT2/nf)" = "GET /nf" ]'
+t "request: -o writes the answer to a file" '$J -H "A: b" -o "$W/ans.txt" http://127.0.0.1:$PORT2/file && [ "$(cat "$W/ans.txt")" = "GET /file" ]'
 t "download: -x makes the file executable" '$J -q -x http://127.0.0.1:$PORT/hello.sh -o x.sh && [ -x x.sh ] && [ "$(./x.sh a)" = "ran with a" ]'
 t "download: a script is made executable by itself" '$J -q http://127.0.0.1:$PORT/hello.sh -o y.sh && [ -x y.sh ] && [ "$(./y.sh b)" = "ran with b" ]'
 t "download: an ordinary file is not made executable" '$J -q http://127.0.0.1:$PORT/page.txt -o plain.txt && [ ! -x plain.txt ]'

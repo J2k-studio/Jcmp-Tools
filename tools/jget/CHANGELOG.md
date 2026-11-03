@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0 (needs jcmp 1.2.12.0 to build: `Net::http_exchange`)
+* **Added (jget is a curl too):** a request with a method, headers and a body, and the answer on the screen: `-X METHOD`, `-H "Name: value"`, `-d DATA` (`@file` reads a file, `@-` the keyboard; two `-d` are joined with `&`; a body makes it a POST), `-I` (the head only), `-i` (the head, then the body), `-u user:password` (Basic), `-A agent`, `-f` (an HTTP code of 400 or more is an error: exit 22), `-L` (follow redirects: it is on) and `--no-location`, `-s` (quiet), `-w` (the code after the body), `-o FILE`, `-O`. A plain `jget URL` is a download with a progress bar as before.
+* **Added:** 8 tests for the requests (a small server in `echo_server.py`).
+* **Fixed:** none.
+
 ## 1.0.0
 * **Changed (jget only downloads):** the install, update and remove of the tools (`jget tool ...`) and of the libraries (`jget -li ...`) moved to `jc` (`jc install NAME`, `jc update`, `jc unstall NAME`, `jc tools`, `jc lib list | install | unstall | installed`). jget is the downloader: URLs, `-o`, `-O`, `-x`, `-m` (songs), `-sh` and `-jsh` (run a script), `untar`, `--install`, `--update`, the progress bar, TLS 1.3 with the check of the certificate, mirrors.
 * **Kept for old scripts and documents:** `jget tool ...` and `jget -li ...` are sent to `jc` (when jc is not there jget says how to get it).
