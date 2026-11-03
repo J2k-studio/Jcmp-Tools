@@ -7,4 +7,6 @@ public class GameLib {
     public static native void resize(int w, int h);
     public static native void frame(int ms);
     public static native void touch(int action, int x, int y, int id);
+    public static native void key(int ch);               // a typed character (8 delete, 10 enter)
+    public static native int wantsKeyboard();             // 1: the game wants the soft keyboard
 }

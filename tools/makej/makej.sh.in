@@ -283,15 +283,37 @@ if [ "${1:-}" = "apk" ]; then
     [ -n "$orient" ] || orient=landscape
     [ -n "$ctrl" ] || ctrl=true
     render=$(mk render); gmain=$(mk main); [ -n "$gmain" ] || gmain=src/main.jk
-    for t in aapt2 ecj d8 zipalign apksigner keytool; do command -v $t >/dev/null 2>&1 || { echo "makej: $t is needed to make an apk (pkg install aapt2 ecj dx apksigner zipalign openjdk-17)" >&2; exit 2; }; done
+    # apkj (a tool written in J2K) makes the apk of a GL app alone: no aapt2, ecj, d8, zipalign, apksigner, keytool, android.jar. It is used when the
+    # Android tools are missing, or when MAKEJ_APKJ=1. (Keep one way for one app: an update of an installed app must be signed with the same key.)
+    miss=""
+    for t in aapt2 ecj d8 zipalign apksigner keytool; do command -v $t >/dev/null 2>&1 || miss="$miss $t"; done
+    use_apkj=0
+    if [ "${MAKEJ_APKJ:-}" = 1 ]; then use_apkj=1; elif [ -n "$miss" ] && [ "$render" = gl ] && [ ! -f icon.png ]; then use_apkj=1; fi
+    if [ "$use_apkj" = 1 ] && ! command -v apkj >/dev/null 2>&1; then
+        echo "makej: to make the apk you need apkj (jc install apkj) or these tools:$miss  (pkg install aapt2 ecj dx apksigner zipalign openjdk-17)" >&2; exit 2
+    fi
+    if [ "$use_apkj" = 1 ] && { [ "$render" != gl ] || [ -f icon.png ]; }; then
+        echo "makej: apkj makes the apk of a GL app without an icon (render = \"gl\" in manifest.toml, no icon.png); this app needs:$miss" >&2; exit 2
+    fi
+    if [ "$use_apkj" = 0 ] && [ -n "$miss" ]; then
+        echo "makej: to make an apk you need:$miss  (pkg install aapt2 ecj dx apksigner zipalign openjdk-17); for a GL app without an icon  jc install apkj  is enough" >&2; exit 2
+    fi
     jar=${ANDROID_JAR:-}
     for c in ./android.jar "$HOME/android.jar" "$HOME/.local/share/android/android.jar" "$HOME/Jaric/android.jar" "${PREFIX:-/usr}/share/android/android.jar"; do [ -n "$jar" ] || { [ -f "$c" ] && jar=$c; }; done
-    [ -f "$jar" ] || { echo "makej: android.jar was not found; put it in this folder or set ANDROID_JAR=path (it is in the Android SDK: platforms/android-34/android.jar)" >&2; exit 2; }
+    [ "$use_apkj" = 1 ] || [ -f "$jar" ] || { echo "makej: android.jar was not found; put it in this folder or set ANDROID_JAR=path (it is in the Android SDK: platforms/android-34/android.jar)" >&2; exit 2; }
     if [ "$render" = gl ]; then
         # a game that draws with OpenGL ES itself: libgame.so (J2K, jcmp -l) inside the app, a GLSurfaceView calls it (the library <glapp>)
         [ -f "$gmain" ] || { echo "makej: render = \"gl\" needs the main file of the game: $gmain (set  main = \"...\"  in manifest.toml)" >&2; exit 2; }
         mkdir -p _out
         jcmp "$gmain" -l -o _out/libgame.so || { echo "makej: the game did not compile" >&2; exit 2; }
+        if [ "$use_apkj" = 1 ]; then
+            safe=$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '_')
+            files=""
+            if [ -d assets ]; then for f in $(cd assets && find . -type f | sed 's#^\./##'); do files="$files assets/data/$f=assets/$f"; done; fi
+            apkj build manifest.toml "_out/$safe.apk" lib/arm64-v8a/libgame.so=_out/libgame.so $files || { echo "makej: apkj failed" >&2; exit 2; }
+            echo "makej: built _out/$safe.apk ($(wc -c < "_out/$safe.apk") bytes) with apkj. Install: cp _out/$safe.apk /sdcard/ and open it, or  pm install -r _out/$safe.apk"
+            exit 0
+        fi
         w=_out/apk; rm -rf "$w"; mkdir -p "$w/classes" "$w/dex" "$w/gen" "$w/assets" "$w/src/com/j2k/gamerun" "$w/res" "$w/lib/arm64-v8a"
         cp _out/libgame.so "$w/lib/arm64-v8a/libgame.so"
         [ -d assets ] && { mkdir -p "$w/assets/data"; cp -r assets/. "$w/assets/data/"; }
@@ -304,7 +326,7 @@ MAKEJ_GG_EOF
         actname=GlGameActivity; srcs="$w/src/com/j2k/gamerun/GameLib.java $w/src/com/j2k/gamerun/GlGameActivity.java"
     else
     jpty=${JPTY:-$(command -v jpty || true)}
-    [ -x "$jpty" ] || { echo "makej: jpty was not found (jc install jpty)" >&2; exit 2; }
+    [ -x "$jpty" ] || { echo "makej: jpty was not found (jc install jpty). An app without  render = \"gl\"  in manifest.toml runs your program on a terminal screen inside the app, and jpty gives the program that terminal. If your app draws its own screen (an app of pages, a game with OpenGL), write  render = \"gl\"  in manifest.toml: then jpty is not needed." >&2; exit 2; }
     sh "$0" "$prog" || exit 2
     [ -f "_out/$prog" ] || { echo "makej: _out/$prog was not built" >&2; exit 2; }
     w=_out/apk; rm -rf "$w"; mkdir -p "$w/classes" "$w/dex" "$w/gen" "$w/assets/bin" "$w/src/com/j2k/gamerun" "$w/res"
@@ -354,9 +376,224 @@ MAKEJ_AM_EOF
     exit 0
 fi
 APK_INIT=0
-if [ "${1:-}" = "init" ] && [ "${2:-}" = "-apk" ]; then      # makej init -apk: a project for an Android app (the same files as -game, os = android)
-    APK_INIT=1
-    set -- init -game -os android
+if [ "${1:-}" = "init" ] && [ "${2:-}" = "-apk" ]; then
+    # makej init -apk [NAME]: an Android app made of pages (not a game). The project takes its name from the folder (mkdir Jdesk; cd Jdesk; makej init -apk)
+    # or from NAME (a new folder). The structure is the one a person finds easy: src/ (main.jk, ui/, pages/), data/, assets/, README.md.
+    nm=${3:-}
+    if [ -n "$nm" ]; then [ -e "$nm" ] && { echo "makej: $nm exists already" >&2; exit 2; }; mkdir -p "$nm" && cd "$nm"; else nm=$(basename "$PWD"); fi
+    [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
+    case "$nm" in ""|*[!A-Za-z0-9_]*|[0-9]*) echo "makej: the name of an app is letters, digits and _ and does not start with a digit (got: $nm)" >&2; exit 2 ;; esac
+    lnm=$(printf '%s' "$nm" | tr 'A-Z' 'a-z'); unm=$(printf '%s' "$nm" | tr 'a-z' 'A-Z')
+    mkdir -p src/ui src/pages data assets
+    cat > makej <<MAKEJ_APK_EOF
+# the build file of the app $nm (makej init -apk). Run it with:
+#   makej            check that the app compiles (_out/lib$lnm.so)
+#   makej apk        build the Android app _out/$nm.apk (needs aapt2 ecj d8 zipalign apksigner and android.jar: makej doctor says what is missing)
+# The app draws with OpenGL ES through the library glapp:   jc lib install glapp canvas2d glcanvas opengl3
+[makej]
+out = "_out"
+
+[library.$lnm]
+main = "src/main.jk"
+flags = "-l"
+MAKEJ_APK_EOF
+    cat > manifest.toml <<MAKEJ_APK_EOF
+# the manifest of the app (like AndroidManifest.xml): makej apk reads it
+name = "$nm"
+id = "com.example.$lnm"
+version = "0.1.0"
+type = "app"
+render = "gl"
+main = "src/main.jk"
+orientation = "portrait"
+MAKEJ_APK_EOF
+    cat > src/main.jk <<'MAKEJ_APK_EOF'
+#import <stdlib>
+#import <glapp>
+#import "ui/widgets"
+#import "pages/home"
+#import "pages/about"
+#import "pages/notes"
+// The app. glapp calls these four functions; the page that is showing decides what to draw and what a touch does.
+//   src/ui/       the small parts every page uses (a button, a title)
+//   src/pages/    one file for each page: draw(...) and touch(...). Add a page: a new file, a new number in the list below.
+//   data/         what the app keeps (notes, settings);  assets/  pictures and sounds that go inside the apk
+int page;                    // 0 home, 1 about, 2 notes
+int screen_w;
+int screen_h;
+
+// the typed characters go to the page that is showing (8 is delete, 10 is enter)
+void app_key(int ch) {
+    if page == 2 { notes_key(ch); }
+}
+
+void game_init(int w, int h) {
+    screen_w = w;
+    screen_h = h;
+    page = 0;
+    glapp_on_key(app_key);
+}
+void game_resize(int w, int h) { screen_w = w; screen_h = h; }
+
+void game_frame(int ms) {
+    Canvas2d^ c = glapp_canvas();
+    c^.begin();
+    c^.clear(Color::rgb(18, 22, 34));
+    if page == 0 { home_draw(c, screen_w, screen_h); }
+    if page == 1 { about_draw(c, screen_w, screen_h); }
+    if page == 2 { notes_draw(c, screen_w, screen_h); }
+    c^.end();
+}
+
+// action 1 is a finger down; the page answers with the page to go to (or -1: stay)
+void game_touch(int action, int x, int y, int id) {
+    if action != 1 { return; }
+    int go = -1;
+    if page == 0 { go = home_touch(x, y, screen_w, screen_h); }
+    else if page == 1 { go = about_touch(x, y, screen_w, screen_h); }
+    else if page == 2 { go = notes_touch(x, y, screen_w, screen_h); }
+    if go >= 0 && go != page {
+        if page == 2 { glapp_keyboard(false); }          // leaving the notes: the keyboard goes
+        page = go;
+        if page == 2 { notes_open(); }
+    }
+}
+MAKEJ_APK_EOF
+    cat > src/ui/widgets.jk <<'MAKEJ_APK_EOF'
+#import <canvas2d>
+// the small parts of the screens. canvas_text draws capital letters, digits and signs (a 3 x 5 font, in squares of `scale` dots).
+bool ui_hit(int x, int y, double bx, double by, double bw, double bh) {
+    return (double)x >= bx && (double)x < bx + bw && (double)y >= by && (double)y < by + bh;
+}
+
+void ui_title(Canvas2d^ c, double w, String text) {
+    c^.rect(0.0, 0.0, w, 120.0, Color::rgb(30, 60, 120));
+    canvas_text(c, 24.0, 40.0, text, 5.0, Color::rgb(255, 255, 255));
+}
+
+void ui_button(Canvas2d^ c, double x, double y, double w, double h, String label) {
+    c^.rect(x, y, w, h, Color::rgb(45, 95, 170));
+    canvas_text(c, x + 20.0, y + h / 2.0 - 10.0, label, 4.0, Color::rgb(255, 255, 255));
+}
+MAKEJ_APK_EOF
+    cat > src/pages/home.jk <<MAKEJ_APK_EOF
+// the home page (src/main.jk imports ui/widgets before the pages, so the parts are known here): the name of the app and a button to the next page
+void home_draw(Canvas2d^ c, int w, int h) {
+    ui_title(c, (double)w, "$unm");
+    canvas_text(c, 24.0, 200.0, "HELLO FROM J2K", 4.0, Color::rgb(220, 230, 255));
+    ui_button(c, 24.0, 320.0, (double)w - 48.0, 140.0, "NOTES");
+    ui_button(c, 24.0, 500.0, (double)w - 48.0, 140.0, "ABOUT");
+}
+
+int home_touch(int x, int y, int w, int h) {
+    if ui_hit(x, y, 24.0, 320.0, (double)w - 48.0, 140.0) { return 2; }
+    if ui_hit(x, y, 24.0, 500.0, (double)w - 48.0, 140.0) { return 1; }
+    return -1;
+}
+MAKEJ_APK_EOF
+    cat > src/pages/about.jk <<'MAKEJ_APK_EOF'
+// a second page: shows how a page goes back
+void about_draw(Canvas2d^ c, int w, int h) {
+    ui_title(c, (double)w, "ABOUT");
+    canvas_text(c, 24.0, 200.0, "MADE WITH MAKEJ AND J2K", 3.0, Color::rgb(220, 230, 255));
+    ui_button(c, 24.0, 320.0, (double)w - 48.0, 140.0, "BACK");
+}
+
+int about_touch(int x, int y, int w, int h) {
+    if ui_hit(x, y, 24.0, 320.0, (double)w - 48.0, 140.0) { return 0; }
+    return -1;
+}
+MAKEJ_APK_EOF
+    cat > src/pages/notes.jk <<'MAKEJ_APK_EOF'
+// a page that takes text: type a line, Enter keeps it in the file notes.txt (in the folder of the app), the last lines are shown.
+// The soft keyboard comes when the page opens (glapp_keyboard); every character arrives in notes_key (see app_key in src/main.jk).
+// canvas_text draws capital letters, digits and signs, so the lines are shown in capitals; the file keeps what was typed.
+String[] note_lines;
+char note_buf[200];
+int note_len;
+
+String notes_path() {
+    String home = ".";
+    switch Env::get("HOME") { Option::Some(h): { home = h + ""; } Option::None: { } }
+    return home + "/notes.txt";
+}
+
+void notes_open() {
+    note_lines = arr(32);
+    note_len = 0;
+    switch Fs::read_lines(notes_path()) {
+        Result::Ok(ls): {
+            int from = 0;
+            if ls.len > 10 { from = ls.len - 10; }
+            for i in from..ls.len { note_lines.push(ls[i] + ""); }
+        }
+        Result::Err(e): { }
+    }
+    glapp_keyboard(true);
+}
+
+void notes_key(int ch) {
+    if ch == 10 {
+        if note_len > 0 {
+            String t = "";
+            for i in 0..note_len { t.push(note_buf[i]); }
+            Fs::append_text(notes_path(), t + "\n");
+            note_lines.push(t);
+            if note_lines.len > 10 { note_lines.remove(0); }
+            note_len = 0;
+        }
+        return;
+    }
+    if ch == 8 {
+        if note_len > 0 { note_len -= 1; }
+        return;
+    }
+    if ch >= 32 && ch < 127 && note_len < 190 {
+        note_buf[note_len] = ch;
+        note_len += 1;
+    }
+}
+
+void notes_draw(Canvas2d^ c, int w, int h) {
+    ui_title(c, (double)w, "NOTES");
+    for i in 0..note_lines.len {
+        canvas_text(c, 24.0, 150.0 + (double)i * 44.0, note_lines[i].upper(), 3.0, Color::rgb(220, 230, 255));
+    }
+    c^.rect(24.0, 640.0, (double)w - 48.0, 80.0, Color::rgb(40, 50, 80));
+    String cur = "";
+    for i in 0..note_len { cur.push(note_buf[i]); }
+    canvas_text(c, 36.0, 662.0, cur.upper() + "_", 3.0, Color::rgb(255, 255, 255));
+    ui_button(c, 24.0, 760.0, (double)w - 48.0, 120.0, "BACK");
+}
+
+int notes_touch(int x, int y, int w, int h) {
+    if ui_hit(x, y, 24.0, 760.0, (double)w - 48.0, 120.0) { return 0; }
+    glapp_keyboard(true);                                   // a touch anywhere else brings the keyboard back
+    return -1;
+}
+MAKEJ_APK_EOF
+    cat > README.md <<MAKEJ_APK_EOF
+# $nm
+
+An Android app made with J2K and makej.
+
+    makej            check that it compiles
+    makej apk        build _out/$nm.apk and install it on the phone
+
+## Where things are
+    src/main.jk       the app: which page shows, and what a touch does
+    src/ui/           the small parts every page uses (button, title)
+    src/pages/        one file for each page (home.jk, about.jk ...)
+    data/             what the app keeps
+    assets/           pictures and sounds that go into the apk
+    manifest.toml     name, id, version, orientation of the app
+
+The Notes page shows how a page takes text: the keyboard comes, Enter keeps the line in \`notes.txt\`.
+
+To add a page: make \`src/pages/mypage.jk\` with \`mypage_draw\` and \`mypage_touch\`, import it in \`src/main.jk\`, give it a number.
+Folders for your own parts (notes, tasks, files ...) go next to \`pages/\`: \`src/notes/\`, \`src/tasks/\`.
+MAKEJ_APK_EOF
+    echo "makej: wrote the app $nm (cd $nm; makej; makej apk)"; exit 0
 fi
 if [ "${1:-}" = "init" ] && [ "${2:-}" = "-game" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
@@ -759,20 +996,25 @@ MAKEJ_LIB_EOF
 fi
 if [ "${1:-}" = "init" ]; then
     [ -e makej ] && { echo "makej: the file makej is there already" >&2; exit 2; }
-cat > makej <<'MAKEJ_INIT_EOF'
+    # the program is named after the folder (mkdir Jdesk; cd Jdesk; makej init  ->  program Jdesk, main file src/Jdesk.jk); a folder name that is not a plain name gives hello
+    nm=$(basename "$PWD")
+    case "$nm" in ""|*[!A-Za-z0-9_]*|[0-9]*) nm=hello ;; esac
+    mkdir -p src
+    [ -e "src/$nm.jk" ] || printf '#import <stdlib>\n\nint main() {\n    jout << "hello from %s\\n";\n    return 0;\n}\n' "$nm" > "src/$nm.jk"
+cat > makej <<MAKEJ_INIT_EOF
 # the build file of this project (nano makej). Run it with:  makej   or   makej NAME   (-v shows the commands)
 [makej]
 out = "_out"
 
-[program.hello]
-main = "src/hello.jk"
+[program.$nm]
+main = "src/$nm.jk"
 flags = ""
 
 [step.run]
-run = "_out/hello"
-needs = "hello"
+run = "_out/$nm"
+needs = "$nm"
 MAKEJ_INIT_EOF
-    echo "makej: wrote the file makej"; exit 0
+    echo "makej: wrote the file makej and src/$nm.jk (makej run)"; exit 0
 fi
 mkdir -p _out
 if [ -f makej.jk ]; then src=makej.jk

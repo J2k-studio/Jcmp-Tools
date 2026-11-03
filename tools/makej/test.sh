@@ -86,5 +86,19 @@ if jcmp "$T/itf_probe.jk" -o "$T/itf_probe" >/dev/null 2>&1 && command -v aapt2 
     unzip -l _out/GL_Test.apk | grep -q "lib/arm64-v8a/libgame.so" || { echo "apk render gl: no libgame.so in the apk"; exit 1; }
     aapt2 dump badging _out/GL_Test.apk 2>/dev/null | grep -q "launchable-activity: name='com.j2k.gamerun.GlGameActivity'" || { echo "apk render gl: wrong activity"; exit 1; }
 fi
+# makej init -apk NAME: the project takes the name, the structure is easy to find, the app compiles
+cd "$T" && mkdir Jdesk && cd Jdesk
+"$MK" init -apk >/dev/null || { echo "init -apk failed"; exit 1; }
+for f in makej manifest.toml README.md src/main.jk src/ui/widgets.jk src/pages/home.jk src/pages/about.jk; do [ -f "$f" ] || { echo "init -apk: $f is missing"; exit 1; }; done
+[ -d data ] && [ -d assets ] || { echo "init -apk: data/ or assets/ is missing"; exit 1; }
+grep -q 'name = "Jdesk"' manifest.toml || { echo "init -apk: the name is not the folder name"; exit 1; }
+grep -q 'id = "com.example.jdesk"' manifest.toml || { echo "init -apk: the id"; exit 1; }
+grep -q '\[library.jdesk\]' makej || { echo "init -apk: the target is not named after the project"; exit 1; }
+cd "$T" && "$MK" init -apk Notes2 >/dev/null && [ -f Notes2/src/main.jk ] && grep -q 'name = "Notes2"' Notes2/manifest.toml || { echo "init -apk NAME: a new folder with the name"; exit 1; }
+if "$MK" init -apk 9bad >/dev/null 2>&1; then echo "init -apk: a name that starts with a digit must be refused"; exit 1; fi
+if [ -d "$HOME/Jcmp/build/libs" ]; then
+    cd "$T/Jdesk" && J2K_PATH="$HOME/Jcmp/build/libs" "$MK" >/dev/null 2>&1 || { echo "init -apk: the new app does not compile"; exit 1; }
+    [ -f _out/libjdesk.so ] || { echo "init -apk: no _out/libjdesk.so"; exit 1; }
+fi
 cd "$ROOT"
 echo "makej tests (game): ok"

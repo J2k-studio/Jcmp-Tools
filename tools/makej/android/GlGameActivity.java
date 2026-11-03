@@ -5,7 +5,13 @@ import android.content.res.AssetManager;
 import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.InputType;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.inputmethod.BaseInputConnection;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputMethodManager;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -34,7 +40,38 @@ public class GlGameActivity extends Activity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         unpackAssets();
-        view = new GLSurfaceView(this);
+        view = new GLSurfaceView(this) {
+            // the view takes text: the soft keyboard sends the characters here and they go to the game (GameLib.key)
+            @Override
+            public boolean onCheckIsTextEditor() { return true; }
+
+            @Override
+            public InputConnection onCreateInputConnection(EditorInfo out) {
+                out.inputType = InputType.TYPE_CLASS_TEXT;
+                out.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+                return new BaseInputConnection(this, false) {
+                    @Override
+                    public boolean commitText(CharSequence text, int newCursorPosition) {
+                        for (int i = 0; i < text.length(); i++) { sendKey(text.charAt(i)); }
+                        return true;
+                    }
+
+                    @Override
+                    public boolean deleteSurroundingText(int before, int after) {
+                        for (int i = 0; i < before; i++) { sendKey(8); }
+                        return true;
+                    }
+
+                    @Override
+                    public boolean sendKeyEvent(KeyEvent e) {
+                        if (e.getAction() == KeyEvent.ACTION_DOWN) { keyDown(e); }
+                        return true;
+                    }
+                };
+            }
+        };
+        view.setFocusable(true);
+        view.setFocusableInTouchMode(true);
         view.setEGLContextClientVersion(3);
         view.setEGLConfigChooser(8, 8, 8, 8, 0, 0);
         view.setRenderer(new GLSurfaceView.Renderer() {
@@ -65,7 +102,10 @@ public class GlGameActivity extends Activity {
                 long now = System.nanoTime();
                 int ms = (int) ((now - last) / 1000000L);
                 last = now;
-                if (ready) { GameLib.frame(ms); }
+                if (ready) {
+                    GameLib.frame(ms);
+                    pollKeyboard();
+                }
             }
         });
         view.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
@@ -167,5 +207,65 @@ public class GlGameActivity extends Activity {
                 if (ready) { GameLib.touch(action, x, y, id); }
             }
         });
+    }
+
+    private int keyboardShown;
+    private boolean keyboardBroken;
+
+    // the game says every frame whether it wants the soft keyboard; the keyboard is shown or hidden on the screen thread when that changes
+    private void pollKeyboard() {
+        if (keyboardBroken) { return; }
+        int want;
+        try {
+            want = GameLib.wantsKeyboard();
+        } catch (UnsatisfiedLinkError e) {
+            keyboardBroken = true;                     // a game built with an older glapp: no keyboard
+            return;
+        }
+        if (want != keyboardShown) {
+            keyboardShown = want;
+            final boolean show = want == 1;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm == null) { return; }
+                    if (show) {
+                        view.requestFocus();
+                        imm.showSoftInput(view, 0);
+                    } else {
+                        imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+                    }
+                }
+            });
+        }
+    }
+
+    // a character to the game on the GL thread
+    private void sendKey(final int ch) {
+        view.queueEvent(new Runnable() {
+            @Override
+            public void run() {
+                if (ready && !keyboardBroken) {
+                    try { GameLib.key(ch); } catch (UnsatisfiedLinkError e) { keyboardBroken = true; }
+                }
+            }
+        });
+    }
+
+    // a key of a hardware keyboard, or one the soft keyboard sends as a key: letters and digits by their character, delete = 8, enter = 10
+    private void keyDown(KeyEvent e) {
+        int code = e.getKeyCode();
+        if (code == KeyEvent.KEYCODE_DEL) { sendKey(8); return; }
+        if (code == KeyEvent.KEYCODE_ENTER) { sendKey(10); return; }
+        int u = e.getUnicodeChar();
+        if (u > 0) { sendKey(u); }
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent e) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) { return super.onKeyDown(keyCode, e); }
+        keyDown(e);
+        return true;
     }
 }

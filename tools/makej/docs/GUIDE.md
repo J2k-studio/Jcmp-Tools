@@ -9,7 +9,9 @@
 | `makej init` | one file `makej` (the build file) in the current folder |
 | `makej init -pro NAME` | a real project: `src/`, `tests/`, `docs/`, `scripts/`, `manifest.toml`, `README.md`, `CHANGELOG.md`, a build file with `run`, `test`, `pack` |
 | `makej init -game` | a game for the library `gamej` (Jaric Engine): `src/main.jk`, five lessons, `assets/`, `manifest.toml` |
-| `makej init -apk` | the same as `-game` with `os = "android"`: a project that becomes an Android app |
+| `makej init -apk [NAME]` | an **app of pages** (not a game) named after the folder or after NAME: `src/main.jk`, `src/ui/`, `src/pages/`, `data/`, `assets/`, `README.md`, `manifest.toml`; `makej apk` makes `_out/NAME.apk` |
+| `makej init -tool NAME` / `-lib NAME` | a command-line tool for `jc install` / a J2K library with its docs and test |
+| `makej init` (at a terminal, no kind) | asks what you want to make; `makej kinds` lists the kinds |
 | `makej init -ai` | a small AI project for `neuron`: `data/chat.txt`, `makej train`, `makej chat` |
 | `makej -pro`, `-game`, `-apk`, `-ai` | the same, without the word `init` |
 
@@ -30,6 +32,15 @@ makej install DIR     build, then copy the programs to DIR
 A program is built again only when a `.jk` / `.j` file below the folder of its main file is newer than the result.
 
 ## 3. An Android app: `makej init -apk`, step by step
+
+**The short way (an app of pages, named after the folder).**
+```
+mkdir Jdesk && cd Jdesk
+makej init -apk          # Jdesk is the name of the app: _out/Jdesk.apk, id com.example.jdesk
+makej                    # checks that it compiles
+makej apk                # builds the apk
+```
+You get `src/main.jk` (which page shows), `src/ui/widgets.jk` (button, title), `src/pages/home.jk` and `about.jk`, `data/`, `assets/`, `README.md`. A page is one file with `NAME_draw` and `NAME_touch`; add a folder next to `pages/` for your own parts (`src/notes/`, `src/tasks/`). The libraries it uses: `jc lib install glapp canvas2d glcanvas opengl3`. The rest of this chapter explains the apk of a program that runs in a terminal screen.
 
 **What it is.** `makej apk` makes a real `.apk` of your program: a small Android runner (a screen with the terminal of Jaric), your compiled program, `jpty` and your `assets/`. It runs on the phone without Jaric installed.
 

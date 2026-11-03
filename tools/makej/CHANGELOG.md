@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.0 (needs jcmp 1.2.11 (the templates use jout); for init -apk the libraries glapp, canvas2d, glcanvas, opengl3)
+* **Added:** `makej init` asks what you want to make when it runs in a terminal (a program, a project, a tool, a library, an app, a game, an AI); `makej kinds` lists them. `makej init -tool NAME` (a command-line program for `jc install`: VERSION, CHANGELOG, test.sh, release.sh that writes dist/ with SHA256SUMS) and `makej init -lib NAME` (a J2K library: libs/, docs/, lessons/, test/).
+* **Added:** `makej init -apk [NAME]` makes an **app of pages**, not a game: the project takes its name from the folder (`mkdir Jdesk; cd Jdesk; makej init -apk` gives `Jdesk`, `_out/Jdesk.apk`, `com.example.jdesk`) or from NAME (a new folder). The structure is `src/main.jk`, `src/ui/` (button, title), `src/pages/` (home, about), `data/`, `assets/`, `README.md`, `manifest.toml`; `makej apk` builds the apk. `makej init -game` is still the game.
+* **Added:** `makej init` (no kind) names the program after the folder (`mkdir Jdesk; cd Jdesk; makej init` gives `src/Jdesk.jk` and the target `Jdesk`).
+* **Added:** `makej apk` can use the tool `apkj` (made in J2K) for an app with `render = "gl"` and no `icon.png`: no aapt2, ecj, d8, zipalign, apksigner, keytool or android.jar is needed. It is used when one of those tools is missing, or when `MAKEJ_APKJ=1`; if the tools are all there the old way stays (an update of an installed app must be signed with the same key). When something is missing the message says what to install (`jc install apkj`, or the packages).
+* **Fixed:** none.
+
 ## 0.10.1
 * **Added:** an app made with `render = "gl"` unpacks the files of `assets/` to its own folder (`files/data`) the first time (and when the version changes), and sets `JC_ASSETS` and `HOME` for the game; a game in a shared library cannot read the environment, so it opens its pictures from `/data/data/ID/files/data/`.
 * **Fixed:** none.
