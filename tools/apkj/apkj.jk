@@ -1,6 +1,7 @@
 #import <stdlib>
 #import "zipcore"                       // the zip writer and reader of zipj (tools/zipj): the same source, built with  -I ../zipj
 #import "axml"
+#import "sign"
 // apkj: the apk of a J2K program, made without aapt2, ecj, d8, zipalign or apksigner (docs/design/27-apkj.md).
 //   apkj zip OUT.zip [-z] NAME=FILE...      a zip file (-z: deflate the files where it makes them smaller)   [step A1]
 //   apkj manifest manifest.toml OUT.xml     the binary AndroidManifest.xml of an app (name, id, version, orientation, render)   [step A2]
@@ -28,7 +29,7 @@ int do_zip(String[] a) {
     }
     String z = zw_finish();
     switch Fs::write_bytes(a[2] + "", z) {
-        Result::Ok(n): { jout << "apkj: " << a[2] << ": " << count << " files, " << z.len << " bytes\n"; }
+        Result::Ok(n): { cout << "apkj: " << a[2] << ": " << count << " files, " << z.len << " bytes\n"; }
         Result::Err(e): { cerr << "apkj: cannot write " << a[2] << ": " << e.message << "\n"; return 1; }
     }
     return 0;
@@ -130,18 +131,44 @@ int do_manifest(String[] a) {
     String xml = build_manifest(toml);
     if xml.len == 0 { return 1; }
     switch Fs::write_bytes(a[3] + "", xml) {
-        Result::Ok(n): { jout << "apkj: " << a[3] << ": " << xml.len << " bytes\n"; }
+        Result::Ok(n): { cout << "apkj: " << a[3] << ": " << xml.len << " bytes\n"; }
         Result::Err(e): { cerr << "apkj: cannot write " << a[3] << ": " << e.message << "\n"; return 1; }
     }
     return 0;
 }
 
+int do_selftest() {
+    P256 c;
+    p256_init(@c);
+    char d[32];
+    char qx[32];
+    char qy[32];
+    char h[32];
+    char r[32];
+    char s[32];
+    p256_new_key(@c, (char^)@d);
+    if !p256_public(@c, (char^)@d, (char^)@qx, (char^)@qy) { cerr << "apkj: public key failed\n"; return 1; }
+    int bad = 0;
+    for m in 0..5 {
+        char msg[8];
+        msg[0] = (char)(65 + m);
+        Crypto::sha256((char^)@msg, 1, (char^)@h);
+        p256_sign(@c, (char^)@d, (char^)@h, (char^)@r, (char^)@s);
+        if !Crypto::ecdsa_verify(256, (char^)@qx, (char^)@qy, (char^)@h, 32, (char^)@r, 32, (char^)@s, 32) { bad += 1; }
+        h[0] = (char)(h[0] + 1);
+        if Crypto::ecdsa_verify(256, (char^)@qx, (char^)@qy, (char^)@h, 32, (char^)@r, 32, (char^)@s, 32) { bad += 1; }
+    }
+    if bad == 0 { cout << "selftest ok\n"; } else { cout << "selftest FAILED\n"; }
+    return bad;
+}
+
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "apkj " << apkj_version() << "\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "apkj " << apkj_version() << "\n"; return 0; }
+    if a.len > 1 && a[1] == "selftest" { return do_selftest(); }
     if a.len > 1 && a[1] == "zip" { return do_zip(a); }
     if a.len > 1 && a[1] == "manifest" { return do_manifest(a); }
-    jout << "apkj: the apk of a J2K program (made by J2K alone)\n  apkj zip OUT.zip [-z] NAME=FILE...\n";
+    cout << "apkj: the apk of a J2K program (made by J2K alone)\n  apkj zip OUT.zip [-z] NAME=FILE...\n";
     if a.len > 1 { return 2; }
     return 0;
 }
