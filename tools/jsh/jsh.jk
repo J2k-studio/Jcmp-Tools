@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.7"; }
+String jsh_version() { return "0.12.8"; }
 String[] history;
 int last_status;
 int running;
@@ -1285,7 +1285,10 @@ int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_
         bool slash = false;
         for i in 0..argv[0].len { if argv[0][i] == '/' { slash = true; } }
         if slash {
-            Sys::execve(argv[0].c(), av, envp);
+            int er = Sys::execve(argv[0].c(), av, envp);           // comes back only when it failed
+            cerr << "jsh: " << argv[0] << ": " << exec_failed_text(argv[0], er) << "\n";
+            if file_mode_of(argv[0]) < 0 { Sys::exit(127); }          // not there: 127; there but cannot be started: 126
+            Sys::exit(126);
         } else {
             exec_path(argv[0], av, envp);
             // not in the PATH: the small commands of Jaric (jbox NAME args), from the PATH or from the folder of jsh (only the names that jbox knows:
@@ -1305,6 +1308,7 @@ int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_
         if is_jbox_name(argv[0]) { hint = "  (jc install jbox)"; }
         if argv[0] == "jcmp" { hint = "  (jc install jcmp: the language)"; }
         if argv[0] == "makej" || argv[0] == "coderin" || argv[0] == "jget" { hint = "  (jc install " + argv[0] + ")"; }
+        if hint.len == 0 && file_mode_of(argv[0]) >= 0 { hint = "  (there is a file with this name in this folder: run it as ./" + argv[0] + ")"; }
         if hint.len == 0 { hint = typo_hint(argv[0]); }
         cerr << "jsh: " << argv[0] << ": command not found" << hint << "\n";
         Sys::exit(127);
@@ -1708,6 +1712,19 @@ int file_mode_of(String path) {
     for q in 0..128 { sb[q] = 0; }
     if Sys::stat(path.c(), @sb) < 0 { return -1; }
     return (sb[16] & 255) | ((sb[17] & 255) << 8) | ((sb[18] & 255) << 16);
+}
+// why a program with a path could not be started (execve gave the negative error er): one clear line instead of "command not found"
+String exec_failed_text(String path, int er) {
+    int mode = file_mode_of(path);
+    if mode < 0 { return "no such file"; }
+    if er == 0 - 13 || er == 0 - 1 {
+        if (mode & 73) == 0 { return "the file is not executable: chmod +x " + path; }
+        return "permission denied: a program cannot run from this place (shared storage like u:/ does not allow it). Copy it to f:/ and run it there";
+    }
+    if er == 0 - 8 { return "this file is not a program that this phone can run (wrong format or built for another system)"; }
+    if er == 0 - 2 { return "the file is there, but the system could not load it (its loader is missing: built for another system?)"; }
+    if er == 0 - 26 { return "the file is being written by another program (text file busy)"; }
+    return "cannot run it (error " + str(0 - er) + ")";
 }
 
 // a jsh script: the name ends in .jsh, or the first line is [#jsh], #jsh or #!jsh
@@ -3010,6 +3027,7 @@ void log_event(String cmd, int status) {
     if sz.is_ok() && sz.take() > 400000 { return; }               // enough for one learning; xr learn / xr forget makes room
     String msg = "";
     if status == 127 { msg = "command not found"; }
+    if status == 126 { msg = "cannot run"; }
     String one = cmd.replace("\t", " ").replace("\n", " ");
     Fs::append_text(file, one + "\t" + str(status) + "\t" + msg + "\n");
 }

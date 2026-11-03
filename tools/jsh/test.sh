@@ -7,7 +7,7 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
 OUT=$(printf 'echo hello world\necho "a  b" | cat\necho one > f.txt\necho two >> f.txt\ncat < f.txt\nfalse\necho status $?\necho x | tr x y | cat\nnosuchprog\ncd /\npwd\nexit 7\n' | "$SH" 2>&1) && rc=0 || rc=$?
-WANT='jsh 0.12.7 (the shell of Jaric): help shows the commands
+WANT='jsh 0.12.8 (the shell of Jaric): help shows the commands
 hello world
 a  b
 one
@@ -24,7 +24,7 @@ T2=$(mktemp -d); trap 'rm -rf "$T" "$T2"' EXIT
 cd "$T2"; touch a.txt b.txt c.log
 printf 'echo "echo in the script"\nexport K=5\necho k=$K\n' > s.jsh
 OUT2=$(printf 'NAME=jao\necho hi $NAME\nalias say=echo\nsay aliased\necho *.txt\nfalse || echo second\ntrue && echo third\necho a ; echo b\nunset NAME\necho [$NAME]\ntype cd\nexit 0\n' | HOME="$T2" "$SH" 2>&1)
-WANT2='jsh 0.12.7 (the shell of Jaric): help shows the commands
+WANT2='jsh 0.12.8 (the shell of Jaric): help shows the commands
 hi jao
 aliased
 a.txt b.txt
@@ -223,7 +223,7 @@ case "$R17" in *"permission denied (chmod +x ./a.jsh)"*"rc=126"*) ;; *) echo "sh
 R17=$(cd "$T17" && chmod +x a.jsh && "$SH" -c './a.jsh ana b; echo rc=$?' 2>&1) || true
 case "$R17" in *"hi ana 2"*"rc=0"*) ;; *) echo "shell test (step 17): ./a.jsh: $R17"; exit 1 ;; esac
 R17=$(cd "$T17" && "$SH" -c './nofile; echo rc=$?' 2>&1) || true
-case "$R17" in *"command not found"*"rc=127"*) ;; *) echo "shell test (step 17): a missing file: $R17"; exit 1 ;; esac
+case "$R17" in *"no such file"*"rc=127"*) ;; *) echo "shell test (step 17): a missing file: $R17"; exit 1 ;; esac
 rm -rf "$T17"
 echo "shell test (step 17): ok"
 
@@ -328,4 +328,16 @@ no
 rnd"
 [ "$R21" = "$EXP21" ] || { echo "shell test (step 21): $R21"; exit 1; }
 rm -rf "$T21"
+# step 22: a program that cannot be started says why
+T22=$(mktemp -d); printf 'hello' > "$T22/plain.txt"; printf 'hello' > "$T22/fakebin"; chmod +x "$T22/fakebin"
+R22=$(cd "$T22" && "$ROOT/_out/jsh" -c "./plain.txt" 2>&1 || echo "exit $?")
+echo "$R22" | grep -q "the file is not executable: chmod +x ./plain.txt" && echo "$R22" | grep -q "exit 126" || { echo "shell test (step 22): not executable: $R22"; exit 1; }
+R22=$(cd "$T22" && "$ROOT/_out/jsh" -c "./fakebin" 2>&1 || echo "exit $?")
+echo "$R22" | grep -q "not a program that this phone can run" && echo "$R22" | grep -q "exit 126" || { echo "shell test (step 22): wrong format: $R22"; exit 1; }
+R22=$(cd "$T22" && "$ROOT/_out/jsh" -c "./nosuch" 2>&1 || echo "exit $?")
+echo "$R22" | grep -q "no such file" && echo "$R22" | grep -q "exit 127" || { echo "shell test (step 22): no such file: $R22"; exit 1; }
+R22=$(cd "$T22" && "$ROOT/_out/jsh" -c "plain.txt" 2>&1 || echo "exit $?")
+echo "$R22" | grep -q "run it as ./plain.txt" && echo "$R22" | grep -q "exit 127" || { echo "shell test (step 22): hint: $R22"; exit 1; }
+rm -rf "$T22"
+echo "shell test (step 22): ok"
 echo "shell test (step 21): ok"

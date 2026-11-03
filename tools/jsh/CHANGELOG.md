@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.8
+* **Added:** a program that cannot be started says why, in one clear line, and the exit status is 126: `the file is not executable: chmod +x ./NAME`, `permission denied: a program cannot run from this place (shared storage like u:/ does not allow it). Copy it to f:/ and run it there`, `this file is not a program that this phone can run (wrong format ...)`, `no such file`. A name that is not a command but is a file in this folder gets the hint `run it as ./NAME`.
+* **Fixed:** every failure to start a program (not executable, a place that does not allow programs, a wrong format) said `command not found`.
+
 ## 0.12.7
 * **Fixed:** `jaric setting` printed its title again and again (the title and the help line were longer than the screen, so the last row wrapped and scrolled the screen at every key, leaving a copy of the title in the history). Every line of the screen is now cut to the width of the screen.
 * **Added:** none.
