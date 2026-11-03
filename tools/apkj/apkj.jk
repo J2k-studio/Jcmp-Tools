@@ -2,6 +2,7 @@
 #import "zipcore"                       // the zip writer and reader of zipj (tools/zipj): the same source, built with  -I ../zipj
 #import "axml"
 #import "sign"
+#import "der"
 // apkj: the apk of a J2K program, made without aapt2, ecj, d8, zipalign or apksigner (docs/design/27-apkj.md).
 //   apkj zip OUT.zip [-z] NAME=FILE...      a zip file (-z: deflate the files where it makes them smaller)   [step A1]
 //   apkj manifest manifest.toml OUT.xml     the binary AndroidManifest.xml of an app (name, id, version, orientation, render)   [step A2]
@@ -137,6 +138,103 @@ int do_manifest(String[] a) {
     return 0;
 }
 
+// the key file: the 32 bytes of the private key, then the certificate (DER). Made when it is not there.
+String kl_cert;
+bool key_load(String path, P256^ c, char^ d) {
+    bool ok = false;
+    String data = read_bin(path, @ok);
+    if ok && data.len > 40 {
+        for i in 0..32 { d[i] = data[i]; }
+        kl_cert = data.slice(32, data.len) + "";
+        return true;
+    }
+    p256_new_key(c, d);
+    char serial[8];
+    Sys::random((char^)@serial, 8);
+    kl_cert = x509_make(c, d, (char^)@serial);
+    String out = "";
+    for i in 0..32 { out.push(d[i]); }
+    out.append(kl_cert);
+    switch Fs::write_bytes(path + "", out) {
+        Result::Ok(n): { cout << "apkj: new key " << path << " (keep it: an update of an app needs the same key)\n"; }
+        Result::Err(e): { cerr << "apkj: cannot write the key file " << path << ": " << e.message << " (give another place with -k FILE)\n"; return false; }
+    }
+    return true;
+}
+
+String default_key_path() {
+    String home = ".";
+    switch Env::get("HOME") {
+        Option::Some(h): { home = h + ""; }
+        Option::None: { }
+    }
+    return home + "/.apkj.key";
+}
+
+String empty_arsc() { return d_hex("02000c00280000000000000001001c001c0000000000000000000000000100001c00000000000000"); }
+
+// apkj build manifest.toml OUT.apk [-k KEY] NAME=FILE...   (the files: classes.dex, lib/arm64-v8a/libgame.so, assets/...)
+int do_build(String[] a) {
+    if a.len < 4 { cerr << "usage: apkj build manifest.toml OUT.apk [-k KEYFILE] NAME=FILE...\n"; return 2; }
+    String keyfile = default_key_path();
+    String toml = "";
+    switch Fs::read_text(a[2] + "") {
+        Result::Ok(t): { toml = t + ""; }
+        Result::Err(e): { cerr << "apkj: cannot read " << a[2] << ": " << e.message << "\n"; return 1; }
+    }
+    String xml = build_manifest(toml);
+    if xml.len == 0 { return 1; }
+    String[] names = arr(16);
+    String[] datas = arr(16);
+    names.push("AndroidManifest.xml"); datas.push(xml);
+    bool have_arsc = false;
+    for i in 4..a.len {
+        if a[i] == "-k" && i + 1 < a.len { keyfile = a[i + 1] + ""; i += 1; continue; }
+        int eq = a[i].find("=");
+        if eq <= 0 { cerr << "apkj: '" << a[i] << "' is not NAME=FILE\n"; return 2; }
+        String name = a[i].slice(0, eq) + "";
+        String file = a[i].slice(eq + 1, a[i].len) + "";
+        bool ok = false;
+        String data = read_bin(file, @ok);
+        if !ok { cerr << "apkj: cannot read " << file << " (for " << name << ")\n"; return 1; }
+        if name == "resources.arsc" { have_arsc = true; }
+        names.push(name); datas.push(data);
+    }
+    if !have_arsc { names.push("resources.arsc"); datas.push(empty_arsc()); }
+    P256 c;
+    p256_init(@c);
+    char d[32];
+    if !key_load(keyfile, @c, (char^)@d) { return 1; }
+    String cert = kl_cert;
+    // MANIFEST.MF and CERT.SF
+    String mf = "Manifest-Version: 1.0\r\nCreated-By: apkj\r\n\r\n";
+    String sections = "";
+    for i in 0..names.len {
+        String sec = jar_section(names[i], Base64::encode(sha256_of(datas[i])));
+        mf.append(sec);
+        sections.append(sec);
+    }
+    String sf = "Signature-Version: 1.0\r\nCreated-By: apkj\r\nSHA-256-Digest-Manifest: " + Base64::encode(sha256_of(mf)) + "\r\n\r\n";
+    for i in 0..names.len {
+        String sec = jar_section(names[i], Base64::encode(sha256_of(datas[i])));
+        sf.append(jar_section(names[i], Base64::encode(sha256_of(sec))));
+    }
+    String block = pkcs7_make(@c, (char^)@d, cert, sf);
+    zw_start();
+    for i in 0..names.len {
+        zw_add(names[i], datas[i], false, "");
+    }
+    zw_add("META-INF/MANIFEST.MF", mf, false, "");
+    zw_add("META-INF/CERT.SF", sf, false, "");
+    zw_add("META-INF/CERT.EC", block, false, "");
+    String z = zw_finish();
+    switch Fs::write_bytes(a[3] + "", z) {
+        Result::Ok(n): { cout << "apkj: " << a[3] << ": " << (names.len + 3) << " files, " << z.len << " bytes, signed (v1, ECDSA P-256)\n"; }
+        Result::Err(e): { cerr << "apkj: cannot write " << a[3] << ": " << e.message << "\n"; return 1; }
+    }
+    return 0;
+}
+
 int do_selftest() {
     P256 c;
     p256_init(@c);
@@ -166,6 +264,7 @@ int main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "apkj " << apkj_version() << "\n"; return 0; }
     if a.len > 1 && a[1] == "selftest" { return do_selftest(); }
+    if a.len > 1 && a[1] == "build" { return do_build(a); }
     if a.len > 1 && a[1] == "zip" { return do_zip(a); }
     if a.len > 1 && a[1] == "manifest" { return do_manifest(a); }
     cout << "apkj: the apk of a J2K program (made by J2K alone)\n  apkj zip OUT.zip [-z] NAME=FILE...\n";
