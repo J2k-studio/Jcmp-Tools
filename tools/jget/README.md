@@ -21,6 +21,19 @@ Tools and libraries: `jc install NAME`, `jc update`, `jc unstall NAME`, `jc tool
 * Libraries: the index is a text file (`NAME VERSION URL SHA256`), several indexes can be given (`JGET_INDEX`, mirrors); the checksum is checked before anything is installed.
   The default index is [Jcmp-libs](https://github.com/J2k-studio/Jcmp-libs). Libraries go to `~/.j2k/Library` (`JGET_LIB`).
 
+## jget as a curl (1.1.0)
+A request with a method, headers and a body; the answer goes to the screen:
+```
+jget -d name=ann -d age=31 https://example.com/form                  # a POST (a body makes it a POST); two -d are joined with &
+jget -X PUT -H "Content-Type: application/json" -d @data.json URL      # -d @file reads a file, -d @- the keyboard
+jget -I URL                  # the head only          jget -i URL     # the head, then the body
+jget -u me:secret URL        # Basic authorization    jget -A "my app" URL
+jget -f URL                  # a code of 400 or more is an error (exit 22), as curl -f
+jget --no-location URL       # do not follow redirects (they are followed by default)
+jget -w x URL                # the HTTP code after the body    jget -o answer.txt URL
+```
+Without these options `jget URL` is a download with a progress bar, as before.
+
 ## Install
 
 ```
