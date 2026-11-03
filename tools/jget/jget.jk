@@ -36,7 +36,7 @@ using stdlib;
 #import "core"
 #import "request"
 
-String jget_version() { return "1.0.0"; }
+String jget_version() { return "1.1.0"; }
 
 // the folder for songs: $MUJIC_DIR, else ~/music
 String music_folder() {
