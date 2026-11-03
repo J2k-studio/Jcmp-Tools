@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+* **Fixed:** `jbox --install` makes a link again when the link in the folder points somewhere else than `jbox` (or points nowhere). In the Jaric app a stale link made `cp` run another program (it cleared the screen). A real file, and a link that already points to `jbox`, are left alone.
+* **Added:** none.
+
 ## 0.10.0
 * **Added:** `df [-h] [FOLDER...]` (size, use, free of a drive), `ps` (the programs you can see: pid, state, memory, cpu, name) and `hex FILE` (the bytes in hex). The web is fetched by `jget` (`jget URL -o -` writes the answer to the screen), not by a second program in jbox.
 * **Fixed:** none.

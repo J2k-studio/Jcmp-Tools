@@ -1740,7 +1740,16 @@ int do_install(String[] args) {
     int rc = 0;
     for i in 0..names.len {
         String link = Path::join(dir, names[i]);
-        if Fs::exists(link) { continue; }
+        // a link that points somewhere else than jbox (left by an older install, or a wrong one) is made again; a real file or a link to jbox stays
+        char tgt[256];
+        int tn = Sys::call(78, 0 - 100, (int)link.c(), (int)@tgt, 255, 0, 0);
+        if tn >= 0 {
+            tgt[tn] = 0;
+            String target = "";
+            target.append((char^)@tgt);
+            if target == "jbox" { continue; }
+            Sys::unlink(link.c());
+        } else if Fs::exists(link) { continue; }
         if Sys::call(36, (int)"jbox".c(), 0 - 100, (int)link.c(), 0, 0, 0) < 0 { rc = fail("jbox", "cannot make " + link); }
     }
     if rc == 0 { cout << "jbox: " << names.len << " commands linked in " << dir << "\n"; }
@@ -1749,7 +1758,7 @@ int do_install(String[] args) {
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.10.0\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.10.1\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }

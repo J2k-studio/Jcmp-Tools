@@ -1,7 +1,7 @@
 #!/bin/sh
 # the small commands of Jaric: each result is compared with the expected text
 set -eu
-cd "$(dirname "$0")"; sh build.sh >/dev/null
+cd "$(dirname "$0")"; ROOT_DIR="$PWD"; sh build.sh >/dev/null
 [ "$(./_out/jbox --version)" = "jbox $(cat VERSION)" ] || { echo "jbox test: --version differs from VERSION"; exit 1; }
 J="$PWD/_out/jbox"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
@@ -126,4 +126,10 @@ echo "$OUT" | grep -q "See the guide and code and bold" || { echo "jbox test: ma
 echo "$OUT" | grep -q "^    demo run$" || { echo "jbox test: man: code"; exit 1; }
 echo "$OUT" | grep -q "^  - one$" || { echo "jbox test: man: lists"; exit 1; }
 if HOME="$T/home" "$J" man nosuchtopicxyz > /dev/null 2>&1; then echo "jbox test: man of nothing must fail"; exit 1; fi
-python3 -I "$OLDPWD/pager_test.py" "$J" "$T" || { echo "jbox test: the pager"; exit 1; }
+# --install: a stale link (to another program, or to nothing) is made again; a real file stays
+mkdir "$T/lnk" && cd "$T/lnk" && ln -s /bin/sh cp && ln -s nowhere sort && printf 'mine' > uniq
+"$J" --install . > /dev/null || { echo "jbox test: --install failed"; exit 1; }
+[ "$(readlink cp)" = "jbox" ] && [ "$(readlink sort)" = "jbox" ] || { echo "jbox test: --install did not repair a stale link"; exit 1; }
+[ "$(cat uniq)" = "mine" ] || { echo "jbox test: --install overwrote a real file"; exit 1; }
+cd "$ROOT_DIR"
+python3 -I "$ROOT_DIR/pager_test.py" "$J" "$T" || { echo "jbox test: the pager"; exit 1; }
