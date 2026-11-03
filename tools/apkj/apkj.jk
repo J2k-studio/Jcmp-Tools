@@ -1,0 +1,144 @@
+#import <stdlib>
+#import "zipw"
+#import "axml"
+// apkj: the apk of a J2K program, made without aapt2, ecj, d8, zipalign or apksigner (docs/design/27-apkj.md).
+//   apkj zip OUT.zip [-z] NAME=FILE...      a zip file (-z: deflate the files where it makes them smaller)   [step A1]
+//   apkj manifest manifest.toml OUT.xml     the binary AndroidManifest.xml of an app (name, id, version, orientation, render)   [step A2]
+//   apkj --version
+
+String apkj_version() { return "0.1.0"; }
+
+int do_zip(String[] a) {
+    if a.len < 4 { cerr << "usage: apkj zip OUT.zip [-z] NAME=FILE...\n"; return 2; }
+    bool deflate = false;
+    zip_begin();
+    for i in 3..a.len {
+        if a[i] == "-z" { deflate = true; continue; }
+        int eq = a[i].find("=");
+        if eq <= 0 { cerr << "apkj: '" << a[i] << "' is not NAME=FILE\n"; return 2; }
+        String name = a[i].slice(0, eq) + "";
+        String file = a[i].slice(eq + 1, a[i].len) + "";
+        switch Fs::read_bytes(file) {
+            Result::Ok(data): { zip_add(name, data, deflate); }
+            Result::Err(e): { cerr << "apkj: cannot read " << file << ": " << e.message << "\n"; return 1; }
+        }
+    }
+    String z = zip_end();
+    switch Fs::write_bytes(a[2] + "", z) {
+        Result::Ok(n): { cout << "apkj: " << a[2] << ": " << zip_names.len << " files, " << z.len << " bytes\n"; }
+        Result::Err(e): { cerr << "apkj: cannot write " << a[2] << ": " << e.message << "\n"; return 1; }
+    }
+    return 0;
+}
+
+// the value of  key = "text"  or  key = word  in a manifest.toml ("" when it is not there)
+String toml_value(String text, String key) {
+    String[] lines = text.split("\n");
+    for i in 0..lines.len {
+        String ln = lines[i].trim();
+        if ln.len == 0 || ln[0] == '#' { continue; }
+        int eq = ln.find("=");
+        if eq <= 0 { continue; }
+        if ln.slice(0, eq).trim() != key { continue; }
+        String v = ln.slice(eq + 1, ln.len).trim();
+        int hash = v.find(" #");
+        if hash > 0 && v[0] != '"' { v = v.slice(0, hash).trim(); }
+        if v.len >= 2 && v[0] == '"' { int close = v.slice(1, v.len).find("\""); if close >= 0 { return v.slice(1, 1 + close) + ""; } }
+        return v + "";
+    }
+    return "";
+}
+
+// the manifest of an app: the activity is the GL runner (render = "gl") or the terminal runner
+String build_manifest(String toml) {
+    String name = toml_value(toml, "name");
+    String id = toml_value(toml, "id");
+    String ver = toml_value(toml, "version");
+    String orient = toml_value(toml, "orientation");
+    String render = toml_value(toml, "render");
+    String controls = toml_value(toml, "controls");
+    if name.len == 0 || id.len == 0 || ver.len == 0 { cerr << "apkj: manifest.toml needs name, id and version\n"; return ""; }
+    if id.find(".") < 0 { cerr << "apkj: the id in manifest.toml needs a dot (for example com.you.myapp), got: " << id << "\n"; return ""; }
+    String[] parts = ver.split(".");
+    int code = 0;
+    if parts.len > 0 { code = parts[0].to_int() * 10000; }
+    if parts.len > 1 { code += parts[1].to_int() * 100; }
+    if parts.len > 2 { code += parts[2].to_int(); }
+    if code < 1 { code = 1; }
+    int orientation = 0;                                   // 0 landscape
+    if orient == "portrait" { orientation = 1; }
+    String act = "com.j2k.gamerun.GameActivity";
+    if render == "gl" { act = "com.j2k.gamerun.GlGameActivity"; }
+    axml_begin();
+    axml_open("manifest");
+    axml_a_int("versionCode", code);
+    axml_a_str("versionName", ver);
+    axml_a_plain("package", id);
+    axml_commit();
+    axml_open("uses-sdk");
+    axml_a_int("minSdkVersion", 29);
+    axml_a_int("targetSdkVersion", 28);
+    axml_commit();
+    axml_close("uses-sdk");
+    axml_open("uses-permission");
+    axml_a_str("name", "android.permission.INTERNET");
+    axml_commit();
+    axml_close("uses-permission");
+    axml_open("application");
+    axml_a_ref("theme", 16973831);                        // @android:style/Theme.NoTitleBar.Fullscreen (0x01030007)
+    axml_a_str("label", name);
+    axml_a_bool("allowBackup", false);
+    axml_commit();
+    axml_open("meta-data");
+    axml_a_str("name", "controls");
+    axml_a_bool("value", controls != "false");
+    axml_commit();
+    axml_close("meta-data");
+    axml_open("activity");
+    axml_a_str("name", act);
+    axml_a_bool("exported", true);
+    axml_a_int("screenOrientation", orientation);
+    axml_a_hex("configChanges", 4000);                    // 0x0fa0: orientation, screenSize, screenLayout, smallestScreenSize, keyboardHidden, uiMode
+    axml_commit();
+    axml_open("intent-filter");
+    axml_commit();
+    axml_open("action");
+    axml_a_str("name", "android.intent.action.MAIN");
+    axml_commit();
+    axml_close("action");
+    axml_open("category");
+    axml_a_str("name", "android.intent.category.LAUNCHER");
+    axml_commit();
+    axml_close("category");
+    axml_close("intent-filter");
+    axml_close("activity");
+    axml_close("application");
+    axml_close("manifest");
+    return axml_end();
+}
+
+int do_manifest(String[] a) {
+    if a.len < 4 { cerr << "usage: apkj manifest manifest.toml OUT.xml\n"; return 2; }
+    String toml = "";
+    switch Fs::read_text(a[2] + "") {
+        Result::Ok(t): { toml = t + ""; }
+        Result::Err(e): { cerr << "apkj: cannot read " << a[2] << ": " << e.message << "\n"; return 1; }
+    }
+    String xml = build_manifest(toml);
+    if xml.len == 0 { return 1; }
+    switch Fs::write_bytes(a[3] + "", xml) {
+        Result::Ok(n): { jout << "apkj: " << a[3] << ": " << xml.len << " bytes\n"; }
+        Result::Err(e): { cerr << "apkj: cannot write " << a[3] << ": " << e.message << "\n"; return 1; }
+    }
+    return 0;
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "apkj " << apkj_version() << "\n"; return 0; }
+    if a.len > 1 && a[1] == "zip" { return do_zip(a); }
+    if a.len > 1 && a[1] == "manifest" { return do_manifest(a); }
+    jout << "apkj: the apk of a J2K program (made by J2K alone)\n  apkj zip OUT.zip [-z] NAME=FILE...\n";
+    if a.len > 1 { return 2; }
+    return 0;
+}
