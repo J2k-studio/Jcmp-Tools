@@ -1,5 +1,5 @@
 #import <stdlib>
-#import "zipw"
+#import "zipcore"                       // the zip writer and reader of zipj (tools/zipj): the same source, built with  -I ../zipj
 #import "axml"
 // apkj: the apk of a J2K program, made without aapt2, ecj, d8, zipalign or apksigner (docs/design/27-apkj.md).
 //   apkj zip OUT.zip [-z] NAME=FILE...      a zip file (-z: deflate the files where it makes them smaller)   [step A1]
@@ -11,21 +11,24 @@ String apkj_version() { return "0.1.0"; }
 int do_zip(String[] a) {
     if a.len < 4 { cerr << "usage: apkj zip OUT.zip [-z] NAME=FILE...\n"; return 2; }
     bool deflate = false;
-    zip_begin();
+    zw_start();
+    int count = 0;
     for i in 3..a.len {
         if a[i] == "-z" { deflate = true; continue; }
         int eq = a[i].find("=");
         if eq <= 0 { cerr << "apkj: '" << a[i] << "' is not NAME=FILE\n"; return 2; }
         String name = a[i].slice(0, eq) + "";
         String file = a[i].slice(eq + 1, a[i].len) + "";
-        switch Fs::read_bytes(file) {
-            Result::Ok(data): { zip_add(name, data, deflate); }
-            Result::Err(e): { cerr << "apkj: cannot read " << file << ": " << e.message << "\n"; return 1; }
-        }
+        bool ok = false;
+        bool^ okp = @ok;
+        String data = read_bin(file, okp);
+        if !ok { cerr << "apkj: cannot read " << file << "\n"; return 1; }
+        zw_add(name, data, false, "");
+        count += 1;
     }
-    String z = zip_end();
+    String z = zw_finish();
     switch Fs::write_bytes(a[2] + "", z) {
-        Result::Ok(n): { cout << "apkj: " << a[2] << ": " << zip_names.len << " files, " << z.len << " bytes\n"; }
+        Result::Ok(n): { jout << "apkj: " << a[2] << ": " << count << " files, " << z.len << " bytes\n"; }
         Result::Err(e): { cerr << "apkj: cannot write " << a[2] << ": " << e.message << "\n"; return 1; }
     }
     return 0;
