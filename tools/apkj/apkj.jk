@@ -3,12 +3,16 @@
 #import "axml"
 #import "sign"
 #import "der"
+#import "runtime"
 // apkj: the apk of a J2K program, made without aapt2, ecj, d8, zipalign or apksigner (docs/design/27-apkj.md).
 //   apkj zip OUT.zip [-z] NAME=FILE...      a zip file (-z: deflate the files where it makes them smaller)   [step A1]
 //   apkj manifest manifest.toml OUT.xml     the binary AndroidManifest.xml of an app (name, id, version, orientation, render)   [step A2]
+//   apkj build manifest.toml OUT.apk [-k KEY] NAME=FILE...   a signed apk (v1, ECDSA P-256); classes.dex and resources.arsc are added   [steps A3-A5]
+//   apkj key [FILE]                         make the signing key (default ~/.apkj.key) and show its fingerprint
+//   apkj selftest                           sign and check some messages
 //   apkj --version
 
-String apkj_version() { return "0.1.0"; }
+String apkj_version() { return "0.2.0"; }
 
 int do_zip(String[] a) {
     if a.len < 4 { cerr << "usage: apkj zip OUT.zip [-z] NAME=FILE...\n"; return 2; }
@@ -173,7 +177,7 @@ String default_key_path() {
 
 String empty_arsc() { return d_hex("02000c00280000000000000001001c001c0000000000000000000000000100001c00000000000000"); }
 
-// apkj build manifest.toml OUT.apk [-k KEY] NAME=FILE...   (the files: classes.dex, lib/arm64-v8a/libgame.so, assets/...)
+// apkj build manifest.toml OUT.apk [-k KEY] NAME=FILE...   (classes.dex and resources.arsc are added when not given; the files: lib/arm64-v8a/libgame.so, assets/...)
 int do_build(String[] a) {
     if a.len < 4 { cerr << "usage: apkj build manifest.toml OUT.apk [-k KEYFILE] NAME=FILE...\n"; return 2; }
     String keyfile = default_key_path();
@@ -188,6 +192,7 @@ int do_build(String[] a) {
     String[] datas = arr(16);
     names.push("AndroidManifest.xml"); datas.push(xml);
     bool have_arsc = false;
+    bool have_dex = false;
     for i in 4..a.len {
         if a[i] == "-k" && i + 1 < a.len { keyfile = a[i + 1] + ""; i += 1; continue; }
         int eq = a[i].find("=");
@@ -198,8 +203,10 @@ int do_build(String[] a) {
         String data = read_bin(file, @ok);
         if !ok { cerr << "apkj: cannot read " << file << " (for " << name << ")\n"; return 1; }
         if name == "resources.arsc" { have_arsc = true; }
+        if name == "classes.dex" { have_dex = true; }
         names.push(name); datas.push(data);
     }
+    if !have_dex { names.push("classes.dex"); datas.push(runtime_dex()); }
     if !have_arsc { names.push("resources.arsc"); datas.push(empty_arsc()); }
     P256 c;
     p256_init(@c);
@@ -235,6 +242,19 @@ int do_build(String[] a) {
     return 0;
 }
 
+// apkj key [FILE]: makes the signing key when it is not there, and tells where it is and its fingerprint
+int do_key(String[] a) {
+    String path = default_key_path();
+    if a.len > 2 { path = a[2] + ""; }
+    P256 c;
+    p256_init(@c);
+    char d[32];
+    if !key_load(path, @c, (char^)@d) { return 1; }
+    String fp = tohex_bytes(sha256_of(kl_cert));
+    cout << "key: " << path << "\nSHA-256 of the certificate: " << fp << "\n";
+    return 0;
+}
+
 int do_selftest() {
     P256 c;
     p256_init(@c);
@@ -264,6 +284,7 @@ int main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "apkj " << apkj_version() << "\n"; return 0; }
     if a.len > 1 && a[1] == "selftest" { return do_selftest(); }
+    if a.len > 1 && a[1] == "key" { return do_key(a); }
     if a.len > 1 && a[1] == "build" { return do_build(a); }
     if a.len > 1 && a[1] == "zip" { return do_zip(a); }
     if a.len > 1 && a[1] == "manifest" { return do_manifest(a); }

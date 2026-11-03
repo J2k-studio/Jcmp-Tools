@@ -127,3 +127,14 @@ String jar_line(String key, String value) {
 String jar_section(String name, String digest64) {
     return jar_line("Name", name) + jar_line("SHA-256-Digest", digest64) + "\r\n";
 }
+
+String tohex_bytes(String b) {
+    String h = "0123456789abcdef";
+    String r = "";
+    for i in 0..b.len {
+        int v = b[i] & 255;
+        r.push(h[v >> 4]);
+        r.push(h[v & 15]);
+    }
+    return r;
+}
