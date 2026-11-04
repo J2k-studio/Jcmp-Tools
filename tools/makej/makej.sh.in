@@ -13,6 +13,38 @@ case "${1:-}" in -h|--help|help)
     echo "  makej --version"
     exit 0 ;;
 esac
+# makej doctor: what is installed, what is missing, and the command that installs it
+if [ "${1:-}" = "doctor" ]; then
+    bad=0
+    ok()   { printf '  ok      %s\n' "$1"; }
+    miss() { printf '  MISSING %s   ->  %s\n' "$1" "$2"; bad=$((bad+1)); }
+    echo "makej doctor"
+    echo "the compiler and the tools of J2K:"
+    if command -v jcmp >/dev/null 2>&1; then ok "jcmp $(jcmp -version 2>/dev/null | cut -d' ' -f2)"; else miss "jcmp (the J2K compiler)" "jc install jcmp"; fi
+    if command -v jc >/dev/null 2>&1; then ok "jc (installs tools and libraries)"; else miss "jc" "curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh"; fi
+    command -v jget >/dev/null 2>&1 && ok "jget (downloads)" || miss "jget" "jc install jget"
+    echo "for a program, a game and a package (makej, makej run, makej pack):"
+    command -v unzip >/dev/null 2>&1 && ok "unzip" || miss "unzip" "pkg install unzip   (or jc install zipj)"
+    command -v tar >/dev/null 2>&1 && ok "tar" || miss "tar" "pkg install tar   (or jc install tarj)"
+    echo "for an Android app (makej apk):"
+    if command -v apkj >/dev/null 2>&1; then
+        ok "apkj (makes the apk of a GL app with no Android tools)"
+    else
+        miss "apkj" "jc install apkj      (the easy way for a GL app with no icon)"
+    fi
+    am=""
+    for t in aapt2 ecj d8 zipalign apksigner keytool; do command -v $t >/dev/null 2>&1 || am="$am $t"; done
+    [ -f "${ANDROID_JAR:-$HOME/android.jar}" ] || [ -f "$HOME/android-jar/android.jar" ] || am="$am android.jar"
+    if [ -z "$am" ]; then ok "the Android tools (aapt2 ecj d8 zipalign apksigner keytool android.jar)"
+    else echo "  note    without apkj you also need:$am   ->  pkg install aapt2 ecj dx apksigner zipalign openjdk-17   (android.jar: see the README)"; fi
+    echo "libraries (jc lib list shows them):"
+    for l in canvas2d glapp; do
+        if [ -f "${J2K_PATH:-$HOME/.j2k/libs}/$l.j" ] || [ -f "$HOME/.j2k/Library/$l.j" ] || [ -f "$HOME/.j2k/libs/$l.j" ]; then ok "$l"; else echo "  note    $l is not installed (only needed for GL apps)   ->  jc lib install $l"; fi
+    done
+    echo
+    if [ "$bad" = 0 ]; then echo "everything makej needs is there."; exit 0; fi
+    echo "$bad thing(s) to install (see the lines marked MISSING)."; exit 1
+fi
 case "${1:-}" in -pro|-game|-ai|-apk|-tool|-lib) first=$1; shift; set -- init "$first" "$@" ;; esac
 # makej is built with jcmp 1.2.0.0 or newer (its library uses forms that older compilers do not know: they stop with "unknown escape sequence")
 need_jcmp() {

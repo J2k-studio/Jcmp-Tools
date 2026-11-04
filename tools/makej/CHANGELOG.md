@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0 (not released)
+* **Added:** `makej doctor` checks what is installed (jcmp, jc, jget, unzip, tar, apkj, the Android tools, libraries) and prints the command that installs what is missing (exit 1 when something is missing).
+* **Fixed:** none.
+
 ## 0.11.0 (needs jcmp 1.2.11 (the templates use jout); for init -apk the libraries glapp, canvas2d, glcanvas, opengl3)
 * **Added:** `makej init` asks what you want to make when it runs in a terminal (a program, a project, a tool, a library, an app, a game, an AI); `makej kinds` lists them. `makej init -tool NAME` (a command-line program for `jc install`: VERSION, CHANGELOG, test.sh, release.sh that writes dist/ with SHA256SUMS) and `makej init -lib NAME` (a J2K library: libs/, docs/, lessons/, test/).
 * **Added:** `makej init -apk [NAME]` makes an **app of pages**, not a game: the project takes its name from the folder (`mkdir Jdesk; cd Jdesk; makej init -apk` gives `Jdesk`, `_out/Jdesk.apk`, `com.example.jdesk`) or from NAME (a new folder). The structure is `src/main.jk`, `src/ui/` (button, title), `src/pages/` (home, about), `data/`, `assets/`, `README.md`, `manifest.toml`; `makej apk` builds the apk. `makej init -game` is still the game.

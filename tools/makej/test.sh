@@ -71,6 +71,10 @@ fi
 cd "$T" && mkdir ap && cd ap && "$MK" init -apk 2>&1 | grep -q "wrote the app" || { echo "init -apk"; exit 1; }
 [ -f makej ] && [ -f manifest.toml ] && [ -f src/main.jk ] && grep -q '^type = "app"' manifest.toml || { echo "init -apk makes the project as an app"; exit 1; }
 cd "$T" && mkdir ap2 && cd ap2 && "$MK" -apk >/dev/null && grep -q '^type = "app"' manifest.toml || { echo "makej -apk"; exit 1; }
+# makej doctor: says what is installed and what is missing (exit 0: all there, 1: something to install)
+rc=0; "$MK" doctor > "$T/doctor.txt" 2>&1 || rc=$?
+grep -q "^makej doctor" "$T/doctor.txt" && grep -q "jcmp" "$T/doctor.txt" || { echo "doctor: no report"; exit 1; }
+if grep -q MISSING "$T/doctor.txt"; then [ "$rc" = 1 ] || { echo "doctor: MISSING lines but exit $rc"; exit 1; }; else [ "$rc" = 0 ] || { echo "doctor: nothing missing but exit $rc"; exit 1; }; fi
 # makej doc: the comment at the top of a library
 J2K_PATH="$HOME/Jcmp/build/libs" "$MK" doc | grep -q "^gamej" || { echo "doc list"; exit 1; }
 J2K_PATH="$HOME/Jcmp/build/libs" "$MK" doc gamej | grep -q "Game" || { echo "doc NAME"; exit 1; }
