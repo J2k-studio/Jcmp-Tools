@@ -17,7 +17,7 @@
 using stdlib;
 #import "sign"
 
-String jmaip_version() { return "0.1.0"; }
+String jmaip_version() { return "0.2.0"; }
 
 // ---------- bytes
 String hex_of(String s) {
@@ -605,6 +605,209 @@ int cmd_status() {
     return 0;
 }
 
+// ---------- the API for other programs: jmaip serve
+// One JSON object on a line in, one JSON object on a line out, on 127.0.0.1 only. Every request carries the token of the file api.token in the vault folder
+// (mode 600: a program of another user of the phone cannot read it). Binary data goes in hex.
+//   {"token":"...","cmd":"ping"}                                             {"ok":true,"version":"0.1.0"}
+//   {"token":"...","cmd":"key.list"}   key.public (name)   key.sign (name, challenge | challenge_hex)   key.verify (public, challenge | challenge_hex, signature)
+//   {"token":"...","cmd":"secret.get","name":"x"}   secret.put (name, value)   secret.rm (name)   secret.list
+//   {"token":"...","cmd":"enc","data_hex":"...","key":"phone"}   dec (data_hex)          -> "data_hex"
+String reply_err(String msg) { return "{\"ok\":false,\"error\":" + Json::quote(msg) + "}"; }
+
+String field(JsonDoc^ d, String name) {
+    int n = d^.get(d^.root(), name);
+    if n < 0 { return ""; }
+    return d^.text(n);
+}
+
+String challenge_field(JsonDoc^ d, bool^ ok) {
+    ok[0] = true;
+    String hx = field(d, "challenge_hex");
+    if hx.len > 0 { return from_hex(hx, ok); }
+    return field(d, "challenge");
+}
+
+String handle(String line, String token) {
+    Result<JsonDoc, Error> pr = Json::parse(line);
+    if pr.is_err() { return reply_err("not JSON"); }
+    JsonDoc d = pr.unwrap();
+    String given = field(@d, "token");
+    // a comparison that does not stop at the first different byte
+    int diff = given.len xor token.len;
+    for i in 0..token.len { int g = 0; if i < given.len { g = given[i] & 255; } diff = diff | (g xor (token[i] & 255)); }
+    if diff != 0 { return reply_err("denied"); }
+    String cmd = field(@d, "cmd");
+    String keys = vault_dir() + "/keys";
+    if cmd == "ping" { return "{\"ok\":true,\"version\":\"" + jmaip_version() + "\"}"; }
+    if cmd == "key.verify" {
+        bool ok1 = false;
+        bool ok2 = false;
+        String pub = from_hex(field(@d, "public"), @ok1);
+        String sig = from_hex(field(@d, "signature"), @ok2);
+        bool ok3 = false;
+        String msg = challenge_field(@d, @ok3);
+        if !ok1 || pub.len != 65 || !ok2 || sig.len != 64 || !ok3 { return reply_err("bad public key, signature or challenge"); }
+        char qx[32]; char qy[32]; char hb[32]; char rb[32]; char sb[32];
+        String h = sha256_of(msg);
+        for i in 0..32 { qx[i] = pub[1 + i]; qy[i] = pub[33 + i]; hb[i] = h[i]; rb[i] = sig[i]; sb[i] = sig[32 + i]; }
+        bool good = Crypto::ecdsa_verify(256, (char^)@qx, (char^)@qy, (char^)@hb, 32, (char^)@rb, 32, (char^)@sb, 32);
+        if good { return "{\"ok\":true,\"valid\":true}"; }
+        return "{\"ok\":true,\"valid\":false}";
+    }
+    if cmd == "key.list" {
+        String out = "{\"ok\":true,\"keys\":[";
+        String[] names = Dir::list(keys).unwrap();
+        int n = 0;
+        for i in 0..names.len {
+            if ends_with(names[i], ".pub") {
+                bool pok = false;
+                String ph = read_bytes(keys + "/" + names[i], @pok);
+                String kid = hex_of(key_id(ph.trim()));
+                if n > 0 { out = out + ","; }
+                out = out + "{\"name\":" + Json::quote(names[i].slice(0, names[i].len - 4)) + ",\"id\":\"" + kid + "\",\"public\":\"" + ph.trim() + "\"}";
+                n += 1;
+            }
+        }
+        return out + "]}";
+    }
+    String name = field(@d, "name");
+    if cmd == "key.public" || cmd == "key.sign" {
+        if !name_ok(name) { return reply_err("a name has letters, digits, - _ . only"); }
+        if cmd == "key.public" {
+            bool ok = false;
+            String ph = read_bytes(keys + "/" + name + ".pub", @ok);
+            if !ok { return reply_err("there is no passkey " + name); }
+            return "{\"ok\":true,\"public\":\"" + ph.trim() + "\"}";
+        }
+        bool cok = false;
+        String msg = challenge_field(@d, @cok);
+        if !cok || msg.len == 0 { return reply_err("a challenge is needed"); }
+        char k[32];
+        if !load_private(name, (char^)@k) { return reply_err("the passkey cannot be opened"); }
+        return "{\"ok\":true,\"signature\":\"" + hex_of(sign_with((char^)@k, msg)) + "\"}";
+    }
+    if cmd == "secret.list" {
+        String out = "{\"ok\":true,\"secrets\":[";
+        String[] names = Dir::list(vault_dir() + "/secrets").unwrap();
+        for i in 0..names.len { if i > 0 { out = out + ","; } out = out + Json::quote(names[i]); }
+        return out + "]}";
+    }
+    if cmd == "secret.get" || cmd == "secret.put" || cmd == "secret.rm" {
+        if !name_ok(name) { return reply_err("a name has letters, digits, - _ . only"); }
+        String path = vault_dir() + "/secrets/" + name;
+        if cmd == "secret.put" {
+            make_dirs();
+            if !write_private(path, seal(sub_key("secret:" + name), name, field(@d, "value"))) { return reply_err("cannot write"); }
+            return "{\"ok\":true}";
+        }
+        if cmd == "secret.rm" {
+            if !Fs::exists(path) { return reply_err("there is no secret " + name); }
+            Fs::remove(path);
+            return "{\"ok\":true}";
+        }
+        bool ok = false;
+        String blob = read_bytes(path, @ok);
+        if !ok { return reply_err("there is no secret " + name); }
+        bool good = false;
+        String v = unseal(sub_key("secret:" + name), name, blob, @good);
+        if !good { return reply_err("the secret cannot be opened"); }
+        return "{\"ok\":true,\"value\":" + Json::quote(v) + "}";
+    }
+    if cmd == "enc" || cmd == "dec" {
+        bool hok = false;
+        String data = from_hex(field(@d, "data_hex"), @hok);
+        if !hok { return reply_err("data_hex is not hex"); }
+        if cmd == "enc" {
+            String kname = field(@d, "key");
+            String salt = random_bytes(16);
+            String kind = "M";
+            String id = sha256_of("jmaip master").slice(0, 8);
+            String fk = "";
+            if kname.len > 0 {
+                if !name_ok(kname) { return reply_err("a name has letters, digits, - _ . only"); }
+                char k[32];
+                if !load_private(kname, (char^)@k) { return reply_err("the passkey cannot be opened"); }
+                bool pok = false;
+                String ph = read_bytes(keys + "/" + kname + ".pub", @pok);
+                kind = "K";
+                id = key_id(ph.trim());
+                fk = hkdf(prf_secret((char^)@k), salt, "jmaip file key", 32);
+            } else {
+                fk = hkdf(g_master, salt, "jmaip file key master", 32);
+            }
+            String header = "JMAIP1" + kind + id + salt;
+            return "{\"ok\":true,\"data_hex\":\"" + hex_of(header + seal(fk, header, data)) + "\"}";
+        }
+        if data.len < 6 + 1 + 8 + 16 + 28 || !data.starts_with("JMAIP1") { return reply_err("this is not a jmaip blob"); }
+        String kind = data.slice(6, 7);
+        String id = data.slice(7, 15);
+        String header = data.slice(0, 31);
+        String salt = data.slice(15, 31);
+        String fk = "";
+        if kind == "M" {
+            fk = hkdf(g_master, salt, "jmaip file key master", 32);
+        } else {
+            String found = "";
+            String[] names = Dir::list(keys).unwrap();
+            for i in 0..names.len {
+                if ends_with(names[i], ".pub") {
+                    bool pok = false;
+                    String ph = read_bytes(keys + "/" + names[i], @pok);
+                    String kid = key_id(ph.trim());
+                    if pok && kid == id { found = names[i].slice(0, names[i].len - 4); }
+                }
+            }
+            if found.len == 0 { return reply_err("the passkey of this blob is not in this vault"); }
+            char k[32];
+            if !load_private(found, (char^)@k) { return reply_err("the passkey cannot be opened"); }
+            fk = hkdf(prf_secret((char^)@k), salt, "jmaip file key", 32);
+        }
+        bool good = false;
+        String plain = unseal(fk, header, data.slice(31, data.len), @good);
+        if !good { return reply_err("cannot decrypt: the key is wrong or the data was changed"); }
+        return "{\"ok\":true,\"data_hex\":\"" + hex_of(plain) + "\"}";
+    }
+    return reply_err("unknown command " + cmd);
+}
+
+int cmd_serve(String[] a) {
+    int port = 7879;
+    for i in 2..a.len {
+        if a[i] == "--port" && i + 1 < a.len { port = a[i + 1].to_int(); }
+    }
+    if !open_vault() { return 1; }
+    make_dirs();
+    String token = hex_of(random_bytes(16));
+    String tpath = vault_dir() + "/api.token";
+    if !write_private(tpath, token + "\n") { return fail("cannot write " + tpath); }
+    int fd = Sys::socket_tcp();
+    if fd < 0 { return fail("cannot make a socket"); }
+    char sa[16];
+    Net::make_addr((char^)@sa, 127, 0, 0, 1, port);
+    char one[4];
+    one[0] = 1; one[1] = 0; one[2] = 0; one[3] = 0;
+    Sys::call(54, fd, 1, 2, (int)@one, 4, 0);                       // SO_REUSEADDR
+    if Sys::bind(fd, (void^)@sa, 16) < 0 { return fail("cannot listen on 127.0.0.1:" + str(port)); }
+    if Sys::listen(fd, 8) < 0 { return fail("cannot listen"); }
+    jerr << "jmaip " << jmaip_version() << " listening on 127.0.0.1:" << port << "   token in " << tpath << "\n";
+    while true {
+        int c = Sys::accept(fd);
+        if c < 0 { continue; }
+        String req = "";
+        char buf[4096];
+        bool done = false;
+        while !done && req.len < 4000000 {
+            int n = Sys::read(c, @buf, 4096);
+            if n <= 0 { break; }
+            for i in 0..n { if buf[i] == 10 { done = true; break; } req.push(buf[i]); }
+        }
+        String answer = handle(req, token) + "\n";
+        Sys::write(c, (void^)answer.c(), answer.len);
+        Sys::close(c);
+    }
+    return 0;
+}
+
 int usage() {
     jout << "jmaip " << jmaip_version() << ": keys, passkeys and secrets for the programs of the Jaric world\n";
     jout << "  jmaip init                              make the vault (a passphrase)\n";
@@ -616,6 +819,7 @@ int usage() {
     jout << "  jmaip enc [-k NAME] IN [OUT]            encrypt a file (with the passkey NAME, else the vault key); - is stdin / stdout\n";
     jout << "  jmaip dec IN [OUT]                      decrypt (the passkey is found from the file)\n";
     jout << "  jmaip secret put NAME VALUE | get NAME | list | rm NAME\n";
+    jout << "  jmaip serve [--port 7879]               the API for other programs: JSON lines on 127.0.0.1 with the token of api.token\n";
     jout << "  jmaip otp ...                           the one-time codes of authj\n";
     jout << "environment: JMAIP_PASS (the passphrase), JMAIP_MASTERKEY_CMD (a command that prints the vault key in hex), JMAIP_DIR\n";
     return 0;
@@ -633,6 +837,7 @@ int main() {
     if c == "enc" { return cmd_enc(a); }
     if c == "dec" { return cmd_dec(a); }
     if c == "secret" { return cmd_secret(a); }
+    if c == "serve" { return cmd_serve(a); }
     if c == "otp" {
         String[] rest = arr(4);
         rest.push("code");

@@ -41,4 +41,48 @@ $J secret list | grep -q api-token; check "secret list" $?
 $J secret rm api-token >/dev/null; [ "$(rc $J secret get api-token)" = 1 ]; check "secret rm" $?
 JMAIP_MASTERKEY_CMD='echo 0000000000000000000000000000000000000000000000000000000000000000' sh -c "[ \$($J secret list >/dev/null 2>&1; echo \$?) = 1 ]"; check "a wrong key from a command is refused" $?
 $J key rm phone >/dev/null; [ "$(rc $J key sign phone x)" = 1 ]; check "key rm" $?
+# the API: jmaip serve, a JSON line in and out on 127.0.0.1 with the token of the file api.token
+PORT=$((20000 + $$ % 20000))
+$J serve --port $PORT > "$T/serve.log" 2>&1 &
+SPID=$!
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do [ -f "$JMAIP_DIR/api.token" ] && grep -q listening "$T/serve.log" && break; sleep 0.3; done
+cat > "$T/client.py" <<PYEOF
+import socket, json, sys
+tok = open("$JMAIP_DIR/api.token").read().strip()
+def call(obj, token=None):
+    obj = dict(obj); obj["token"] = tok if token is None else token
+    s = socket.create_connection(("127.0.0.1", $PORT), timeout=20); s.sendall((json.dumps(obj) + "\\n").encode())
+    buf = b""
+    while not buf.endswith(b"\\n"):
+        c = s.recv(65536)
+        if not c: break
+        buf += c
+    s.close(); return json.loads(buf)
+fails = []
+def check(name, cond):
+    print(("PASS  " if cond else "FAIL  ") + name)
+    if not cond: fails.append(name)
+check("api: ping", call({"cmd": "ping"}).get("ok") is True)
+check("api: a wrong token is denied", call({"cmd": "ping"}, token="nope").get("error") == "denied")
+call({"cmd": "secret.put", "name": "t", "value": "v1"})
+check("api: secret put and get", call({"cmd": "secret.get", "name": "t"}).get("value") == "v1")
+check("api: key.list has the passkey of the tests", any(k["name"] == "other" for k in call({"cmd": "key.list"}).get("keys", [])))
+call({"cmd": "key.sign", "name": "other", "challenge": "c"})
+sig = call({"cmd": "key.sign", "name": "other", "challenge": "login:1"})
+pub = call({"cmd": "key.public", "name": "other"})["public"]
+check("api: sign then verify is valid", call({"cmd": "key.verify", "public": pub, "challenge": "login:1", "signature": sig["signature"]}).get("valid") is True)
+check("api: another challenge is not valid", call({"cmd": "key.verify", "public": pub, "challenge": "login:2", "signature": sig["signature"]}).get("valid") is False)
+e = call({"cmd": "enc", "data_hex": b"hello".hex(), "key": "other"})
+check("api: enc then dec", bytes.fromhex(call({"cmd": "dec", "data_hex": e["data_hex"]})["data_hex"]) == b"hello")
+check("api: an unknown command is an error", call({"cmd": "zzz"}).get("ok") is False)
+sys.exit(1 if fails else 0)
+PYEOF
+$J key new other >/dev/null
+python3 "$T/client.py" > "$T/client.out" 2>&1 || true
+cat "$T/client.out"
+kill $SPID 2>/dev/null || true
+wait $SPID 2>/dev/null || true
+np=$(grep -c '^PASS' "$T/client.out" || true); nf=$(grep -c '^FAIL' "$T/client.out" || true)
+ok=$((ok + np)); bad=$((bad + nf))
+if grep -qv '^PASS\|^FAIL' "$T/client.out"; then x=1; else x=0; fi; check "api: the client ran without errors" $x
 echo "passed $ok, failed $bad"; [ $bad = 0 ]
