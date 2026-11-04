@@ -18,12 +18,12 @@ struct P256 {
 void p256_init(P256^ c) {
     char buf[48];
     c^.n = 10;
-    Crypto::unhex(Crypto::ec_const(256, 0), (char^)@buf);
-    Crypto::bn_from_bytes((int^)@c^.pm, 10, (char^)@buf, 32);
-    Crypto::unhex(Crypto::ec_const(256, 1), (char^)@buf);
-    Crypto::bn_from_bytes((int^)@c^.nm, 10, (char^)@buf, 32);
-    c^.pn0 = Crypto::mont_setup((int^)@c^.pm, 10, (int^)@c^.prr);
-    c^.nn0 = Crypto::mont_setup((int^)@c^.nm, 10, (int^)@c^.nrr);
+    Crypto::unhex(Crypto::ec_const(256, 0), @buf);
+    Crypto::bn_from_bytes(@c^.pm, 10, @buf, 32);
+    Crypto::unhex(Crypto::ec_const(256, 1), @buf);
+    Crypto::bn_from_bytes(@c^.nm, 10, @buf, 32);
+    c^.pn0 = Crypto::mont_setup(@c^.pm, 10, @c^.prr);
+    c^.nn0 = Crypto::mont_setup(@c^.nm, 10, @c^.nrr);
     for i in 0..16 { c^.ctx[i] = c^.pm[i]; c^.ctx[16 + i] = c^.prr[i]; }
     c^.ctx[32] = c^.pn0;
     c^.ctx[33] = 10;
@@ -36,40 +36,40 @@ bool p256_mul(P256^ c, int^ k, int^ gx, int^ gy, char^ xo, char^ yo) {
     one[0] = 1;
     int g[48];
     for i in 0..48 { g[i] = 0; }
-    Crypto::mont_mul((int^)@g, gx, (int^)@c^.prr, (int^)@c^.pm, 10, c^.pn0);
-    Crypto::mont_mul((int^)@g + 128, gy, (int^)@c^.prr, (int^)@c^.pm, 10, c^.pn0);
-    Crypto::mont_mul((int^)@g + 256, (int^)@one, (int^)@c^.prr, (int^)@c^.pm, 10, c^.pn0);
+    Crypto::mont_mul(@g, gx, @c^.prr, @c^.pm, 10, c^.pn0);
+    Crypto::mont_mul(@g + 128, gy, @c^.prr, @c^.pm, 10, c^.pn0);
+    Crypto::mont_mul(@g + 256, @one, @c^.prr, @c^.pm, 10, c^.pn0);
     int r[48];
-    Crypto::ec_mul((int^)@r, k, 10, (int^)@g, (int^)@c^.ctx);
-    if Crypto::bn_is_zero((int^)@r + 256, 10) { return false; }
+    Crypto::ec_mul(@r, k, 10, @g, @c^.ctx);
+    if Crypto::bn_is_zero(@r + 256, 10) { return false; }
     char pm2[48];
-    Crypto::unhex(Crypto::ec_const(256, 0), (char^)@pm2);
+    Crypto::unhex(Crypto::ec_const(256, 0), @pm2);
     pm2[31] = (char)(pm2[31] - 2);
     int zi[16];
     int zi2[16];
     int zi3[16];
-    Crypto::mont_pow((int^)@zi, (int^)@r + 256, (char^)@pm2, 32, (int^)@c^.pm, 10, (int^)@c^.prr, c^.pn0);
-    Crypto::mont_mul((int^)@zi, (int^)@zi, (int^)@c^.prr, (int^)@c^.pm, 10, c^.pn0);
-    Crypto::mont_mul((int^)@zi, (int^)@zi, (int^)@c^.prr, (int^)@c^.pm, 10, c^.pn0);
-    Crypto::mont_mul((int^)@zi2, (int^)@zi, (int^)@zi, (int^)@c^.pm, 10, c^.pn0);
-    Crypto::mont_mul((int^)@zi3, (int^)@zi2, (int^)@zi, (int^)@c^.pm, 10, c^.pn0);
+    Crypto::mont_pow(@zi, @r + 256, @pm2, 32, @c^.pm, 10, @c^.prr, c^.pn0);
+    Crypto::mont_mul(@zi, @zi, @c^.prr, @c^.pm, 10, c^.pn0);
+    Crypto::mont_mul(@zi, @zi, @c^.prr, @c^.pm, 10, c^.pn0);
+    Crypto::mont_mul(@zi2, @zi, @zi, @c^.pm, 10, c^.pn0);
+    Crypto::mont_mul(@zi3, @zi2, @zi, @c^.pm, 10, c^.pn0);
     int xa[16];
     int ya[16];
-    Crypto::mont_mul((int^)@xa, (int^)@r, (int^)@zi2, (int^)@c^.pm, 10, c^.pn0);
-    Crypto::mont_mul((int^)@xa, (int^)@xa, (int^)@one, (int^)@c^.pm, 10, c^.pn0);
-    Crypto::mont_mul((int^)@ya, (int^)@r + 128, (int^)@zi3, (int^)@c^.pm, 10, c^.pn0);
-    Crypto::mont_mul((int^)@ya, (int^)@ya, (int^)@one, (int^)@c^.pm, 10, c^.pn0);
-    Crypto::bn_to_bytes((int^)@xa, 10, xo, 32);
-    Crypto::bn_to_bytes((int^)@ya, 10, yo, 32);
+    Crypto::mont_mul(@xa, @r, @zi2, @c^.pm, 10, c^.pn0);
+    Crypto::mont_mul(@xa, @xa, @one, @c^.pm, 10, c^.pn0);
+    Crypto::mont_mul(@ya, @r + 128, @zi3, @c^.pm, 10, c^.pn0);
+    Crypto::mont_mul(@ya, @ya, @one, @c^.pm, 10, c^.pn0);
+    Crypto::bn_to_bytes(@xa, 10, xo, 32);
+    Crypto::bn_to_bytes(@ya, 10, yo, 32);
     return true;
 }
 
 void p256_base(P256^ c, int^ gx, int^ gy) {
     char buf[48];
-    Crypto::unhex(Crypto::ec_const(256, 2), (char^)@buf);
-    Crypto::bn_from_bytes(gx, 10, (char^)@buf, 32);
-    Crypto::unhex(Crypto::ec_const(256, 3), (char^)@buf);
-    Crypto::bn_from_bytes(gy, 10, (char^)@buf, 32);
+    Crypto::unhex(Crypto::ec_const(256, 2), @buf);
+    Crypto::bn_from_bytes(gx, 10, @buf, 32);
+    Crypto::unhex(Crypto::ec_const(256, 3), @buf);
+    Crypto::bn_from_bytes(gy, 10, @buf, 32);
 }
 
 // a fresh private key: 32 random bytes, below n and not zero
@@ -77,8 +77,8 @@ void p256_new_key(P256^ c, char^ d) {
     int x[16];
     while true {
         Sys::random(d, 32);
-        Crypto::bn_from_bytes((int^)@x, 10, d, 32);
-        if !Crypto::bn_is_zero((int^)@x, 10) && Crypto::bn_cmp((int^)@x, (int^)@c^.nm, 10) < 0 { return; }
+        Crypto::bn_from_bytes(@x, 10, d, 32);
+        if !Crypto::bn_is_zero(@x, 10) && Crypto::bn_cmp(@x, @c^.nm, 10) < 0 { return; }
     }
 }
 
@@ -87,9 +87,9 @@ bool p256_public(P256^ c, char^ d, char^ xo, char^ yo) {
     int gx[16];
     int gy[16];
     int k[16];
-    p256_base(c, (int^)@gx, (int^)@gy);
-    Crypto::bn_from_bytes((int^)@k, 10, d, 32);
-    return p256_mul(c, (int^)@k, (int^)@gx, (int^)@gy, xo, yo);
+    p256_base(c, @gx, @gy);
+    Crypto::bn_from_bytes(@k, 10, d, 32);
+    return p256_mul(c, @k, @gx, @gy, xo, yo);
 }
 
 // signs the 32-byte hash e with the private key d; r and s as 32 bytes. k is derived from d and e (sha256, counter),
@@ -97,47 +97,47 @@ bool p256_public(P256^ c, char^ d, char^ xo, char^ yo) {
 void p256_sign(P256^ c, char^ d, char^ hash, char^ rout, char^ sout) {
     int gx[16];
     int gy[16];
-    p256_base(c, (int^)@gx, (int^)@gy);
+    p256_base(c, @gx, @gy);
     char seed[100];
     for i in 0..32 { seed[i] = d[i]; seed[32 + i] = hash[i]; }
     int counter = 0;
     while true {
         seed[64] = (char)counter;
         char kb[32];
-        Crypto::sha256((char^)@seed, 65, (char^)@kb);
+        Crypto::sha256(@seed, 65, @kb);
         counter += 1;
         int k[16];
-        Crypto::bn_from_bytes((int^)@k, 10, (char^)@kb, 32);
-        if Crypto::bn_is_zero((int^)@k, 10) || Crypto::bn_cmp((int^)@k, (int^)@c^.nm, 10) >= 0 { continue; }
+        Crypto::bn_from_bytes(@k, 10, @kb, 32);
+        if Crypto::bn_is_zero(@k, 10) || Crypto::bn_cmp(@k, @c^.nm, 10) >= 0 { continue; }
         char xb[32];
         char yb[32];
-        if !p256_mul(c, (int^)@k, (int^)@gx, (int^)@gy, (char^)@xb, (char^)@yb) { continue; }
+        if !p256_mul(c, @k, @gx, @gy, @xb, @yb) { continue; }
         int r[16];
-        Crypto::bn_from_bytes((int^)@r, 10, (char^)@xb, 32);
-        if Crypto::bn_cmp((int^)@r, (int^)@c^.nm, 10) >= 0 { Crypto::bn_sub((int^)@r, (int^)@c^.nm, 10); }
-        if Crypto::bn_is_zero((int^)@r, 10) { continue; }
+        Crypto::bn_from_bytes(@r, 10, @xb, 32);
+        if Crypto::bn_cmp(@r, @c^.nm, 10) >= 0 { Crypto::bn_sub(@r, @c^.nm, 10); }
+        if Crypto::bn_is_zero(@r, 10) { continue; }
         // s = k^-1 (e + r d) mod n
         int e[16];
         int dd[16];
-        Crypto::bn_from_bytes((int^)@e, 10, hash, 32);
-        if Crypto::bn_cmp((int^)@e, (int^)@c^.nm, 10) >= 0 { Crypto::bn_sub((int^)@e, (int^)@c^.nm, 10); }
-        Crypto::bn_from_bytes((int^)@dd, 10, d, 32);
+        Crypto::bn_from_bytes(@e, 10, hash, 32);
+        if Crypto::bn_cmp(@e, @c^.nm, 10) >= 0 { Crypto::bn_sub(@e, @c^.nm, 10); }
+        Crypto::bn_from_bytes(@dd, 10, d, 32);
         int t[16];
         int u[16];
-        Crypto::mont_mul((int^)@t, (int^)@r, (int^)@c^.nrr, (int^)@c^.nm, 10, c^.nn0);      // r in the Montgomery form
-        Crypto::mont_mul((int^)@u, (int^)@t, (int^)@dd, (int^)@c^.nm, 10, c^.nn0);          // r d (normal)
-        Crypto::fe_add((int^)@u, (int^)@u, (int^)@e, (int^)@c^.nm, 10);
+        Crypto::mont_mul(@t, @r, @c^.nrr, @c^.nm, 10, c^.nn0);      // r in the Montgomery form
+        Crypto::mont_mul(@u, @t, @dd, @c^.nm, 10, c^.nn0);          // r d (normal)
+        Crypto::fe_add(@u, @u, @e, @c^.nm, 10);
         char n2[48];
-        Crypto::unhex(Crypto::ec_const(256, 1), (char^)@n2);
+        Crypto::unhex(Crypto::ec_const(256, 1), @n2);
         n2[31] = (char)(n2[31] - 2);
         int ki[16];
-        Crypto::mont_pow((int^)@ki, (int^)@k, (char^)@n2, 32, (int^)@c^.nm, 10, (int^)@c^.nrr, c^.nn0);
-        Crypto::mont_mul((int^)@t, (int^)@u, (int^)@c^.nrr, (int^)@c^.nm, 10, c^.nn0);
+        Crypto::mont_pow(@ki, @k, @n2, 32, @c^.nm, 10, @c^.nrr, c^.nn0);
+        Crypto::mont_mul(@t, @u, @c^.nrr, @c^.nm, 10, c^.nn0);
         int s[16];
-        Crypto::mont_mul((int^)@s, (int^)@t, (int^)@ki, (int^)@c^.nm, 10, c^.nn0);
-        if Crypto::bn_is_zero((int^)@s, 10) { continue; }
-        Crypto::bn_to_bytes((int^)@r, 10, rout, 32);
-        Crypto::bn_to_bytes((int^)@s, 10, sout, 32);
+        Crypto::mont_mul(@s, @t, @ki, @c^.nm, 10, c^.nn0);
+        if Crypto::bn_is_zero(@s, 10) { continue; }
+        Crypto::bn_to_bytes(@r, 10, rout, 32);
+        Crypto::bn_to_bytes(@s, 10, sout, 32);
         return;
     }
 }

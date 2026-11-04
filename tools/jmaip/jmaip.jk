@@ -72,7 +72,7 @@ String random_bytes(int n) {
 
 String sha256_of(String s) {
     char out[32];
-    Crypto::sha256(s.c(), s.len, (char^)@out);
+    Crypto::sha256(s.c(), s.len, @out);
     String r = "";
     for i in 0..32 { r.push(out[i]); }
     return r;
@@ -80,7 +80,7 @@ String sha256_of(String s) {
 
 String hmac256(String key, String msg) {
     char out[32];
-    Crypto::hmac(256, key.c(), key.len, msg.c(), msg.len, (char^)@out);
+    Crypto::hmac(256, key.c(), key.len, msg.c(), msg.len, @out);
     String r = "";
     for i in 0..32 { r.push(out[i]); }
     return r;
@@ -100,9 +100,9 @@ String pbkdf2(String pass, String salt, int rounds) {
 // HKDF-SHA256: n bytes (n <= 255 * 32) from the secret ikm
 String hkdf(String ikm, String salt, String info, int n) {
     char prk[32];
-    Crypto::hkdf_extract(256, salt.c(), salt.len, ikm.c(), ikm.len, (char^)@prk);
+    Crypto::hkdf_extract(256, salt.c(), salt.len, ikm.c(), ikm.len, @prk);
     char okm[128];
-    Crypto::hkdf_expand(256, (char^)@prk, 32, info.c(), info.len, (char^)@okm, n);
+    Crypto::hkdf_expand(256, @prk, 32, info.c(), info.len, @okm, n);
     String r = "";
     for i in 0..n { r.push(okm[i]); }
     return r;
@@ -113,7 +113,7 @@ String seal(String key, String aad, String plain) {
     String iv = random_bytes(12);
     String ct = zeros(plain.len);
     char tag[16];
-    Crypto::gcm_seal(key.c(), iv.c(), aad.c(), aad.len, plain.c(), plain.len, ct.c(), (char^)@tag);
+    Crypto::gcm_seal(key.c(), iv.c(), aad.c(), aad.len, plain.c(), plain.len, ct.c(), @tag);
     String t = "";
     for i in 0..16 { t.push(tag[i]); }
     return iv + ct + t;
@@ -296,7 +296,7 @@ String public_of(char^ d) {
     p256_init(@c);
     char x[32];
     char y[32];
-    if !p256_public(@c, d, (char^)@x, (char^)@y) { return ""; }
+    if !p256_public(@c, d, @x, @y) { return ""; }
     String r = "04";
     for i in 0..32 { String h = hex_of(zeros(1)); r = r + h; }
     r = "04";
@@ -315,7 +315,7 @@ String sign_with(char^ d, String message) {
     for i in 0..32 { hb[i] = h[i]; }
     char r[32];
     char s[32];
-    p256_sign(@c, d, (char^)@hb, (char^)@r, (char^)@s);
+    p256_sign(@c, d, @hb, @r, @s);
     String out = "";
     for i in 0..32 { out.push(r[i]); }
     for i in 0..32 { out.push(s[i]); }
@@ -355,7 +355,7 @@ int cmd_key(String[] a) {
         char qx[32]; char qy[32]; char hb[32]; char rb[32]; char sb[32];
         String h = sha256_of(msg);
         for i in 0..32 { qx[i] = pub[1 + i]; qy[i] = pub[33 + i]; hb[i] = h[i]; rb[i] = sig[i]; sb[i] = sig[32 + i]; }
-        bool good = Crypto::ecdsa_verify(256, (char^)@qx, (char^)@qy, (char^)@hb, 32, (char^)@rb, 32, (char^)@sb, 32);
+        bool good = Crypto::ecdsa_verify(256, @qx, @qy, @hb, 32, @rb, 32, @sb, 32);
         if good { jout << "valid\n"; return 0; }
         jout << "NOT valid\n";
         return 1;
@@ -385,8 +385,8 @@ int cmd_key(String[] a) {
         char d[32];
         P256 c;
         p256_init(@c);
-        p256_new_key(@c, (char^)@d);
-        String pub = public_of((char^)@d);
+        p256_new_key(@c, @d);
+        String pub = public_of(@d);
         if pub.len == 0 { return fail("could not make the key"); }
         String plain = "";
         for i in 0..32 { plain.push(d[i]); }
@@ -416,8 +416,8 @@ int cmd_key(String[] a) {
         String msg = challenge_of(a[4], @cok);
         if !cok { return fail("cannot read the challenge"); }
         char d[32];
-        if !load_private(name, (char^)@d) { return 1; }
-        jout << hex_of(sign_with((char^)@d, msg)) << "\n";
+        if !load_private(name, @d) { return 1; }
+        jout << hex_of(sign_with(@d, msg)) << "\n";
         return 0;
     }
     return fail("unknown key command " + sub);
@@ -450,12 +450,12 @@ int cmd_enc(String[] a) {
     if name.len > 0 {
         if !name_ok(name) { return fail("a name has letters, digits, - _ . only"); }
         char d[32];
-        if !load_private(name, (char^)@d) { return 1; }
+        if !load_private(name, @d) { return 1; }
         bool pok = false;
         String ph = read_bytes(vault_dir() + "/keys/" + name + ".pub", @pok);
         kind = "K";
         id = key_id(ph.trim());
-        fk = hkdf(prf_secret((char^)@d), salt, "jmaip file key", 32);
+        fk = hkdf(prf_secret(@d), salt, "jmaip file key", 32);
     } else {
         fk = hkdf(g_master, salt, "jmaip file key master", 32);
     }
@@ -512,8 +512,8 @@ int cmd_dec(String[] a) {
         }
         if found.len == 0 { return fail("the passkey of this file (" + hex_of(id) + ") is not in this vault"); }
         char d[32];
-        if !load_private(found, (char^)@d) { return 1; }
-        fk = hkdf(prf_secret((char^)@d), salt, "jmaip file key", 32);
+        if !load_private(found, @d) { return 1; }
+        fk = hkdf(prf_secret(@d), salt, "jmaip file key", 32);
     }
     bool good = false;
     String plain = unseal(fk, header, body, @good);
@@ -650,7 +650,7 @@ String handle(String line, String token) {
         char qx[32]; char qy[32]; char hb[32]; char rb[32]; char sb[32];
         String h = sha256_of(msg);
         for i in 0..32 { qx[i] = pub[1 + i]; qy[i] = pub[33 + i]; hb[i] = h[i]; rb[i] = sig[i]; sb[i] = sig[32 + i]; }
-        bool good = Crypto::ecdsa_verify(256, (char^)@qx, (char^)@qy, (char^)@hb, 32, (char^)@rb, 32, (char^)@sb, 32);
+        bool good = Crypto::ecdsa_verify(256, @qx, @qy, @hb, 32, @rb, 32, @sb, 32);
         if good { return "{\"ok\":true,\"valid\":true}"; }
         return "{\"ok\":true,\"valid\":false}";
     }
@@ -683,8 +683,8 @@ String handle(String line, String token) {
         char nk[32];
         P256 pc;
         p256_init(@pc);
-        p256_new_key(@pc, (char^)@nk);
-        String npub = public_of((char^)@nk);
+        p256_new_key(@pc, @nk);
+        String npub = public_of(@nk);
         if npub.len == 0 { return reply_err("could not make the key"); }
         String plain = "";
         for i in 0..32 { plain.push(nk[i]); }
@@ -705,8 +705,8 @@ String handle(String line, String token) {
         String msg = challenge_field(@d, @cok);
         if !cok || msg.len == 0 { return reply_err("a challenge is needed"); }
         char k[32];
-        if !load_private(name, (char^)@k) { return reply_err("the passkey cannot be opened"); }
-        return "{\"ok\":true,\"signature\":\"" + hex_of(sign_with((char^)@k, msg)) + "\"}";
+        if !load_private(name, @k) { return reply_err("the passkey cannot be opened"); }
+        return "{\"ok\":true,\"signature\":\"" + hex_of(sign_with(@k, msg)) + "\"}";
     }
     if cmd == "secret.list" {
         String out = "{\"ok\":true,\"secrets\":[";
@@ -748,12 +748,12 @@ String handle(String line, String token) {
             if kname.len > 0 {
                 if !name_ok(kname) { return reply_err("a name has letters, digits, - _ . only"); }
                 char k[32];
-                if !load_private(kname, (char^)@k) { return reply_err("the passkey cannot be opened"); }
+                if !load_private(kname, @k) { return reply_err("the passkey cannot be opened"); }
                 bool pok = false;
                 String ph = read_bytes(keys + "/" + kname + ".pub", @pok);
                 kind = "K";
                 id = key_id(ph.trim());
-                fk = hkdf(prf_secret((char^)@k), salt, "jmaip file key", 32);
+                fk = hkdf(prf_secret(@k), salt, "jmaip file key", 32);
             } else {
                 fk = hkdf(g_master, salt, "jmaip file key master", 32);
             }
@@ -781,8 +781,8 @@ String handle(String line, String token) {
             }
             if found.len == 0 { return reply_err("the passkey of this blob is not in this vault"); }
             char k[32];
-            if !load_private(found, (char^)@k) { return reply_err("the passkey cannot be opened"); }
-            fk = hkdf(prf_secret((char^)@k), salt, "jmaip file key", 32);
+            if !load_private(found, @k) { return reply_err("the passkey cannot be opened"); }
+            fk = hkdf(prf_secret(@k), salt, "jmaip file key", 32);
         }
         bool good = false;
         String plain = unseal(fk, header, data.slice(31, data.len), @good);
@@ -805,7 +805,7 @@ int cmd_serve(String[] a) {
     int fd = Sys::socket_tcp();
     if fd < 0 { return fail("cannot make a socket"); }
     char sa[16];
-    Net::make_addr((char^)@sa, 127, 0, 0, 1, port);
+    Net::make_addr(@sa, 127, 0, 0, 1, port);
     char one[4];
     one[0] = 1; one[1] = 0; one[2] = 0; one[3] = 0;
     Sys::call(54, fd, 1, 2, (int)@one, 4, 0);                       // SO_REUSEADDR
