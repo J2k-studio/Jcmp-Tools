@@ -32,7 +32,8 @@ H=$(sha256sum "$W/www/twice.j" | cut -d' ' -f1)
 PORT=$((20000 + $$ % 20000))
 (cd "$W/www" && exec python3 -m http.server $PORT --bind 127.0.0.1 >/dev/null 2>&1) &
 SRV=$!
-sleep 1
+# wait until the server answers (a fixed sleep is too short on a loaded phone)
+for w in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null && break; sleep 0.5; done
 printf '# index\ntwice 1.0 http://127.0.0.1:%s/nothing_here.j|http://127.0.0.1:%s/twice.j %s\nbad 1.0 http://127.0.0.1:%s/twice.j 0000\n' $PORT $PORT "$H" $PORT > "$W/index.txt"
 cd "$W/out" || exit 1
 t "version" '[ "$($J --version)" = "jget $(cat $HERE/VERSION)" ]'
