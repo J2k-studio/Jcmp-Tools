@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+* **Added:** the API commands `key.new` and `key.rm` (a program can make and remove passkeys); the Android app `jmaip` (its own repository folder `jmaip-app` in the Jaric repository) runs this program behind the fingerprint or face of the phone.
+* **Fixed:** none.
+
 ## 0.2.0
 * **Added:** `jmaip serve`: the API for other programs: JSON lines on `127.0.0.1` with a token (`api.token`, mode 600): ping, key.list / public / sign / verify, secret.get / put / rm / list, enc / dec (data in hex). 9 tests with a Python client.
 * **Fixed:** none.

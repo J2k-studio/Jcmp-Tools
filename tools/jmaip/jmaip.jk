@@ -17,7 +17,7 @@
 using stdlib;
 #import "sign"
 
-String jmaip_version() { return "0.2.0"; }
+String jmaip_version() { return "0.3.0"; }
 
 // ---------- bytes
 String hex_of(String s) {
@@ -609,7 +609,7 @@ int cmd_status() {
 // One JSON object on a line in, one JSON object on a line out, on 127.0.0.1 only. Every request carries the token of the file api.token in the vault folder
 // (mode 600: a program of another user of the phone cannot read it). Binary data goes in hex.
 //   {"token":"...","cmd":"ping"}                                             {"ok":true,"version":"0.1.0"}
-//   {"token":"...","cmd":"key.list"}   key.public (name)   key.sign (name, challenge | challenge_hex)   key.verify (public, challenge | challenge_hex, signature)
+//   {"token":"...","cmd":"key.list"}   key.new (name)   key.rm (name)   key.public (name)   key.sign (name, challenge | challenge_hex)   key.verify (public, challenge | challenge_hex, signature)
 //   {"token":"...","cmd":"secret.get","name":"x"}   secret.put (name, value)   secret.rm (name)   secret.list
 //   {"token":"...","cmd":"enc","data_hex":"...","key":"phone"}   dec (data_hex)          -> "data_hex"
 String reply_err(String msg) { return "{\"ok\":false,\"error\":" + Json::quote(msg) + "}"; }
@@ -671,6 +671,28 @@ String handle(String line, String token) {
         return out + "]}";
     }
     String name = field(@d, "name");
+    if cmd == "key.new" || cmd == "key.rm" {
+        if !name_ok(name) { return reply_err("a name has letters, digits, - _ . only"); }
+        if cmd == "key.rm" {
+            if !Fs::exists(keys + "/" + name + ".key") { return reply_err("there is no passkey " + name); }
+            Fs::remove(keys + "/" + name + ".key");
+            Fs::remove(keys + "/" + name + ".pub");
+            return "{\"ok\":true}";
+        }
+        if Fs::exists(keys + "/" + name + ".key") { return reply_err("the passkey " + name + " exists"); }
+        char nk[32];
+        P256 pc;
+        p256_init(@pc);
+        p256_new_key(@pc, (char^)@nk);
+        String npub = public_of((char^)@nk);
+        if npub.len == 0 { return reply_err("could not make the key"); }
+        String plain = "";
+        for i in 0..32 { plain.push(nk[i]); }
+        make_dirs();
+        if !write_private(keys + "/" + name + ".key", seal(sub_key("passkey:" + name), name, plain)) { return reply_err("cannot write the key"); }
+        write_private(keys + "/" + name + ".pub", npub + "\n");
+        return "{\"ok\":true,\"public\":\"" + npub + "\"}";
+    }
     if cmd == "key.public" || cmd == "key.sign" {
         if !name_ok(name) { return reply_err("a name has letters, digits, - _ . only"); }
         if cmd == "key.public" {

@@ -75,6 +75,10 @@ check("api: another challenge is not valid", call({"cmd": "key.verify", "public"
 e = call({"cmd": "enc", "data_hex": b"hello".hex(), "key": "other"})
 check("api: enc then dec", bytes.fromhex(call({"cmd": "dec", "data_hex": e["data_hex"]})["data_hex"]) == b"hello")
 check("api: an unknown command is an error", call({"cmd": "zzz"}).get("ok") is False)
+made = call({"cmd": "key.new", "name": "made-by-api"})
+check("api: key.new makes a passkey (130 hex digits)", made.get("ok") is True and len(made.get("public", "")) == 130)
+check("api: key.new twice is refused", call({"cmd": "key.new", "name": "made-by-api"}).get("ok") is False)
+check("api: key.rm removes it", call({"cmd": "key.rm", "name": "made-by-api"}).get("ok") is True and call({"cmd": "key.public", "name": "made-by-api"}).get("ok") is False)
 sys.exit(1 if fails else 0)
 PYEOF
 $J key new other >/dev/null
