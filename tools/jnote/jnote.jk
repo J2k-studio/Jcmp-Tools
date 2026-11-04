@@ -1,0 +1,222 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// jnote: quick notes and checklists. A note is a plain text file (the first line is its title) in one folder:
+// $JNOTE_DIR, or ~/Documents/Notes. The files are named note-0001.txt, note-0002.txt ... so any other program can read them.
+#import <stdlib>
+
+String jnote_version() { return "0.1.0"; }
+
+String notes_dir() {
+    String d = "";
+    switch Env::get("JNOTE_DIR") {
+        Option::Some(v): { d = v; }
+        Option::None: {
+            switch Env::get("HOME") {
+                Option::Some(h): { d = h + "/Documents/Notes"; }
+                Option::None: { d = "Notes"; }
+            }
+        }
+    }
+    if !Dir::exists(d) { Dir::make_all(d); }
+    return d;
+}
+
+String num4(int n) {
+    String s = str(n);
+    while s.len < 4 { s = "0" + s; }
+    return s;
+}
+
+String note_path(String dir, int n) { return dir + "/note-" + num4(n) + ".txt"; }
+
+// the numbers of the notes, in order
+int[] note_numbers(String dir) {
+    int[] r = arr(8);
+    String[] names = Dir::list(dir).unwrap();
+    for i in 0..names.len {
+        String nm = names[i];
+        String tail = "";
+        if nm.len == 13 { tail = nm.slice(9, 13); }
+        if nm.len == 13 && nm.starts_with("note-") && tail == ".txt" {
+            String d = nm.slice(5, 9);
+            bool ok = true;
+            for k in 0..4 { if d[k] < '0' || d[k] > '9' { ok = false; } }
+            if ok { r.push(d.to_int()); }
+        }
+    }
+    return r;
+}
+
+String title_of(String text) {
+    int nl = text.find("\n");
+    if nl < 0 { return text; }
+    return text.slice(0, nl);
+}
+
+int usage() {
+    jout << "jnote " << jnote_version() << ": quick notes and checklists\n";
+    jout << "  jnote                       list the notes\n";
+    jout << "  jnote add TEXT...           a new note (the first line is the title; use \\n for more lines)\n";
+    jout << "  jnote todo TITLE ITEM...    a checklist: the lines are  [ ] item\n";
+    jout << "  jnote show N                print note N\n";
+    jout << "  jnote check N K             toggle the item K (1, 2 ...) of the checklist N\n";
+    jout << "  jnote append N TEXT...      add a line to note N\n";
+    jout << "  jnote find WORD             the notes that contain WORD (any case)\n";
+    jout << "  jnote rm N                  delete note N\n";
+    jout << "  jnote path                  the folder of the notes\n";
+    return 0;
+}
+
+String join_args(String[] a, int from) {
+    String t = "";
+    for i in from..a.len {
+        if i > from { t = t + " "; }
+        t = t + a[i];
+    }
+    return t;
+}
+
+// "\n" typed on the command line becomes a new line
+String unescape(String s) {
+    String r = "";
+    int i = 0;
+    while i < s.len {
+        if s[i] == '\\' && i + 1 < s.len && s[i + 1] == 'n' { r.push('\n'); i += 2; }
+        else { r.push(s[i]); i += 1; }
+    }
+    return r;
+}
+
+int next_number(String dir) {
+    int[] ns = note_numbers(dir);
+    int top = 0;
+    for i in 0..ns.len { if ns[i] > top { top = ns[i]; } }
+    return top + 1;
+}
+
+int cmd_list(String dir) {
+    int[] ns = note_numbers(dir);
+    if ns.len == 0 { jout << "no notes yet (jnote add TEXT)\n"; return 0; }
+    for i in 0..ns.len {
+        String text = Fs::read_text(note_path(dir, ns[i])).unwrap();
+        jout << padl(str(ns[i]), 4) << "  " << title_of(text) << "\n";
+    }
+    return 0;
+}
+
+int cmd_show(String dir, int n) {
+    String p = note_path(dir, n);
+    if !Fs::exists(p) { jerr << "jnote: no note " << n << "\n"; return 1; }
+    jout << Fs::read_text(p).unwrap();
+    return 0;
+}
+
+int cmd_check(String dir, int n, int k) {
+    String p = note_path(dir, n);
+    if !Fs::exists(p) { jerr << "jnote: no note " << n << "\n"; return 1; }
+    String[] lines = Fs::read_text(p).unwrap().split("\n");
+    int seen = 0;
+    String out = "";
+    bool done = false;
+    for i in 0..lines.len {
+        String l = lines[i];
+        if l.starts_with("[ ] ") || l.starts_with("[x] ") {
+            seen += 1;
+            if seen == k {
+                if l.starts_with("[ ] ") { l = "[x] " + l.slice(4, l.len); } else { l = "[ ] " + l.slice(4, l.len); }
+                done = true;
+            }
+        }
+        out = out + l;
+        if i + 1 < lines.len { out = out + "\n"; }
+    }
+    if !done { jerr << "jnote: note " << n << " has no item " << k << "\n"; return 1; }
+    Fs::write_text(p, out);
+    jout << l_line(out, k) << "\n";
+    return 0;
+}
+
+// the text of the item k (for the answer of check)
+String l_line(String text, int k) {
+    String[] lines = text.split("\n");
+    int seen = 0;
+    for i in 0..lines.len {
+        if lines[i].starts_with("[ ] ") || lines[i].starts_with("[x] ") {
+            seen += 1;
+            if seen == k { return lines[i]; }
+        }
+    }
+    return "";
+}
+
+int cmd_find(String dir, String word) {
+    int[] ns = note_numbers(dir);
+    String w = word.lower();
+    int hits = 0;
+    for i in 0..ns.len {
+        String text = Fs::read_text(note_path(dir, ns[i])).unwrap();
+        if text.lower().contains(w) {
+            jout << padl(str(ns[i]), 4) << "  " << title_of(text) << "\n";
+            hits += 1;
+        }
+    }
+    if hits == 0 { jout << "nothing found for " << word << "\n"; return 1; }
+    return 0;
+}
+
+int main() {
+    String[] a = Env::args();
+    String dir = notes_dir();
+    if a.len < 2 { return cmd_list(dir); }
+    String c = a[1];
+    if c == "--version" || c == "-V" { jout << "jnote " << jnote_version() << "\n"; return 0; }
+    if c == "--help" || c == "-h" || c == "help" { return usage(); }
+    if c == "list" || c == "ls" { return cmd_list(dir); }
+    if c == "path" { jout << dir << "\n"; return 0; }
+    if c == "add" {
+        if a.len < 3 { jerr << "jnote add: the text is missing\n"; return 2; }
+        int n = next_number(dir);
+        Fs::write_text(note_path(dir, n), unescape(join_args(a, 2)) + "\n");
+        jout << "note " << n << "\n";
+        return 0;
+    }
+    if c == "todo" {
+        if a.len < 4 { jerr << "jnote todo: TITLE and at least one ITEM\n"; return 2; }
+        int n = next_number(dir);
+        String t = a[2] + "\n";
+        for i in 3..a.len { t = t + "[ ] " + a[i] + "\n"; }
+        Fs::write_text(note_path(dir, n), t);
+        jout << "note " << n << "\n";
+        return 0;
+    }
+    if c == "show" || c == "rm" || c == "check" || c == "append" {
+        if a.len < 3 { jerr << "jnote " << c << ": the number of the note is missing\n"; return 2; }
+        int n = 0;
+        try { n = a[2].to_int(); } catch (e) { jerr << "jnote: " << a[2] << " is not a note number\n"; return 2; }
+        if c == "show" { return cmd_show(dir, n); }
+        if c == "rm" {
+            String p = note_path(dir, n);
+            if !Fs::exists(p) { jerr << "jnote: no note " << n << "\n"; return 1; }
+            Fs::remove(p);
+            jout << "removed note " << n << "\n";
+            return 0;
+        }
+        if c == "append" {
+            String p2 = note_path(dir, n);
+            if !Fs::exists(p2) { jerr << "jnote: no note " << n << "\n"; return 1; }
+            if a.len < 4 { jerr << "jnote append: the text is missing\n"; return 2; }
+            Fs::append_text(p2, unescape(join_args(a, 3)) + "\n");
+            return 0;
+        }
+        if a.len < 4 { jerr << "jnote check: the number of the item is missing\n"; return 2; }
+        int k = 0;
+        try { k = a[3].to_int(); } catch (e) { jerr << "jnote: " << a[3] << " is not an item number\n"; return 2; }
+        return cmd_check(dir, n, k);
+    }
+    if c == "find" {
+        if a.len < 3 { jerr << "jnote find: the word is missing\n"; return 2; }
+        return cmd_find(dir, join_args(a, 2));
+    }
+    jerr << "jnote: unknown command " << c << "  (jnote help)\n";
+    return 2;
+}

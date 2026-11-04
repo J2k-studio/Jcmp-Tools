@@ -29,3 +29,4 @@ tarj 0.1.1
 yt-dlp 2026.10.21
 zipj 0.1.1
 apkj 0.2.0
+jnote 0.1.0
