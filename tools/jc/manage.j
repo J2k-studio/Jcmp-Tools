@@ -67,6 +67,28 @@ bool builtin_name(String n) {
     return false;
 }
 
+// the libraries that the installed library imports (#import <name>) and that are not here yet are installed too
+void install_deps(String path, String dir) {
+    switch Fs::read_text(path) {
+        Result::Ok(t): {
+            String[] ls = t.split("\n");
+            for i in 0..ls.len {
+                String line = ls[i];
+                if !line.starts_with("#import <") { continue; }
+                String dep = line.slice(9, line.len);
+                int close = dep.find(">");
+                if close < 0 { continue; }
+                dep = dep.slice(0, close);
+                if builtin_name(dep) || dep == "gfx" || dep == "simd" { continue; }
+                if Fs::exists(dir + "/" + dep + ".j") { continue; }
+                jout << "needs " << dep << ": installing it too" << nl;
+                cmd_install(dep);
+            }
+        }
+        Result::Err(er): { }
+    }
+}
+
 int cmd_install(String name) {
     if name == "gfx" {
         // the graphics library is made of canvas and screen
@@ -111,7 +133,7 @@ int cmd_install(String name) {
     }
     String target = dir + "/" + name + ".j";
     switch Fs::rename(tmp, target) {
-        Result::Ok(x): { jout << "installed " << name << " " << e[1] << " in " << target << nl; return 0; }
+        Result::Ok(x): { jout << "installed " << name << " " << e[1] << " in " << target << nl; install_deps(target, dir); return 0; }
         Result::Err(er): { err("jc: cannot install: " + er.message + "\n"); return 1; }
     }
     return 1;

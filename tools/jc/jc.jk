@@ -18,7 +18,7 @@
 #import "pkg"
 #import "manage"
 
-String jc_version() { return "0.5.4"; }
+String jc_version() { return "0.5.5"; }
 
 int fail(String msg) {
     jerr << "jc: " << msg << "\n";
