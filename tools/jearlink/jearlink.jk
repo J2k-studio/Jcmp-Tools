@@ -63,7 +63,7 @@ String joined(String[] a, int from) {
 // sends one message and waits for the answer (intent-ok | intent-error;TEXT | intent-apps;BASE64); returns the answer, "" when the app did not answer
 String ask(String msg) {
     raw_on();
-    cout << "\e]7777;" << msg << "\a";
+    jout << "\e]7777;" << msg << "\a";
     String got = "";
     int waited = 0;
     while waited < 6000 {
@@ -90,13 +90,13 @@ String real_file(String name) {
 }
 
 int usage() {
-    cerr << "usage: jearlink -viw URL | -snd TEXT | -sh FILE | -pk [image] | -cll NUMBER | -ap NAME | -aps | -ntf TITLE [TEXT]   (also: view send share pick call app apps notify)\n";
+    jerr << "usage: jearlink -viw URL | -snd TEXT | -sh FILE | -pk [image] | -cll NUMBER | -ap NAME | -aps | -ntf TITLE [TEXT]   (also: view send share pick call app apps notify)\n";
     return 2;
 }
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version") { cout << "jearlink 0.1.1\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version") { jout << "jearlink 0.1.1\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" { usage(); if a.len < 2 { return 2; } return 0; }
     String verb = a[1];
     if verb == "-viw" { verb = "view"; }
@@ -110,7 +110,7 @@ int main() {
     if verb == "notify" {
         if a.len < 3 { return usage(); }
         String text = joined(a, 3);
-        cout << "\e]7777;notify;" << a[2] << ";" << text << "\a";
+        jout << "\e]7777;notify;" << a[2] << ";" << text << "\a";
         return 0;
     }
     String msg = "";
@@ -119,9 +119,9 @@ int main() {
         String shown = joined(a, 2);
         String local = real_file(shown);
         if local.len > 0 {                                             // a file here: the app gets its real path
-            if verb == "view" { cout << "\e]7777;open;" << local << "\a"; return 0; }
+            if verb == "view" { jout << "\e]7777;open;" << local << "\a"; return 0; }
             msg = "intent;share;" + local;
-        } else if verb == "share" { cerr << "jearlink: there is no such file: " << shown << "\n"; return 1; }
+        } else if verb == "share" { jerr << "jearlink: there is no such file: " << shown << "\n"; return 1; }
     }
     if msg.len > 0 { }
     else if verb == "view" || verb == "share" || verb == "call" || verb == "app" {
@@ -138,11 +138,11 @@ int main() {
         msg = "intent;apps";
     } else { return usage(); }
     String r = ask(msg);
-    if r.len == 0 { cerr << "jearlink: the Jaric app did not answer (is this the terminal of the Jaric app?)\n"; return 1; }
-    if r.starts_with("intent-error;") { cerr << "jearlink: " << r.slice(13, r.len) << "\n"; return 1; }
+    if r.len == 0 { jerr << "jearlink: the Jaric app did not answer (is this the terminal of the Jaric app?)\n"; return 1; }
+    if r.starts_with("intent-error;") { jerr << "jearlink: " << r.slice(13, r.len) << "\n"; return 1; }
     if r.starts_with("intent-apps;") {
         Result<String, Error> dec = Base64::decode(r.slice(12, r.len));
-        if dec.is_ok() { String text = dec.take(); cout << text; }
+        if dec.is_ok() { String text = dec.take(); jout << text; }
     }
     return 0;
 }

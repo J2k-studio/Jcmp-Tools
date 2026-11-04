@@ -5,7 +5,7 @@
 #import <stdlib>
 
 int fail(String app, String msg) {
-    cerr << app << ": " << msg << "\n";
+    jerr << app << ": " << msg << "\n";
     return 1;
 }
 
@@ -57,7 +57,7 @@ bool has_flag(String[] a, char f) {
 // a command that reads files, called without one while the input is the keyboard, would wait for typing for ever: say what is needed
 bool needs_file(String app, String[] ops) {
     if ops.len > 0 || Sys::isatty(0) != 0 { return false; }
-    cerr << app << ": a file name is needed (or text piped in: cat file | " << app << ")\n";
+    jerr << app << ": a file name is needed (or text piped in: cat file | " << app << ")\n";
     return true;
 }
 
@@ -136,7 +136,7 @@ int do_ls(String[] a) {
             Result<String[], Error> r = Dir::list(base);
             if r.is_ok() { raw = r.take(); }
             else { rc = fail("dir", base + ": cannot read the folder"); }
-            if ops.len > 1 { if p > 0 { cout << "\n"; } cout << base << ":\n"; }
+            if ops.len > 1 { if p > 0 { jout << "\n"; } jout << base << ":\n"; }
         } else if Fs::exists(base) {
             raw.push(base);
             base = "";
@@ -205,7 +205,7 @@ int do_ls(String[] a) {
                 if isdir[q] { col = blue; } else if isexe[q] { col = green; }
                 String endc = "";
                 if col.len > 0 { endc = off; }
-                cout << rights_of(modes[q]) << " " << " ".repeat(sw - sz.len) << sz << " " << col << shown[q] << endc << "\n";
+                jout << rights_of(modes[q]) << " " << " ".repeat(sw - sz.len) << sz << " " << col << shown[q] << endc << "\n";
             }
         } else if !tty || one || cnt < 2 {
             for q in 0..cnt {
@@ -213,7 +213,7 @@ int do_ls(String[] a) {
                 if isdir[q] { col = blue; } else if isexe[q] { col = green; }
                 String endc = "";
                 if col.len > 0 { endc = off; }
-                cout << col << shown[q] << endc << "\n";
+                jout << col << shown[q] << endc << "\n";
             }
         } else {
             int width = Term::cols();
@@ -248,7 +248,7 @@ int do_ls(String[] a) {
                     bool last = c == ncols - 1 || (c + 1) * rows + r >= cnt;
                     if !last { line = line + " ".repeat(colw[c] - cells[idx]); }
                 }
-                cout << line << "\n";
+                jout << line << "\n";
             }
         }
     }
@@ -259,7 +259,7 @@ int do_cat(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 { ops.push("-"); }
     int rc = 0;
-    for i in 0..ops.len { cout << load("cat", ops[i], @rc); }
+    for i in 0..ops.len { jout << load("cat", ops[i], @rc); }
     return rc;
 }
 
@@ -276,7 +276,7 @@ int do_head_tail(String[] a, bool head) {
         int first = 0;
         int last = ls.len;
         if head { if n < last { last = n; } } else { if ls.len > n { first = ls.len - n; } }
-        for i in first..last { cout << ls[i] << "\n"; }
+        for i in first..last { jout << ls[i] << "\n"; }
     }
     return rc;
 }
@@ -301,11 +301,11 @@ int do_wc(String[] a) {
             bool sp = ch == 32 || ch == 10 || ch == 9 || ch == 13;
             if sp { inw = false; } else { if !inw { nw += 1; } inw = true; }
         }
-        if l { cout << nl << " "; }
-        if w { cout << nw << " "; }
-        if c { cout << t.len << " "; }
-        if ops[p] != "-" { cout << ops[p]; }
-        cout << "\n";
+        if l { jout << nl << " "; }
+        if w { jout << nw << " "; }
+        if c { jout << t.len << " "; }
+        if ops[p] != "-" { jout << ops[p]; }
+        jout << "\n";
     }
     return rc;
 }
@@ -322,11 +322,11 @@ int do_nl(String[] a) {
         int last = lines.len;
         if last > 0 && lines[last - 1].len == 0 { last -= 1; }
         for i in 0..last {
-            if lines[i].len == 0 { cout << "       \n"; continue; }
+            if lines[i].len == 0 { jout << "       \n"; continue; }
             n += 1;
             String num = str(n);
-            for k in num.len..6 { cout << " "; }
-            cout << num << "  " << lines[i] << "\n";
+            for k in num.len..6 { jout << " "; }
+            jout << num << "  " << lines[i] << "\n";
         }
     }
     return rc;
@@ -342,7 +342,7 @@ int do_tac(String[] a) {
         int last = lines.len;
         if last > 0 && lines[last - 1].len == 0 { last -= 1; }
         int i = last - 1;
-        while i >= 0 { cout << lines[i] << "\n"; i -= 1; }
+        while i >= 0 { jout << lines[i] << "\n"; i -= 1; }
     }
     return rc;
 }
@@ -395,7 +395,7 @@ int do_rev(String[] a) {
             String o = "";
             int k = units.len - 1;
             while k >= 0 { o = o + units[k]; k -= 1; }
-            cout << o << "\n";
+            jout << o << "\n";
         }
     }
     return rc;
@@ -415,25 +415,25 @@ int do_uname(String[] a) {
     String os = first_line_of("/proc/sys/kernel/ostype", "Linux");
     String host = first_line_of("/proc/sys/kernel/hostname", "localhost");
     String rel = first_line_of("/proc/sys/kernel/osrelease", "");
-    if has_flag(a, 'a') { cout << os << " " << host << " " << rel << " aarch64\n"; }
-    else if has_flag(a, 'r') { cout << rel << "\n"; }
-    else if has_flag(a, 'n') { cout << host << "\n"; }
-    else if has_flag(a, 'm') { cout << "aarch64\n"; }
-    else { cout << os << "\n"; }
+    if has_flag(a, 'a') { jout << os << " " << host << " " << rel << " aarch64\n"; }
+    else if has_flag(a, 'r') { jout << rel << "\n"; }
+    else if has_flag(a, 'n') { jout << host << "\n"; }
+    else if has_flag(a, 'm') { jout << "aarch64\n"; }
+    else { jout << os << "\n"; }
     return 0;
 }
 
 int do_hostname(String[] a) {
-    cout << first_line_of("/proc/sys/kernel/hostname", "localhost") << "\n";
+    jout << first_line_of("/proc/sys/kernel/hostname", "localhost") << "\n";
     return 0;
 }
 
 int do_whoami(String[] a) {
     switch Env::get("USER") {
-        Option::Some(u): { if u.len > 0 { cout << u << "\n"; return 0; } }
+        Option::Some(u): { if u.len > 0 { jout << u << "\n"; return 0; } }
         Option::None: { }
     }
-    cout << "uid" << str(Sys::call(174, 0, 0, 0, 0, 0, 0)) << "\n";
+    jout << "uid" << str(Sys::call(174, 0, 0, 0, 0, 0, 0)) << "\n";
     return 0;
 }
 
@@ -459,7 +459,7 @@ int do_realpath(String[] a) {
         String r = "";
         for i in 0..out.len { r = r + "/" + out[i]; }
         if r.len == 0 { r = "/"; }
-        cout << r << "\n";
+        jout << r << "\n";
     }
     return 0;
 }
@@ -484,7 +484,7 @@ int do_base64(String[] a) {
     while at < e.len {                                                  // lines of 76 letters, like the others
         int to = at + 76;
         if to > e.len { to = e.len; }
-        cout << e.slice(at, to) << "\n";
+        jout << e.slice(at, to) << "\n";
         at = to;
     }
     return 0;
@@ -498,7 +498,7 @@ int do_sha256sum(String[] a) {
         bool ok = false;
         String t = read_all_bin(ops[p], @ok);
         if !ok { rc = fail("sha256sum", "cannot read " + ops[p]); continue; }
-        cout << Sha256::hex(t) << "  " << ops[p] << "\n";
+        jout << Sha256::hex(t) << "  " << ops[p] << "\n";
     }
     return rc;
 }
@@ -516,12 +516,12 @@ int do_cmp(String[] a) {
     int n = x.len;
     if y.len < n { n = y.len; }
     for i in 0..n {
-        if x[i] != y[i] { cout << ops[0] << " " << ops[1] << " differ: byte " << i + 1 << "\n"; return 1; }
+        if x[i] != y[i] { jout << ops[0] << " " << ops[1] << " differ: byte " << i + 1 << "\n"; return 1; }
     }
     if x.len != y.len {
         String shorter = ops[1];
         if x.len < y.len { shorter = ops[0]; }
-        cout << "cmp: EOF on " << shorter << "\n";
+        jout << "cmp: EOF on " << shorter << "\n";
         return 1;
     }
     return 0;
@@ -552,7 +552,7 @@ int do_paste(String[] a) {
             if k > 0 { line = line + "\t"; }
             if i < lens[k] { line = line + all[starts[k] + i]; }
         }
-        cout << line << "\n";
+        jout << line << "\n";
     }
     return rc;
 }
@@ -579,11 +579,11 @@ int do_fold(String[] a) {
             int n = 0;
             String cur = "";
             for q in 0..ch.len {
-                if n == w { cout << cur << "\n"; cur = ""; n = 0; }
+                if n == w { jout << cur << "\n"; cur = ""; n = 0; }
                 cur = cur + ch[q];
                 n += 1;
             }
-            cout << cur << "\n";
+            jout << cur << "\n";
         }
     }
     return rc;
@@ -603,27 +603,27 @@ int do_printf(String[] a) {
             char c = f[i];
             if c == '\\' && i + 1 < f.len {
                 char d = f[i + 1];
-                if d == 'n' { cout << "\n"; } else if d == 't' { cout << "\t"; } else if d == '\\' { cout << "\\"; } else if d == 'e' { cout << "\e"; } else if d == 'r' { cout << "\r"; } else { cout << "\\" << d; }
+                if d == 'n' { jout << "\n"; } else if d == 't' { jout << "\t"; } else if d == '\\' { jout << "\\"; } else if d == 'e' { jout << "\e"; } else if d == 'r' { jout << "\r"; } else { jout << "\\" << d; }
                 i += 2;
             } else if c == '%' && i + 1 < f.len {
                 char d = f[i + 1];
                 String v = "";
                 if d != '%' && arg < a.len { v = a[arg]; arg += 1; used += 1; }
-                if d == 's' { cout << v; }
-                else if d == 'd' { cout << str(v.to_int()); }
+                if d == 's' { jout << v; }
+                else if d == 'd' { jout << str(v.to_int()); }
                 else if d == 'x' {
                     int hv = v.to_int();
                     String hs = "";
                     String hd = "0123456789abcdef";
                     if hv == 0 { hs = "0"; }
                     while hv > 0 { hs = hd.slice(hv & 15, (hv & 15) + 1) + hs; hv = hv >> 4; }
-                    cout << hs;
+                    jout << hs;
                 }
-                else if d == 'c' { if v.len > 0 { cout << v.slice(0, 1); } }
-                else if d == '%' { cout << "%"; }
-                else { cout << "%" << d; }
+                else if d == 'c' { if v.len > 0 { jout << v.slice(0, 1); } }
+                else if d == '%' { jout << "%"; }
+                else { jout << "%" << d; }
                 i += 2;
-            } else { cout << c; i += 1; }
+            } else { jout << c; i += 1; }
         }
         if used > 0 && arg < a.len { again = true; }
     }
@@ -635,7 +635,7 @@ int do_uptime(String[] a) {
     String[] p = u.split(" ");
     String[] whole = p[0].split(".");
     int secs = whole[0].to_int();
-    cout << "up " << secs / 86400 << " days, " << (secs % 86400) / 3600 << ":" << two_digits((secs % 3600) / 60) << "\n";
+    jout << "up " << secs / 86400 << " days, " << (secs % 86400) / 3600 << ":" << two_digits((secs % 3600) / 60) << "\n";
     return 0;
 }
 
@@ -674,7 +674,7 @@ int do_free(String[] a) {
         if p[0] == "MemAvailable:" { avail = p[1].to_int(); }
         if p[0] == "SwapTotal:" { swap = p[1].to_int(); }
     }
-    cout << "memory  total " << total / 1024 << " MB   available " << avail / 1024 << " MB   used " << (total - avail) / 1024 << " MB   swap " << swap / 1024 << " MB\n";
+    jout << "memory  total " << total / 1024 << " MB   available " << avail / 1024 << " MB   used " << (total - avail) / 1024 << " MB   swap " << swap / 1024 << " MB\n";
     return 0;
 }
 
@@ -687,7 +687,7 @@ int do_nproc(String[] a) {
         for i in 0..lines.len { if lines[i].starts_with("processor") { n += 1; } }
     }
     if n == 0 { n = 1; }
-    cout << n << "\n";
+    jout << n << "\n";
     return 0;
 }
 
@@ -874,7 +874,7 @@ int do_grep(String[] a) {
     int rc = 1;
     int errs = 0;
     int nfiles = ops.len - 1;
-    if ops.len == 1 && Sys::isatty(0) == 0 { cerr << "grep: a file name is needed (or text piped in)\n"; return 2; }
+    if ops.len == 1 && Sys::isatty(0) == 0 { jerr << "grep: a file name is needed (or text piped in)\n"; return 2; }
     if nfiles == 0 { ops.push("-"); nfiles = 1; }
     for p in 1..ops.len {
         String[] ls = lines_of(load("grep", ops[p], @errs));
@@ -884,9 +884,9 @@ int do_grep(String[] a) {
             bool hit = Regex::find(pat, line) >= 0;
             if hit != invert {
                 rc = 0;
-                if nfiles > 1 { cout << ops[p] << ":"; }
-                if number { cout << i + 1 << ":"; }
-                cout << ls[i] << "\n";
+                if nfiles > 1 { jout << ops[p] << ":"; }
+                if number { jout << i + 1 << ":"; }
+                jout << ls[i] << "\n";
             }
         }
     }
@@ -906,8 +906,8 @@ int do_sort(String[] a) {
     }
     all.sort();
     bool rev = has_flag(a, 'r');
-    if rev { for i in 0..all.len { cout << all[all.len - 1 - i] << "\n"; } }
-    else { for i in 0..all.len { cout << all[i] << "\n"; } }
+    if rev { for i in 0..all.len { jout << all[all.len - 1 - i] << "\n"; } }
+    else { for i in 0..all.len { jout << all[i] << "\n"; } }
     return rc;
 }
 
@@ -918,7 +918,7 @@ int do_uniq(String[] a) {
     int rc = 0;
     String[] ls = lines_of(load("uniq", ops[0], @rc));
     for i in 0..ls.len {
-        if i == 0 || ls[i] != ls[i - 1] { cout << ls[i] << "\n"; }
+        if i == 0 || ls[i] != ls[i - 1] { jout << ls[i] << "\n"; }
     }
     return rc;
 }
@@ -927,7 +927,7 @@ int do_tee(String[] a) {
     bool append = has_flag(a, 'a');
     String[] ops = operands(a, false);
     String t = stdin_all();
-    cout << t;
+    jout << t;
     int rc = 0;
     for i in 0..ops.len {
         Result<int, Error> r = Fs::write_text(ops[i], t);
@@ -947,19 +947,19 @@ int do_seq(String[] a) {
     if ops.len == 1 { hi = ops[0].to_int(); }
     else if ops.len >= 2 { lo = ops[0].to_int(); hi = ops[1].to_int(); }
     else { return fail("seq", "usage: seq [FIRST] LAST"); }
-    for i in lo..hi + 1 { cout << i << "\n"; }
+    for i in lo..hi + 1 { jout << i << "\n"; }
     return 0;
 }
 
 int do_basename(String[] a) {
     if a.len < 2 { return fail("basename", "a path is needed"); }
-    cout << Path::name(a[1]) << "\n";
+    jout << Path::name(a[1]) << "\n";
     return 0;
 }
 
 int do_dirname(String[] a) {
     if a.len < 2 { return fail("dirname", "a path is needed"); }
-    cout << Path::parent(a[1]) << "\n";
+    jout << Path::parent(a[1]) << "\n";
     return 0;
 }
 
@@ -970,7 +970,7 @@ int do_sleep(String[] a) {
 }
 
 int do_clear() {
-    cout << (char)27 << "[2J" << (char)27 << "[H";
+    jout << (char)27 << "[2J" << (char)27 << "[H";
     return 0;
 }
 
@@ -979,7 +979,7 @@ int do_env() {
     while Sys::arg(Sys::argc() + 1 + ne) != null {
         String e = "";
         e.append((char^)Sys::arg(Sys::argc() + 1 + ne));
-        cout << e << "\n";
+        jout << e << "\n";
         ne += 1;
     }
     return 0;
@@ -1017,8 +1017,8 @@ bool is_digits(String s) {
 }
 
 int do_help() {
-    cout << "jbox commands: dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
-    cout << "flags: dir -a -l   tree -a -d -s -L N   find -name P -type f|d -maxdepth N   ln -s   cut -d X -f N   tr -d   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
+    jout << "jbox commands: dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
+    jout << "flags: dir -a -l   tree -a -d -s -L N   find -name P -type f|d -maxdepth N   ln -s   cut -d X -f N   tr -d   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
     return 0;
 }
 
@@ -1037,7 +1037,7 @@ String size_text(int n) {
 int tree_walk(String dir, String prefix, bool all, int depth, int maxd, int^ nd, int^ nf) {
     if depth >= maxd { return 0; }
     Result<String[], Error> r = Dir::list(dir);
-    if !r.is_ok() { cout << prefix << "`-- [cannot read this folder]\n"; tree_denied = true; return 1; }
+    if !r.is_ok() { jout << prefix << "`-- [cannot read this folder]\n"; tree_denied = true; return 1; }
     String[] names = r.take();
     names.sort();
     String[] shown = arr(names.len + 1);
@@ -1055,11 +1055,11 @@ int tree_walk(String dir, String prefix, bool all, int depth, int maxd, int^ nd,
         bool isdir = Dir::exists(full);
         String mark = "|-- ";
         if last { mark = "`-- "; }
-        if isdir { cout << prefix << mark << shown[i] << "/\n"; nd[0] += 1; }
+        if isdir { jout << prefix << mark << shown[i] << "/\n"; nd[0] += 1; }
         else {
             String extra = "";
             if tree_sizes { Result<int, Error> sz = Fs::size(full); if sz.is_ok() { extra = "  (" + size_text(sz.take()) + ")"; } }
-            cout << prefix << mark << shown[i] << extra << "\n";
+            jout << prefix << mark << shown[i] << extra << "\n";
             nf[0] += 1;
         }
         if isdir {
@@ -1084,12 +1084,12 @@ int do_tree(String[] a) {
         i += 1;
     }
     if !Dir::exists(root) { return fail("tree", root + ": no such folder"); }
-    cout << root << "\n";
+    jout << root << "\n";
     int nd = 0;
     int nf = 0;
     int rc = tree_walk(root, "", all, 0, maxd, @nd, @nf);
-    cout << "\n" << nd << " folders, " << nf << " files\n";
-    if tree_denied && nd == 0 && nf == 0 { cerr << "tree: " << root << " cannot be listed here (Android hides it); try a folder under $HOME or $PREFIX\n"; }
+    jout << "\n" << nd << " folders, " << nf << " files\n";
+    if tree_denied && nd == 0 && nf == 0 { jerr << "tree: " << root << " cannot be listed here (Android hides it); try a folder under $HOME or $PREFIX\n"; }
     return rc;
 }
 
@@ -1121,7 +1121,7 @@ void find_walk(String dir, String pat, char kind, int depth, int maxd) {
         if pat.len > 0 && !glob_match(pat, 0, names[i], 0) { ok = false; }
         if kind == 'f' && isdir { ok = false; }
         if kind == 'd' && !isdir { ok = false; }
-        if ok { cout << full << "\n"; }
+        if ok { jout << full << "\n"; }
         if isdir && depth + 1 < maxd { find_walk(full, pat, kind, depth + 1, maxd); }
     }
 }
@@ -1184,7 +1184,7 @@ int do_cut(String[] a) {
     String[] ls = lines_of(load("cut", file, @rc));
     for k in 0..ls.len {
         String[] parts = ls[k].split(delim);
-        if field >= 1 && field <= parts.len { cout << parts[field - 1] << "\n"; } else { cout << "\n"; }
+        if field >= 1 && field <= parts.len { jout << parts[field - 1] << "\n"; } else { jout << "\n"; }
     }
     return rc;
 }
@@ -1203,7 +1203,7 @@ int do_tr(String[] a) {
         if at < 0 { out.push(c); }
         else if !del { char t = ops[1][ops[1].len - 1]; if at < ops[1].len { t = ops[1][at]; } out.push(t); }
     }
-    cout << out;
+    jout << out;
     return 0;
 }
 
@@ -1238,8 +1238,8 @@ int do_diff(String[] a) {
     int diffs = 0;
     while p < n || q < m {
         if p < n && q < m && x[p] == y[q] { p += 1; q += 1; }
-        else if q >= m || (p < n && lcs[(p + 1) * (m + 1) + q] >= lcs[p * (m + 1) + q + 1]) { cout << "< " << x[p] << "\n"; p += 1; diffs += 1; }
-        else { cout << "> " << y[q] << "\n"; q += 1; diffs += 1; }
+        else if q >= m || (p < n && lcs[(p + 1) * (m + 1) + q] >= lcs[p * (m + 1) + q + 1]) { jout << "< " << x[p] << "\n"; p += 1; diffs += 1; }
+        else { jout << "> " << y[q] << "\n"; q += 1; diffs += 1; }
     }
     if diffs > 0 { return 1; }
     return 0;
@@ -1248,10 +1248,10 @@ int do_diff(String[] a) {
 // ---------------------------------------------------------------- date du xargs sed less stat
 int do_date(String[] a) {                                       // date [+%s]: the time now (UTC); +%s the seconds since 1970
     int ms = Time::now_ms();
-    if a.len > 1 && a[1] == "+%s" { cout << ms / 1000 << "\n"; return 0; }
+    if a.len > 1 && a[1] == "+%s" { jout << ms / 1000 << "\n"; return 0; }
     Date d;
     d.set_unix(ms / 1000);
-    cout << d.text() << " UTC\n";
+    jout << d.text() << " UTC\n";
     return 0;
 }
 
@@ -1276,10 +1276,10 @@ int do_du(String[] a) {                                         // du [-h] [FOLD
     for i in 0..ops.len {
         int n = du_size(ops[i]);
         if human {
-            if n >= 1048576 { cout << n / 1048576 << "M\t" << ops[i] << "\n"; }
-            else if n >= 1024 { cout << n / 1024 << "K\t" << ops[i] << "\n"; }
-            else { cout << n << "\t" << ops[i] << "\n"; }
-        } else { cout << n << "\t" << ops[i] << "\n"; }
+            if n >= 1048576 { jout << n / 1048576 << "M\t" << ops[i] << "\n"; }
+            else if n >= 1024 { jout << n / 1024 << "K\t" << ops[i] << "\n"; }
+            else { jout << n << "\t" << ops[i] << "\n"; }
+        } else { jout << n << "\t" << ops[i] << "\n"; }
     }
     return 0;
 }
@@ -1288,10 +1288,10 @@ int do_stat(String[] a) {
     String[] ops = operands(a, false);
     int rc = 0;
     for i in 0..ops.len {
-        if Dir::exists(ops[i]) { cout << ops[i] << ": folder\n"; }
+        if Dir::exists(ops[i]) { jout << ops[i] << ": folder\n"; }
         else if Fs::exists(ops[i]) {
             Result<int, Error> r = Fs::size(ops[i]);
-            cout << ops[i] << ": file, " << r.unwrap() << " bytes\n";
+            jout << ops[i] << ": file, " << r.unwrap() << " bytes\n";
         } else { rc = fail("stat", ops[i] + ": no such file or folder"); }
     }
     return rc;
@@ -1339,7 +1339,7 @@ int do_sed(String[] a) {
                 if found { l = l.slice(0, at) + to + l.slice(at + from.len, l.len); }
             }
         }
-        cout << l << "\n";
+        jout << l << "\n";
     }
     return rc;
 }
@@ -1388,7 +1388,7 @@ String hilite(String line, String pat) {
 int pager(String title, String[] raw, int[] raw_style) {
     int fdin = Sys::open_read("/dev/tty".c());
     if fdin < 0 || Sys::isatty(1) != 0 {
-        for i in 0..raw.len { cout << raw[i] << "\n"; }
+        for i in 0..raw.len { jout << raw[i] << "\n"; }
         return 0;
     }
     char t[64];
@@ -1412,7 +1412,7 @@ int pager(String title, String[] raw, int[] raw_style) {
     String pat = "";
     String note = "";
     String e = "\e";
-    cout << e << "[?1049h";
+    jout << e << "[?1049h";
     bool done = false;
     while !done {
         String o = e + "[H";
@@ -1432,7 +1432,7 @@ int pager(String title, String[] raw, int[] raw_style) {
         if note.len > 0 { foot = foot + "  " + note; } else { foot = foot + "   (space next, b back, / find, n next match, g top, G end, h help, q quit)"; }
         if foot.len > cols - 1 { foot = foot.slice(0, cols - 1); }
         o = o + e + "[7m" + foot + e + "[0m" + e + "[K";
-        cout << o;
+        jout << o;
         note = "";
         char k[2];
         int n = Sys::read(fdin, @k, 1);
@@ -1469,10 +1469,10 @@ int pager(String title, String[] raw, int[] raw_style) {
             for i in 0..hl.len { hs.push(0); }
             hs[0] = 1;
             pager("help", hl, hs);
-            cout << e << "[?1049h";
+            jout << e << "[?1049h";
         }
         else if c == '/' {
-            cout << e << "[" << rows << ";1H" << e << "[7m/" << e << "[0m" << e << "[K";
+            jout << e << "[" << rows << ";1H" << e << "[7m/" << e << "[0m" << e << "[K";
             String q = "";
             while true {
                 char ch[2];
@@ -1482,7 +1482,7 @@ int pager(String title, String[] raw, int[] raw_style) {
                 if cc == 27 { q = ""; break; }
                 if cc == 127 || cc == 8 { if q.len > 0 { q = q.slice(0, q.len - 1); } }
                 else { q.push((char)cc); }
-                cout << e << "[" << rows << ";1H" << e << "[7m/" << q << e << "[0m" << e << "[K";
+                jout << e << "[" << rows << ";1H" << e << "[7m/" << q << e << "[0m" << e << "[K";
             }
             if q.len > 0 { pat = q + ""; }
             c = 'n';
@@ -1504,7 +1504,7 @@ int pager(String title, String[] raw, int[] raw_style) {
             }
         }
     }
-    cout << e << "[?1049l";
+    jout << e << "[?1049l";
     Sys::call(29, fdin, 21506, (int)@t, 0, 0, 0);
     return 0;
 }
@@ -1516,7 +1516,7 @@ int do_less(String[] a) {
     if ops.len > 0 { file = ops[0] + ""; }
     String[] ls = lines_of(load("less", file, @rc));
     if Sys::isatty(1) != 0 || Sys::isatty(0) == 0 && file == "-" {          // not a screen: just show it
-        for i in 0..ls.len { cout << ls[i] << "\n"; }
+        for i in 0..ls.len { jout << ls[i] << "\n"; }
         return rc;
     }
     int[] none = arr(2);
@@ -1617,7 +1617,7 @@ int do_man(String[] a) {
     if md.len == 0 { return fail("man", "no manual for " + ops[0] + " (man shows the list; " + ops[0] + " --help may tell something)"); }
     String[] out = arr(100); int[] st = arr(100);
     man_render(md, out, st);
-    if Sys::isatty(1) != 0 { for i in 0..out.len { cout << out[i] << "\n"; } return 0; }
+    if Sys::isatty(1) != 0 { for i in 0..out.len { jout << out[i] << "\n"; } return 0; }
     pager("man " + name, out, st);
     return 0;
 }
@@ -1639,7 +1639,7 @@ int do_df(String[] a) {
         switch Env::get("HOME") { Option::Some(h): { ops.push(h + ""); } Option::None: { } }
         ops.push("/sdcard"); ops.push("/data"); ops.push("/");
     }
-    cout << "  SIZE    USED   AVAIL USE%  FOLDER\n";
+    jout << "  SIZE    USED   AVAIL USE%  FOLDER\n";
     for i in 0..ops.len {
         char buf[128];
         if Sys::call(43, (int)ops[i].c(), (int)@buf, 0, 0, 0, 0) != 0 { continue; }
@@ -1650,7 +1650,7 @@ int do_df(String[] a) {
         int availkb = avail / 1024 * bsize;
         int pct = 0;
         if blocks > 0 { pct = (blocks - freeb) * 100 / blocks; }
-        cout << lpad(df_size(size, human), 6) << " " << lpad(df_size(usedkb, human), 7) << " " << lpad(df_size(availkb, human), 7) << " " << lpad(str(pct) + "%", 4) << "  " << ops[i] << "\n";
+        jout << lpad(df_size(size, human), 6) << " " << lpad(df_size(usedkb, human), 7) << " " << lpad(df_size(availkb, human), 7) << " " << lpad(str(pct) + "%", 4) << "  " << ops[i] << "\n";
     }
     return 0;
 }
@@ -1663,7 +1663,7 @@ int do_ps(String[] a) {
     if r.is_err() { return fail("ps", "cannot read /proc"); }
     String[] names = r.take();
     names.sort();
-    cout << lpad("PID", 7) << " S " << lpad("MEM MB", 7) << lpad("CPU s", 7) << "  NAME\n";
+    jout << lpad("PID", 7) << " S " << lpad("MEM MB", 7) << lpad("CPU s", 7) << "  NAME\n";
     int shown = 0;
     for i in 0..names.len {
         String pid = names[i];
@@ -1683,10 +1683,10 @@ int do_ps(String[] a) {
         if op < 0 || cl < op { continue; }
         String[] f = st.slice(cl + 2, st.len).trim().split(" ");
         if f.len < 22 { continue; }
-        cout << lpad(pid, 7) << " " << f[0] << " " << lpad(str(f[21].to_int() * 4 / 1024), 7) << lpad(str((f[11].to_int() + f[12].to_int()) / 100), 7) << "  " << st.slice(op + 1, cl) << "\n";
+        jout << lpad(pid, 7) << " " << f[0] << " " << lpad(str(f[21].to_int() * 4 / 1024), 7) << lpad(str((f[11].to_int() + f[12].to_int()) / 100), 7) << "  " << st.slice(op + 1, cl) << "\n";
         shown += 1;
     }
-    cout << shown << " programs visible (Android shows only your own)\n";
+    jout << shown << " programs visible (Android shows only your own)\n";
     return 0;
 }
 
@@ -1720,7 +1720,7 @@ int do_hex(String[] a) {
                 if k % 2 == 1 { hexs = hexs + " "; }
             }
         }
-        cout << off << ": " << hexs << " " << asc << "\n";
+        jout << off << ": " << hexs << " " << asc << "\n";
         at += 16;
     }
     return 0;
@@ -1752,13 +1752,13 @@ int do_install(String[] args) {
         } else if Fs::exists(link) { continue; }
         if Sys::call(36, (int)"jbox".c(), 0 - 100, (int)link.c(), 0, 0, 0) < 0 { rc = fail("jbox", "cannot make " + link); }
     }
-    if rc == 0 { cout << "jbox: " << names.len << " commands linked in " << dir << "\n"; }
+    if rc == 0 { jout << "jbox: " << names.len << " commands linked in " << dir << "\n"; }
     return rc;
 }
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jbox 0.10.1\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.10.1\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
@@ -1829,6 +1829,6 @@ int main() {
     if app == "true" { return 0; }
     if app == "false" { return 1; }
     if app == "help" { return do_help(); }
-    cerr << "jsh: " << app << ": command not found\n";
+    jerr << "jsh: " << app << ": command not found\n";
     return 127;
 }

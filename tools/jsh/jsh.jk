@@ -426,18 +426,18 @@ void redraw(String prompt, String line, int cursor) {
     int cols = Term::cols();
     if cols < 10 { cols = 80; }
     int pw = visible_width(prompt);
-    if redraw_row > 0 { cout << esc() << "[" << redraw_row << "A"; }
+    if redraw_row > 0 { jout << esc() << "[" << redraw_row << "A"; }
     int ws = 0;
     while ws < line.len && line[ws] == ' ' { ws += 1; }
     int we = ws;
     while we < line.len && line[we] != ' ' { we += 1; }
-    cout << "\r";
+    jout << "\r";
     if we < line.len && we > ws && Sys::isatty(1) == 0 {
         String code = "[38;2;120;220;130m";
         if !command_known(line.slice(ws, we)) { code = "[38;2;255;110;110m"; }
-        cout << prompt << line.slice(0, ws) << esc() << code << line.slice(ws, we) << esc() << "[0m" << line.slice(we, line.len);
+        jout << prompt << line.slice(0, ws) << esc() << code << line.slice(ws, we) << esc() << "[0m" << line.slice(we, line.len);
     } else {
-        cout << prompt << line;
+        jout << prompt << line;
     }
     int lw = cols_of(line, 0, line.len);
     int endw = pw + lw;
@@ -451,29 +451,29 @@ void redraw(String prompt, String line, int cursor) {
             ghost = ghost.slice(0, cut);
         }
         if ghost.len > 0 {
-            cout << esc() << "[38;2;110;110;110m" << ghost << esc() << "[0m";
+            jout << esc() << "[38;2;110;110;110m" << ghost << esc() << "[0m";
             endw += cols_of(ghost, 0, ghost.len);
         }
     }
-    cout << esc() << "[J";
-    if endw > 0 && endw % cols == 0 { cout << " \r"; }               // the cursor waits after the last place of a full row: make it go to the next row
+    jout << esc() << "[J";
+    if endw > 0 && endw % cols == 0 { jout << " \r"; }               // the cursor waits after the last place of a full row: make it go to the next row
     int endrow = endw / cols;
     int tw = pw + cols_of(line, 0, cursor);
     int tr = tw / cols;
     int tc = tw % cols;
-    if endrow > tr { cout << esc() << "[" << endrow - tr << "A"; }
-    cout << "\r";
-    if tc > 0 { cout << esc() << "[" << tc << "C"; }
+    if endrow > tr { jout << esc() << "[" << endrow - tr << "A"; }
+    jout << "\r";
+    if tc > 0 { jout << esc() << "[" << tc << "C"; }
     redraw_row = tr;
     redraw_end = endrow;
 }
 
 // Enter: the cursor goes to the end of the text, then to the next line
 void finish_line() {
-    if redraw_end > redraw_row { cout << esc() << "[" << redraw_end - redraw_row << "B"; }
+    if redraw_end > redraw_row { jout << esc() << "[" << redraw_end - redraw_row << "B"; }
     redraw_row = 0;
     redraw_end = 0;
-    cout << "\n";
+    jout << "\n";
 }
 
 // returns false at the end of the input (Ctrl-D on an empty line)
@@ -496,10 +496,10 @@ bool read_command(String prompt) {
     set_icrnl(false);
     redraw_row = 0;
     redraw_end = 0;
-    cout << prompt;
+    jout << prompt;
     while true {
         int k = read.key();
-        if k < 0 { cout << "\n"; set_icrnl(true); return false; }
+        if k < 0 { jout << "\n"; set_icrnl(true); return false; }
         if k == 13 { finish_line(); got_line = pending + line; set_icrnl(true); return true; }       // Enter: run
         if k == 10 {                                                                                   // New line: another line of the same command
             pending = pending + line + "\n";
@@ -507,14 +507,14 @@ bool read_command(String prompt) {
             cursor = 0;
             shown = ".. " + prompt_mark();
             finish_line();
-            cout << shown;
+            jout << shown;
             continue;
         }
         if k == 4 {
             if line.len == 0 && pending.len == 0 { finish_line(); set_icrnl(true); return false; }
             continue;
         }
-        if k == 3 { finish_line(); cout << "^C\n"; got_line = ""; set_icrnl(true); return true; }
+        if k == 3 { finish_line(); jout << "^C\n"; got_line = ""; set_icrnl(true); return true; }
         if k == 127 || k == 8 {
             if cursor > 0 {
                 int pc = prev_char(line, cursor);
@@ -568,8 +568,8 @@ bool read_command(String prompt) {
                         cursor = line.len;
                     } else {
                         finish_line();
-                        for i in 0..c.len { cout << c[i] << "  "; }
-                        cout << "\n";
+                        for i in 0..c.len { jout << c[i] << "  "; }
+                        jout << "\n";
                     }
                 }
             } else {
@@ -849,8 +849,8 @@ String drive_form(String real) {
 
 void drive_list() {
     drives_load();
-    cout << ":/   home (the same as ~/ and f:/)\n";
-    for i in 0..dr_name.len { cout << dr_name[i] << ":/  " << dr_path[i] << "\n"; }
+    jout << ":/   home (the same as ~/ and f:/)\n";
+    for i in 0..dr_name.len { jout << dr_name[i] << ":/  " << dr_path[i] << "\n"; }
 }
 
 // drive            the list;   drive new NAME PATH   make a drive of a folder;   drive remove NAME
@@ -861,10 +861,10 @@ int drive_command(String[] a) {
     if a[1] == "new" && a.len >= 4 {
         String name = a[2];
         String path = a[3];
-        if !drive_name_ok(name) { cerr << "drive: the name is letters, digits and _ (up to 12)\n"; return 1; }
-        if name == "f" || name == "r" || name == "0" || name == "u" { cerr << "drive: " << name << " is a drive of the system and cannot be changed\n"; return 1; }
-        if !path.starts_with("/") { cerr << "drive: the folder must be a full path (it starts with /)\n"; return 1; }
-        if !Dir::exists(path) { cerr << "drive: " << path << " is not a folder\n"; return 1; }
+        if !drive_name_ok(name) { jerr << "drive: the name is letters, digits and _ (up to 12)\n"; return 1; }
+        if name == "f" || name == "r" || name == "0" || name == "u" { jerr << "drive: " << name << " is a drive of the system and cannot be changed\n"; return 1; }
+        if !path.starts_with("/") { jerr << "drive: the folder must be a full path (it starts with /)\n"; return 1; }
+        if !Dir::exists(path) { jerr << "drive: " << path << " is not a folder\n"; return 1; }
         String text = "";
         if Fs::exists(file) { Result<String, Error> r = Fs::read_text(file); if r.is_ok() { text = r.take(); } }
         String out = "";
@@ -878,12 +878,12 @@ int drive_command(String[] a) {
         out = out + name + " " + path + "\n";
         Fs::write_text(file, out);
         drive_add(name, path);
-        cout << name << ":/ is " << path << "\n";
+        jout << name << ":/ is " << path << "\n";
         return 0;
     }
     if a[1] == "remove" && a.len >= 3 {
         String name = a[2];
-        if !Fs::exists(file) { cerr << "drive: no drive " << name << " was made\n"; return 1; }
+        if !Fs::exists(file) { jerr << "drive: no drive " << name << " was made\n"; return 1; }
         Result<String, Error> r = Fs::read_text(file);
         String text = "";
         if r.is_ok() { text = r.take(); }
@@ -891,13 +891,13 @@ int drive_command(String[] a) {
         bool found = false;
         String[] ls = text.split("\n");
         for i in 0..ls.len { String ln = ls[i].trim(); if ln.starts_with(name + " ") { found = true; } else if ln.len > 0 { out = out + ln + "\n"; } }
-        if !found { cerr << "drive: no drive " << name << " was made\n"; return 1; }
+        if !found { jerr << "drive: no drive " << name << " was made\n"; return 1; }
         Fs::write_text(file, out);
         dr_ready = 0;
-        cout << "removed the drive " << name << "\n";
+        jout << "removed the drive " << name << "\n";
         return 0;
     }
-    cerr << "usage: drive | drive new NAME PATH | drive remove NAME   (jc install drive: more)\n";
+    jerr << "usage: drive | drive new NAME PATH | drive remove NAME   (jc install drive: more)\n";
     return 2;
 }
 
@@ -954,7 +954,7 @@ String top_dir() { return Path::parent(getv("HOME")); }
 String root_file() { return top_dir() + "/.jaric/root"; }
 
 String read_secret(String ask) {                              // a line without echo
-    cout << ask;
+    jout << ask;
     char t[64];
     bool tty = Sys::isatty(0) == 0;
     if tty {
@@ -966,7 +966,7 @@ String read_secret(String ask) {                              // a line without 
     if tty {
         t[12] = t[12] | 8;
         Sys::call(29, 0, 21506, (int)@t, 0, 0, 0);
-        cout << "\n";
+        jout << "\n";
     }
     return pw;
 }
@@ -974,25 +974,25 @@ String read_secret(String ask) {                              // a line without 
 bool root_login() {
     String file = root_file();
     if !Fs::exists(file) {
-        cout << "root has no password yet: make one (at least 4 characters).\n";
+        jout << "root has no password yet: make one (at least 4 characters).\n";
         String p1 = read_secret("new root password: ");
-        if p1.len < 4 { cerr << "login: too short\n"; return false; }
+        if p1.len < 4 { jerr << "login: too short\n"; return false; }
         String p2 = read_secret("again: ");
-        if p1 != p2 { cerr << "login: the two are not the same\n"; return false; }
+        if p1 != p2 { jerr << "login: the two are not the same\n"; return false; }
         String salt = str(Time::now_ms());
         Dir::make_all(Path::parent(file));
         Fs::write_text(file, salt + " " + Hash::sha256(salt + p1) + "\n");
-        cout << "root password set.\n";
+        jout << "root password set.\n";
         return true;
     }
     String text = "";
     switch Fs::read_text(file) { Result::Ok(t): { text = t.trim() + ""; } Result::Err(e): { } }
     int sp = text.find(" ");
-    if sp <= 0 { cerr << "login: the password file is damaged (" << file << ")\n"; return false; }
+    if sp <= 0 { jerr << "login: the password file is damaged (" << file << ")\n"; return false; }
     String salt = text.slice(0, sp);
     String want = text.slice(sp + 1, text.len).trim();
     String pw = read_secret("root password: ");
-    if Hash::sha256(salt + pw) != want { cerr << "login: wrong password\n"; return false; }
+    if Hash::sha256(salt + pw) != want { jerr << "login: wrong password\n"; return false; }
     return true;
 }
 
@@ -1266,19 +1266,19 @@ int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_
         if out_fd >= 0 { Sys::dup2(out_fd, 1); }
         if in_file.len > 0 {
             int f = Sys::open_read(in_file.c());
-            if f < 0 { cerr << "jsh: cannot read " << in_file << "\n"; Sys::exit(1); }
+            if f < 0 { jerr << "jsh: cannot read " << in_file << "\n"; Sys::exit(1); }
             Sys::dup2(f, 0);
         }
         if out_file.len > 0 {
             int g = 0;
             if out_flags_append == 1 { g = Sys::open_append(out_file.c()); } else { g = Sys::open_write(out_file.c()); }
-            if g < 0 { cerr << "jsh: cannot write " << out_file << "\n"; Sys::exit(1); }
+            if g < 0 { jerr << "jsh: cannot write " << out_file << "\n"; Sys::exit(1); }
             Sys::dup2(g, 1);
         }
         if err_mode == 1 || err_mode == 2 {
             int h = 0;
             if err_mode == 2 { h = Sys::open_append(err_file.c()); } else { h = Sys::open_write(err_file.c()); }
-            if h < 0 { cerr << "jsh: cannot write " << err_file << "\n"; Sys::exit(1); }
+            if h < 0 { jerr << "jsh: cannot write " << err_file << "\n"; Sys::exit(1); }
             Sys::dup2(h, 2);
         } else if err_mode == 3 { Sys::dup2(1, 2); }
         else if err_mode == 4 { Sys::dup2(2, 1); }
@@ -1286,7 +1286,7 @@ int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_
         for i in 0..argv[0].len { if argv[0][i] == '/' { slash = true; } }
         if slash {
             int er = Sys::execve(argv[0].c(), av, envp);           // comes back only when it failed
-            cerr << "jsh: " << argv[0] << ": " << exec_failed_text(argv[0], er) << "\n";
+            jerr << "jsh: " << argv[0] << ": " << exec_failed_text(argv[0], er) << "\n";
             if file_mode_of(argv[0]) < 0 { Sys::exit(127); }          // not there: 127; there but cannot be started: 126
             Sys::exit(126);
         } else {
@@ -1310,7 +1310,7 @@ int spawn(String[] argv, int in_fd, int out_fd, int out_flags_append, String in_
         if argv[0] == "makej" || argv[0] == "coderin" || argv[0] == "jget" { hint = "  (jc install " + argv[0] + ")"; }
         if hint.len == 0 && file_mode_of(argv[0]) >= 0 { hint = "  (there is a file with this name in this folder: run it as ./" + argv[0] + ")"; }
         if hint.len == 0 { hint = typo_hint(argv[0]); }
-        cerr << "jsh: " << argv[0] << ": command not found" << hint << "\n";
+        jerr << "jsh: " << argv[0] << ": command not found" << hint << "\n";
         Sys::exit(127);
     }
     Mem::free(av);
@@ -1474,13 +1474,13 @@ void setting_change(int i, int dir) {
         n.push("black"); n.push("soft"); n.push("amber"); n.push("green"); n.push("ice"); n.push("devc"); n.push("devc-dark"); n.push("temple");
         int at = 0;
         for k in 0..n.len { if n[k] == cur { at = k; } }
-        if dir == 0 { cout << "\ntheme (black soft amber green ice devc devc-dark temple): "; String t = Input::line().trim(); if t.len > 0 { kv_set(cfg, "theme", t, false); } return; }
+        if dir == 0 { jout << "\ntheme (black soft amber green ice devc devc-dark temple): "; String t = Input::line().trim(); if t.len > 0 { kv_set(cfg, "theme", t, false); } return; }
         kv_set(cfg, "theme", n[(at + dir + n.len) % n.len], false);
         return;
     }
     if i == 1 {
         int f = cur.to_int();
-        if dir == 0 { cout << "\nfont size (6 .. 40): "; f = Input::line().trim().to_int(); } else { f += dir; }
+        if dir == 0 { jout << "\nfont size (6 .. 40): "; f = Input::line().trim().to_int(); } else { f += dir; }
         if f < 6 { f = 6; }
         if f > 40 { f = 40; }
         kv_set(cfg, "font", str(f), false);
@@ -1503,14 +1503,14 @@ void setting_change(int i, int dir) {
         else if i == 18 {
             key = "scrollback";
             int n = cur.to_int();
-            if dir == 0 { cout << "\nlines of history (100 .. 100000): "; n = Input::line().trim().to_int(); } else { n += dir * 500; }
+            if dir == 0 { jout << "\nlines of history (100 .. 100000): "; n = Input::line().trim().to_int(); } else { n += dir * 500; }
             if n < 100 { n = 100; }
             if n > 100000 { n = 100000; }
             kv_set(cfg, key, str(n), false);
             return;
         } else if i == 21 {
             key = "startup";
-            cout << "\ncommand to run when the app starts (empty = none): ";
+            jout << "\ncommand to run when the app starts (empty = none): ";
             String c = Input::line().trim();
             kv_set(cfg, key, c, false);
             return;
@@ -1521,21 +1521,21 @@ void setting_change(int i, int dir) {
         if step == 0 { step = 1; }
         int nx = (at + step + ch.len) % ch.len;
         kv_set(cfg, key, ch[nx], false);
-        if i == 17 { cout << esc() << "]7777;volkeys;" << ch[nx] << (char)7; }          // the app keeps this one in its own preferences
+        if i == 17 { jout << esc() << "]7777;volkeys;" << ch[nx] << (char)7; }          // the app keeps this one in its own preferences
         return;
     }
     if i == 5 { if cur == "shown" { kv_set(cfg, "topbar", "hidden", false); } else { kv_set(cfg, "topbar", "shown", false); } return; }
     if i == 6 { if cur == "on" { kv_set(cfg, "animation", "off", false); } else { kv_set(cfg, "animation", "on", false); } return; }
     if i == 7 {
         int ms = cur.to_int();
-        if dir == 0 { cout << "\nanimation time in ms (0 = none): "; ms = Input::line().trim().to_int(); } else { ms += dir * 40; }
+        if dir == 0 { jout << "\nanimation time in ms (0 = none): "; ms = Input::line().trim().to_int(); } else { ms += dir * 40; }
         if ms < 0 { ms = 0; }
         if ms > 2000 { ms = 2000; }
         kv_set(cfg, "animation_ms", str(ms), false);
         return;
     }
     if i == 12 {
-        cout << "\nreset the theme, the font, the colours and the prompt colours? [y/n] ";
+        jout << "\nreset the theme, the font, the colours and the prompt colours? [y/n] ";
         String a = Input::line().trim();
         if a == "y" || a == "Y" {
             if Fs::exists(cfg) { Fs::remove(cfg); }
@@ -1550,7 +1550,7 @@ void setting_change(int i, int dir) {
     String[] names = colour_names();
     String chosen = cur;
     if dir == 0 {
-        cout << "\ncolour (a name: white grey black red green blue sky cyan yellow orange magenta, #rrggbb, r,g,b; empty = the default): ";
+        jout << "\ncolour (a name: white grey black red green blue sky cyan yellow orange magenta, #rrggbb, r,g,b; empty = the default): ";
         chosen = Input::line().trim();
     } else {
         int at = -1;
@@ -1658,15 +1658,15 @@ void setting_draw(int sel) {
     if top + room < lines.len { help = help + "  (more below)"; }
     if help.len > cols - 1 { help = help.slice(0, cols - 1); }
     out = out + e + "[" + str(rows) + ";1H" + e + "[2m" + help + e + "[0m" + e + "[K";
-    cout << out;
+    jout << out;
 }
 
 void setting_screen() {
-    if Sys::isatty(0) != 0 { cout << "jaric setting needs a terminal\n"; return; }
+    if Sys::isatty(0) != 0 { jout << "jaric setting needs a terminal\n"; return; }
     int sel = 0;
     bool run = true;
     int[] its = setting_items();
-    cout << esc() << "[2J";
+    jout << esc() << "[2J";
     while run {
         setting_draw(sel);
         int k = Input::key();
@@ -1677,8 +1677,8 @@ void setting_screen() {
         else if k == 260 { setting_change(its[sel], 0 - 1); }
         else if k == 13 || k == 10 { setting_change(its[sel], 0); }
     }
-    cout << esc() << "[2J" << esc() << "[H";
-    cout << esc() << "]7777;reload" << (char)7;                             // the app reads config.local and theme.toml again
+    jout << esc() << "[2J" << esc() << "[H";
+    jout << esc() << "]7777;reload" << (char)7;                             // the app reads config.local and theme.toml again
 }
 
 // ---------------------------------------------------------------- built-ins
@@ -1777,7 +1777,7 @@ void reap_jobs(bool tell) {
         int st = 0;
         int r = Sys::call(260, jobs[i], (int)@st, 1, 0, 0, 0);          // wait4 with WNOHANG
         if r == jobs[i] {
-            if tell { cout << "[" << i + 1 << "]+ Done  (" << jobs[i] << ")\n"; }
+            if tell { jout << "[" << i + 1 << "]+ Done  (" << jobs[i] << ")\n"; }
         } else { alive.push(jobs[i]); }
     }
     jobs = alive;
@@ -1792,7 +1792,7 @@ bool builtin(String[] a) {
         int fm = file_mode_of(name);
         if fm >= 0 && (fm & 61440) == 32768 && looks_like_jsh(name) {
             if (fm & 73) == 0 {
-                cerr << "jsh: " << name << ": permission denied (chmod +x " << name << ")\n";
+                jerr << "jsh: " << name << ": permission denied (chmod +x " << name << ")\n";
                 bcode = 126;
                 return true;
             }
@@ -1816,10 +1816,10 @@ bool builtin(String[] a) {
             target = getv("HOME");
         }
         if Sys::chdir(target.c()) < 0 {
-            cerr << "jsh: cd: " << target << ": cannot enter this folder\n";
+            jerr << "jsh: cd: " << target << ": cannot enter this folder\n";
             bcode = 1;
             if target.starts_with("/sdcard") || target.starts_with("/storage") {        // the files of the phone: the app asks to be allowed (once)
-                cout << esc() << "]7777;setup-folder" << (char)7;
+                jout << esc() << "]7777;setup-folder" << (char)7;
             }
         } else {
             bcode = 0;
@@ -1836,23 +1836,23 @@ bool builtin(String[] a) {
             if a[k] == "-p" || a[k] == "-P" { physical = true; }
             else if a[k] == "-d" { drive_only = true; }
             else if a[k] == "-help" || a[k] == "--help" || a[k] == "-h" {
-                cout << "pwd           where you are, with the drive:  f:/jaric\n";
-                cout << "pwd -p        the real path of the system:  /data/user/0/.../home/jaric\n";
-                cout << "pwd -d        only the drive:  f      (drive lists them, drive new makes more)\n";
+                jout << "pwd           where you are, with the drive:  f:/jaric\n";
+                jout << "pwd -p        the real path of the system:  /data/user/0/.../home/jaric\n";
+                jout << "pwd -d        only the drive:  f      (drive lists them, drive new makes more)\n";
                 return true;
-            } else { cerr << "pwd: unknown option " << a[k] << "  (pwd -help)\n"; bcode = 2; return true; }
+            } else { jerr << "pwd: unknown option " << a[k] << "  (pwd -help)\n"; bcode = 2; return true; }
         }
         char buf[512];
         if Sys::getcwd(@buf, 512) > 0 {
             String real = (char^)@buf;
-            if physical { cout << real << "\n"; }
+            if physical { jout << real << "\n"; }
             else {
                 String shown = drive_form_full(real);
                 if drive_only {
                     int colon = shown.find(":");
                     if colon > 0 { shown = shown.slice(0, colon); }
                 }
-                cout << shown << "\n";
+                jout << shown << "\n";
             }
         }
         return true;
@@ -1873,7 +1873,7 @@ bool builtin(String[] a) {
             first += 1;
         }
         for i in first..a.len {
-            if i > first { cout << " "; }
+            if i > first { jout << " "; }
             if escapes {
                 String w = a[i];
                 int k = 0;
@@ -1882,18 +1882,18 @@ bool builtin(String[] a) {
                     if c == '\\' && k + 1 < w.len {
                         char d = w[k + 1];
                         k += 2;
-                        if d == 'n' { cout << "\n"; }
-                        else if d == 't' { cout << "\t"; }
-                        else if d == 'r' { cout << "\r"; }
-                        else if d == 'e' { cout << "\e"; }
-                        else if d == 'a' { cout << "\a"; }
-                        else if d == 'b' { cout << "\b"; }
-                        else if d == '\\' { cout << "\\"; }
+                        if d == 'n' { jout << "\n"; }
+                        else if d == 't' { jout << "\t"; }
+                        else if d == 'r' { jout << "\r"; }
+                        else if d == 'e' { jout << "\e"; }
+                        else if d == 'a' { jout << "\a"; }
+                        else if d == 'b' { jout << "\b"; }
+                        else if d == '\\' { jout << "\\"; }
                         else if d == 'c' { newline = false; i = a.len; k = w.len; }
                         else if d == '0' {
                             int v = 0; int cnt = 0;
                             while k < w.len && cnt < 3 && w[k] >= '0' && w[k] <= '7' { v = v * 8 + (w[k] - '0'); k += 1; cnt += 1; }
-                            cout << (char)v;
+                            jout << (char)v;
                         } else if d == 'x' {
                             int v = 0; int cnt = 0;
                             while k < w.len && cnt < 2 && ((w[k] >= '0' && w[k] <= '9') || (w[k] >= 'a' && w[k] <= 'f') || (w[k] >= 'A' && w[k] <= 'F')) {
@@ -1902,18 +1902,18 @@ bool builtin(String[] a) {
                                 if h >= '0' && h <= '9' { hv = h - '0'; } else if h >= 'a' && h <= 'f' { hv = h - 'a' + 10; } else { hv = h - 'A' + 10; }
                                 v = v * 16 + hv; k += 1; cnt += 1;
                             }
-                            cout << (char)v;
-                        } else { cout << "\\" << d; }
-                    } else { cout << c; k += 1; }
+                            jout << (char)v;
+                        } else { jout << "\\" << d; }
+                    } else { jout << c; k += 1; }
                 }
-            } else { cout << a[i]; }
+            } else { jout << a[i]; }
         }
-        if newline { cout << "\n"; }
+        if newline { jout << "\n"; }
         bcode = 0;
         return true;
     }
     if name == "history" {
-        for i in 0..history.len { cout << i + 1 << "  " << history[i] << "\n"; }
+        for i in 0..history.len { jout << i + 1 << "  " << history[i] << "\n"; }
         bcode = 0;
         return true;
     }
@@ -1930,18 +1930,18 @@ bool builtin(String[] a) {
         return true;
     }
     if name == "jaric-core" {                                  // a request to the Jaric app: call its library (J2K, through JNI)
-        cout << esc() << "]7777;core" << (char)7;
+        jout << esc() << "]7777;core" << (char)7;
         bcode = 0;
         return true;
     }
     if name == "jaric-setup-folder" {                          // a request to the Jaric app (other terminals ignore the sequence)
-        cout << esc() << "]7777;setup-folder" << (char)7;
+        jout << esc() << "]7777;setup-folder" << (char)7;
         bcode = 0;
         return true;
     }
     bool no_clear = !have_program("clear");
     if name == "clear" && no_clear {            // a few commands that a fresh install needs before jbox is installed
-        cout << esc() << "[2J" << esc() << "[H";
+        jout << esc() << "[2J" << esc() << "[H";
         bcode = 0;
         return true;
     }
@@ -1954,7 +1954,7 @@ bool builtin(String[] a) {
         }
         bcode = 0;
         if !Dir::exists(where) {
-            if Fs::exists(where) { cout << where << "\n"; } else { cerr << "dir: " << where << ": no such file or folder\n"; bcode = 1; }
+            if Fs::exists(where) { jout << where << "\n"; } else { jerr << "dir: " << where << ": no such file or folder\n"; bcode = 1; }
             return true;
         }
         Result<String[], Error> lr = Dir::list(where);
@@ -1963,42 +1963,42 @@ bool builtin(String[] a) {
             for i in 0..names.len {
                 String n = names[i];
                 if !all && n.len > 0 && n[0] == '.' { continue; }
-                if Dir::exists(Path::join(where, n)) { cout << n << "/\n"; } else { cout << n << "\n"; }
+                if Dir::exists(Path::join(where, n)) { jout << n << "/\n"; } else { jout << n << "\n"; }
             }
-        } else { cerr << "dir: cannot read " << where << "\n"; bcode = 1; }
+        } else { jerr << "dir: cannot read " << where << "\n"; bcode = 1; }
         return true;
     }
     if name == "install" || name == "update" || name == "unstall" {     // moved to jc: say so (jc install NAME, jc update, jc unstall NAME)
         String tail = " NAME";
         if name == "update" { tail = " [-n]"; }
-        cerr << name << ": use  jc " << name << tail << "   (jc is not installed? jget tool jc)\n";
+        jerr << name << ": use  jc " << name << tail << "   (jc is not installed? jget tool jc)\n";
         bcode = 2;
         return true;
     }
     if name == "login" || name == "signin" {
         String who = "";
         if a.len > 1 { who = a[1]; }
-        else { cout << "login: "; who = Input::line().trim(); }                    // like a Unix login: the name, then the password
-        if who != "root" { cerr << name << ": no user '" << who << "' (the user with a password is root)\n"; bcode = 1; return true; }
-        if root_on == 1 { cout << "you are root already (logout leaves)\n"; bcode = 0; return true; }
-        if root_login() { root_set(1); cout << "root: :/ is now " << top_dir() << "  (try  dir :/  or  cd :/usr/bin ; logout leaves)\n"; bcode = 0; } else { bcode = 1; }
+        else { jout << "login: "; who = Input::line().trim(); }                    // like a Unix login: the name, then the password
+        if who != "root" { jerr << name << ": no user '" << who << "' (the user with a password is root)\n"; bcode = 1; return true; }
+        if root_on == 1 { jout << "you are root already (logout leaves)\n"; bcode = 0; return true; }
+        if root_login() { root_set(1); jout << "root: :/ is now " << top_dir() << "  (try  dir :/  or  cd :/usr/bin ; logout leaves)\n"; bcode = 0; } else { bcode = 1; }
         return true;
     }
     if name == "passwd" {                                     // passwd: change the root password (the old one is asked)
-        if !Fs::exists(root_file()) { cerr << "passwd: root has no password yet (login root makes one)\n"; bcode = 1; return true; }
+        if !Fs::exists(root_file()) { jerr << "passwd: root has no password yet (login root makes one)\n"; bcode = 1; return true; }
         if !root_login() { bcode = 1; return true; }
         String p1 = read_secret("new root password: ");
-        if p1.len < 4 { cerr << "passwd: too short (at least 4 characters)\n"; bcode = 1; return true; }
+        if p1.len < 4 { jerr << "passwd: too short (at least 4 characters)\n"; bcode = 1; return true; }
         String p2 = read_secret("again: ");
-        if p1 != p2 { cerr << "passwd: the two are not the same\n"; bcode = 1; return true; }
+        if p1 != p2 { jerr << "passwd: the two are not the same\n"; bcode = 1; return true; }
         String salt = str(Time::now_ms());
         Fs::write_text(root_file(), salt + " " + Hash::sha256(salt + p1) + "\n");
-        cout << "root password changed.\n";
+        jout << "root password changed.\n";
         bcode = 0;
         return true;
     }
     if name == "logout" || name == "signout" {
-        if root_on == 1 { root_set(0); cout << "root left: :/ is home again\n"; } else { cout << "you are not root\n"; }
+        if root_on == 1 { root_set(0); jout << "root left: :/ is home again\n"; } else { jout << "you are not root\n"; }
         bcode = 0;
         return true;
     }
@@ -2048,21 +2048,21 @@ bool builtin(String[] a) {
         int first = 1;
         if a.len > 1 && a[1].len > 1 && a[1][0] == '-' {
             if a[1] == "-l" {
-                cout << "HUP INT QUIT KILL USR1 USR2 TERM CONT STOP TSTP\n";
+                jout << "HUP INT QUIT KILL USR1 USR2 TERM CONT STOP TSTP\n";
                 bcode = 0;
                 return true;
             }
             String sn = a[1].slice(1, a[1].len);
             if sn == "s" && a.len > 2 { sn = a[2] + ""; first = 3; } else { first = 2; }
             sig = signal_of(sn);
-            if sig < 0 { cerr << "jsh: kill: " << sn << ": unknown signal\n"; bcode = 1; return true; }
+            if sig < 0 { jerr << "jsh: kill: " << sn << ": unknown signal\n"; bcode = 1; return true; }
         }
-        if a.len <= first { cerr << "jsh: kill: give a process number or a job (kill %1)\n"; bcode = 2; return true; }
+        if a.len <= first { jerr << "jsh: kill: give a process number or a job (kill %1)\n"; bcode = 2; return true; }
         bcode = 0;
         for i in first..a.len {
             int pid = job_pid(a[i]);
-            if pid <= 0 { cerr << "jsh: kill: " << a[i] << ": no such job or process\n"; bcode = 1; continue; }
-            if Sys::kill(pid, sig) < 0 { cerr << "jsh: kill: " << a[i] << ": cannot send the signal\n"; bcode = 1; }
+            if pid <= 0 { jerr << "jsh: kill: " << a[i] << ": no such job or process\n"; bcode = 1; continue; }
+            if Sys::kill(pid, sig) < 0 { jerr << "jsh: kill: " << a[i] << ": cannot send the signal\n"; bcode = 1; }
         }
         return true;
     }
@@ -2071,7 +2071,7 @@ bool builtin(String[] a) {
         String spec = "%+";
         if a.len > 1 { spec = a[1] + ""; }
         int pid = job_pid(spec);
-        if pid <= 0 { cerr << "jsh: fg: no such job\n"; bcode = 1; return true; }
+        if pid <= 0 { jerr << "jsh: fg: no such job\n"; bcode = 1; return true; }
         Sys::kill(pid, 18);
         int st = 0;
         Sys::wait(pid, @st);
@@ -2086,14 +2086,14 @@ bool builtin(String[] a) {
         String spec = "%+";
         if a.len > 1 { spec = a[1] + ""; }
         int pid = job_pid(spec);
-        if pid <= 0 { cerr << "jsh: bg: no such job\n"; bcode = 1; return true; }
+        if pid <= 0 { jerr << "jsh: bg: no such job\n"; bcode = 1; return true; }
         Sys::kill(pid, 18);
         bcode = 0;
         return true;
     }
     if name == "jobs" {
         reap_jobs(true);
-        for i in 0..jobs.len { cout << "[" << i + 1 << "]  Running  " << jobs[i] << "\n"; }
+        for i in 0..jobs.len { jout << "[" << i + 1 << "]  Running  " << jobs[i] << "\n"; }
         bcode = 0;
         return true;
     }
@@ -2115,7 +2115,7 @@ bool builtin(String[] a) {
     }
     if name == "export" {
         bcode = 0;
-        if a.len == 1 { for i in 0..envv.len { cout << "export " << envv[i] << "\n"; } }
+        if a.len == 1 { for i in 0..envv.len { jout << "export " << envv[i] << "\n"; } }
         for i in 1..a.len {
             int eq = 0 - 1;
             for k in 0..a[i].len { if a[i][k] == '=' && eq < 0 { eq = k; } }
@@ -2129,13 +2129,13 @@ bool builtin(String[] a) {
         return true;
     }
     if name == "env" {
-        for i in 0..envv.len { cout << envv[i] << "\n"; }
+        for i in 0..envv.len { jout << envv[i] << "\n"; }
         bcode = 0;
         return true;
     }
     if name == "alias" {
         bcode = 0;
-        if a.len == 1 { for i in 0..alias_n.len { cout << "alias " << alias_n[i] << "='" << alias_v[i] << "'\n"; } }
+        if a.len == 1 { for i in 0..alias_n.len { jout << "alias " << alias_n[i] << "='" << alias_v[i] << "'\n"; } }
         for i in 1..a.len {
             int eq = 0 - 1;
             for k in 0..a[i].len { if a[i][k] == '=' && eq < 0 { eq = k; } }
@@ -2146,7 +2146,7 @@ bool builtin(String[] a) {
                 if at >= 0 { alias_v[at] = v; } else { alias_n.push(n); alias_v.push(v); }
             } else {
                 int at = find_alias(a[i]);
-                if at >= 0 { cout << "alias " << alias_n[at] << "='" << alias_v[at] << "'\n"; } else { bcode = 1; }
+                if at >= 0 { jout << "alias " << alias_n[at] << "='" << alias_v[at] << "'\n"; } else { bcode = 1; }
             }
         }
         return true;
@@ -2169,8 +2169,8 @@ bool builtin(String[] a) {
         bcode = 0;
         for i in 1..a.len {
             String what = a[i];
-            if find_alias(what) >= 0 { cout << what << " is an alias for " << alias_v[find_alias(what)] << "\n"; continue; }
-            if is_builtin_name(what) { cout << what << " is a jsh built-in\n"; continue; }
+            if find_alias(what) >= 0 { jout << what << " is an alias for " << alias_v[find_alias(what)] << "\n"; continue; }
+            if is_builtin_name(what) { jout << what << " is a jsh built-in\n"; continue; }
             String found = "";
             String path = getv("PATH");
             int start = 0;
@@ -2181,14 +2181,14 @@ bool builtin(String[] a) {
                     start = k + 1;
                 }
             }
-            if found.len > 0 { cout << what << " is " << found << "\n"; }
-            else if is_jbox_name(what) { cout << what << " is a jbox command\n"; }
-            else { cerr << "jsh: " << what << ": not found\n"; bcode = 1; }
+            if found.len > 0 { jout << what << " is " << found << "\n"; }
+            else if is_jbox_name(what) { jout << what << " is a jbox command\n"; }
+            else { jerr << "jsh: " << what << ": not found\n"; bcode = 1; }
         }
         return true;
     }
     if name == "source" || name == "." {
-        if a.len < 2 { cerr << "jsh: source: a file name is needed\n"; bcode = 2; return true; }
+        if a.len < 2 { jerr << "jsh: source: a file name is needed\n"; bcode = 2; return true; }
         bcode = run_file(a[1]);
         return true;
     }
@@ -2199,10 +2199,10 @@ bool builtin(String[] a) {
     }     // with the tool drive installed (jc install drive) it does the work
     if name == "start" {                                         // start PROGRAM [args]: a new session (tab) of the Jaric app runs it
         bcode = 0;
-        if a.len < 2 { cout << "start PROGRAM [arguments]   run a program in a new tab of the Jaric app (other terminals: nothing happens)\n"; return true; }
+        if a.len < 2 { jout << "start PROGRAM [arguments]   run a program in a new tab of the Jaric app (other terminals: nothing happens)\n"; return true; }
         String cmdl = a[1];
         for i in 2..a.len { cmdl = cmdl + " " + a[i]; }
-        cout << esc() << "]7777;session;new;" << cmdl << (char)7;
+        jout << esc() << "]7777;session;new;" << cmdl << (char)7;
         return true;
     }
     if name == "jaric" {                                         // settings of the Jaric app (other terminals ignore the sequences)
@@ -2210,25 +2210,25 @@ bool builtin(String[] a) {
         if a.len >= 2 && (a[1] == "setting" || a[1] == "settings") {
             setting_screen();
         } else if a.len >= 2 && a[1] == "theme" {
-            if a.len == 2 { cout << "themes: black soft amber green ice devc devc-dark temple   (jaric theme NAME)\n"; }
-            else { cout << esc() << "]7777;theme;" << a[2] << (char)7; }
+            if a.len == 2 { jout << "themes: black soft amber green ice devc devc-dark temple   (jaric theme NAME)\n"; }
+            else { jout << esc() << "]7777;theme;" << a[2] << (char)7; }
         } else if a.len >= 2 && a[1] == "video" {
-            if a.len < 3 { cout << "jaric video FILE|URL   play a video over the terminal (the back key closes it);  jaric video stop\n"; }
-            else if a[2] == "stop" { cout << esc() << "]7777;video;stop" << (char)7; }
+            if a.len < 3 { jout << "jaric video FILE|URL   play a video over the terminal (the back key closes it);  jaric video stop\n"; }
+            else if a[2] == "stop" { jout << esc() << "]7777;video;stop" << (char)7; }
             else {
                 String v = a[2];
                 if !v.starts_with("/") && !v.starts_with("http://") && !v.starts_with("https://") {
                     char buf[512];
                     if Sys::getcwd(@buf, 512) > 0 { String cwd = (char^)@buf; v = cwd + "/" + v; }
                 }
-                cout << esc() << "]7777;video;play;" << v << (char)7;
+                jout << esc() << "]7777;video;play;" << v << (char)7;
             }
         } else if a.len >= 2 && a[1] == "settings" {
-            cout << esc() << "]7777;settings;open" << (char)7;           // the settings in a window (in the app)
+            jout << esc() << "]7777;settings;open" << (char)7;           // the settings in a window (in the app)
         } else if a.len >= 2 && a[1] == "about" {
-            cout << esc() << "]7777;about" << (char)7;                // the window about Jaric and its maker (in the app)
+            jout << esc() << "]7777;about" << (char)7;                // the window about Jaric and its maker (in the app)
         } else if a.len >= 3 && a[1] == "font" {
-            cout << esc() << "]7777;font;" << a[2] << (char)7;
+            jout << esc() << "]7777;font;" << a[2] << (char)7;
         } else if a.len >= 2 && a[1] == "drives" {
             drive_list();
         } else if a.len >= 2 && (a[1] == "store" || a[1] == "-store") {
@@ -2237,29 +2237,29 @@ bool builtin(String[] a) {
             sa.push("jstore");
             if a.len == 2 { sa.push("list"); }
             for i in 2..a.len { sa.push(a[i]); }
-            if !have_program("jstore") { cout << "the store is not installed:  jget tool jc jstore\n"; }
+            if !have_program("jstore") { jout << "the store is not installed:  jget tool jc jstore\n"; }
             else { run_words(sa); bcode = last_status; }
         } else if a.len >= 2 && a[1] == "keepalive" {
-            cout << "keep the sessions after you swipe the app away (like Termux):\n";
-            cout << "  1. the notification of Jaric must stay (it is the service that holds the shells; do not press its Exit)\n";
-            cout << "  2. let Jaric run in the background: the system screen that opens now (battery optimisation: allow)\n";
-            cout << "  3. on Huawei (EMUI): Settings > Battery > App launch > Jaric > Manage manually > allow auto-launch, secondary launch and run in background;\n";
-            cout << "     and in the list of recent apps, lock Jaric (pull its card down, or the lock icon) so that 'clear all' leaves it\n";
-            cout << "  4. jaric setting > wake lock: the CPU stays awake while sessions run (uses more battery)\n";
-            cout << esc() << "]7777;keepalive" << (char)7;
+            jout << "keep the sessions after you swipe the app away (like Termux):\n";
+            jout << "  1. the notification of Jaric must stay (it is the service that holds the shells; do not press its Exit)\n";
+            jout << "  2. let Jaric run in the background: the system screen that opens now (battery optimisation: allow)\n";
+            jout << "  3. on Huawei (EMUI): Settings > Battery > App launch > Jaric > Manage manually > allow auto-launch, secondary launch and run in background;\n";
+            jout << "     and in the list of recent apps, lock Jaric (pull its card down, or the lock icon) so that 'clear all' leaves it\n";
+            jout << "  4. jaric setting > wake lock: the CPU stays awake while sessions run (uses more battery)\n";
+            jout << esc() << "]7777;keepalive" << (char)7;
         } else if a.len >= 2 && a[1] == "assistant" {
             // jaric assistant [question]: talk to the assistant xaiorin (the program xr of the tool neuron)
             String[] xa = arr(2);
             xa.push("xr");
             for i in 2..a.len { xa.push(a[i]); }
-            if !have_program("xr") { cout << "the assistant is not installed:  jget tool neuron   then  neuron install MODEL.jw  (jget -li or makej init -ai make a model)\n"; }
+            if !have_program("xr") { jout << "the assistant is not installed:  jget tool neuron   then  neuron install MODEL.jw  (jget -li or makej init -ai make a model)\n"; }
             else { run_words(xa); bcode = last_status; }
         } else if a.len >= 2 && a[1] == "sessions" {
-            cout << "jaric sessions: the tabs are at the top (+ new, # tile, x close); jsh start PROGRAM opens a program in a new tab\n";
+            jout << "jaric sessions: the tabs are at the top (+ new, # tile, x close); jsh start PROGRAM opens a program in a new tab\n";
         } else if a.len >= 2 && (a[1] == "-restart" || a[1] == "restart") {
-            cout << esc() << "]7777;restart" << (char)7;
+            jout << esc() << "]7777;restart" << (char)7;
         } else if a.len >= 2 && a[1] == "core" {
-            cout << esc() << "]7777;core" << (char)7;
+            jout << esc() << "]7777;core" << (char)7;
         } else {
             // an unknown word: the nearest command is offered
             if a.len >= 2 {
@@ -2272,34 +2272,34 @@ bool builtin(String[] a) {
                     int dd = word_distance(a[1].lower(), known[k]);
                     if dd < bestd { bestd = dd; best = known[k] + ""; }
                 }
-                if best.len > 0 { cout << "jaric: no command '" << a[1] << "'. Did you mean:  jaric " << best << " ?\n\n"; }
-                else { cout << "jaric: no command '" << a[1] << "'.\n\n"; }
+                if best.len > 0 { jout << "jaric: no command '" << a[1] << "'. Did you mean:  jaric " << best << " ?\n\n"; }
+                else { jout << "jaric: no command '" << a[1] << "'.\n\n"; }
             }
-            cout << "jaric setting        one screen for everything: theme, font, colours, top bar, animation, the prompt, the assistant\n";
-            cout << "jaric settings       the settings in a window: colours, font, keyboard, battery, music\n";
-            cout << "jaric about          who made Jaric (a window in the app)\n";
-            cout << "jaric theme [NAME]   the colours (black soft amber green ice devc devc-dark temple)\n";
-            cout << "jaric font SIZE      the size of the letters (8 .. 28; a pinch on the screen does it too)\n";
-            cout << "jaric video FILE|URL play a video (mp4, webm, 3gp, ...) over the terminal\n";
-            cout << "jaric assistant [question]   talk to the assistant xaiorin (xr)\n";
-            cout << "jaric store [list | install ID | update]   the store of the programs of Jaric (.jc)\n";
-            cout << "jaric drives         the drives (f: is home, 0: the phone storage ...)\n";
-            cout << "jaric sessions       how the tabs work;  start PROGRAM opens a program in a new tab\n";
-            cout << "jaric keepalive      keep the sessions after the app is swiped away (battery settings of the phone)\n";
-            cout << "jaric -restart       start the app again\n";
-            cout << "jaric core           call the library of the app (J2K through JNI)\n";
+            jout << "jaric setting        one screen for everything: theme, font, colours, top bar, animation, the prompt, the assistant\n";
+            jout << "jaric settings       the settings in a window: colours, font, keyboard, battery, music\n";
+            jout << "jaric about          who made Jaric (a window in the app)\n";
+            jout << "jaric theme [NAME]   the colours (black soft amber green ice devc devc-dark temple)\n";
+            jout << "jaric font SIZE      the size of the letters (8 .. 28; a pinch on the screen does it too)\n";
+            jout << "jaric video FILE|URL play a video (mp4, webm, 3gp, ...) over the terminal\n";
+            jout << "jaric assistant [question]   talk to the assistant xaiorin (xr)\n";
+            jout << "jaric store [list | install ID | update]   the store of the programs of Jaric (.jc)\n";
+            jout << "jaric drives         the drives (f: is home, 0: the phone storage ...)\n";
+            jout << "jaric sessions       how the tabs work;  start PROGRAM opens a program in a new tab\n";
+            jout << "jaric keepalive      keep the sessions after the app is swiped away (battery settings of the phone)\n";
+            jout << "jaric -restart       start the app again\n";
+            jout << "jaric core           call the library of the app (J2K through JNI)\n";
         }
         return true;
     }
     if name == "help" {
-        cout << "jsh, the shell of Jaric\n\n";
-        cout << "  built-ins   cd pwd echo history export unset env alias unalias type which source install test [ ] read break continue return jobs wait exit\n";
-        cout << "  scripts     if / elif / else / fi    while / until / for ... do ... done    name() { ... }    $(command)  $((1 + 2))\n";
-        cout << "  lines       a | b    a > file    a >> file    a < file    a &    a ; b    a && b    a || b    * ? ~ globs\n";
-        cout << "  keys        Tab takes the grey text    arrows: history, move    Ctrl-J another line    Ctrl-C cancel    Ctrl-D leave\n";
-        cout << "  tools       jc install NAME ...  (jc list shows the tools)   jc update [-n]   jc unstall NAME
+        jout << "jsh, the shell of Jaric\n\n";
+        jout << "  built-ins   cd pwd echo history export unset env alias unalias type which source install test [ ] read break continue return jobs wait exit\n";
+        jout << "  scripts     if / elif / else / fi    while / until / for ... do ... done    name() { ... }    $(command)  $((1 + 2))\n";
+        jout << "  lines       a | b    a > file    a >> file    a < file    a &    a ; b    a && b    a || b    * ? ~ globs\n";
+        jout << "  keys        Tab takes the grey text    arrows: history, move    Ctrl-J another line    Ctrl-C cancel    Ctrl-D leave\n";
+        jout << "  tools       jc install NAME ...  (jc list shows the tools)   jc update [-n]   jc unstall NAME
 ";
-        cout << "  the app     jaric theme | font | core\n";
+        jout << "  the app     jaric theme | font | core\n";
         bcode = 0;
         return true;
     }
@@ -2400,8 +2400,8 @@ int ar_term() {
         if ar_pos >= ar_text.len { return v; }
         char c = ar_text[ar_pos];
         if c == '*' { ar_pos += 1; v = v * ar_factor(); }
-        else if c == '/' { ar_pos += 1; int d = ar_factor(); if d == 0 { cerr << "jsh: division by 0\n"; d = 1; } v = v / d; }
-        else if c == '%' { ar_pos += 1; int d2 = ar_factor(); if d2 == 0 { cerr << "jsh: division by 0\n"; d2 = 1; } v = v % d2; }
+        else if c == '/' { ar_pos += 1; int d = ar_factor(); if d == 0 { jerr << "jsh: division by 0\n"; d = 1; } v = v / d; }
+        else if c == '%' { ar_pos += 1; int d2 = ar_factor(); if d2 == 0 { jerr << "jsh: division by 0\n"; d2 = 1; } v = v % d2; }
         else { return v; }
     }
     return v;
@@ -2517,7 +2517,7 @@ int find_kw(String[] t, int from, String k1, String k2) {
 }
 
 int bad_script(String what) {
-    cerr << "jsh: " << what << "\n";
+    jerr << "jsh: " << what << "\n";
     last_status = 2;
     return 2;
 }
@@ -2818,7 +2818,7 @@ void run_words(String[] raw0) {
         }
         bool more = i < nwords;
         if more { i += 1; }
-        if argv.len == 0 { cerr << "jsh: an empty command\n"; last_status = 2; return; }
+        if argv.len == 0 { jerr << "jsh: an empty command\n"; last_status = 2; return; }
         int out_pipe_read = 0 - 1;
         int out_pipe_write = 0 - 1;
         if more {
@@ -2837,7 +2837,7 @@ void run_words(String[] raw0) {
                 if out_file.len > 0 {
                     int g = 0;
                     if append == 1 { g = Sys::open_append(out_file.c()); } else { g = Sys::open_write(out_file.c()); }
-                    if g < 0 { cerr << "jsh: cannot write " << out_file << "\n"; Sys::exit(1); }
+                    if g < 0 { jerr << "jsh: cannot write " << out_file << "\n"; Sys::exit(1); }
                     Sys::dup2(g, 1);
                 }
                 if err_mode == 1 || err_mode == 2 {
@@ -2866,7 +2866,7 @@ void run_words(String[] raw0) {
     }
     if background {
         jobs.push(pids[npid - 1]);
-        cout << "[" << jobs.len << "] " << pids[npid - 1] << "\n";
+        jout << "[" << jobs.len << "] " << pids[npid - 1] << "\n";
         return;
     }
     for k in 0..npid {
@@ -3041,14 +3041,14 @@ int run_file(String path) {
     String text = "";
     Result<String, Error> r = Fs::read_text(path);
     if r.is_ok() { text = r.take(); }
-    else { cerr << "jsh: " << path << ": cannot read it\n"; return 1; }
+    else { jerr << "jsh: " << path << ": cannot read it\n"; return 1; }
     // the first line may name the shell: [#jsh] (the owner's form), #jsh or #!jsh run here; [#jash] / #jash is a settings file, not a script
     int nl = text.find("\n");
     String first = text;
     String rest = "";
     if nl >= 0 { first = text.slice(0, nl); rest = text.slice(nl + 1, text.len); }
     first = first.trim();
-    if first == "[#jash]" || first == "#jash" { cerr << "jsh: " << path << " is a settings file of jash (jash list / jash set); it is not run\n"; return 1; }
+    if first == "[#jash]" || first == "#jash" { jerr << "jsh: " << path << " is a settings file of jash (jash list / jash set); it is not run\n"; return 1; }
     if first == "[#jsh]" { text = rest; }          // the bracket form is not a comment, so the line is taken away; the other forms are comments already
     return run_script_text(text);
 }
@@ -3076,19 +3076,19 @@ void cover() {
     String tip = tips[day % tips.len];
     String e = esc();
     String room = "            ";                                   // 12 columns: the picture of the maker sits here (the Jaric app draws it)
-    cout << "\n" << e << "]7777;cover" << (char)7;
-    cout << room << e << "[1;97mJaric" << e << "[0m\n";
-    cout << room << "A terminal and toolbox" << e << "[0m\n";
-    cout << room << "for your phone, made in J2K" << e << "[0m\n";
-    cout << room << e << "[2mby J2k-studio" << e << "[0m\n";
-    cout << room << e << "[2mgithub.com/J2k-studio/Jcmp" << e << "[0m\n\n";
-    cout << e << "[2m  shell jsh " << jsh_version() << e << "[0m\n\n";
-    cout << e << "[1m  Start here" << e << "[0m\n";
-    cout << "  " << e << "[96mjc install X" << e << "[0m   get a tool\n";
-    cout << "  " << e << "[96mcam" << e << "[0m            camera and QR\n";
-    cout << "  " << e << "[96mmujic" << e << "[0m          music\n";
-    cout << "  " << e << "[96mjfile" << e << "[0m          files\n";
-    cout << "  " << e << "[96mhelp" << e << "[0m           all commands\n\n";
+    jout << "\n" << e << "]7777;cover" << (char)7;
+    jout << room << e << "[1;97mJaric" << e << "[0m\n";
+    jout << room << "A terminal and toolbox" << e << "[0m\n";
+    jout << room << "for your phone, made in J2K" << e << "[0m\n";
+    jout << room << e << "[2mby J2k-studio" << e << "[0m\n";
+    jout << room << e << "[2mgithub.com/J2k-studio/Jcmp" << e << "[0m\n\n";
+    jout << e << "[2m  shell jsh " << jsh_version() << e << "[0m\n\n";
+    jout << e << "[1m  Start here" << e << "[0m\n";
+    jout << "  " << e << "[96mjc install X" << e << "[0m   get a tool\n";
+    jout << "  " << e << "[96mcam" << e << "[0m            camera and QR\n";
+    jout << "  " << e << "[96mmujic" << e << "[0m          music\n";
+    jout << "  " << e << "[96mjfile" << e << "[0m          files\n";
+    jout << "  " << e << "[96mhelp" << e << "[0m           all commands\n\n";
     int cols = 40;
     String rest = "Tip: " + tip;
     while rest.len > 0 {                                       // the tip in rows of the width of the screen
@@ -3098,10 +3098,10 @@ void cover() {
             while cut > 0 && rest[cut] != ' ' { cut -= 1; }
             if cut == 0 { cut = cols - 4; }
         }
-        cout << e << "[2m  " << rest.slice(0, cut).trim() << e << "[0m\n";
+        jout << e << "[2m  " << rest.slice(0, cut).trim() << e << "[0m\n";
         rest = rest.slice(cut, rest.len).trim();
     }
-    cout << "\n";
+    jout << "\n";
 }
 
 int main() {
@@ -3131,10 +3131,10 @@ int main() {
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
-    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { cout << "jsh " << jsh_version() << "\n"; return 0; }
+    if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { jout << "jsh " << jsh_version() << "\n"; return 0; }
     if cmdline.len > 1 && (cmdline[1] == "--help" || cmdline[1] == "-h") {
-        cout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
-        cout << "  jc install NAME ...    install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
+        jout << "jsh: a small shell.   jsh [FILE [arguments]]   run a script;   jsh   the prompt (type  help  inside)\n";
+        jout << "  jc install NAME ...    install tools      jsh --version      settings: jaric setting; colours in ~/.jshrc (JSH_COLOR_*)\n";
         return 0;
     }
     if cmdline.len > 1 {                                      // jsh -c "commands"   or   jsh script
@@ -3157,7 +3157,7 @@ int main() {
     String quiet_file = getv("HOME") + "/.jsh_quiet";
     bool quiet = Fs::exists(quiet_file);
     if tty && !quiet { cover(); }
-    else { cout << "jsh " << jsh_version() << " (the shell of Jaric): help shows the commands\n"; }
+    else { jout << "jsh " << jsh_version() << " (the shell of Jaric): help shows the commands\n"; }
     String rc_file = getv("HOME") + "/.jshrc";
     if tty && Fs::exists(rc_file) { run_file(rc_file); }      // the settings: aliases, export, ...
     if tty { history_load(); }                                  // the commands of the sessions before (the arrows and the grey text use them)

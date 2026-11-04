@@ -14,7 +14,7 @@
 String jstore_version() { return "0.2.0"; }
 
 int fail(String msg) {
-    cerr << "jstore: " << msg << "\n";
+    jerr << "jstore: " << msg << "\n";
     return 1;
 }
 
@@ -61,7 +61,7 @@ bool load_index() {
     for p in 0..places.len {
         if places[p].len == 0 { continue; }
         String f = fetch(places[p], "index" + str(p));
-        if f.len == 0 { cerr << "jstore: cannot read the index " << places[p] << "\n"; continue; }
+        if f.len == 0 { jerr << "jstore: cannot read the index " << places[p] << "\n"; continue; }
         Result<String, Error> r = Fs::read_text(f);
         Fs::remove(f);
         if !r.is_ok() { continue; }
@@ -139,10 +139,10 @@ int do_list(String[] a) {
         if h.len > 0 { mark = "*"; }
         String perms = g_perm[i];
         if perms == "-" { perms = "no permissions"; }
-        cout << mark << " " << g_id[i] << "  " << g_ver[i] << "  " << g_name[i] << "   [" << perms << "]\n";
+        jout << mark << " " << g_id[i] << "  " << g_ver[i] << "  " << g_name[i] << "   [" << perms << "]\n";
         n += 1;
     }
-    if n == 0 { cout << "nothing found\n"; } else { cout << "(* = installed)\n"; }
+    if n == 0 { jout << "nothing found\n"; } else { jout << "(* = installed)\n"; }
     return 0;
 }
 
@@ -150,7 +150,7 @@ int do_info(String id) {
     if !load_index() { return fail("no index could be read"); }
     int i = find_id(id);
     if i < 0 { return fail("no program '" + id + "' in the store (jstore list)"); }
-    cout << g_name[i] << " (" << g_id[i] << ") " << g_ver[i] << "\n  permissions: " << g_perm[i] << "\n  from: " << g_url[i] << "\n  sha256: " << g_sum[i] << "\n";
+    jout << g_name[i] << " (" << g_id[i] << ") " << g_ver[i] << "\n  permissions: " << g_perm[i] << "\n  from: " << g_url[i] << "\n  sha256: " << g_sum[i] << "\n";
     return 0;
 }
 
@@ -178,7 +178,7 @@ int install_one(int i, bool yes) {
 // jstore lines: one line for each program, for other programs to read: ID, VERSION, NAME, separated by a tab
 int do_lines() {
     if !load_index() { return fail("no index could be read (JSTORE_INDEX)"); }
-    for i in 0..g_id.len { cout << g_id[i] << "\t" << g_ver[i] << "\t" << g_name[i] << "\n"; }
+    for i in 0..g_id.len { jout << g_id[i] << "\t" << g_ver[i] << "\t" << g_name[i] << "\n"; }
     return 0;
 }
 
@@ -208,7 +208,7 @@ int do_get(String[] a) {
         }
         Result::Err(e): { Fs::remove(pkg); return fail("cannot read the download"); }
     }
-    cout << "saved " << dest << "\n";
+    jout << "saved " << dest << "\n";
     return 0;
 }
 
@@ -233,11 +233,11 @@ int do_update(String[] a) {
         int i = find_id(g_have_id[k]);
         if i < 0 || !ver_newer(g_ver[i], g_have_ver[k]) { continue; }
         n += 1;
-        cout << g_id[i] << ": " << g_have_ver[k] << " -> " << g_ver[i] << "\n";
+        jout << g_id[i] << ": " << g_have_ver[k] << " -> " << g_ver[i] << "\n";
         if yes { if install_one(i, true) != 0 { rc = 1; } }
     }
-    if n == 0 { cout << "everything is up to date\n"; }
-    else if !yes { cout << "(jstore update -y installs them; more permissions than before are asked again by jc)\n"; }
+    if n == 0 { jout << "everything is up to date\n"; }
+    else if !yes { jout << "(jstore update -y installs them; more permissions than before are asked again by jc)\n"; }
     return rc;
 }
 
@@ -251,12 +251,12 @@ int do_remove(String id) {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jstore " << jstore_version() << "\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jstore " << jstore_version() << "\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
-        cout << "jstore: the store of the programs of Jaric (.jc)\n";
-        cout << "  jstore list [WORD] | info ID | install ID [-y] | update [-y] | remove ID\n";
-        cout << "  jstore lines                  one line for each program: ID, VERSION, NAME (tab separated)\n";
-        cout << "  jstore get ID FOLDER          download and check a package and save it as FOLDER/ID.jc (no install)\n";
+        jout << "jstore: the store of the programs of Jaric (.jc)\n";
+        jout << "  jstore list [WORD] | info ID | install ID [-y] | update [-y] | remove ID\n";
+        jout << "  jstore lines                  one line for each program: ID, VERSION, NAME (tab separated)\n";
+        jout << "  jstore get ID FOLDER          download and check a package and save it as FOLDER/ID.jc (no install)\n";
         return 0;
     }
     if a[1] == "list" { return do_list(a); }
@@ -266,6 +266,6 @@ int main() {
     if a[1] == "get" { return do_get(a); }
     if a[1] == "update" { return do_update(a); }
     if a[1] == "remove" && a.len >= 3 { return do_remove(a[2]); }
-    cerr << "jstore: unknown command '" << a[1] << "' (jstore help)\n";
+    jerr << "jstore: unknown command '" << a[1] << "' (jstore help)\n";
     return 2;
 }

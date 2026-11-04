@@ -11,9 +11,9 @@ ED="$PWD/_out/coderin"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"                          # a short name of the file: the status line is not cut
 F=t.jk
-( sleep 0.3; printf 'void main() {\r'; sleep 0.3; printf 'cout << "hi";'; sleep 0.3; printf '\023'; sleep 0.4; printf '\021' ) | $PTY -w 80 -h 24 "$ED" "$F" > /dev/null
+( sleep 0.3; printf 'void main() {\r'; sleep 0.3; printf 'jout << "hi";'; sleep 0.3; printf '\023'; sleep 0.4; printf '\021' ) | $PTY -w 80 -h 24 "$ED" "$F" > /dev/null
 [ "$(cat "$F")" = 'void main() {
-    cout << "hi";
+    jout << "hi";
 }' ] || { echo "coderin test: typing"; cat -A "$F"; exit 1; }
 rm -f "$F"
 ( sleep 0.3; printf 'hello world'; sleep 0.2; printf '\033[1;2D\033[1;2D\033[1;2D\033[1;2D\033[1;2D'; sleep 0.2; printf '\003'; sleep 0.2; printf '\033[F'; sleep 0.2; printf '\026'; sleep 0.2; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 80 -h 24 "$ED" "$F" > /dev/null
@@ -23,9 +23,9 @@ grep -aq 'unsaved changes' frames || { echo "coderin test: the quit asks when th
 [ "$(cat "$F")" = 'hello worldworld' ] || { echo "coderin test: a quit without saving must not change the file"; exit 1; }
 # brackets and quotes are closed, Enter between { and } opens a block
 rm -f "$F"
-( sleep 0.3; printf 'void main('; sleep 0.2; printf ')'; sleep 0.2; printf ' {'; sleep 0.2; printf '\r'; sleep 0.2; printf 'cout << "hi";'; sleep 0.3; printf '\023'; sleep 0.4; printf '\021' ) | $PTY -w 80 -h 24 "$ED" "$F" > /dev/null
+( sleep 0.3; printf 'void main('; sleep 0.2; printf ')'; sleep 0.2; printf ' {'; sleep 0.2; printf '\r'; sleep 0.2; printf 'jout << "hi";'; sleep 0.3; printf '\023'; sleep 0.4; printf '\021' ) | $PTY -w 80 -h 24 "$ED" "$F" > /dev/null
 [ "$(cat "$F")" = 'void main() {
-    cout << "hi";
+    jout << "hi";
 }' ] || { echo "coderin test: closing brackets"; cat -A "$F"; exit 1; }
 # the mouse: a click puts the cursor there; a double click and copy and paste
 printf 'first line\nhello world\nlast\n' > m.txt

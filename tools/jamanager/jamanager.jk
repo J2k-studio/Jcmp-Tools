@@ -13,7 +13,7 @@
 String jam_version() { return "0.3.0"; }
 
 int fail(String msg) {
-    cerr << "jamanager: " << msg << "\n";
+    jerr << "jamanager: " << msg << "\n";
     return 1;
 }
 
@@ -141,8 +141,8 @@ int do_ps(String[] a) {
     load_all();
     int width = Term::cols();
     if width < 30 { width = 80; }
-    cout << table(by_pid(), 100000, width);
-    cout << g_pid.len << " programs visible (Android shows you only your own)\n";
+    jout << table(by_pid(), 100000, width);
+    jout << g_pid.len << " programs visible (Android shows you only your own)\n";
     return 0;
 }
 
@@ -155,15 +155,15 @@ int do_top(String[] a) {
         int height = Term::rows();
         if width < 30 { width = 80; }
         if height < 6 { height = 24; }
-        cout << "\e[H\e[2J" << cut_to("jamanager top   " + meminfo_line(), width) << "\n";
-        cout << table(by_memory(), height - 3, width);
+        jout << "\e[H\e[2J" << cut_to("jamanager top   " + meminfo_line(), width) << "\n";
+        jout << table(by_memory(), height - 3, width);
         if r + 1 < rounds { Time::sleep_ms(2000); }
     }
     return 0;
 }
 
 int do_mem() {
-    cout << meminfo_line() << "\n";
+    jout << meminfo_line() << "\n";
     return 0;
 }
 
@@ -177,7 +177,7 @@ int do_kill(String[] a) {
     if Sys::kill(pid, sig) != 0 { return fail("cannot stop " + a[2] + " (not yours, or not running)"); }
     String what = "TERM";
     if sig == 9 { what = "KILL"; }
-    cout << "sent " << what << " to " << pid << "\n";
+    jout << "sent " << what << " to " << pid << "\n";
     return 0;
 }
 
@@ -221,8 +221,8 @@ int do_cache() {
     names.push(h + "/.cache"); names.push(h + "/.j2k"); names.push(tmp);
     for i in 0..names.len {
         g_budget = 100000000;
-        if Dir::exists(names[i]) { cout << pad_left(str(folder_size(names[i], 0) / 1024) + " KB", 12) << "  " << names[i] << "\n"; }
-        else { cout << pad_left("-", 12) << "  " << names[i] << "  (not there)\n"; }
+        if Dir::exists(names[i]) { jout << pad_left(str(folder_size(names[i], 0) / 1024) + " KB", 12) << "  " << names[i] << "\n"; }
+        else { jout << pad_left("-", 12) << "  " << names[i] << "  (not there)\n"; }
     }
     return 0;
 }
@@ -231,7 +231,7 @@ int do_cache() {
 int do_drives() {
     String[] places = arr(4);
     places.push(home_dir()); places.push("/sdcard"); places.push("/data"); places.push("/");
-    cout << pad_left("SIZE MB", 10) << pad_left("USED MB", 10) << pad_left("FREE MB", 10) << "  FOLDER\n";
+    jout << pad_left("SIZE MB", 10) << pad_left("USED MB", 10) << pad_left("FREE MB", 10) << "  FOLDER\n";
     for i in 0..places.len {
         char buf[128];
         int rc = Sys::call(43, (int)places[i].c(), (int)@buf, 0, 0, 0, 0);
@@ -240,7 +240,7 @@ int do_drives() {
         for k in 0..8 { bsize = bsize | ((buf[8 + k] & 255) << (8 * k)); blocks = blocks | ((buf[16 + k] & 255) << (8 * k)); avail = avail | ((buf[32 + k] & 255) << (8 * k)); }
         int size = blocks / 1024 * bsize / 1024;
         int free = avail / 1024 * bsize / 1024;
-        cout << pad_left(str(size), 10) << pad_left(str(size - free), 10) << pad_left(str(free), 10) << "  " << places[i] << "\n";
+        jout << pad_left(str(size), 10) << pad_left(str(size - free), 10) << pad_left(str(free), 10) << "  " << places[i] << "\n";
     }
     return 0;
 }
@@ -568,17 +568,17 @@ void draw_screen() {
     if g_tab == 0 { o += padr(" Tab tabs  up/down choose  k stop  K stop now  s sort  / filter  p pause  q quit", g_cols); }
     else if g_tab == 3 { o += padr(" Tab tabs  up/down choose  c empty  r measure  q quit", g_cols); }
     else { o += padr(" Tab tabs  q quit", g_cols); }
-    cout << o;
+    jout << o;
 }
 
 String ask_line(String prompt, String dflt) {
     String line = dflt + "";
     while true {
         get_size();
-        cout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << prompt << "\e[0m " << line << "\e[?25h";
+        jout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << prompt << "\e[0m " << line << "\e[?25h";
         int k = next_key(300);
-        if k == 13 { cout << "\e[?25l"; return line; }
-        if k == 27 || k == 3 || k == 0 - 9 { cout << "\e[?25l"; return dflt; }
+        if k == 13 { jout << "\e[?25l"; return line; }
+        if k == 27 || k == 3 || k == 0 - 9 { jout << "\e[?25l"; return dflt; }
         if k == 127 || k == 8 { if line.len > 0 { line = line.slice(0, line.len - 1); } }
         else if k >= 32 && k < 127 { line.push((char)k); }
     }
@@ -587,7 +587,7 @@ String ask_line(String prompt, String dflt) {
 
 bool confirm_key(String q) {
     get_size();
-    cout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << q << " (y/n) \e[0m";
+    jout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << q << " (y/n) \e[0m";
     while true {
         int k = next_key(300);
         if k == 'y' || k == 'Y' { return true; }
@@ -601,7 +601,7 @@ int run_screen() {
     g_cache_names = arr(2); g_cache_sizes = arr(2); pv_pid = arr(2); pv_ticks = arr(2);
     g_order = arr(2);
     raw_on();
-    cout << "\e[?1049h\e[?25l";
+    jout << "\e[?1049h\e[?25l";
     look_cpu_all();
     look_programs();
     int last = Time::now_ms();
@@ -656,14 +656,14 @@ int run_screen() {
             }
         }
     }
-    cout << "\e[?25h\e[?1049l";
+    jout << "\e[?25h\e[?1049l";
     raw_off();
     return 0;
 }
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jamanager " << jam_version() << "\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jamanager " << jam_version() << "\n"; return 0; }
     if a.len > 1 && a[1] == "--install" {                        // the other name: jmanager
         String self = "";
         self.append((char^)Sys::arg(0));
@@ -671,7 +671,7 @@ int main() {
         if dir.len == 0 { dir = "."; }
         String link = Path::join(dir, "jmanager");
         if !Fs::exists(link) { Sys::call(36, (int)"jamanager".c(), 0 - 100, (int)link.c(), 0, 0, 0); }
-        cout << "jamanager: jmanager linked in " << dir << "\n";
+        jout << "jamanager: jmanager linked in " << dir << "\n";
         return 0;
     }
     String app = Path::name(a[0]);
@@ -683,20 +683,20 @@ int main() {
         Option::None: { }
     }
     if want_screen && in_app && !text_only && Sys::isatty(0) == 0 {                     // in the Jaric app the task manager is a window (jmanager -t keeps the screen of text)
-        cout << "\e]7777;tasks;open\a";
+        jout << "\e]7777;tasks;open\a";
         return 0;
     }
     if (want_screen || text_only) && Sys::isatty(0) == 0 { return run_screen(); }
-    if app == "jmanager" && a.len < 2 { cerr << "jmanager: the screen needs a terminal (jamanager ps gives a list)\n"; return 1; }
+    if app == "jmanager" && a.len < 2 { jerr << "jmanager: the screen needs a terminal (jamanager ps gives a list)\n"; return 1; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
-        cout << "jamanager: the task manager of Jaric\n";
-        cout << "  jamanager ps          the programs you can see (pid, memory, cpu, name)\n";
-        cout << "  jamanager top [-n N]  the same, biggest memory first, every 2 seconds\n";
-        cout << "  jamanager mem         the memory of the machine\n";
-        cout << "  jamanager kill PID [-9]   stop a program\n";
-        cout << "  jamanager drives      the size and the free space of the drives\n";
-        cout << "  jamanager cache       the size of the caches\n";
-        cout << "  jmanager              the same program with a screen: tabs Programs, Memory, Drives, Caches (jamanager ui)\n";
+        jout << "jamanager: the task manager of Jaric\n";
+        jout << "  jamanager ps          the programs you can see (pid, memory, cpu, name)\n";
+        jout << "  jamanager top [-n N]  the same, biggest memory first, every 2 seconds\n";
+        jout << "  jamanager mem         the memory of the machine\n";
+        jout << "  jamanager kill PID [-9]   stop a program\n";
+        jout << "  jamanager drives      the size and the free space of the drives\n";
+        jout << "  jamanager cache       the size of the caches\n";
+        jout << "  jmanager              the same program with a screen: tabs Programs, Memory, Drives, Caches (jamanager ui)\n";
         return 0;
     }
     if a[1] == "ps" { return do_ps(a); }
@@ -705,6 +705,6 @@ int main() {
     if a[1] == "kill" { return do_kill(a); }
     if a[1] == "drives" { return do_drives(); }
     if a[1] == "cache" { return do_cache(); }
-    cerr << "jamanager: unknown command '" << a[1] << "' (jamanager help)\n";
+    jerr << "jamanager: unknown command '" << a[1] << "' (jamanager help)\n";
     return 2;
 }

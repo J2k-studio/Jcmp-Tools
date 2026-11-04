@@ -101,7 +101,7 @@ int pkg_install(String index, String name, int depth) {
     String root = pkg_root();
     make_dir(pkg_state());
     String tmp = root + "/.pkg-" + name + ".tar.gz";
-    cout << "jc: " << name << " " << f[0] << "\n";
+    jout << "jc: " << name << " " << f[0] << "\n";
     if !download(f[1], tmp, true) { err("jc: cannot download " + name + "\n"); return 1; }
     switch Sha256::file(tmp) {
         Result::Ok(h): {
@@ -135,7 +135,7 @@ int pkg_remove(String name) {
         if lines[i].len > 0 && !lines[i].contains("..") { Sys::unlink((root + "/" + lines[i]).c()); }
     }
     Fs::remove(lp);
-    cout << "jc: removed " << name << "\n";
+    jout << "jc: removed " << name << "\n";
     return 0;
 }
 
@@ -155,7 +155,7 @@ int pkg_list() {
         Result::Ok(names): {
             String[] mine = arr(names.len + 1);                          // copies first: reading a file must not touch the names
             for i in 0..names.len { if names[i].ends_with(".list") { mine.push(names[i] + ""); } }
-            for i in 0..mine.len { cout << pkg_line(st, mine[i] + "") << "\n"; }
+            for i in 0..mine.len { jout << pkg_line(st, mine[i] + "") << "\n"; }
         }
         Result::Err(e): { }
     }
@@ -172,7 +172,7 @@ int pkg_search(String index, String word) {
                 int vn = d.get(e, "version");
                 if nn >= 0 && vn >= 0 {
                     String nm = d.text(nn);
-                    if word.len == 0 || nm.contains(word) { cout << nm << "  " << d.text(vn) << "\n"; }
+                    if word.len == 0 || nm.contains(word) { jout << nm << "  " << d.text(vn) << "\n"; }
                 }
             }
         }
@@ -184,7 +184,7 @@ int pkg_search(String index, String word) {
 // the installed packages that have another version in the index: removed and installed again (dry: only shown)
 int pkg_update(String index, bool dry, bool quiet) {
     String st = pkg_state();
-    if !Dir::exists(st) { if !quiet { cout << "no packages installed\n"; } return 0; }
+    if !Dir::exists(st) { if !quiet { jout << "no packages installed\n"; } return 0; }
     String[] mine = arr(8);
     switch Dir::list(st) {
         Result::Ok(names): { for i in 0..names.len { if names[i].ends_with(".list") { mine.push(names[i] + ""); } } }
@@ -200,13 +200,13 @@ int pkg_update(String index, bool dry, bool quiet) {
         String[] f = pkg_entry(index, name).split("|");
         String want = f[0] + "";
         if want.len == 0 || want == have { continue; }
-        cout << name << ": " << have << " -> " << want << "\n";
+        jout << name << ": " << have << " -> " << want << "\n";
         shown += 1;
         if dry { continue; }
         if pkg_remove(name) != 0 { rc = 1; continue; }
         if pkg_install(index, name, 0) != 0 { rc = 1; }
     }
-    if shown == 0 && !quiet { cout << "the packages are up to date\n"; }
+    if shown == 0 && !quiet { jout << "the packages are up to date\n"; }
     return rc;
 }
 

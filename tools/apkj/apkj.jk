@@ -15,27 +15,27 @@
 String apkj_version() { return "0.2.0"; }
 
 int do_zip(String[] a) {
-    if a.len < 4 { cerr << "usage: apkj zip OUT.zip [-z] NAME=FILE...\n"; return 2; }
+    if a.len < 4 { jerr << "usage: apkj zip OUT.zip [-z] NAME=FILE...\n"; return 2; }
     bool deflate = false;
     zw_start();
     int count = 0;
     for i in 3..a.len {
         if a[i] == "-z" { deflate = true; continue; }
         int eq = a[i].find("=");
-        if eq <= 0 { cerr << "apkj: '" << a[i] << "' is not NAME=FILE\n"; return 2; }
+        if eq <= 0 { jerr << "apkj: '" << a[i] << "' is not NAME=FILE\n"; return 2; }
         String name = a[i].slice(0, eq) + "";
         String file = a[i].slice(eq + 1, a[i].len) + "";
         bool ok = false;
         bool^ okp = @ok;
         String data = read_bin(file, okp);
-        if !ok { cerr << "apkj: cannot read " << file << "\n"; return 1; }
+        if !ok { jerr << "apkj: cannot read " << file << "\n"; return 1; }
         zw_add(name, data, false, "");
         count += 1;
     }
     String z = zw_finish();
     switch Fs::write_bytes(a[2] + "", z) {
-        Result::Ok(n): { cout << "apkj: " << a[2] << ": " << count << " files, " << z.len << " bytes\n"; }
-        Result::Err(e): { cerr << "apkj: cannot write " << a[2] << ": " << e.message << "\n"; return 1; }
+        Result::Ok(n): { jout << "apkj: " << a[2] << ": " << count << " files, " << z.len << " bytes\n"; }
+        Result::Err(e): { jerr << "apkj: cannot write " << a[2] << ": " << e.message << "\n"; return 1; }
     }
     return 0;
 }
@@ -66,8 +66,8 @@ String build_manifest(String toml) {
     String orient = toml_value(toml, "orientation");
     String render = toml_value(toml, "render");
     String controls = toml_value(toml, "controls");
-    if name.len == 0 || id.len == 0 || ver.len == 0 { cerr << "apkj: manifest.toml needs name, id and version\n"; return ""; }
-    if id.find(".") < 0 { cerr << "apkj: the id in manifest.toml needs a dot (for example com.you.myapp), got: " << id << "\n"; return ""; }
+    if name.len == 0 || id.len == 0 || ver.len == 0 { jerr << "apkj: manifest.toml needs name, id and version\n"; return ""; }
+    if id.find(".") < 0 { jerr << "apkj: the id in manifest.toml needs a dot (for example com.you.myapp), got: " << id << "\n"; return ""; }
     String[] parts = ver.split(".");
     int code = 0;
     if parts.len > 0 { code = parts[0].to_int() * 10000; }
@@ -127,17 +127,17 @@ String build_manifest(String toml) {
 }
 
 int do_manifest(String[] a) {
-    if a.len < 4 { cerr << "usage: apkj manifest manifest.toml OUT.xml\n"; return 2; }
+    if a.len < 4 { jerr << "usage: apkj manifest manifest.toml OUT.xml\n"; return 2; }
     String toml = "";
     switch Fs::read_text(a[2] + "") {
         Result::Ok(t): { toml = t + ""; }
-        Result::Err(e): { cerr << "apkj: cannot read " << a[2] << ": " << e.message << "\n"; return 1; }
+        Result::Err(e): { jerr << "apkj: cannot read " << a[2] << ": " << e.message << "\n"; return 1; }
     }
     String xml = build_manifest(toml);
     if xml.len == 0 { return 1; }
     switch Fs::write_bytes(a[3] + "", xml) {
-        Result::Ok(n): { cout << "apkj: " << a[3] << ": " << xml.len << " bytes\n"; }
-        Result::Err(e): { cerr << "apkj: cannot write " << a[3] << ": " << e.message << "\n"; return 1; }
+        Result::Ok(n): { jout << "apkj: " << a[3] << ": " << xml.len << " bytes\n"; }
+        Result::Err(e): { jerr << "apkj: cannot write " << a[3] << ": " << e.message << "\n"; return 1; }
     }
     return 0;
 }
@@ -160,8 +160,8 @@ bool key_load(String path, P256^ c, char^ d) {
     for i in 0..32 { out.push(d[i]); }
     out.append(kl_cert);
     switch Fs::write_bytes(path + "", out) {
-        Result::Ok(n): { cout << "apkj: new key " << path << " (keep it: an update of an app needs the same key)\n"; }
-        Result::Err(e): { cerr << "apkj: cannot write the key file " << path << ": " << e.message << " (give another place with -k FILE)\n"; return false; }
+        Result::Ok(n): { jout << "apkj: new key " << path << " (keep it: an update of an app needs the same key)\n"; }
+        Result::Err(e): { jerr << "apkj: cannot write the key file " << path << ": " << e.message << " (give another place with -k FILE)\n"; return false; }
     }
     return true;
 }
@@ -179,12 +179,12 @@ String empty_arsc() { return d_hex("02000c00280000000000000001001c001c0000000000
 
 // apkj build manifest.toml OUT.apk [-k KEY] NAME=FILE...   (classes.dex and resources.arsc are added when not given; the files: lib/arm64-v8a/libgame.so, assets/...)
 int do_build(String[] a) {
-    if a.len < 4 { cerr << "usage: apkj build manifest.toml OUT.apk [-k KEYFILE] NAME=FILE...\n"; return 2; }
+    if a.len < 4 { jerr << "usage: apkj build manifest.toml OUT.apk [-k KEYFILE] NAME=FILE...\n"; return 2; }
     String keyfile = default_key_path();
     String toml = "";
     switch Fs::read_text(a[2] + "") {
         Result::Ok(t): { toml = t + ""; }
-        Result::Err(e): { cerr << "apkj: cannot read " << a[2] << ": " << e.message << "\n"; return 1; }
+        Result::Err(e): { jerr << "apkj: cannot read " << a[2] << ": " << e.message << "\n"; return 1; }
     }
     String xml = build_manifest(toml);
     if xml.len == 0 { return 1; }
@@ -196,12 +196,12 @@ int do_build(String[] a) {
     for i in 4..a.len {
         if a[i] == "-k" && i + 1 < a.len { keyfile = a[i + 1] + ""; i += 1; continue; }
         int eq = a[i].find("=");
-        if eq <= 0 { cerr << "apkj: '" << a[i] << "' is not NAME=FILE\n"; return 2; }
+        if eq <= 0 { jerr << "apkj: '" << a[i] << "' is not NAME=FILE\n"; return 2; }
         String name = a[i].slice(0, eq) + "";
         String file = a[i].slice(eq + 1, a[i].len) + "";
         bool ok = false;
         String data = read_bin(file, @ok);
-        if !ok { cerr << "apkj: cannot read " << file << " (for " << name << ")\n"; return 1; }
+        if !ok { jerr << "apkj: cannot read " << file << " (for " << name << ")\n"; return 1; }
         if name == "resources.arsc" { have_arsc = true; }
         if name == "classes.dex" { have_dex = true; }
         names.push(name); datas.push(data);
@@ -236,8 +236,8 @@ int do_build(String[] a) {
     zw_add("META-INF/CERT.EC", block, false, "");
     String z = zw_finish();
     switch Fs::write_bytes(a[3] + "", z) {
-        Result::Ok(n): { cout << "apkj: " << a[3] << ": " << (names.len + 3) << " files, " << z.len << " bytes, signed (v1, ECDSA P-256)\n"; }
-        Result::Err(e): { cerr << "apkj: cannot write " << a[3] << ": " << e.message << "\n"; return 1; }
+        Result::Ok(n): { jout << "apkj: " << a[3] << ": " << (names.len + 3) << " files, " << z.len << " bytes, signed (v1, ECDSA P-256)\n"; }
+        Result::Err(e): { jerr << "apkj: cannot write " << a[3] << ": " << e.message << "\n"; return 1; }
     }
     return 0;
 }
@@ -251,7 +251,7 @@ int do_key(String[] a) {
     char d[32];
     if !key_load(path, @c, (char^)@d) { return 1; }
     String fp = tohex_bytes(sha256_of(kl_cert));
-    cout << "key: " << path << "\nSHA-256 of the certificate: " << fp << "\n";
+    jout << "key: " << path << "\nSHA-256 of the certificate: " << fp << "\n";
     return 0;
 }
 
@@ -265,7 +265,7 @@ int do_selftest() {
     char r[32];
     char s[32];
     p256_new_key(@c, (char^)@d);
-    if !p256_public(@c, (char^)@d, (char^)@qx, (char^)@qy) { cerr << "apkj: public key failed\n"; return 1; }
+    if !p256_public(@c, (char^)@d, (char^)@qx, (char^)@qy) { jerr << "apkj: public key failed\n"; return 1; }
     int bad = 0;
     for m in 0..5 {
         char msg[8];
@@ -276,19 +276,19 @@ int do_selftest() {
         h[0] = (char)(h[0] + 1);
         if Crypto::ecdsa_verify(256, (char^)@qx, (char^)@qy, (char^)@h, 32, (char^)@r, 32, (char^)@s, 32) { bad += 1; }
     }
-    if bad == 0 { cout << "selftest ok\n"; } else { cout << "selftest FAILED\n"; }
+    if bad == 0 { jout << "selftest ok\n"; } else { jout << "selftest FAILED\n"; }
     return bad;
 }
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "apkj " << apkj_version() << "\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "apkj " << apkj_version() << "\n"; return 0; }
     if a.len > 1 && a[1] == "selftest" { return do_selftest(); }
     if a.len > 1 && a[1] == "key" { return do_key(a); }
     if a.len > 1 && a[1] == "build" { return do_build(a); }
     if a.len > 1 && a[1] == "zip" { return do_zip(a); }
     if a.len > 1 && a[1] == "manifest" { return do_manifest(a); }
-    cout << "apkj: the apk of a J2K program (made by J2K alone)\n  apkj zip OUT.zip [-z] NAME=FILE...\n";
+    jout << "apkj: the apk of a J2K program (made by J2K alone)\n  apkj zip OUT.zip [-z] NAME=FILE...\n";
     if a.len > 1 { return 2; }
     return 0;
 }

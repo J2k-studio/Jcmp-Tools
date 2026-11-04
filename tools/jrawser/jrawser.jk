@@ -7,9 +7,9 @@
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jrawser 0.1.0\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jrawser 0.1.0\n"; return 0; }
     if a.len > 1 && (a[1] == "--help" || a[1] == "-h") {
-        cout << "jrawser: the browser of the Jaric app.   jrawser [URL | words to search]\n";
+        jout << "jrawser: the browser of the Jaric app.   jrawser [URL | words to search]\n";
         return 0;
     }
     String what = "";
@@ -19,7 +19,7 @@ int main() {
         Option::Some(j): { if j.len > 0 { in_app = true; } }
         Option::None: { }
     }
-    if !in_app { cerr << "jrawser: the browser is a window of the Jaric app (here it cannot open: " << what << ")\n"; return 1; }
-    cout << "\e]7777;web;open;" << what << "\a";
+    if !in_app { jerr << "jrawser: the browser is a window of the Jaric app (here it cannot open: " << what << ")\n"; return 1; }
+    jout << "\e]7777;web;open;" << what << "\a";
     return 0;
 }

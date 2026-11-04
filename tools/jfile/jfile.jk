@@ -386,7 +386,7 @@ String fit(String s, int w) {
     return s.slice(0, cut) + "~";
 }
 
-String pad(String s, int w) {
+String pad_to(String s, int w) {
     String r = fit(s, w);
     // the width is counted in bytes: good for Latin letters (a rough fit for others)
     while r.len < w { r = r + " "; }
@@ -402,21 +402,21 @@ void draw() {
     String title = " jfile  " + shown(g_cwd);
     if g_places { title = " jfile  places"; }
     if g_filter.len > 0 { title = title + "   filter: " + g_filter; }
-    o += e + "[7m" + pad(title, g_cols) + e + "[0m\r\n";
+    o += e + "[7m" + pad_to(title, g_cols) + e + "[0m\r\n";
     int body = g_rows - 3;
     if g_places {
         String[] pn = place_names();
         for i in 0..body {
             String line = "";
             if i < pn.len {
-                line = pad("  " + pn[i], g_cols);
+                line = pad_to("  " + pn[i], g_cols);
                 if i == g_cur { line = e + "[7m" + line + e + "[0m"; }
-            } else { line = pad("", g_cols); }
+            } else { line = pad_to("", g_cols); }
             o += line + "\r\n";
         }
-        o += pad(" Enter: go   n: new place   d: take one of yours away   q: quit   " + g_msg, g_cols) + "\r\n";
-        o += pad(" up/down choose   (in a folder: + makes it a place)", g_cols);
-        cout << o;
+        o += pad_to(" Enter: go   n: new place   d: take one of yours away   q: quit   " + g_msg, g_cols) + "\r\n";
+        o += pad_to(" up/down choose   (in a folder: + makes it a place)", g_cols);
+        jout << o;
         return;
     }
     if g_cur >= g_ents.len { g_cur = g_ents.len - 1; }
@@ -436,13 +436,13 @@ void draw() {
             right = right + "  " + date_of(en.mtime);
             int namew = g_cols - right.len - 3;
             if namew < 8 { namew = 8; right = ""; }
-            String line = mark + " " + pad(name, namew) + " " + right;
-            line = pad(line, g_cols);
+            String line = mark + " " + pad_to(name, namew) + " " + right;
+            line = pad_to(line, g_cols);
             if k == g_cur { line = e + "[7m" + line + e + "[0m"; }
             else if en.dir { line = e + "[1;34m" + line + e + "[0m"; }
             o += line + "\r\n";
         } else {
-            o += pad("", g_cols) + "\r\n";
+            o += pad_to("", g_cols) + "\r\n";
         }
     }
     int nsel = 0;
@@ -455,9 +455,9 @@ void draw() {
         st = st + ", " + str(g_clip.len) + " in the clipboard (" + how + ")";
     }
     st = st + "   " + g_msg;
-    o += e + "[7m" + pad(st, g_cols) + e + "[0m\r\n";
-    o += pad(" Enter open  Space mark  c copy  x cut  v paste  d delete  r rename  n new  / find  s sort  . hidden  g places  q quit", g_cols);
-    cout << o;
+    o += e + "[7m" + pad_to(st, g_cols) + e + "[0m\r\n";
+    o += pad_to(" Enter open  Space mark  c copy  x cut  v paste  d delete  r rename  n new  / find  s sort  . hidden  g places  q quit", g_cols);
+    jout << o;
 }
 
 // ---------------------------------------------------------------- a line typed at the bottom of the screen
@@ -466,10 +466,10 @@ String ask(String prompt, String dflt) {
     String line = dflt + "";
     while true {
         get_size();
-        cout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << prompt << "\e[0m " << line << "\e[?25h";
+        jout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << prompt << "\e[0m " << line << "\e[?25h";
         int k = next_key(300);
-        if k == 13 { cout << "\e[?25l"; return line; }
-        if k == 27 || k == 3 || k == 0 - 9 { cout << "\e[?25l"; return ""; }
+        if k == 13 { jout << "\e[?25l"; return line; }
+        if k == 27 || k == 3 || k == 0 - 9 { jout << "\e[?25l"; return ""; }
         if k == 127 || k == 8 { if line.len > 0 { int cut = line.len - 1; while cut > 0 && (line[cut] & 192) == 128 { cut -= 1; } line = line.slice(0, cut); } }
         else if k >= 32 && k < 127 { line.push((char)k); }
         else if k >= 194 && k < 248 {                                      // a letter that is not ASCII: all its bytes
@@ -484,7 +484,7 @@ String ask(String prompt, String dflt) {
 
 bool confirm(String question) {
     get_size();
-    cout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << question << " (y/n) \e[0m";
+    jout << "\e[" << g_rows << ";1H\e[0m\e[2K\e[7m " << question << " (y/n) \e[0m";
     while true {
         int k = next_key(300);
         if k == 'y' || k == 'Y' { return true; }
@@ -519,7 +519,7 @@ void view_text(String path) {
     while true {
         get_size();
         int body = g_rows - 2;
-        String o = "\e[?25l\e[H\e[7m" + pad(" " + base_of(path) + "   (q leaves, up/down, space = next page)", g_cols) + "\e[0m\r\n";
+        String o = "\e[?25l\e[H\e[7m" + pad_to(" " + base_of(path) + "   (q leaves, up/down, space = next page)", g_cols) + "\e[0m\r\n";
         for i in 0..body {
             int k = top + i;
             String ln = "";
@@ -527,8 +527,8 @@ void view_text(String path) {
             ln = ln.replace("\t", "    ").replace("\r", "");
             o += "\e[2K" + fit(ln, g_cols) + "\r\n";
         }
-        o += "\e[7m" + pad(" line " + str(top + 1) + " of " + str(lines.len), g_cols) + "\e[0m";
-        cout << o;
+        o += "\e[7m" + pad_to(" line " + str(top + 1) + " of " + str(lines.len), g_cols) + "\e[0m";
+        jout << o;
         int k = next_key(500);
         if k == 'q' || k == 27 || k == 0 - 9 { return; }
         if k == 258 || k == 'j' { if top + 1 < lines.len { top += 1; } }
@@ -585,8 +585,8 @@ void view_picture(String path) {
     String file = join(tmp, "jfile-view.bgra");
     Result<int, Error> w = Fs::write_text(file, out);
     if w.is_err() { g_msg = "cannot write the picture"; return; }
-    cout << "\e]7777;gfx;open;" << sw << ";" << sh << ";" << file << "\a";
-    cout << "\e]7777;gfx;present\a";
+    jout << "\e]7777;gfx;open;" << sw << ";" << sh << ";" << file << "\a";
+    jout << "\e]7777;gfx;present\a";
     g_app = "";
     int t0 = Time::now_ms();
     bool leave = false;
@@ -597,16 +597,16 @@ void view_picture(String path) {
         if g_app.starts_with("touch;D") { leave = true; }
         g_app = "";
     }
-    cout << "\e]7777;gfx;close\a";
+    jout << "\e]7777;gfx;close\a";
     Sys::unlink(file.c());
 }
 
 // the app opens a file for its kind (video, sound) or asks the phone to open it
 void open_with_phone(String path) {
     String ext = lower_ext(path);
-    if in_list(ext, "mp4 mkv webm 3gp mov") { cout << "\e]7777;video;play;" << path << "\a"; g_msg = "playing (the back key stops)"; return; }
-    if in_list(ext, "mp3 ogg wav m4a flac aac opus") { cout << "\e]7777;audio;play;" << path << "\a"; g_msg = "playing"; return; }
-    cout << "\e]7777;open;" << path << "\a";
+    if in_list(ext, "mp4 mkv webm 3gp mov") { jout << "\e]7777;video;play;" << path << "\a"; g_msg = "playing (the back key stops)"; return; }
+    if in_list(ext, "mp3 ogg wav m4a flac aac opus") { jout << "\e]7777;audio;play;" << path << "\a"; g_msg = "playing"; return; }
+    jout << "\e]7777;open;" << path << "\a";
     g_msg = "asked the phone to open it";
 }
 
@@ -656,7 +656,7 @@ int run_ui(String start) {
     g_places = true;
     if start.len > 0 && is_dir(start) { enter_folder(start); }
     raw_on();
-    cout << "\e[?1049h\e[?25l";
+    jout << "\e[?1049h\e[?25l";
     bool done = false;
     while !done {
         draw();
@@ -705,7 +705,7 @@ int run_ui(String start) {
         else if k == 13 || k == 259 {
             if g_cur < g_ents.len {
                 if g_ents[g_cur].dir { enter_folder(join(g_cwd, g_ents[g_cur].name)); }
-                else { open_entry(g_ents[g_cur]); cout << "\e[2J"; }
+                else { open_entry(g_ents[g_cur]); jout << "\e[2J"; }
             }
         }
         else if k == 127 || k == 8 || k == 260 {
@@ -773,37 +773,37 @@ int run_ui(String start) {
             if nm.len > 0 { g_pn.push(nm + ""); g_pp.push(g_cwd + ""); places_save(); g_msg = "added to the places: " + nm; }
         }
         else if k == 'o' { if g_cur < g_ents.len && !g_ents[g_cur].dir { open_with_phone(join(g_cwd, g_ents[g_cur].name)); } }
-        else if k == 'i' { if g_cur < g_ents.len && !g_ents[g_cur].dir { view_picture(join(g_cwd, g_ents[g_cur].name)); cout << "\e[2J"; } }
-        else if k == 't' { if g_cur < g_ents.len && !g_ents[g_cur].dir { view_text(join(g_cwd, g_ents[g_cur].name)); cout << "\e[2J"; } }
+        else if k == 'i' { if g_cur < g_ents.len && !g_ents[g_cur].dir { view_picture(join(g_cwd, g_ents[g_cur].name)); jout << "\e[2J"; } }
+        else if k == 't' { if g_cur < g_ents.len && !g_ents[g_cur].dir { view_text(join(g_cwd, g_ents[g_cur].name)); jout << "\e[2J"; } }
     }
-    cout << "\e[?25h\e[?1049l";
+    jout << "\e[?25h\e[?1049l";
     raw_off();
     return 0;
 }
 
 // ---------------------------------------------------------------- the commands
 
-int fail(String m) { cerr << "jfile: " << m << "\n"; return 1; }
+int fail(String m) { jerr << "jfile: " << m << "\n"; return 1; }
 
 void usage() {
-    cout << "jfile 0.3.0: the files of the phone in a terminal\n";
-    cout << "  jfile [FOLDER]        the screen of places and folders (keys: ? is the last line)\n";
-    cout << "  jfile ls [FOLDER]     a list as text      jfile places\n";
-    cout << "  jfile cp SRC DST      jfile mv SRC DST    jfile rm PATH      jfile mkdir PATH\n";
+    jout << "jfile 0.3.0: the files of the phone in a terminal\n";
+    jout << "  jfile [FOLDER]        the screen of places and folders (keys: ? is the last line)\n";
+    jout << "  jfile ls [FOLDER]     a list as text      jfile places\n";
+    jout << "  jfile cp SRC DST      jfile mv SRC DST    jfile rm PATH      jfile mkdir PATH\n";
 }
 
 int main() {
     String[] a = Env::args();
     g_msg = ""; g_filter = ""; g_cwd = "/"; g_app = "";
     g_clip = arr(2); g_ents = arr(2);
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "jfile 0.3.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { jout << "jfile 0.3.0\n"; return 0; }
     if a.len >= 2 && (a[1] == "help" || a[1] == "--help" || a[1] == "-h") { usage(); return 0; }
     String cmd = "";
     if a.len >= 2 { cmd = a[1]; }
     if cmd == "places" {
         places_load();
         String[] pn = place_names();
-        for i in 0..pn.len { cout << pn[i] << "   " << shown(place_path(i)) << "\n"; }
+        for i in 0..pn.len { jout << pn[i] << "   " << shown(place_path(i)) << "\n"; }
         return 0;
     }
     if cmd == "ls" {
@@ -814,7 +814,7 @@ int main() {
         for i in 0..es.len {
             String name = es[i].name;
             if es[i].dir { name = name + "/"; }
-            cout << name << "\t" << es[i].size << "\t" << date_of(es[i].mtime) << "\n";
+            jout << name << "\t" << es[i].size << "\t" << date_of(es[i].mtime) << "\n";
         }
         return 0;
     }
@@ -851,7 +851,7 @@ int main() {
         Option::None: { }
     }
     if in_app && !tui {                                                    // in the Jaric app the files are a window (jfile -t keeps this screen)
-        cout << "\e]7777;files;open;" << start << "\a";
+        jout << "\e]7777;files;open;" << start << "\a";
         return 0;
     }
     return run_ui(start);

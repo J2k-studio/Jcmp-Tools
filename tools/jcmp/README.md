@@ -19,7 +19,7 @@ In jsh: `jc install jcmp`. Both check the SHA-256 of the file before anything is
 
 ## A short lesson
 1. Install the compiler and its library: `jc install jcmp` (they come as a pair). Check: `jcmp -version`.
-2. Write `hello.jk`:  `int main() { cout << "hello\n"; return 0; }`
+2. Write `hello.jk`:  `int main() { jout << "hello\n"; return 0; }`
 3. Build and run: `jcmp hello.jk -o hello && ./hello`. Always give `-o`.
 4. Faster builds: `jcmp big.jk -o big -j 4` uses four cores; `-progress FILE` writes the percent for a tool.
 5. More: `jcmp -help`, the tutorial `docs/TUTORIAL.md` of the language repository, and `jc lib list` for libraries.

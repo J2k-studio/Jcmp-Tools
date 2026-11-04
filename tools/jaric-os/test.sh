@@ -17,7 +17,7 @@ case "$OUT2" in *"hello.txt"*"readme.txt"*) ;; *) echo "jaric-os test: the defau
 [ -f "$HOME/.jaric-os/hello.txt" ] || { echo "jaric-os test: ~/.jaric-os"; exit 1; }
 # the emulator itself (a Linux program) is for the developers: JARIC_OS_DEV=1; without it jaric-os says no
 
-printf '#import <stdlib>\nint main() { cout << "from jemu\\n"; return 5; }\n' > "$T/p.jk"
+printf '#import <stdlib>\nint main() { jout << "from jemu\\n"; return 5; }\n' > "$T/p.jk"
 "${JCMP:-jcmp}" "$T/p.jk" -o "$T/p" >/dev/null 2>&1
 set +e; JARIC_OS_DEV=1 "$B/jaric-os" "$T/p" > "$T/p.out"; rc=$?; "$B/jaric-os" --system "$T/p" >/dev/null 2>&1; rc2=$?; set -e
 [ "$rc2" = 2 ] || { echo "jaric-os test: --system must be refused ($rc2)"; exit 1; }

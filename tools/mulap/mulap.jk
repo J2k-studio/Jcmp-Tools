@@ -82,7 +82,7 @@ String[] tv;
 String[] tp;
 String[] tg;                 // the gain of each track as text ("" = 1.0)
 
-int fail(String m) { cerr << "mulap: " << m << "\n"; return 1; }
+int fail(String m) { jerr << "mulap: " << m << "\n"; return 1; }
 
 bool parse_plan(String text) {
     bpm = 120.0; bars = 1; swing = 0.0;
@@ -173,19 +173,19 @@ String demo_plan() {
 
 int main() {
     String[] a = Env::args();
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "mulap 0.2.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { jout << "mulap 0.2.0\n"; return 0; }
     bool in_app = false;
     switch Env::get("JARIC") {
         Option::Some(j): { if j.len > 0 { in_app = true; } }
         Option::None: { }
     }
     if (a.len < 2 || a[1] == "studio") && in_app {                 // in the Jaric app: the studio, a window in landscape (pads, step grid, play, tempo, save)
-        cout << "\e]7777;mulap;open\a";
+        jout << "\e]7777;mulap;open\a";
         return 0;
     }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" {
-        cout << "mulap: record songs and make beats (first step: the engine).   mulap render PROJECT.mlp OUT.wav   mulap demo OUT.wav\n";
-        cout << "  a plan: bpm = 120, bars = 2, swing = 0.1, track kick x...x...x...x...   (voices: kick snare hat openhat clap tom bass)\n";
+        jout << "mulap: record songs and make beats (first step: the engine).   mulap render PROJECT.mlp OUT.wav   mulap demo OUT.wav\n";
+        jout << "  a plan: bpm = 120, bars = 2, swing = 0.1, track kick x...x...x...x...   (voices: kick snare hat openhat clap tom bass)\n";
         if a.len < 2 { return 2; }
         return 0;
     }
@@ -202,6 +202,6 @@ int main() {
     String wav = render();
     Result<int, Error> w = Fs::write_bytes(out, wav);
     if !w.is_ok() { return fail("cannot write " + out); }
-    cout << out << ": " << (wav.len - 44) / 2 / RATE << " s, " << bars << " bars at " << (int)bpm << " bpm\n";
+    jout << out << ": " << (wav.len - 44) / 2 / RATE << " s, " << bars << " bars at " << (int)bpm << " bpm\n";
     return 0;
 }

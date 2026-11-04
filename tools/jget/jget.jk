@@ -68,7 +68,7 @@ int cmd_music(String[] av, int at) {
         if n == "index.html" { n = "song"; }
         if !has_audio_ext(n) { n = n + ".mp3"; }
         String to = Path::join(dir, n);
-        if download(av[i], to, g_quiet == 1) { cout << "saved " << to << nl; } else { rc = 1; }
+        if download(av[i], to, g_quiet == 1) { jout << "saved " << to << nl; } else { rc = 1; }
     }
     return rc;
 }
@@ -242,7 +242,7 @@ int cmd_install_self(String[] av, int at) {
     String me = self_path();
     if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
     if !install_file(me, dir + "/jget") { return 1; }
-    cout << "installed jget in " << dir << "/jget" << nl;
+    jout << "installed jget in " << dir << "/jget" << nl;
     return 0;
 }
 
@@ -289,7 +289,7 @@ int cmd_update_self() {
     }
     Sys::chmod(tmp.c(), 493);
     if !put_in_place(tmp, me) { return 1; }
-    cout << "jget is updated" << nl;
+    jout << "jget is updated" << nl;
     return 0;
 }
 
@@ -303,7 +303,7 @@ int main() {
     }
     if av.len < 2 { return usage(); }
     String first = av[1];
-    if first == "--version" || first == "-V" { cout << "jget " << jget_version() << nl; return 0; }
+    if first == "--version" || first == "-V" { jout << "jget " << jget_version() << nl; return 0; }
     if first == "--help" { usage(); return 0; }
     if first == "-li" || first == "tool" { return forward_to_jc(av); }
     if first == "-sh" { return cmd_run_script(av, 2, "sh"); }

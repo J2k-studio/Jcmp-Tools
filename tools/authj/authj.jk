@@ -188,7 +188,7 @@ String xor_stream(String key, String nonce, String data) {
 String ask_passphrase(String prompt) {
     Option<String> e = Env::get("AUTHJ_PASS");
     if e.is_some() { return e.unwrap(); }
-    cerr << prompt;
+    jerr << prompt;
     char t[64];
     bool tty = Sys::isatty(0) == 0;
     if tty {
@@ -207,7 +207,7 @@ String ask_passphrase(String prompt) {
         n = Sys::read(0, @b, 1);
     }
     if tty { Sys::call(29, 0, 21506, (int)@t, 0, 0, 0); }
-    cerr << "\n";
+    jerr << "\n";
     return pw;
 }
 
@@ -257,7 +257,7 @@ Account[] load_accounts(bool^ ok) {
     String magic = "";
     if d.len >= 6 { magic = d.slice(0, 6); }
     if magic == "AUTHJ1" {
-        if d.len < 6 + 16 + 16 + 32 { cerr << "authj: the vault is damaged\n"; ok[0] = false; return none; }
+        if d.len < 6 + 16 + 16 + 32 { jerr << "authj: the vault is damaged\n"; ok[0] = false; return none; }
         String salt = d.slice(6, 22);
         String nonce = d.slice(22, 38);
         String ct = d.slice(38, d.len - 32);
@@ -269,7 +269,7 @@ Account[] load_accounts(bool^ ok) {
         String want = hmac(256, km, salt + nonce + ct);
         int diff = 0;
         for i in 0..mac.len { diff = diff | ((want[i] & 255) xor (mac[i] & 255)); }
-        if diff != 0 { cerr << "authj: the passphrase is wrong (or the vault was changed)\n"; ok[0] = false; return none; }
+        if diff != 0 { jerr << "authj: the passphrase is wrong (or the vault was changed)\n"; ok[0] = false; return none; }
         return parse_accounts(xor_stream(ke, nonce, ct));
     }
     return parse_accounts(d);
@@ -290,7 +290,7 @@ bool save_accounts(Account[] a) {
     String dir = vault_dir();
     Sys::mkdir(dir.c(), 448);
     Result<int, Error> w = Fs::write_text(vault_path(), data);
-    if w.is_err() { cerr << "authj: cannot write " << vault_path() << "\n"; return false; }
+    if w.is_err() { jerr << "authj: cannot write " << vault_path() << "\n"; return false; }
     Sys::chmod(vault_path().c(), 384);
     return true;
 }
@@ -333,24 +333,24 @@ void show(Account ac, int now_s) {
     int ctr = now_s / ac.period;
     String code = hotp(key, ctr, ac.digits, algo_of(ac.algo));
     int left = ac.period - now_s % ac.period;
-    if g_raw { cout << code << "\n"; return; }
-    cout << code << "  " << left << "s  " << ac.name << "\n";
+    if g_raw { jout << code << "\n"; return; }
+    jout << code << "  " << left << "s  " << ac.name << "\n";
 }
 
 void usage() {
-    cout << "authj 0.3.0: one-time codes for two-step logins (TOTP)\n";
-    cout << "  authj add NAME SECRET [--digits 6] [--period 30] [--algo sha1|sha256|sha512]\n";
-    cout << "  authj code NAME --raw                   only the digits (for scripts and other programs); AUTHJ_PASS opens a locked vault without asking\n";
-    cout << "  authj scan PICTURE                      reads the QR code in a PNG or JPEG picture and keeps the account\n";
-    cout << "  authj add-uri 'otpauth://totp/...'      authj code [NAME]      authj list      authj remove NAME\n";
-    cout << "  authj now SECRET                        a code without keeping the secret\n";
-    cout << "  authj passwd                            set, change or remove the passphrase (empty = no lock)\n";
-    cout << "the accounts are in ~/.authj/vault (AUTHJ_DIR changes the folder, AUTHJ_PASS gives the passphrase)\n";
+    jout << "authj 0.3.0: one-time codes for two-step logins (TOTP)\n";
+    jout << "  authj add NAME SECRET [--digits 6] [--period 30] [--algo sha1|sha256|sha512]\n";
+    jout << "  authj code NAME --raw                   only the digits (for scripts and other programs); AUTHJ_PASS opens a locked vault without asking\n";
+    jout << "  authj scan PICTURE                      reads the QR code in a PNG or JPEG picture and keeps the account\n";
+    jout << "  authj add-uri 'otpauth://totp/...'      authj code [NAME]      authj list      authj remove NAME\n";
+    jout << "  authj now SECRET                        a code without keeping the secret\n";
+    jout << "  authj passwd                            set, change or remove the passphrase (empty = no lock)\n";
+    jout << "the accounts are in ~/.authj/vault (AUTHJ_DIR changes the folder, AUTHJ_PASS gives the passphrase)\n";
 }
 
 int main() {
     String[] a = Env::args();
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "authj 0.3.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { jout << "authj 0.3.0\n"; return 0; }
     if a.len < 2 || a[1] == "help" || a[1] == "--help" || a[1] == "-h" { usage(); return 0; }
     String cmd = a[1];
     g_pass = "";
@@ -361,7 +361,7 @@ int main() {
     if cmd == "now" {
         if a.len < 3 { usage(); return 1; }
         String key = base32_decode(a[2]);
-        if key.len == 0 { cerr << "authj: the secret is not base32 text\n"; return 1; }
+        if key.len == 0 { jerr << "authj: the secret is not base32 text\n"; return 1; }
         Account ac;
         ac.name = "now"; ac.secret = a[2] + ""; ac.digits = opt_int(a, "--digits", 6); ac.period = opt_int(a, "--period", 30); ac.algo = opt(a, "--algo", "sha1");
         show(ac, now_s);
@@ -370,19 +370,19 @@ int main() {
     if cmd == "scan" {
         if a.len < 3 { usage(); return 1; }
         Result<String, Error> rd = Fs::read_bytes(a[2]);
-        if rd.is_err() { cerr << "authj: cannot read " << a[2] << "\n"; return 1; }
+        if rd.is_err() { jerr << "authj: cannot read " << a[2] << "\n"; return 1; }
         String bytes = rd.take();
         bool pok = false;
         Image im;
         im.w = 0; im.h = 0; im.px = "";
-        if bytes.len > 4 && (bytes[0] & 255) == 255 && (bytes[1] & 255) == 216 { im = Jpeg::decode(bytes, @pok); if !pok { cerr << "authj: " << Jpeg::error() << "\n"; return 1; } }
-        else { im = Png::decode(bytes, @pok); if !pok { cerr << "authj: " << a[2] << " is not a PNG or JPEG picture\n"; return 1; } }
+        if bytes.len > 4 && (bytes[0] & 255) == 255 && (bytes[1] & 255) == 216 { im = Jpeg::decode(bytes, @pok); if !pok { jerr << "authj: " << Jpeg::error() << "\n"; return 1; } }
+        else { im = Png::decode(bytes, @pok); if !pok { jerr << "authj: " << a[2] << " is not a PNG or JPEG picture\n"; return 1; } }
         bool good = false;
         String text = Qr::scan(im.px, im.w, im.h, @good);
-        if !good { cerr << "authj: no QR code read in " << a[2] << " (" << Qr::error() << ")\n"; return 1; }
+        if !good { jerr << "authj: no QR code read in " << a[2] << " (" << Qr::error() << ")\n"; return 1; }
         String head = "";
         if text.len >= 10 { head = text.slice(0, 10); }
-        if head != "otpauth://" { cerr << "authj: the QR code is not an otpauth:// code of a two-step login\n"; return 1; }
+        if head != "otpauth://" { jerr << "authj: the QR code is not an otpauth:// code of a two-step login\n"; return 1; }
         String[] na = arr(4);
         na.push(a[0] + ""); na.push("add-uri"); na.push(text);
         a = na;
@@ -393,8 +393,8 @@ int main() {
     if !ok { return 1; }
     // does the file have a lock? then the same passphrase is used when it is saved again
     if cmd == "list" {
-        for i in 0..accts.len { cout << accts[i].name << "  (" << accts[i].digits << " digits, " << accts[i].period << " s, " << accts[i].algo << ")\n"; }
-        if accts.len == 0 { cout << "no accounts yet: authj add NAME SECRET\n"; }
+        for i in 0..accts.len { jout << accts[i].name << "  (" << accts[i].digits << " digits, " << accts[i].period << " s, " << accts[i].algo << ")\n"; }
+        if accts.len == 0 { jout << "no accounts yet: authj add NAME SECRET\n"; }
         return 0;
     }
     if cmd == "code" || (cmd != "add" && cmd != "add-uri" && cmd != "remove" && cmd != "passwd" && cmd != "--raw" && a.len <= 3 && (a.len == 2 || a[2] == "--raw")) {
@@ -410,7 +410,7 @@ int main() {
             if !exact && nl.contains(wl) { hit = true; }
             if hit { show(accts[i], now_s); any = true; }
         }
-        if !any { cerr << "authj: no account named " << want << " (authj list)\n"; return 1; }
+        if !any { jerr << "authj: no account named " << want << " (authj list)\n"; return 1; }
         return 0;
     }
     if cmd == "add" || cmd == "add-uri" {
@@ -444,13 +444,13 @@ int main() {
             }
             if ac.name.len == 0 { ac.name = "account"; }
         }
-        if base32_decode(ac.secret).len == 0 { cerr << "authj: the secret is not base32 text (letters A-Z and digits 2-7)\n"; return 1; }
-        if ac.digits < 6 || ac.digits > 10 || ac.period < 1 { cerr << "authj: digits must be 6..10, period at least 1\n"; return 1; }
+        if base32_decode(ac.secret).len == 0 { jerr << "authj: the secret is not base32 text (letters A-Z and digits 2-7)\n"; return 1; }
+        if ac.digits < 6 || ac.digits > 10 || ac.period < 1 { jerr << "authj: digits must be 6..10, period at least 1\n"; return 1; }
         Account[] out = arr(4);
         for i in 0..accts.len { if accts[i].name != ac.name { out.push(accts[i]); } }
         out.push(ac);
         if !save_accounts(out) { return 1; }
-        cout << "saved " << ac.name << "\n";
+        jout << "saved " << ac.name << "\n";
         show(ac, now_s);
         return 0;
     }
@@ -459,9 +459,9 @@ int main() {
         Account[] out = arr(4);
         bool found = false;
         for i in 0..accts.len { if accts[i].name == a[2] { found = true; } else { out.push(accts[i]); } }
-        if !found { cerr << "authj: no account named " << a[2] << "\n"; return 1; }
+        if !found { jerr << "authj: no account named " << a[2] << "\n"; return 1; }
         if !save_accounts(out) { return 1; }
-        cout << "removed " << a[2] << "\n";
+        jout << "removed " << a[2] << "\n";
         return 0;
     }
     if cmd == "passwd" {
@@ -469,12 +469,12 @@ int main() {
         Option<String> envp = Env::get("AUTHJ_PASS");
         if p1.len > 0 && envp.is_none() {
             String p2 = ask_passphrase("Again: ");
-            if p1 != p2 { cerr << "authj: the two are not the same\n"; return 1; }
+            if p1 != p2 { jerr << "authj: the two are not the same\n"; return 1; }
         }
         g_pass = p1 + "";
         g_have_pass = true;
         if !save_accounts(accts) { return 1; }
-        if p1.len > 0 { cout << "the vault is locked with the new passphrase\n"; } else { cout << "the vault is not locked\n"; }
+        if p1.len > 0 { jout << "the vault is locked with the new passphrase\n"; } else { jout << "the vault is not locked\n"; }
         return 0;
     }
     usage();

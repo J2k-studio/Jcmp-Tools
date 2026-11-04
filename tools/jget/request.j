@@ -121,13 +121,13 @@ int cmd_request(String[] av, int at) {
     String to = o.to;
     if to.len == 0 && o.by_name { to = name_of(o.url); }
     if to.len == 0 || to == "-" {
-        cout << out;
+        jout << out;
     } else {
         switch Fs::write_text(to, out) {
             Result::Ok(n): { }
             Result::Err(e): { err("jget: cannot write " + to + ": " + e.message + "\n"); return 1; }
         }
     }
-    if o.write_code { cout << str(code) << "\n"; }
+    if o.write_code { jout << str(code) << "\n"; }
     return 0;
 }

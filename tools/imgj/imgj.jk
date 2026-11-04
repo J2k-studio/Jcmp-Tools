@@ -31,17 +31,17 @@ Image load(String path, bool^ ok) {
     im.w = 0; im.h = 0; im.px = "";
     ok[0] = false;
     Result<String, Error> r = Fs::read_bytes(path);
-    if r.is_err() { cerr << "imgj: cannot read " << path << "\n"; return im; }
+    if r.is_err() { jerr << "imgj: cannot read " << path << "\n"; return im; }
     String d = r.take();
     int k = sniff(d);
     if k == 1 {
         im = Png::decode(d, ok);
-        if !ok[0] { cerr << "imgj: " << path << ": this PNG is not read (interlaced?)\n"; }
+        if !ok[0] { jerr << "imgj: " << path << ": this PNG is not read (interlaced?)\n"; }
     } else if k == 2 {
         im = Jpeg::decode(d, ok);
-        if !ok[0] { cerr << "imgj: " << path << ": " << Jpeg::error() << "\n"; }
+        if !ok[0] { jerr << "imgj: " << path << ": " << Jpeg::error() << "\n"; }
     } else {
-        cerr << "imgj: " << path << " is not a PNG or JPEG picture\n";
+        jerr << "imgj: " << path << " is not a PNG or JPEG picture\n";
     }
     return im;
 }
@@ -80,7 +80,7 @@ bool save_png(String path, Image im) {
     put_chunk(out, "IDAT", z);
     put_chunk(out, "IEND", "");
     Result<int, Error> r = Fs::write_text(path, out);
-    if r.is_err() { cerr << "imgj: cannot write " << path << "\n"; return false; }
+    if r.is_err() { jerr << "imgj: cannot write " << path << "\n"; return false; }
     return true;
 }
 
@@ -303,20 +303,20 @@ Image normal_map(Image im, double strength) {
 }
 
 void usage() {
-    cout << "imgj 0.2.0: prepares pictures (photos, drawings) for a game; reads PNG and JPEG, writes PNG\n";
-    cout << "  imgj info FILE\n  imgj convert IN OUT\n";
-    cout << "  imgj cut IN OUT [--tol 24] [--bg RRGGBB] [--pad 0] [--hard]     the background goes see-through, the picture is trimmed\n";
-    cout << "  imgj scale IN OUT (--width N | --height N | --factor F)\n";
-    cout << "  imgj meter IN OUT --height-m 110 [--ppm 8]                      the object gets its real height in pixels\n";
-    cout << "  imgj slice IN OUTPREFIX --at 0.25,0.6                           cuts across at those heights (0 top .. 1 bottom)\n";
-    cout << "  imgj normal IN OUT [--strength 2.0]                             a normal map for shaders (lit metal)\n";
-    cout << "  imgj scan FILE                                                  the text of the QR code in a picture (exit 1 when there is none)\n";
-    cout << "  imgj credit FILE --source TEXT --license TEXT [--file CREDITS.md]\n";
+    jout << "imgj 0.2.0: prepares pictures (photos, drawings) for a game; reads PNG and JPEG, writes PNG\n";
+    jout << "  imgj info FILE\n  imgj convert IN OUT\n";
+    jout << "  imgj cut IN OUT [--tol 24] [--bg RRGGBB] [--pad 0] [--hard]     the background goes see-through, the picture is trimmed\n";
+    jout << "  imgj scale IN OUT (--width N | --height N | --factor F)\n";
+    jout << "  imgj meter IN OUT --height-m 110 [--ppm 8]                      the object gets its real height in pixels\n";
+    jout << "  imgj slice IN OUTPREFIX --at 0.25,0.6                           cuts across at those heights (0 top .. 1 bottom)\n";
+    jout << "  imgj normal IN OUT [--strength 2.0]                             a normal map for shaders (lit metal)\n";
+    jout << "  imgj scan FILE                                                  the text of the QR code in a picture (exit 1 when there is none)\n";
+    jout << "  imgj credit FILE --source TEXT --license TEXT [--file CREDITS.md]\n";
 }
 
 int main() {
     String[] a = Env::args();
-    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { cout << "imgj 0.2.0\n"; return 0; }
+    if a.len >= 2 && (a[1] == "--version" || a[1] == "-V") { jout << "imgj 0.2.0\n"; return 0; }
     if a.len < 2 || a[1] == "help" || a[1] == "--help" || a[1] == "-h" { usage(); return 0; }
     String cmd = a[1];
     if cmd == "credit" {
@@ -324,8 +324,8 @@ int main() {
         String file = opt(a, "--file", "CREDITS.md");
         String line = "| `" + a[2] + "` | " + opt(a, "--source", "?") + " | " + opt(a, "--license", "?") + " |\n";
         Result<int, Error> r = Fs::append_text(file, line);
-        if r.is_err() { cerr << "imgj: cannot write " << file << "\n"; return 1; }
-        cout << "added to " << file << ": " << line;
+        if r.is_err() { jerr << "imgj: cannot write " << file << "\n"; return 1; }
+        jout << "added to " << file << ": " << line;
         return 0;
     }
     if a.len < 3 { usage(); return 1; }
@@ -335,7 +335,7 @@ int main() {
     if cmd == "info" {
         int t = 0;
         for i in 0..(im.w * im.h) { if (im.px[i * 4 + 3] & 255) < 255 { t += 1; } }
-        cout << a[2] << ": " << im.w << " x " << im.h << ", " << t << " dots see-through\n";
+        jout << a[2] << ": " << im.w << " x " << im.h << ", " << t << " dots see-through\n";
         return 0;
     }
     if cmd != "scan" && a.len < 4 { usage(); return 1; }
@@ -343,14 +343,14 @@ int main() {
     if a.len > 3 { outp = a[3]; }
     if cmd == "convert" {
         if !save_png(outp, im) { return 1; }
-        cout << outp << " " << im.w << " x " << im.h << "\n";
+        jout << outp << " " << im.w << " x " << im.h << "\n";
         return 0;
     }
     if cmd == "scan" {
         bool good = false;
         String text = Qr::scan(im.px, im.w, im.h, @good);
-        if !good { cerr << "imgj: " << a[2] << ": " << Qr::error() << "\n"; return 1; }
-        cout << text << "\n";
+        if !good { jerr << "imgj: " << a[2] << ": " << Qr::error() << "\n"; return 1; }
+        jout << text << "\n";
         return 0;
     }
     if cmd == "cut" {
@@ -361,9 +361,9 @@ int main() {
             br = hexval(bgs[0]) * 16 + hexval(bgs[1]); bg = hexval(bgs[2]) * 16 + hexval(bgs[3]); bb = hexval(bgs[4]) * 16 + hexval(bgs[5]);
         }
         Image c = cut(im, tol, br, bg, bb, opt(a, "--pad", "0").to_int(), !flag(a, "--hard"));
-        if c.w == 0 { cerr << "imgj: nothing is left (the whole picture is background: lower --tol)\n"; return 1; }
+        if c.w == 0 { jerr << "imgj: nothing is left (the whole picture is background: lower --tol)\n"; return 1; }
         if !save_png(outp, c) { return 1; }
-        cout << outp << " " << c.w << " x " << c.h << " (from " << im.w << " x " << im.h << ", background " << br << "," << bg << "," << bb << ")\n";
+        jout << outp << " " << c.w << " x " << c.h << " (from " << im.w << " x " << im.h << ", background " << br << "," << bg << "," << bb << ")\n";
         return 0;
     }
     if cmd == "scale" || cmd == "meter" {
@@ -371,7 +371,7 @@ int main() {
         if cmd == "meter" {
             double hm = opt(a, "--height-m", "0").to_double();
             double ppm = opt(a, "--ppm", "8").to_double();
-            if hm <= 0.0 { cerr << "imgj: meter needs --height-m\n"; return 1; }
+            if hm <= 0.0 { jerr << "imgj: meter needs --height-m\n"; return 1; }
             nh = (int)(hm * ppm + 0.5);
             nw = (int)((double)im.w * (double)nh / (double)im.h + 0.5);
         } else if opt(a, "--factor", "") != "" {
@@ -384,15 +384,15 @@ int main() {
             nh = opt(a, "--height", "0").to_int();
             nw = (int)((double)im.w * (double)nh / (double)im.h + 0.5);
         }
-        if nw < 1 || nh < 1 { cerr << "imgj: the new size is empty (give --width, --height or --factor)\n"; return 1; }
+        if nw < 1 || nh < 1 { jerr << "imgj: the new size is empty (give --width, --height or --factor)\n"; return 1; }
         Image s = scale(im, nw, nh);
         if !save_png(outp, s) { return 1; }
-        cout << outp << " " << nw << " x " << nh << "\n";
+        jout << outp << " " << nw << " x " << nh << "\n";
         return 0;
     }
     if cmd == "slice" {
         String at = opt(a, "--at", "");
-        if at == "" { cerr << "imgj: slice needs --at 0.25,0.6\n"; return 1; }
+        if at == "" { jerr << "imgj: slice needs --at 0.25,0.6\n"; return 1; }
         String[] parts = at.split(",");
         int prev = 0;
         int k = 1;
@@ -404,7 +404,7 @@ int main() {
             Image part = crop(im, prev, y1);
             String name = outp + "_" + str(k) + ".png";
             if !save_png(name, part) { return 1; }
-            cout << name << " " << part.w << " x " << part.h << "\n";
+            jout << name << " " << part.w << " x " << part.h << "\n";
             prev = y1;
             k += 1;
         }
@@ -413,7 +413,7 @@ int main() {
     if cmd == "normal" {
         Image nmap = normal_map(im, opt(a, "--strength", "2.0").to_double());
         if !save_png(outp, nmap) { return 1; }
-        cout << outp << " " << nmap.w << " x " << nmap.h << "\n";
+        jout << outp << " " << nmap.w << " x " << nmap.h << "\n";
         return 0;
     }
     usage();

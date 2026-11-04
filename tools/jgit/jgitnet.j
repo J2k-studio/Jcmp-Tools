@@ -175,9 +175,9 @@ String repo_path(Url u, String tail) { return u.path + tail; }
 // info/refs for upload-pack (the fetch) or receive-pack (the push); false with a message when it did not work
 bool advertise(Url u, String service) {
     Resp r = http_do("GET", u, repo_path(u, "/info/refs?service=" + service), "", "", 0);
-    if r.code == 401 || r.code == 403 { cerr << "jgit: the server wants a password (a token): jgit token HOST TOKEN\n"; return false; }
-    if r.code == 404 { cerr << "jgit: there is no repository at " << u.hostport << u.path << "\n"; return false; }
-    if r.code != 200 { cerr << "jgit: the server answered " << r.code << " " << r.head.slice(0, 60) << "\n"; return false; }
+    if r.code == 401 || r.code == 403 { jerr << "jgit: the server wants a password (a token): jgit token HOST TOKEN\n"; return false; }
+    if r.code == 404 { jerr << "jgit: there is no repository at " << u.hostport << u.path << "\n"; return false; }
+    if r.code != 200 { jerr << "jgit: the server answered " << r.code << " " << r.head.slice(0, 60) << "\n"; return false; }
     String[] ls = pkt_split(r.body);
     g_ref_name = arr(16); g_ref_sha = arr(16); g_caps = "";
     bool first = true;
@@ -198,7 +198,7 @@ bool advertise(Url u, String service) {
 // ---------------------------------------------------------------- the objects of a pack
 // writes the objects of a pack as loose objects; the number written, or -1
 int unpack_pack(String pack) {
-    if pack.len < 32 || !pack.starts_with("PACK") { cerr << "jgit: the answer is not a pack\n"; return 0 - 1; }
+    if pack.len < 32 || !pack.starts_with("PACK") { jerr << "jgit: the answer is not a pack\n"; return 0 - 1; }
     int n = be32(pack, 8);
     int p = 12;
     int[] starts = arr(n + 1);
@@ -206,7 +206,7 @@ int unpack_pack(String pack) {
     String[] bodies = arr(n + 1);
     String[] hexes = arr(n + 1);
     for i in 0..n {
-        if p >= pack.len { cerr << "jgit: the pack is cut\n"; return 0 - 1; }
+        if p >= pack.len { jerr << "jgit: the pack is cut\n"; return 0 - 1; }
         int start = p;
         int c = pack[p] & 255;
         p += 1;
@@ -227,7 +227,7 @@ int unpack_pack(String pack) {
         }
         bool ok = false;
         String data = dfl_inflate_raw(pack, p + 2, pack.len, @ok);
-        if !ok { cerr << "jgit: an object of the pack is damaged\n"; return 0 - 1; }
+        if !ok { jerr << "jgit: an object of the pack is damaged\n"; return 0 - 1; }
         p = dfl_inf_pos + 4;                                          // after the zlib check number
         String kind = "";
         String body = "";
@@ -244,7 +244,7 @@ int unpack_pack(String pack) {
                 for k in 0..i { if hexes[k] == base_hex { bkind = kinds[k]; bbody = bodies[k]; } }
                 if bkind.len == 0 { bbody = read_object(base_hex); bkind = g_kind; }
             }
-            if bkind.len == 0 { cerr << "jgit: a delta without its base\n"; return 0 - 1; }
+            if bkind.len == 0 { jerr << "jgit: a delta without its base\n"; return 0 - 1; }
             kind = bkind;
             body = apply_delta(bbody, data);
         }
@@ -267,10 +267,10 @@ int fetch_objects(Url u, String[] want) {
     }
     body = body + "0000" + pkt("done\n");
     Resp r = http_do("POST", u, repo_path(u, "/git-upload-pack"), "Content-Type: application/x-git-upload-pack-request\r\nAccept: application/x-git-upload-pack-result\r\n", body, 0);
-    if r.code != 200 { cerr << "jgit: the server answered " << r.code << " to the request of objects\n"; return 0 - 1; }
+    if r.code != 200 { jerr << "jgit: the server answered " << r.code << " to the request of objects\n"; return 0 - 1; }
     // the answer: a line NAK (or ACK ...), then the pack
     int at = r.body.find("PACK");
-    if at < 0 { cerr << "jgit: no pack in the answer\n"; return 0 - 1; }
+    if at < 0 { jerr << "jgit: no pack in the answer\n"; return 0 - 1; }
     return unpack_pack(r.body.slice(at, r.body.len));
 }
 
@@ -309,10 +309,10 @@ int do_fetch_remote(String name, bool quiet) {
             Dir::make_all(Path::parent(g_git + "/" + rf));
             Fs::write_text(g_git + "/" + rf, g_ref_sha[i] + "\n");
             moved += 1;
-            if !quiet { cout << " " << b << " -> " << name << "/" << b << "\n"; }
+            if !quiet { jout << " " << b << " -> " << name << "/" << b << "\n"; }
         }
     }
-    if !quiet { cout << "fetched " << got << " objects, " << moved << " branches moved\n"; }
+    if !quiet { jout << "fetched " << got << " objects, " << moved << " branches moved\n"; }
     return 0;
 }
 
@@ -325,7 +325,7 @@ bool checkout_commit(String hex) {
     ix_clear();
     for k in 0..np.len {
         String body = read_object(to_hex(ns[k]));
-        if g_kind != "blob" { cerr << "jgit: cannot read " << np[k] << "\n"; return false; }
+        if g_kind != "blob" { jerr << "jgit: cannot read " << np[k] << "\n"; return false; }
         String full = g_top + "/" + np[k];
         Dir::make_all(Path::parent(full));
         Fs::write_bytes(full, body);
@@ -346,14 +346,14 @@ int do_remote(String[] a) {
             String ln = ls[i].trim();
             if ln.starts_with("[remote \"") { cur = ln.slice(9, ln.len - 2); }
             else if ln.starts_with("[") { cur = ""; }
-            else if cur.len > 0 && ln.starts_with("url") { cout << cur << "\t" << ln.slice(ln.find("=") + 1, ln.len).trim() << "\n"; }
+            else if cur.len > 0 && ln.starts_with("url") { jout << cur << "\t" << ln.slice(ln.find("=") + 1, ln.len).trim() << "\n"; }
         }
         return 0;
     }
     if a[2] == "add" && a.len >= 5 {
         if remote_url(a[3]).len > 0 { return fail("the remote " + a[3] + " is there already"); }
         Fs::write_text(g_git + "/config", cfg + "[remote \"" + a[3] + "\"]\n\turl = " + a[4] + "\n\tfetch = +refs/heads/*:refs/remotes/" + a[3] + "/*\n");
-        cout << "remote " << a[3] << " added\n";
+        jout << "remote " << a[3] << " added\n";
         return 0;
     }
     if (a[2] == "remove" || a[2] == "rm") && a.len >= 4 {
@@ -366,7 +366,7 @@ int do_remote(String[] a) {
             if !skip { out = out + ls[i] + "\n"; }
         }
         Fs::write_text(g_git + "/config", out.trim() + "\n");
-        cout << "remote " << a[3] << " removed\n";
+        jout << "remote " << a[3] << " removed\n";
         return 0;
     }
     return fail("usage: jgit remote [-v] | add NAME URL | remove NAME");
@@ -403,7 +403,7 @@ int do_clone(String[] a) {
     String cfg = read_text_file(g_git + "/config");
     Fs::write_text(g_git + "/config", cfg + "[remote \"origin\"]\n\turl = " + us + "\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n");
     if !advertise(u, "git-upload-pack") { return 1; }
-    if g_ref_name.len == 0 { cout << "the repository is empty\n"; return 0; }
+    if g_ref_name.len == 0 { jout << "the repository is empty\n"; return 0; }
     // the branch to bring: HEAD of the server (symref=HEAD:refs/heads/NAME), else main, master, the first
     String branch = "";
     int sy = g_caps.find("symref=HEAD:refs/heads/");
@@ -426,7 +426,7 @@ int do_clone(String[] a) {
     Fs::write_text(g_git + "/HEAD", "ref: refs/heads/" + branch + "\n");
     Fs::write_text(g_git + "/config", read_text_file(g_git + "/config") + "[branch \"" + branch + "\"]\n\tremote = origin\n\tmerge = refs/heads/" + branch + "\n");
     if !checkout_commit(tip) { return 1; }
-    cout << "cloned " << us << " into " << dir << " (branch " << branch << ")\n";
+    jout << "cloned " << us << " into " << dir << " (branch " << branch << ")\n";
     return 0;
 }
 
@@ -473,8 +473,8 @@ int do_pull(String[] a) {
     String theirs = ref_hash("refs/remotes/" + remote + "/" + b);
     String mine = head_commit();
     if theirs.len != 40 { return fail("the server has no branch " + b); }
-    if theirs == mine { cout << "already up to date\n"; return 0; }
-    if mine.len == 40 && is_ancestor(theirs, mine) { cout << "already up to date (you are ahead: jgit push)\n"; return 0; }
+    if theirs == mine { jout << "already up to date\n"; return 0; }
+    if mine.len == 40 && is_ancestor(theirs, mine) { jout << "already up to date (you are ahead: jgit push)\n"; return 0; }
     if mine.len == 40 && !is_ancestor(mine, theirs) { return fail("the branches have both changed: a merge is needed and jgit does not make merges yet"); }
     // the files of the working folder must be saved (a fast-forward writes the new files)
     if !ix_load() { return 1; }
@@ -501,7 +501,7 @@ int do_pull(String[] a) {
     }
     if !checkout_commit(theirs) { return 1; }
     Fs::write_text(g_git + "/" + br, theirs + "\n");
-    cout << "moved " << b << " forward to " << theirs.slice(0, 7) << "\n";
+    jout << "moved " << b << " forward to " << theirs.slice(0, 7) << "\n";
     return 0;
 }
 
@@ -596,7 +596,7 @@ int do_push(String[] a) {
     if !advertise(u, "git-receive-pack") { return 1; }
     String old = "0000000000000000000000000000000000000000";
     for i in 0..g_ref_name.len { if g_ref_name[i] == br { old = g_ref_sha[i] + ""; } }
-    if old == mine { cout << "everything is up to date\n"; return 0; }
+    if old == mine { jout << "everything is up to date\n"; return 0; }
     String[] have = arr(16);
     if old != "0000000000000000000000000000000000000000" {
         if !have_object(old) { return fail("the server has changes that you do not have: jgit pull first"); }
@@ -649,14 +649,14 @@ int do_push(String[] a) {
         if l.starts_with("ng ") { why = l.trim(); }
     }
     if !unpacked || !refok {
-        if Env::get("JGIT_DEBUG").is_some() { cerr << "answer: " << r.body << "\n"; }
+        if Env::get("JGIT_DEBUG").is_some() { jerr << "answer: " << r.body << "\n"; }
         String more = "";
         if why.len > 0 { more = ": " + why; }
         return fail("the server did not take the branch" + more);
     }
     Dir::make_all(g_git + "/refs/remotes/" + remote);
     Fs::write_text(g_git + "/refs/remotes/" + remote + "/" + b, mine + "\n");
-    cout << "pushed " << b << " to " << remote << " (" << send.len << " objects)\n";
+    jout << "pushed " << b << " to " << remote << " (" << send.len << " objects)\n";
     return 0;
 }
 
@@ -678,6 +678,6 @@ int do_token(String[] a) {
     out = out + a[2] + " " + user + " " + a[3] + "\n";
     Fs::write_text(file, out);
     Sys::chmod(file.c(), 384);
-    cout << "kept the token for " << a[2] << " in " << file << "\n";
+    jout << "kept the token for " << a[2] << " in " << file << "\n";
     return 0;
 }

@@ -106,7 +106,7 @@ cat > src/main.jk <<'MAKEJ_PRO_MAIN_EOF'
 #import "lib/util"
 
 int main() {
-    cout << "hello, " << greeting("project") << "\n";
+    jout << "hello, " << greeting("project") << "\n";
     return 0;
 }
 MAKEJ_PRO_MAIN_EOF
@@ -128,13 +128,13 @@ cat > tests/run_tests.jk <<'MAKEJ_PRO_TEST_EOF'
 int failed;
 
 void check(bool ok, String what) {
-    if !ok { cerr << "FAIL: " << what << "\n"; failed += 1; }
+    if !ok { jerr << "FAIL: " << what << "\n"; failed += 1; }
 }
 
 int main() {
     check(add(2, 3) == 5, "add(2, 3) is 5");
     check(greeting("x") == "welcome to x", "greeting");
-    if failed == 0 { cout << "all tests passed\n"; return 0; }
+    if failed == 0 { jout << "all tests passed\n"; return 0; }
     return 1;
 }
 MAKEJ_PRO_TEST_EOF
@@ -907,9 +907,9 @@ String ${nm}_version() { return "0.1.0"; }
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "$nm " << ${nm}_version() << "\\n"; return 0; }
-    if a.len > 1 && (a[1] == "--help" || a[1] == "-h") { cout << "$nm: what it does\\n  $nm [words]\\n"; return 0; }
-    cout << "hello from $nm\\n";
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "$nm " << ${nm}_version() << "\\n"; return 0; }
+    if a.len > 1 && (a[1] == "--help" || a[1] == "-h") { jout << "$nm: what it does\\n  $nm [words]\\n"; return 0; }
+    jout << "hello from $nm\\n";
     return 0;
 }
 MAKEJ_TOOL_EOF
@@ -971,7 +971,7 @@ MAKEJ_LIB_EOF
 #import <stdlib>
 #import <$nm>
 int main() {
-    cout << ${nm}_double(21) << "\\n";
+    jout << ${nm}_double(21) << "\\n";
     return 0;
 }
 MAKEJ_LIB_EOF

@@ -10,9 +10,9 @@ void put64(String img, int at, int v) {
 
 int main() {
     String[] a = Env::args();
-    if a.len < 3 { cerr << "usage: jfs_mkfs IMAGE FOLDER [SECTORS [FILE...]]\n"; return 2; }
+    if a.len < 3 { jerr << "usage: jfs_mkfs IMAGE FOLDER [SECTORS [FILE...]]\n"; return 2; }
     Result<String[], Error> lr = Dir::list(a[2]);
-    if !lr.is_ok() { cerr << "jfs_mkfs: cannot read the folder " << a[2] << "\n"; return 1; }
+    if !lr.is_ok() { jerr << "jfs_mkfs: cannot read the folder " << a[2] << "\n"; return 1; }
     String[] names = lr.take();
     names.sort();
     String[] allp = arr(70);
@@ -58,7 +58,7 @@ int main() {
     if a.len >= 4 && a[3].to_int() > sectors { sectors = a[3].to_int(); }
     while img.len < sectors * 512 { img.push((char)0); }
     Result<int, Error> w = Fs::write_bytes(a[1], img);
-    if !w.is_ok() { cerr << "jfs_mkfs: cannot write " << a[1] << "\n"; return 1; }
-    cout << a[1] << ": " << count << " files, " << sectors << " sectors\n";
+    if !w.is_ok() { jerr << "jfs_mkfs: cannot write " << a[1] << "\n"; return 1; }
+    jout << a[1] << ": " << count << " files, " << sectors << " sectors\n";
     return 0;
 }

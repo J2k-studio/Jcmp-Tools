@@ -21,7 +21,7 @@
 String jc_version() { return "0.5.4"; }
 
 int fail(String msg) {
-    cerr << "jc: " << msg << "\n";
+    jerr << "jc: " << msg << "\n";
     return 1;
 }
 
@@ -104,14 +104,14 @@ int do_info(String path) {
     if !ok { return 1; }
     String m = manifest_of(z);
     if m.len == 0 { return fail(path + " has no manifest.toml"); }
-    cout << "name:         " << manifest_value(m, "name") << "\n";
-    cout << "id:           " << manifest_value(m, "id") << "\n";
-    cout << "version:      " << manifest_value(m, "version") << "\n";
-    cout << "type:         " << manifest_value(m, "type") << "\n";
-    cout << "entry:        " << manifest_value(m, "entry") << "\n";
+    jout << "name:         " << manifest_value(m, "name") << "\n";
+    jout << "id:           " << manifest_value(m, "id") << "\n";
+    jout << "version:      " << manifest_value(m, "version") << "\n";
+    jout << "type:         " << manifest_value(m, "type") << "\n";
+    jout << "entry:        " << manifest_value(m, "entry") << "\n";
     String p = perm_list(m);
-    if p.len == 0 { cout << "permissions:  (none)\n"; } else { cout << "permissions:  " << p << "\n"; }
-    cout << "files:        " << zn_name.len << "\n";
+    if p.len == 0 { jout << "permissions:  (none)\n"; } else { jout << "permissions:  " << p << "\n"; }
+    jout << "files:        " << zn_name.len << "\n";
     return 0;
 }
 
@@ -148,9 +148,9 @@ int do_install(String path, bool yes) {
     String old = granted(id);
     String perm_file = app_dir(id) + "/.perms";
     bool update = Fs::exists(perm_file);
-    cout << name << " (" << id << ") " << manifest_value(m, "version") << "\n";
-    if asked.len == 0 { cout << "  asks for no permissions\n"; }
-    else { for i in 0..ps.len { if ps[i].len > 0 { cout << "  asks for: " << ps[i] << "\n"; } } }
+    jout << name << " (" << id << ") " << manifest_value(m, "version") << "\n";
+    if asked.len == 0 { jout << "  asks for no permissions\n"; }
+    else { for i in 0..ps.len { if ps[i].len > 0 { jout << "  asks for: " << ps[i] << "\n"; } } }
     bool same_or_less = update;
     if same_or_less {
         // an update: asks again only for permissions that the old version did not have
@@ -163,9 +163,9 @@ int do_install(String path, bool yes) {
         }
     }
     if !yes && !same_or_less && Sys::isatty(0) == 0 {
-        cout << "Install and give these permissions? [Y/n] ";
+        jout << "Install and give these permissions? [Y/n] ";
         String a = Input::line().trim();
-        if a == "n" || a == "N" || a == "no" { cout << "not installed\n"; return 1; }
+        if a == "n" || a == "N" || a == "no" { jout << "not installed\n"; return 1; }
     } else if !yes && !same_or_less && asked.len > 0 {
         return fail("this package asks for permissions and there is no terminal to ask; use  jc install -y FILE.jc  to give them");
     }
@@ -174,7 +174,7 @@ int do_install(String path, bool yes) {
     int written = 0;
     for i in 0..zn_name.len {
         String n = zn_name[i];
-        if !safe_name(n) { cerr << "jc: skipped " << n << " (an odd name)\n"; continue; }
+        if !safe_name(n) { jerr << "jc: skipped " << n << " (an odd name)\n"; continue; }
         if n.ends_with("/") { Dir::make_all(dir + "/" + n); continue; }
         String data = zip_extract(z, i, "");
         if zip_err.len > 0 { return fail(n + ": " + zip_err); }
@@ -188,7 +188,7 @@ int do_install(String path, bool yes) {
     Sys::chmod((dir + "/" + entry).c(), 493);
     Fs::write_text(dir + "/manifest.toml", m);
     set_granted(id, asked);
-    cout << "installed " << id << " (" << written << " files) in " << dir << "\n";
+    jout << "installed " << id << " (" << written << " files) in " << dir << "\n";
     return 0;
 }
 
@@ -234,7 +234,7 @@ int do_run(String[] a) {
 
 int do_list() {
     String root = jc_home() + "/apps";
-    if !Dir::exists(root) { cout << "nothing is installed (jc install FILE.jc)\n"; return 0; }
+    if !Dir::exists(root) { jout << "nothing is installed (jc install FILE.jc)\n"; return 0; }
     Result<String[], Error> r = Dir::list(root);
     if !r.is_ok() { return 0; }
     String[] names = r.take();
@@ -247,10 +247,10 @@ int do_list() {
         if mr.is_ok() { m = mr.take(); }
         String p = granted(names[i]);
         if p.len == 0 { p = "-"; }
-        cout << names[i] << "  " << manifest_value(m, "version") << "  " << manifest_value(m, "name") << "   permissions: " << p << "\n";
+        jout << names[i] << "  " << manifest_value(m, "version") << "  " << manifest_value(m, "name") << "   permissions: " << p << "\n";
         n += 1;
     }
-    if n == 0 { cout << "nothing is installed (jc install FILE.jc)\n"; }
+    if n == 0 { jout << "nothing is installed (jc install FILE.jc)\n"; }
     return 0;
 }
 
@@ -258,7 +258,7 @@ int do_perm(String[] a) {
     if a.len < 3 { return fail("usage: jc perm ID [NAME on|off]"); }
     String id = a[2];
     if !installed(id) { return fail("no program '" + id + "' is installed"); }
-    if a.len == 3 { String p = granted(id); if p.len == 0 { p = "(none)"; } cout << id << " has: " << p << "\n"; return 0; }
+    if a.len == 3 { String p = granted(id); if p.len == 0 { p = "(none)"; } jout << id << " has: " << p << "\n"; return 0; }
     if a.len < 5 { return fail("usage: jc perm ID NAME on|off"); }
     String name = a[3];
     if !known_perm(name) { return fail("unknown permission '" + name + "' (files network audio camera location clipboard run sessions assistant)"); }
@@ -273,7 +273,7 @@ int do_perm(String[] a) {
     if !present && a[4] == "on" { out = out + name + ","; }
     if out.len > 0 { out = out.slice(0, out.len - 1); }
     set_granted(id, out);
-    cout << id << " has: " << out << "\n";
+    jout << id << " has: " << out << "\n";
     return 0;
 }
 
@@ -283,7 +283,7 @@ int do_remove(String id) {
     Result<String[], Error> r = Dir::list(dir);
     // the files and the folders under it, one level at a time (a program folder is not deep)
     remove_tree(dir);
-    cout << "removed " << id << "\n";
+    jout << "removed " << id << "\n";
     return 0;
 }
 
@@ -302,19 +302,19 @@ bool is_package_name(String what) {                        // FILE.jc or a path:
 
 // the libraries and the tools: what the commands of manage.j print when they are used wrongly
 int usage() {
-    cerr << "jc: jc lib list | installed | install NAME | unstall NAME      the libraries of J2K\n";
-    cerr << "    jc tools | install NAME | update [-n] | unstall NAME        the tools of Jcmp-Tools\n";
+    jerr << "jc: jc lib list | installed | install NAME | unstall NAME      the libraries of J2K\n";
+    jerr << "    jc tools | install NAME | update [-n] | unstall NAME        the tools of Jcmp-Tools\n";
     return 1;
 }
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jc " << jc_version() << "\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jc " << jc_version() << "\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
-        cout << "jc: install and run the programs of Jaric (.jc packages)\n";
-        cout << "  jc info FILE.jc | install FILE.jc [-y] | run ID|FILE.jc [args] | list | perm ID [NAME on|off] | remove ID\n";
-        cout << "  jc tools | lib list | lib install NAME | lib unstall NAME   (the tools; the libraries of J2K)\n";
-        cout << "  jc install NAME (a tool of Jcmp-Tools) | install STORE.ID (jstore) | unstall NAME (remove a tool) | update [-n] (jsh and the tools and programs that have an update)\n";
+        jout << "jc: install and run the programs of Jaric (.jc packages)\n";
+        jout << "  jc info FILE.jc | install FILE.jc [-y] | run ID|FILE.jc [args] | list | perm ID [NAME on|off] | remove ID\n";
+        jout << "  jc tools | lib list | lib install NAME | lib unstall NAME   (the tools; the libraries of J2K)\n";
+        jout << "  jc install NAME (a tool of Jcmp-Tools) | install STORE.ID (jstore) | unstall NAME (remove a tool) | update [-n] (jsh and the tools and programs that have an update)\n";
         return 0;
     }
     if a[1] == "pkg" { return cmd_pkg(a); }                    // the packages of Jcmp-pkg (git, clang, python ...)
@@ -374,6 +374,6 @@ int main() {
     if a[1] == "list" { return do_list(); }
     if a[1] == "perm" { return do_perm(a); }
     if a[1] == "remove" && a.len >= 3 { return do_remove(a[2]); }
-    cerr << "jc: unknown command '" << a[1] << "' (jc help)\n";
+    jerr << "jc: unknown command '" << a[1] << "' (jc help)\n";
     return 2;
 }

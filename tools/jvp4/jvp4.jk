@@ -7,7 +7,7 @@
 #import <native>
 
 int fail(String msg) {
-    cerr << "jvp4: " << msg << "\n";
+    jerr << "jvp4: " << msg << "\n";
     return 1;
 }
 
@@ -185,7 +185,7 @@ void show_track(int s, int e, int n) {
         line = line + "  " + clock_text(ms);
         if kind == "vide" && samples > 0 && ms > 0 { line = line + "  " + str(samples) + " frames, " + str(samples * 10000 / ms / 10) + "." + str((samples * 10000 / ms) % 10) + " fps"; }
     }
-    cout << line << "\n";
+    jout << line << "\n";
 }
 
 int do_info(String path) {
@@ -199,17 +199,17 @@ int do_info(String path) {
     String t4 = four(head, 4);
     String t0 = four(head, 0);
     String t8 = four(head, 8);
-    cout << path << " (" << g_size / 1024 << " KB)\n";
+    jout << path << " (" << g_size / 1024 << " KB)\n";
     if t4 == "ftyp" {
-        cout << "container: mp4 / mov, brand " << four(head, 8) << "\n";
+        jout << "container: mp4 / mov, brand " << four(head, 8) << "\n";
     } else if (head[0] & 255) == 26 && (head[1] & 255) == 69 && (head[2] & 255) == 223 && (head[3] & 255) == 163 {
-        cout << "container: Matroska / WebM (the reader is the next step)\n";
+        jout << "container: Matroska / WebM (the reader is the next step)\n";
         return 0;
     } else if t0 == "RIFF" && t8 == "AVI " {
-        cout << "container: AVI (the reader is a later step)\n";
+        jout << "container: AVI (the reader is a later step)\n";
         return 0;
     } else if t4 == "moov" || t4 == "mdat" || t4 == "free" || t4 == "wide" {
-        cout << "container: mov / mp4 without ftyp\n";
+        jout << "container: mov / mp4 without ftyp\n";
     } else {
         return fail(path + ": not a video file that jvp4 knows (mp4, mov; mkv, webm, avi are coming)");
     }
@@ -221,7 +221,7 @@ int do_info(String path) {
         int timescale = 1;
         int duration = 0;
         if (h[0] & 255) == 1 { timescale = be32(h, 20); duration = be64(h, 24); } else { timescale = be32(h, 12); duration = be32(h, 16); }
-        if timescale > 0 { cout << "length: " << clock_text(duration * 1000 / timescale) << "\n"; }
+        if timescale > 0 { jout << "length: " << clock_text(duration * 1000 / timescale) << "\n"; }
     }
     int n = 0;
     int off = ms;
@@ -229,7 +229,7 @@ int do_info(String path) {
         if b_type == "trak" { n += 1; show_track(b_start, b_end, n); }
         off = b_end;
     }
-    if n == 0 { cout << "no tracks\n"; }
+    if n == 0 { jout << "no tracks\n"; }
     Sys::close(g_fd);
     return 0;
 }
@@ -273,7 +273,7 @@ int play_wav(String path) {
     char buf[16384];
     int done = 0;
     int total = data_len / frame;
-    cout << path << ": " << rate << " Hz, " << channels << " channels, " << total / rate << " s\n";
+    jout << path << ": " << rate << " Hz, " << channels << " channels, " << total / rate << " s\n";
     while done < total {
         int n = 4096;
         if done + n > total { n = total - done; }
@@ -289,10 +289,10 @@ int play_wav(String path) {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "jvp4 0.2.0\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jvp4 0.2.0\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" {
-        cout << "jvp4: a video player made only of J2K.   jvp4 info FILE   what is in a video file (mp4 / mov);   jvp4 play FILE.wav   a sound file\n";
-        cout << "  next: jvp4 play FILE (own decoders: H.264, AAC), see the plan docs/jvp4-plan.md\n";
+        jout << "jvp4: a video player made only of J2K.   jvp4 info FILE   what is in a video file (mp4 / mov);   jvp4 play FILE.wav   a sound file\n";
+        jout << "  next: jvp4 play FILE (own decoders: H.264, AAC), see the plan docs/jvp4-plan.md\n";
         return 0;
     }
     if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
@@ -300,6 +300,6 @@ int main() {
     if a.len >= 3 { low = a[2].lower(); }
     if a[1] == "play" && a.len >= 3 && low.ends_with(".wav") { return play_wav(a[2]); }
     if a[1] == "play" && a.len >= 3 { return fail("the own decoders are not made yet; until then:  jaric video " + a[2]); }
-    cerr << "usage: jvp4 info FILE\n";
+    jerr << "usage: jvp4 info FILE\n";
     return 2;
 }

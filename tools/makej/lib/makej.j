@@ -107,7 +107,7 @@ struct Build {
         Result<String[], Error> r = Fs::read_lines(path);
         switch r {
             Result::Ok(ls): b.parse(ls);
-            Result::Err(e): cerr << "makej: cannot read " << path << "\n";
+            Result::Err(e): jerr << "makej: cannot read " << path << "\n";
         }
         return b;
     }
@@ -209,14 +209,14 @@ struct Build {
         return st[11];
     }
     int sh(self, String command) {
-        if self.verbose == 1 { cout << "  $ " << command << "\n"; }
+        if self.verbose == 1 { jout << "  $ " << command << "\n"; }
         String[] args = arr(2);
         args.push("-c");
         args.push(command);
         Result<int, Error> r = Proc::run("sh", args);
         switch r {
             Result::Ok(code): return code;
-            Result::Err(e): { cerr << "makej: cannot run sh: " << e.message << "\n"; return 127; }
+            Result::Err(e): { jerr << "makej: cannot run sh: " << e.message << "\n"; return 127; }
         }
         return 127;
     }
@@ -334,12 +334,12 @@ struct Build {
         }
         f = f + "\e[J";
         self.live_lines = lines;
-        cout << f;
+        jout << f;
     }
 
     // take the bars off the screen (before a line of text is written)
     void clear_live(self) {
-        if self.live_lines > 0 { cout << "\e[" << self.live_lines << "A\e[J"; }
+        if self.live_lines > 0 { jout << "\e[" << self.live_lines << "A\e[J"; }
         self.live_lines = 0;
     }
 
@@ -362,9 +362,9 @@ struct Build {
     void want_it(self, String name, int^ wanted) {
         int i = self.find(name);
         if i < 0 {
-            cerr << "makej: there is no target '" << name << "'. The targets: ";
-            for k in 0..self.names.len { cerr << self.names[k] << " "; }
-            cerr << "(makej list shows them)\n";
+            jerr << "makej: there is no target '" << name << "'. The targets: ";
+            for k in 0..self.names.len { jerr << self.names[k] << " "; }
+            jerr << "(makej list shows them)\n";
             wanted[self.names.len] = 1;
             return;
         }
@@ -381,16 +381,16 @@ struct Build {
         if self.want == "list" {                                   // makej list: the targets and what they need
             for i in 0..n {
                 String needs = self.needs_of[i].trim();
-                cout << self.names[i] << "\t" << self.kinds[i] << "\t" << self.mains[i];
-                if self.flags[i].len > 0 { cout << "  [" << self.flags[i] << "]"; }
-                if needs.len > 0 { cout << "  needs: " << needs; }
-                cout << "\n";
+                jout << self.names[i] << "\t" << self.kinds[i] << "\t" << self.mains[i];
+                if self.flags[i].len > 0 { jout << "  [" << self.flags[i] << "]"; }
+                if needs.len > 0 { jout << "  needs: " << needs; }
+                jout << "\n";
             }
             return 0;
         }
         if self.want == "clean" {                                  // makej clean: the folder of the results goes
-            if Dir::exists(self.outdir) { self.sh("rm -rf '" + self.outdir + "'"); cout << "makej: removed " << self.outdir << "\n"; }
-            else { cout << "makej: nothing to clean\n"; }
+            if Dir::exists(self.outdir) { self.sh("rm -rf '" + self.outdir + "'"); jout << "makej: removed " << self.outdir << "\n"; }
+            else { jout << "makej: nothing to clean\n"; }
             return 0;
         }
         if self.want == "install" {                                // makej install FOLDER: build everything, then copy the results there
@@ -399,10 +399,10 @@ struct Build {
             int rc0 = self.run();
             self.want = keep;
             if rc0 != 0 { return rc0; }
-            if self.install_to.len == 0 { cerr << "makej: usage: makej install FOLDER\n"; return 2; }
+            if self.install_to.len == 0 { jerr << "makej: usage: makej install FOLDER\n"; return 2; }
             Dir::make_all(self.install_to);
             for i in 0..n {
-                if self.kinds[i] != "step" { self.sh("cp '" + self.out_of(i) + "' '" + self.install_to + "/'"); cout << "makej: installed " << self.names[i] << " in " << self.install_to << "\n"; }
+                if self.kinds[i] != "step" { self.sh("cp '" + self.out_of(i) + "' '" + self.install_to + "/'"); jout << "makej: installed " << self.names[i] << " in " << self.install_to << "\n"; }
             }
             return 0;
         }
@@ -450,14 +450,14 @@ struct Build {
                     if ready {
                         String cmd = self.command_of(i);
                         if cmd.len == 0 {
-                            if self.verbose == 1 { cout << "makej: " << self.names[i] << " is up to date\n"; }
+                            if self.verbose == 1 { jout << "makej: " << self.names[i] << " is up to date\n"; }
                             state[i] = 2;
                             progress = true;
                         } else {
                             if !self.live {
-                                if self.kinds[i] == "step" { cout << "makej: " << self.names[i] << "\n"; } else { cout << "makej: building " << self.names[i] << "\n"; }
+                                if self.kinds[i] == "step" { jout << "makej: " << self.names[i] << "\n"; } else { jout << "makej: building " << self.names[i] << "\n"; }
                             }
-                            if self.verbose == 1 { self.clear_live(); cout << "  $ " << cmd << "\n"; }
+                            if self.verbose == 1 { self.clear_live(); jout << "  $ " << cmd << "\n"; }
                             if self.live { Fs::remove(self.prog_file(i)); }
                             t_start[i] = Time::now_ms();
                             if self.kinds[i] != "step" { Dir::make_all(self.outdir); }
@@ -500,7 +500,7 @@ struct Build {
                                 String of = self.out_text(i);
                                 if Fs::exists(of) {
                                     Result<String, Error> orr = Fs::read_text(of);
-                                    if orr.is_ok() { String said = orr.take(); if said.len > 0 { if code == 0 { cout << said; } else { cerr << said; } } }
+                                    if orr.is_ok() { String said = orr.take(); if said.len > 0 { if code == 0 { jout << said; } else { jerr << said; } } }
                                     Fs::remove(of);
                                 }
                             }
@@ -511,13 +511,13 @@ struct Build {
                                 int ms = Time::now_ms() - t_start[i];
                                 String what = "built";
                                 if self.kinds[i] == "step" { what = "done"; }
-                                cout << "  " << self.names[i] << " " << Build::bar(100, 30) << "  " << what << " in " << ms / 1000 << "." << (ms % 1000) / 100 << " s\n";
+                                jout << "  " << self.names[i] << " " << Build::bar(100, 30) << "  " << what << " in " << ms / 1000 << "." << (ms % 1000) / 100 << " s\n";
                                 Fs::remove(self.prog_file(i));
                             }
                         } else {
                             state[i] = 3;
                             failed = true;
-                            cerr << "makej: " << self.names[i] << " failed (exit code " << code << ")\n";
+                            jerr << "makej: " << self.names[i] << " failed (exit code " << code << ")\n";
                         }
                     }
                 }
@@ -528,7 +528,7 @@ struct Build {
         for i in 0..n {
             if wanted[i] == 1 && state[i] != 2 {
                 rc = 1;
-                if state[i] == 0 && !failed { cerr << "makej: " << self.names[i] << " cannot start: a needed target does not exist or the needs go round in a circle\n"; }
+                if state[i] == 0 && !failed { jerr << "makej: " << self.names[i] << " cannot start: a needed target does not exist or the needs go round in a circle\n"; }
             }
         }
         Mem::free(wanted);
@@ -537,7 +537,7 @@ struct Build {
         Mem::free(t_start);
         if self.live { self.clear_live(); }
         int secs10 = (Time::now_ms() - started_at) / 100;
-        if rc == 0 { cout << "makej: done in " << secs10 / 10 << "." << secs10 % 10 << " s\n"; }
+        if rc == 0 { jout << "makej: done in " << secs10 / 10 << "." << secs10 % 10 << " s\n"; }
         return rc;
     }
 }

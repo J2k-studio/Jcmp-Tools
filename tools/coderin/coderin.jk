@@ -385,7 +385,7 @@ void delete_selection() {
 // the text also goes to the clipboard of the terminal (OSC 52) when the terminal knows it
 void set_clip(String t) {
     clip = t;
-    cout << esc() << "]52;c;" << Base64::encode(t) << (char)7;
+    jout << esc() << "]52;c;" << Base64::encode(t) << (char)7;
 }
 // ---------------------------------------------------------------- the extension undo / redo
 String join_lines() {
@@ -539,7 +539,7 @@ String snippet_for(String w) {
     if w == "enum" { return "enum class Name { First, Second, | };"; }
     if w == "switch" { return "switch value {\n    |\n}"; }
     if w == "try" { return "try {\n    |\n} catch (e) {\n    \n}"; }
-    if w == "cout" { return "cout << |\"\\n\";"; }
+    if w == "jout" { return "jout << |\"\\n\";"; }
     if w == "fn" { return "int name(int a) {\n    |\n}"; }
     if w == "exp" { return "export int name(int a) {\n    |\n}"; }
     return "";
@@ -830,7 +830,7 @@ String ask(String prompt) {
     String text = "";
     while true {
         String line = prompt + text;
-        cout << e << "[" << str(rows) << ";1H" << e << "[7m" << line << " ".repeat(cols - line.len) << e << "[0m" << e << "[" << str(rows) << ";" << str(line.len + 1) << "H";
+        jout << e << "[" << str(rows) << ";1H" << e << "[7m" << line << " ".repeat(cols - line.len) << e << "[0m" << e << "[" << str(rows) << ";" << str(line.len + 1) << "H";
         int k = read_key(0 - 1);
         if k == K_ENTER { return text; }
         if k == K_ESC { return ""; }
@@ -985,11 +985,11 @@ void build_run(bool run) {
 
 String example_text(int n) {
     String t = "#import <stdlib>\n\n";
-    if n == 1 { t = t + "void main() {\n    cout << \"Hello from J2K!\\n\";\n}\n"; }
-    else if n == 2 { t = t + "void main() {\n    int sum = 0;\n    for i in 1..11 { sum += i; }\n    cout << \"sum of 1 to 10 = \" << sum << \"\\n\";\n    int n = 0;\n    while n < 3 {\n        cout << \"n = \" << n << \"\\n\";\n        n += 1;\n    }\n}\n"; }
-    else if n == 3 { t = t + "struct Point {\n    int x;\n    int y;\n}\n\nvoid main() {\n    Point a;\n    a.x = 3;\n    a.y = 4;\n    cout << \"x * x + y * y = \" << a.x * a.x + a.y * a.y << \"\\n\";\n}\n"; }
-    else if n == 4 { t = "#import <stdlib>\n#import <files>\n\nvoid main() {\n    Result<String, Error> r = Fs::read_text(\"hello.jk\");\n    if r.is_ok() {\n        String text = r.take();\n        cout << \"hello.jk has \" << text.len << \" bytes\\n\";\n    } else {\n        cout << \"cannot read hello.jk\\n\";\n    }\n}\n"; }
-    else { t = t + "void main() {\n    String[] a = Env::args();\n    cout << \"arguments: \" << a.len - 1 << \"\\n\";\n    for i in 1..a.len { cout << a[i] << \"\\n\"; }\n}\n"; }
+    if n == 1 { t = t + "void main() {\n    jout << \"Hello from J2K!\\n\";\n}\n"; }
+    else if n == 2 { t = t + "void main() {\n    int sum = 0;\n    for i in 1..11 { sum += i; }\n    jout << \"sum of 1 to 10 = \" << sum << \"\\n\";\n    int n = 0;\n    while n < 3 {\n        jout << \"n = \" << n << \"\\n\";\n        n += 1;\n    }\n}\n"; }
+    else if n == 3 { t = t + "struct Point {\n    int x;\n    int y;\n}\n\nvoid main() {\n    Point a;\n    a.x = 3;\n    a.y = 4;\n    jout << \"x * x + y * y = \" << a.x * a.x + a.y * a.y << \"\\n\";\n}\n"; }
+    else if n == 4 { t = "#import <stdlib>\n#import <files>\n\nvoid main() {\n    Result<String, Error> r = Fs::read_text(\"hello.jk\");\n    if r.is_ok() {\n        String text = r.take();\n        jout << \"hello.jk has \" << text.len << \" bytes\\n\";\n    } else {\n        jout << \"cannot read hello.jk\\n\";\n    }\n}\n"; }
+    else { t = t + "void main() {\n    String[] a = Env::args();\n    jout << \"arguments: \" << a.len - 1 << \"\\n\";\n    for i in 1..a.len { jout << a[i] << \"\\n\"; }\n}\n"; }
     return t;
 }
 
@@ -1126,7 +1126,7 @@ void draw() {
     if pop_on { f = f + draw_popup(sr, sc); }
     if menubar { f = f + draw_menubar(); }
     f = f + e + "[" + str(sr) + ";" + str(sc) + "H" + e + "[?25h";
-    cout << f;
+    jout << f;
 }
 
 // ---------------------------------------------------------------- the commands
@@ -1243,7 +1243,7 @@ void set_option(String name, String val) {
     else if name == "mouse" {
         mouse_on = on_off(val);
         String e = esc();
-        if mouse_on { cout << e << "[?1000h" << e << "[?1002h" << e << "[?1006h"; } else { cout << e << "[?1006l" << e << "[?1002l" << e << "[?1000l"; }
+        if mouse_on { jout << e << "[?1000h" << e << "[?1002h" << e << "[?1006h"; } else { jout << e << "[?1006l" << e << "[?1002l" << e << "[?1000l"; }
     }
     else if name == "colorscheme" { apply_scheme(val); }
     else { msg = "unknown setting " + name; }
@@ -1688,24 +1688,24 @@ int ex_mode(String[] a) {
     if a.len < 3 {                                                   // coderin -ex : the list
         String idx = config_dir() + "/.index";
         Dir::make_all(config_dir());
-        if jget_to(ex_base() + "/index.txt", idx) != 0 { cerr << "coderin: cannot get the list (is jget installed and the network on?)\n"; return 1; }
+        if jget_to(ex_base() + "/index.txt", idx) != 0 { jerr << "coderin: cannot get the list (is jget installed and the network on?)\n"; return 1; }
         switch Fs::read_text(idx) {
-            Result::Ok(t): { cout << "extensions (coderin -ex NAME installs one, coderin -ex -r NAME removes it):\n" << t; }
+            Result::Ok(t): { jout << "extensions (coderin -ex NAME installs one, coderin -ex -r NAME removes it):\n" << t; }
             Result::Err(e): { }
         }
         Fs::remove(idx);
         return 0;
     }
     bool remove = a[2] == "-r";
-    if remove && a.len < 4 { cerr << "usage: coderin -ex -r NAME\n"; return 2; }
+    if remove && a.len < 4 { jerr << "usage: coderin -ex -r NAME\n"; return 2; }
     String name = a[a.len - 1];
-    for i in 0..name.len { if !is_word(name[i] & 255) && name[i] != '-' { cerr << "coderin: bad name\n"; return 2; } }
+    for i in 0..name.len { if !is_word(name[i] & 255) && name[i] != '-' { jerr << "coderin: bad name\n"; return 2; } }
     String dir = config_dir() + "/extensions/" + name;
     if remove {
         String[] fs = "snippets words commands".split(" ");
         for i in 0..fs.len { Fs::remove(dir + "/" + fs[i]); }
         Dir::remove(dir);
-        cout << "removed " << name << "\n";
+        jout << "removed " << name << "\n";
         return 0;
     }
     Dir::make_all(dir);
@@ -1714,23 +1714,23 @@ int ex_mode(String[] a) {
     for i in 0..fs.len {
         if jget_to(ex_base() + "/" + name + "/" + fs[i], dir + "/" + fs[i]) == 0 { got += 1; } else { Fs::remove(dir + "/" + fs[i]); }
     }
-    if got == 0 { Dir::remove(dir); cerr << "coderin: no extension " << name << " (coderin -ex shows the list)\n"; return 1; }
-    cout << "installed " << name << " (" << str(got) << " files in " << dir << ")\n";
+    if got == 0 { Dir::remove(dir); jerr << "coderin: no extension " << name << " (coderin -ex shows the list)\n"; return 1; }
+    jout << "installed " << name << " (" << str(got) << " files in " << dir << ")\n";
     return 0;
 }
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "coderin 0.5.1\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "coderin 0.5.1\n"; return 0; }
     if a.len > 1 && (a[1] == "--help" || a[1] == "-h") {
-        cout << "coderin: a text editor for the terminal.   coderin FILE   open (or make) a file;   coderin -ex [NAME]   list / install extensions\n";
-        cout << "  keys: Ctrl-S save, Ctrl-Q leave, Ctrl-F find, Ctrl-Z undo, Ctrl-C/X/V copy cut paste (the full list: jget docs GUIDE.md, section coderin)\n";
+        jout << "coderin: a text editor for the terminal.   coderin FILE   open (or make) a file;   coderin -ex [NAME]   list / install extensions\n";
+        jout << "  keys: Ctrl-S save, Ctrl-Q leave, Ctrl-F find, Ctrl-Z undo, Ctrl-C/X/V copy cut paste (the full list: jget docs GUIDE.md, section coderin)\n";
         return 0;
     }
-    if a.len > 2 && a[1] == "--example" { cout << example_text(a[2].to_int()); return 0; }          // the text of an example (the tests compile them)
+    if a.len > 2 && a[1] == "--example" { jout << example_text(a[2].to_int()); return 0; }          // the text of an example (the tests compile them)
     if a.len > 1 && a[1] == "-ex" { return ex_mode(a); }
-    if a.len < 2 { cerr << "usage: coderin FILE   |   coderin -ex [NAME]\n"; return 2; }
-    if Sys::isatty(0) != 0 { cerr << "coderin: it needs a terminal\n"; return 2; }
+    if a.len < 2 { jerr << "usage: coderin FILE   |   coderin -ex [NAME]\n"; return 2; }
+    if Sys::isatty(0) != 0 { jerr << "coderin: it needs a terminal\n"; return 2; }
     path = a[1];
     clip = "";
     msg = "";
@@ -1752,8 +1752,8 @@ int main() {
     raw_mode(true);
     read_size();
     String e = esc();
-    cout << e << "[?1049h" << bgs() << e << "[2J";
-    if mouse_on { cout << e << "[?1000h" << e << "[?1002h" << e << "[?1006h"; }
+    jout << e << "[?1049h" << bgs() << e << "[2J";
+    if mouse_on { jout << e << "[?1000h" << e << "[?1002h" << e << "[?1006h"; }
     while quit_asked != 2 {
         draw();
         int k = read_key(200);
@@ -1761,13 +1761,13 @@ int main() {
             int orows = rows;
             int ocols = cols;
             read_size();
-            if orows != rows || ocols != cols { cout << bgs() << e << "[2J"; }
+            if orows != rows || ocols != cols { jout << bgs() << e << "[2J"; }
             continue;
         }
         if k < 0 { break; }
         handle(k);
     }
-    cout << e << "[?1006l" << e << "[?1002l" << e << "[?1000l" << e << "[?25h" << e << "[0m" << e << "[?1049l";
+    jout << e << "[?1006l" << e << "[?1002l" << e << "[?1000l" << e << "[?25h" << e << "[0m" << e << "[?1049l";
     raw_mode(false);
     return 0;
 }

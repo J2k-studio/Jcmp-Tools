@@ -5,13 +5,13 @@
 #import "zipcore"
 
 int fail(String who, String msg) {
-    cerr << who << ": " << msg << "\n";
+    jerr << who << ": " << msg << "\n";
     return 1;
 }
 
 // a password typed without an echo (the letters are not shown)
 String ask_password(String prompt) {
-    cerr << prompt;
+    jerr << prompt;
     char t[64];
     bool tty = Sys::isatty(0) == 0;
     if tty {
@@ -30,7 +30,7 @@ String ask_password(String prompt) {
         n = Sys::read(0, @b, 1);
     }
     if tty { Sys::call(29, 0, 21506, (int)@t, 0, 0, 0); }
-    cerr << "\n";
+    jerr << "\n";
     return pw;
 }
 
@@ -66,9 +66,9 @@ int do_unj(String[] a) {
         else { only.push(a[i] + ""); i += 1; }
     }
     if file.len == 0 {
-        cerr << "usage: unj FILE.zip [-f] [-o FOLDER] [-p PASSWORD] [-l] [-q] [names...]\n";
-        cerr << "  (nothing)  open here, without a folder      -f  open into a folder named like the file (test.zip -> test)\n";
-        cerr << "  -o DIR     open into DIR                    -l  only list                -p  the password (without it, it is asked when needed)\n";
+        jerr << "usage: unj FILE.zip [-f] [-o FOLDER] [-p PASSWORD] [-l] [-q] [names...]\n";
+        jerr << "  (nothing)  open here, without a folder      -f  open into a folder named like the file (test.zip -> test)\n";
+        jerr << "  -o DIR     open into DIR                    -l  only list                -p  the password (without it, it is asked when needed)\n";
         return 2;
     }
     bool rok = false;
@@ -92,7 +92,7 @@ int do_unj(String[] a) {
         if list {
             String mark = " ";
             if (zn_flags[k] & 1) != 0 { mark = "*"; }
-            cout << mark << " " << zn_usize[k] << "\t" << name << "\n";
+            jout << mark << " " << zn_usize[k] << "\t" << name << "\n";
             continue;
         }
         if !safe_name(name) { rc = fail("unj", "skipped " + name + " (a path that goes out of the folder)"); continue; }
@@ -116,9 +116,9 @@ int do_unj(String[] a) {
         Result<int, Error> w = Fs::write_text(target, data);
         if !w.is_ok() { rc = fail("unj", "cannot write " + target); continue; }
         done += 1;
-        if !quiet { cout << "  " << target << "\n"; }
+        if !quiet { jout << "  " << target << "\n"; }
     }
-    if !list && !quiet { cout << done << " files\n"; }
+    if !list && !quiet { jout << done << " files\n"; }
     return rc;
 }
 
@@ -139,7 +139,7 @@ int do_gunzip(String file, String z, String outdir, bool quiet) {
     if target.ends_with(".gz") { target = target.slice(0, target.len - 3); } else { target = target + ".out"; }
     if outdir.len > 0 { Dir::make_all(outdir); target = Path::join(outdir, target); }
     Fs::write_text(target, data);
-    if !quiet { cout << "  " << target << "\n"; }
+    if !quiet { jout << "  " << target << "\n"; }
     return 0;
 }
 
@@ -159,9 +159,9 @@ void add_path(String path, String name, String password, bool quiet) {
     }
     bool rok = false;
     String t = read_bin(path, @rok);
-    if !rok { cerr << "zipj: cannot read " << path << "\n"; return; }
+    if !rok { jerr << "zipj: cannot read " << path << "\n"; return; }
     zw_add(name, t, false, password);
-    if !quiet { cout << "  adding " << name << "\n"; }
+    if !quiet { jout << "  adding " << name << "\n"; }
 }
 
 int do_zipj(String[] a) {
@@ -179,8 +179,8 @@ int do_zipj(String[] a) {
         else { files.push(a[i] + ""); i += 1; }
     }
     if out.len == 0 || files.len == 0 {
-        cerr << "usage: zipj OUT.zip FILES-OR-FOLDERS... [-p] [-P PASSWORD] [-q]\n";
-        cerr << "  folders are added with everything inside      -p  ask for a password (twice)      -P PASS  give it on the line\n";
+        jerr << "usage: zipj OUT.zip FILES-OR-FOLDERS... [-p] [-P PASSWORD] [-q]\n";
+        jerr << "  folders are added with everything inside      -p  ask for a password (twice)      -P PASS  give it on the line\n";
         return 2;
     }
     if ask {
@@ -200,16 +200,16 @@ int do_zipj(String[] a) {
     String z = zw_finish();
     Result<int, Error> w = Fs::write_text(out, z);
     if !w.is_ok() { return fail("zipj", "cannot write " + out); }
-    if !quiet { cout << zw_count << " entries, " << z.len << " bytes: " << out << "\n"; }
+    if !quiet { jout << zw_count << " entries, " << z.len << " bytes: " << out << "\n"; }
     return 0;
 }
 
 int main() {
     String[] args = Env::args();
-    if args.len > 1 && args[1] == "--version" { cout << "zipj 0.1.1\n"; return 0; }
+    if args.len > 1 && args[1] == "--version" { jout << "zipj 0.1.1\n"; return 0; }
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") {
-        cout << "zipj OUT.zip FILES-OR-FOLDERS... [-p] [-P PASSWORD] [-q]    make a zip file (folders go in with everything inside; -p asks for a password)\n";
-        cout << "unj FILE.zip [-f] [-o FOLDER] [-p PASSWORD] [-l] [-q] [names...]    open one (-f into a folder named like the file, -l only list)\n";
+        jout << "zipj OUT.zip FILES-OR-FOLDERS... [-p] [-P PASSWORD] [-q]    make a zip file (folders go in with everything inside; -p asks for a password)\n";
+        jout << "unj FILE.zip [-f] [-o FOLDER] [-p PASSWORD] [-l] [-q] [names...]    open one (-f into a folder named like the file, -l only list)\n";
         return 0;
     }
     if args.len > 1 && args[1] == "--install" {
@@ -219,7 +219,7 @@ int main() {
         if dir.len == 0 { dir = "."; }
         String link = Path::join(dir, "unj");
         if !Fs::exists(link) { Sys::call(36, (int)"zipj".c(), 0 - 100, (int)link.c(), 0, 0, 0); }
-        cout << "zipj: unj linked in " << dir << "\n";
+        jout << "zipj: unj linked in " << dir << "\n";
         return 0;
     }
     String app = Path::name(args[0]);
@@ -227,6 +227,6 @@ int main() {
     if app == "zipj" { return do_zipj(args); }
     if args.len > 1 && args[1] == "unj" { String[] r = arr(args.len); for i in 1..args.len { r.push(args[i]); } return do_unj(r); }
     if args.len > 1 && args[1] == "zipj" { String[] r = arr(args.len); for i in 1..args.len { r.push(args[i]); } return do_zipj(r); }
-    cerr << "zipj: make a zip file     unj: open one.   Names: zipj OUT.zip files...   unj FILE.zip [-f] [-o DIR]\n";
+    jerr << "zipj: make a zip file     unj: open one.   Names: zipj OUT.zip files...   unj FILE.zip [-f] [-o DIR]\n";
     return 2;
 }

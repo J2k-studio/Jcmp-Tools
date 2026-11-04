@@ -1,2 +1,2 @@
 #import <stdlib>
-void main() { cout << "hello from makej\n"; }
+void main() { jout << "hello from makej\n"; }

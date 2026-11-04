@@ -14,7 +14,7 @@ String env_or(String name, String fallback) {
 String list_file() { return env_or("HOME", "/") + "/.jsh_drives"; }
 String drives_root() { return env_or("HOME", "/") + "/drives"; }       // where a new drive without a folder is made
 
-int fail(String msg) { cerr << "drive: " << msg << "\n"; return 1; }
+int fail(String msg) { jerr << "drive: " << msg << "\n"; return 1; }
 
 bool name_ok(String n) {
     if n.len == 0 || n.len > 12 { return false; }
@@ -217,36 +217,36 @@ void list_level(String dir, String indent, String shown) {
                 String p = Path::join(dir, names[i]);
                 String mark = "";
                 if Dir::exists(p) { mark = "/"; }
-                cout << indent << shown << names[i] << mark << "\n";
+                jout << indent << shown << names[i] << mark << "\n";
             }
         }
-        Result::Err(e): { cout << indent << "(cannot read " << dir << ")\n"; }
+        Result::Err(e): { jout << indent << "(cannot read " << dir << ")\n"; }
     }
 }
 
 int do_all() {
     String home = env_or("HOME", "/");
     String top = Path::parent(home);                    // the files folder of the app (home is files/home)
-    cout << "the files of Jaric: " << top << "\n";
+    jout << "the files of Jaric: " << top << "\n";
     list_level(top, "  ", "");
     String usr = env_or("PREFIX", top + "/usr");
     if Dir::exists(usr) {
-        cout << "usr (" << usr << "):\n";
+        jout << "usr (" << usr << "):\n";
         list_level(usr, "  ", "");
         String ubin = usr + "/bin";
-        if Dir::exists(ubin) { cout << "usr/bin: the commands (" << count_entries(ubin) << " files)\n"; }
+        if Dir::exists(ubin) { jout << "usr/bin: the commands (" << count_entries(ubin) << " files)\n"; }
     }
-    cout << "home (" << home << ", also :/ and f:/), with the hidden files:\n";
+    jout << "home (" << home << ", also :/ and f:/), with the hidden files:\n";
     list_level(home, "  ", ":/");
     return 0;
 }
 
 int do_list() {
-    cout << ":/   home (the same as ~/ and f:/)\n";
+    jout << ":/   home (the same as ~/ and f:/)\n";
     String[] sys = "f 0 r".split(" ");
     for i in 0..sys.len {
         String p = system_path(sys[i]);
-        if p.len > 0 { cout << sys[i] << ":/  " << p << "\n"; }
+        if p.len > 0 { jout << sys[i] << ":/  " << p << "\n"; }
     }
     String[] ls = read_list().split("\n");
     for i in 0..ls.len {
@@ -257,7 +257,7 @@ int do_list() {
             String extra = "";
             int lim = limit_of(nm);
             if lim >= 0 { extra = "   limit " + size_text(lim); }
-            cout << nm << ":/  " << ln.slice(sp + 1, ln.len).trim() << extra << "\n";
+            jout << nm << ":/  " << ln.slice(sp + 1, ln.len).trim() << extra << "\n";
         }
     }
     return 0;
@@ -266,16 +266,16 @@ int do_list() {
 int do_info(String name) {
     String p = path_of(name);
     if p.len == 0 { return fail("no drive " + name + " (drive shows them)"); }
-    cout << name << ":/  " << p << "\n";
-    if !Dir::exists(p) { cout << "  the folder is gone\n"; return 1; }
-    cout << "  " << count_entries(p) << " entries\n";
+    jout << name << ":/  " << p << "\n";
+    if !Dir::exists(p) { jout << "  the folder is gone\n"; return 1; }
+    jout << "  " << count_entries(p) << " entries\n";
     int used = used_bytes(p);
     int lim = limit_of(name);
-    if lim < 0 { cout << "  used " << size_text(used) << "  (no limit;  drive size " << name << " 2G  sets one)\n"; return 0; }
+    if lim < 0 { jout << "  used " << size_text(used) << "  (no limit;  drive size " << name << " 2G  sets one)\n"; return 0; }
     int pct = 0;
     if lim > 0 { pct = used * 100 / lim; }
-    cout << "  used " << size_text(used) << " of " << size_text(lim) << "  (" << pct << "%)\n";
-    if used > lim { cout << "  over the limit by " << size_text(used - lim) << "\n"; return 1; }
+    jout << "  used " << size_text(used) << " of " << size_text(lim) << "  (" << pct << "%)\n";
+    if used > lim { jout << "  over the limit by " << size_text(used - lim) << "\n"; return 1; }
     return 0;
 }
 
@@ -316,9 +316,9 @@ int do_new(String[] a) {
     }
     write_without(name, path);
     if limit >= 0 { set_limit(name, limit); }
-    cout << name << ":/ is " << path;
-    if limit >= 0 { cout << "   limit " << size_text(limit); }
-    cout << "\n";
+    jout << name << ":/ is " << path;
+    if limit >= 0 { jout << "   limit " << size_text(limit); }
+    jout << "\n";
     return 0;
 }
 
@@ -346,8 +346,8 @@ int do_remove(String[] a) {
     if del && !p.starts_with(mine) { return fail("-d deletes only folders that drive new made in " + drives_root()); }
     write_without(name, "");
     set_limit(name, 0 - 1);
-    if del { remove_tree(p); cout << "removed the drive " << name << " and its folder\n"; return 0; }
-    cout << "removed the drive " << name << " (the folder " << p << " stays)\n";
+    if del { remove_tree(p); jout << "removed the drive " << name << " and its folder\n"; return 0; }
+    jout << "removed the drive " << name << " (the folder " << p << " stays)\n";
     return 0;
 }
 
@@ -368,42 +368,42 @@ int do_check() {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { cout << "drive " << drive_version() << "\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "drive " << drive_version() << "\n"; return 0; }
     if a.len > 1 && (a[1] == "--help" || a[1] == "-h" || a[1] == "-help" || a[1] == "help") {
-        cout << "drive: the drives of Jaric (f:/ 0:/ r:/ and your own)\n";
-        cout << "  drive                       the list         drive NAME            where a drive is, how many entries\n";
-        cout << "  drive -p :/bin              the real path of a path with a drive (-p, -path, -part);   drive -d /real/path   the path with the drive\n";
-        cout << "  drive -all                  every entry of the files of Jaric (usr, home, hidden ones), the commands folder usr/bin\n";
-        cout << "  drive new NAME              a new drive with a new folder (in ~/drives)\n";
-        cout << "  drive new NAME PATH         a drive of a folder that is there\n";
-        cout << "  drive new NAME 2G           a size (K, M, G; 1.5G) may be given: it is the limit of the drive (shown and checked, not enforced yet)\n";
-        cout << "  drive size NAME 500M|none   change or clear the limit      drive check   the drives with a limit and what they use\n";
-        cout << "  drive remove NAME [-d]      take a drive away (-d: delete its folder too, only a folder that drive new made)\n";
+        jout << "drive: the drives of Jaric (f:/ 0:/ r:/ and your own)\n";
+        jout << "  drive                       the list         drive NAME            where a drive is, how many entries\n";
+        jout << "  drive -p :/bin              the real path of a path with a drive (-p, -path, -part);   drive -d /real/path   the path with the drive\n";
+        jout << "  drive -all                  every entry of the files of Jaric (usr, home, hidden ones), the commands folder usr/bin\n";
+        jout << "  drive new NAME              a new drive with a new folder (in ~/drives)\n";
+        jout << "  drive new NAME PATH         a drive of a folder that is there\n";
+        jout << "  drive new NAME 2G           a size (K, M, G; 1.5G) may be given: it is the limit of the drive (shown and checked, not enforced yet)\n";
+        jout << "  drive size NAME 500M|none   change or clear the limit      drive check   the drives with a limit and what they use\n";
+        jout << "  drive remove NAME [-d]      take a drive away (-d: delete its folder too, only a folder that drive new made)\n";
         return 0;
     }
     if a.len == 1 || a[1] == "list" { return do_list(); }
     if a[1] == "-all" || a[1] == "--all" || a[1] == "-a" { return do_all(); }
-    if (a[1] == "-p" || a[1] == "-path" || a[1] == "-part") && a.len >= 3 { cout << real_of(a[2]) << "\n"; return 0; }     // drive -p :/bin  ->  the real path
+    if (a[1] == "-p" || a[1] == "-path" || a[1] == "-part") && a.len >= 3 { jout << real_of(a[2]) << "\n"; return 0; }     // drive -p :/bin  ->  the real path
     if (a[1] == "-d" || a[1] == "-drive") && a.len >= 3 {                                                          // drive -d /real/path  ->  the drive form
         String rp = a[2];
         if !rp.starts_with("/") { rp = Path::join(env_or("PWD", "/"), rp); }
-        cout << drive_of(rp) << "\n";
+        jout << drive_of(rp) << "\n";
         return 0;
     }
     if a[1] == "new" && a.len >= 3 { return do_new(a); }
     if a[1] == "remove" && a.len >= 3 { return do_remove(a); }
     if a[1] == "size" && a.len >= 4 {                             // drive size NAME 2G   /   drive size NAME none
         if path_of(a[2]).len == 0 { return fail("no drive " + a[2]); }
-        if a[3] == "none" { set_limit(a[2], 0 - 1); cout << a[2] << ":/ has no limit\n"; return 0; }
+        if a[3] == "none" { set_limit(a[2], 0 - 1); jout << a[2] << ":/ has no limit\n"; return 0; }
         int b = parse_size(a[3]);
         if b < 0 { return fail("a size looks like 2G, 500M, 64K or 1.5G"); }
         set_limit(a[2], b);
-        cout << a[2] << ":/ limit " << size_text(b) << "\n";
+        jout << a[2] << ":/ limit " << size_text(b) << "\n";
         return 0;
     }
     if a[1] == "check" { return do_check(); }
-    if a[1].starts_with("-") { cerr << "drive: unknown option " << a[1] << "  (drive --help)\n"; return 2; }
+    if a[1].starts_with("-") { jerr << "drive: unknown option " << a[1] << "  (drive --help)\n"; return 2; }
     if a.len == 2 { return do_info(a[1]); }
-    cerr << "usage: drive | drive NAME | drive new NAME [PATH] | drive remove NAME [-d]   (drive --help)\n";
+    jerr << "usage: drive | drive NAME | drive new NAME [PATH] | drive remove NAME [-d]   (drive --help)\n";
     return 2;
 }

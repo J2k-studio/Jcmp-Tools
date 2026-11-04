@@ -76,7 +76,7 @@ int cmd_install(String name) {
         return b;
     }
     if builtin_name(name) {
-        cout << name << " is part of the standard library (installed with the compiler): write  #import <" << name << ">  in your program; nothing to install" << nl;
+        jout << name << " is part of the standard library (installed with the compiler): write  #import <" << name << ">  in your program; nothing to install" << nl;
         return 0;
     }
     if !name_ok(name) {
@@ -111,7 +111,7 @@ int cmd_install(String name) {
     }
     String target = dir + "/" + name + ".j";
     switch Fs::rename(tmp, target) {
-        Result::Ok(x): { cout << "installed " << name << " " << e[1] << " in " << target << nl; return 0; }
+        Result::Ok(x): { jout << "installed " << name << " " << e[1] << " in " << target << nl; return 0; }
         Result::Err(er): { err("jc: cannot install: " + er.message + "\n"); return 1; }
     }
     return 1;
@@ -128,7 +128,7 @@ int cmd_remove(String name) {
         return 1;
     }
     switch Fs::remove(target) {
-        Result::Ok(x): { cout << "removed " << name << nl; return 0; }
+        Result::Ok(x): { jout << "removed " << name << nl; return 0; }
         Result::Err(er): { err("jc: cannot remove: " + er.message + "\n"); return 1; }
     }
     return 1;
@@ -147,7 +147,7 @@ int cmd_list() {
         if w.len < 4 { continue; }
         String mark = " ";
         if Fs::exists(dir + "/" + w[0] + ".j") { mark = "*"; }
-        cout << mark << " " << w[0] << " " << w[1] << nl;
+        jout << mark << " " << w[0] << " " << w[1] << nl;
     }
     return 0;
 }
@@ -158,12 +158,12 @@ int cmd_installed() {
         Result::Ok(names): {
             for i in 0..names.len {
                 if names[i].ends_with(".j") && !names[i].starts_with(".") {
-                    cout << names[i].slice(0, names[i].len - 2) << nl;
+                    jout << names[i].slice(0, names[i].len - 2) << nl;
                 }
             }
             return 0;
         }
-        Result::Err(er): { cout << "(no libraries installed)" << nl; return 0; }
+        Result::Err(er): { jout << "(no libraries installed)" << nl; return 0; }
     }
     return 0;
 }
@@ -258,7 +258,7 @@ int tool_unstall(String[] av, int at, String dir) {
         for i in 0..extra.len { if Fs::exists(dir + "/" + extra[i]) { remove_tree(dir + "/" + extra[i]); } }
         remove_tree(dir + "/" + name);
         Fs::remove(dir + "/." + name + ".version");
-        cout << "removed " << name << nl;
+        jout << "removed " << name << nl;
     }
     return rc;
 }
@@ -283,9 +283,9 @@ int cmd_tool(String[] av, int at) {
         for i in 0..ls.len {
             if ls[i].len == 0 || ls[i][0] == '#' { continue; }
             String[] parts = ls[i].split("|");
-            if parts.len >= 2 { cout << "  " << parts[0] << "   " << parts[1] << nl; }
+            if parts.len >= 2 { jout << "  " << parts[0] << "   " << parts[1] << nl; }
         }
-        if av.len <= at { cout << "jc install NAME installs one (more than one: jc install jsh jbox coderin)" << nl; }
+        if av.len <= at { jout << "jc install NAME installs one (more than one: jc install jsh jbox coderin)" << nl; }
         return 0;
     }
     if av[at] == "unstall" || av[at] == "uninstall" || av[at] == "remove" { return tool_unstall(av, at + 1, dir); }
@@ -328,12 +328,12 @@ int cmd_tool(String[] av, int at) {
             if !newer { continue; }
             String from = have;
             if from.len == 0 { from = "(not installed)"; }
-            cout << name << ": " << from << " -> " << lat << nl;
+            jout << name << ": " << from << " -> " << lat << nl;
             wanted.push(name);
             shown += 1;
         }
-        if shown == 0 { cout << "everything is up to date" << nl; return 0; }
-        if dry { cout << "(jc update installs them)" << nl; return 0; }
+        if shown == 0 { jout << "everything is up to date" << nl; return 0; }
+        if dry { jout << "(jc update installs them)" << nl; return 0; }
     }
     int rc = 0;
     for k in 0..wanted.len {
@@ -412,7 +412,7 @@ int cmd_tool(String[] av, int at) {
             Fs::remove(sums + ".keep");
         }
         Fs::write_text(dir + "/." + name + ".version", ver);
-        cout << "installed " << name << " " << ver << " in " << dir << nl;
+        jout << "installed " << name << " " << ver << " in " << dir << nl;
         if name == "jbox" || name == "zipj" || name == "tarj" || name == "jamanager" || name == "island" {                                             // its commands as links next to it
             String[] ja = arr(2);
             ja.push("--install");

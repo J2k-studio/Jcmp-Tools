@@ -31,18 +31,18 @@ String name_of(String path) {
 int main() {
     char exe[1024];
     int n = Sys::readlink("/proc/self/exe", @exe, 1000);
-    if n <= 0 { cerr << "python: cannot find where this program is\n"; return 1; }
+    if n <= 0 { jerr << "python: cannot find where this program is\n"; return 1; }
     exe[n] = 0;
     String me = (char^)@exe;
     String here = dir_of(me);
     String home = here + "/python-android";
-    if !Dir::exists(home + "/lib/python3.14") { cerr << "python: the folder " << home << " is missing  (jget tool python)\n"; return 1; }
+    if !Dir::exists(home + "/lib/python3.14") { jerr << "python: the folder " << home << " is missing  (jget tool python)\n"; return 1; }
     // the libraries that the modules ssl and sqlite3 need are loaded first, by full path (the loader then finds them by name)
     Native::open(home + "/lib/libcrypto_python.so");
     Native::open(home + "/lib/libssl_python.so");
     Native::open(home + "/lib/libsqlite3_python.so");
     int lib = Native::open(home + "/lib/libpython3.14.so");
-    if lib == 0 { cerr << "python: cannot load libpython3.14.so (this program needs: jcmp -dyn, Android ARM64)\n"; return 1; }
+    if lib == 0 { jerr << "python: cannot load libpython3.14.so (this program needs: jcmp -dyn, Android ARM64)\n"; return 1; }
     int fn = Native::sym(lib, "Py_BytesMain");
     int libc = Native::open("libc.so");
     int setenv = Native::sym(libc, "setenv");

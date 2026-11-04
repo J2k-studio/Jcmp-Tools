@@ -102,7 +102,7 @@ t "libraries: a wrong checksum installs nothing" '! $J -q -li install bad >/dev/
 t "libraries: a bad name" '! $J -li install ../x >/dev/null 2>&1'
 t "libraries: the standard ones need no install" '$J -li install cpu 2>&1 | grep -q "standard library" && [ ! -f "$W/lib/cpu.j" ]'
 t "libraries: installed lists the folder" '$J -li installed | grep -q twice'
-printf '#import <twice>\nvoid main(){ cout << twice(21) << nl; }\n' > "$W/use.jk"
+printf '#import <twice>\nvoid main(){ jout << twice(21) << nl; }\n' > "$W/use.jk"
 t "libraries: the installed library can be imported" 'J2K_PATH="$W/lib" $JCMP "$W/use.jk" -o "$W/use" >/dev/null 2>&1 && [ "$($W/use)" = "42" ]'
 t "libraries: unstall (uninstall and remove also work)" '$J -li unstall twice >/dev/null 2>&1 && [ ! -f "$W/lib/twice.j" ]'
 unset JGET_INDEX JGET_LIB

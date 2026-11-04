@@ -96,7 +96,7 @@ String jemu_version() { return "0.14.0"; }
 
 void die(String msg, int code) {
     tty_restore();
-    cerr << "jemu: " << msg << "\n";
+    jerr << "jemu: " << msg << "\n";
     Sys::exit(code);
 }
 
@@ -147,7 +147,7 @@ int host_of(int addr, int len) {
 
 void fault(int addr, String what) {
     tty_restore();
-    cerr << "jemu: segmentation fault (" << what << " at 0x" << hex(addr) << ", pc=0x" << hex(pc) << ")\n";
+    jerr << "jemu: segmentation fault (" << what << " at 0x" << hex(addr) << ", pc=0x" << hex(pc) << ")\n";
     Sys::exit(139);
 }
 
@@ -1466,7 +1466,7 @@ int xlate(int va, int kind) {
 // ---------------------------------------------------------------- the system calls (Linux ARM64)
 void syscall_guest() {
     int nr = X[8];
-    if trace_calls { cerr << "[call " << nr << "]\n"; }
+    if trace_calls { jerr << "[call " << nr << "]\n"; }
     int a0 = X[0];
     int a1 = X[1];
     int a2 = X[2];
@@ -1504,14 +1504,14 @@ void syscall_guest() {
     else if nr == 172 || nr == 178 { ret = Sys::call(172, 0, 0, 0, 0, 0, 0); }
     else if nr == 174 || nr == 175 || nr == 176 || nr == 177 { ret = 0; }
     else {
-        cerr << "jemu: system call " << nr << " is not supported yet (pc=0x" << hex(pc) << ")\n";
+        jerr << "jemu: system call " << nr << " is not supported yet (pc=0x" << hex(pc) << ")\n";
     }
     X[0] = ret;
 }
 
 // ---------------------------------------------------------------- one instruction
 void bad(int w, String what) {
-    cerr << "jemu: instruction 0x" << hex(w) << " at 0x" << hex(pc) << " is not supported yet (" << what << ")\n";
+    jerr << "jemu: instruction 0x" << hex(w) << " at 0x" << hex(pc) << " is not supported yet (" << what << ")\n";
     Sys::exit(132);
 }
 
@@ -2063,14 +2063,14 @@ int main() {
     }
     bool dev = false;                                          // the emulator itself (programs, --system) is for the developers of Jaric OS: JARIC_OS_DEV=1
     switch Env::get("JARIC_OS_DEV") { Option::Some(v): { if v.len > 0 { dev = true; } } Option::None: { } }
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { cout << "jaric-os " << jemu_version() << "\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jaric-os " << jemu_version() << "\n"; return 0; }
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h" || args[1] == "help") {
-        cout << "jaric-os: Jaric OS, the operating system of the Jaric project, in a machine inside the app\n";
-        cout << "  jaric-os                  start Jaric OS: it looks at the machine (CPU, timer, memory, disk, screen), writes what it finds, then waits for your commands; the disk is the folder ~/.jaric-os\n";
-        cout << "  jaric-os FOLDER           the same, with the files of FOLDER as the disk\n";
-        cout << "  jaric-os --ram MB [FOLDER]   the same with MB of memory (64 to 1024; otherwise half of what Android has free)\n";
-        cout << "  jaric-os --version | --help\n";
-        cout << "Inside: ls, cat NAME, echo TEXT, help, exit (Ctrl-C stops the machine). Update it with  jc update  (jc install jaric-os).\n";
+        jout << "jaric-os: Jaric OS, the operating system of the Jaric project, in a machine inside the app\n";
+        jout << "  jaric-os                  start Jaric OS: it looks at the machine (CPU, timer, memory, disk, screen), writes what it finds, then waits for your commands; the disk is the folder ~/.jaric-os\n";
+        jout << "  jaric-os FOLDER           the same, with the files of FOLDER as the disk\n";
+        jout << "  jaric-os --ram MB [FOLDER]   the same with MB of memory (64 to 1024; otherwise half of what Android has free)\n";
+        jout << "  jaric-os --version | --help\n";
+        jout << "Inside: ls, cat NAME, echo TEXT, help, exit (Ctrl-C stops the machine). Update it with  jc update  (jc install jaric-os).\n";
         return 0;
     }
     switch Env::get("JEMU_TRACE") { Option::Some(v): { if v.len > 0 { trace_calls = true; } } Option::None: { } }
@@ -2108,7 +2108,7 @@ int main() {
         hc_mkfs = mkfs + "";
         hc_font = Path::join(dir, "jaric-os-font") + "";
         if !Fs::exists(hc_font) { hc_font = ""; }
-        cout << "Jaric OS: the disk is the files of " << folder << "  (exit leaves, Ctrl-C stops the machine)\n";
+        jout << "Jaric OS: the disk is the files of " << folder << "  (exit leaves, Ctrl-C stops the machine)\n";
         String[] na = arr(12);
         na.push("jemu"); na.push("--system"); na.push(kernel); na.push("--disk"); na.push(img);
         na.push("--shift"); na.push("268435456");                     // the kernel is loaded 256 MB higher: the programs have the addresses from 4 MB
@@ -2120,9 +2120,9 @@ int main() {
         }
         args = na;
     }
-    if args.len < 2 { cerr << "usage: jemu PROGRAM [arguments]       jemu --system KERNEL.elf [--steps N] [--disk IMAGE] [--shift N]   (system mode: EL0/EL1, vectors, a UART at 0x09000000, exit device at 0x09100000, a disk at 0x0A000000)\n"; return 2; }
+    if args.len < 2 { jerr << "usage: jemu PROGRAM [arguments]       jemu --system KERNEL.elf [--steps N] [--disk IMAGE] [--shift N]   (system mode: EL0/EL1, vectors, a UART at 0x09000000, exit device at 0x09100000, a disk at 0x0A000000)\n"; return 2; }
     if args[1] == "--system" {
-        if args.len < 3 { cerr << "usage: jemu --system KERNEL.elf [--steps N]\n"; return 2; }
+        if args.len < 3 { jerr << "usage: jemu --system KERNEL.elf [--steps N]\n"; return 2; }
         sysmode = true;
         max_steps = 200000000;
         disk_fd = 0 - 1;
@@ -2239,7 +2239,7 @@ int main() {
         pc = entry;
         while done == 0 {
             step();
-            if icount >= max_steps { tty_restore(); cerr << "jemu: stopped after " << icount << " instructions (--steps N)\n"; return 124; }
+            if icount >= max_steps { tty_restore(); jerr << "jemu: stopped after " << icount << " instructions (--steps N)\n"; return 124; }
         }
         tty_restore();
         gfx_end();

@@ -9,7 +9,7 @@
 
 
 int fail(String msg) {
-    cerr << "mujic: " << msg << "\n";
+    jerr << "mujic: " << msg << "\n";
     return 1;
 }
 
@@ -327,7 +327,7 @@ int shown_width(String s) {
     return used;
 }
 
-String pad(String s, int w) {
+String pad_to(String s, int w) {
     String r = fit(s, w);
     int used = shown_width(r);
     while used < w { r.push(' '); used += 1; }
@@ -544,7 +544,7 @@ int lyrics_at(int t) {
 int fetch_lyrics(String file, String query) {
     String q = query;
     if q.len == 0 { q = strip_ext(file).replace(" - ", " ").replace("_", " "); }
-    cout << "searching lyrics for: " << q << "\n";
+    jout << "searching lyrics for: " << q << "\n";
     String body = "";
     switch Net::http.try_get("https://lrclib.net/api/search?q=" + url_encode(q)) {
         Result::Ok(b): { body = b; }
@@ -572,13 +572,13 @@ int fetch_lyrics(String file, String query) {
     if best >= 0 {
         int item = doc.at(root, best);
         Fs::write_text(base + ".lrc", doc.text(doc.get(item, "syncedLyrics")));
-        cout << "saved " << strip_ext(file) << ".lrc  (" << doc.text(doc.get(item, "artistName")) << " - " << doc.text(doc.get(item, "trackName")) << ", with times)\n";
+        jout << "saved " << strip_ext(file) << ".lrc  (" << doc.text(doc.get(item, "artistName")) << " - " << doc.text(doc.get(item, "trackName")) << ", with times)\n";
         return 0;
     }
     if plain >= 0 {
         int item = doc.at(root, plain);
         Fs::write_text(base + ".txt", doc.text(doc.get(item, "plainLyrics")));
-        cout << "saved " << strip_ext(file) << ".txt  (" << doc.text(doc.get(item, "artistName")) << " - " << doc.text(doc.get(item, "trackName")) << ", without times)\n";
+        jout << "saved " << strip_ext(file) << ".txt  (" << doc.text(doc.get(item, "artistName")) << " - " << doc.text(doc.get(item, "trackName")) << ", without times)\n";
         return 0;
     }
     return fail("no lyrics found; try  mujic lyrics NAME -q \"artist title\"");
@@ -605,9 +605,9 @@ void catalog_init() {
 
 int do_catalog() {
     catalog_init();
-    cout << "Free songs (Kevin MacLeod, CC BY 4.0). Fetch one:  mujic get NAME\n";
-    for i in 0..cat_id.len { cout << "  " << cat_id[i] << "   (" << cat_title[i] << ")\n"; }
-    cout << "Credit when you share: Music by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0.\n";
+    jout << "Free songs (Kevin MacLeod, CC BY 4.0). Fetch one:  mujic get NAME\n";
+    for i in 0..cat_id.len { jout << "  " << cat_id[i] << "   (" << cat_title[i] << ")\n"; }
+    jout << "Credit when you share: Music by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0.\n";
     return 0;
 }
 
@@ -615,12 +615,12 @@ int download_to(String url, String name) {
     String dir = music_dir();
     if !Dir::exists(dir) { Dir::make_all(dir); }
     String to = Path::join(dir, name);
-    cout << "fetching " << name << " ...\n";
+    jout << "fetching " << name << " ...\n";
     switch Net::http.try_download(url, to, 1) {
         Result::Ok(n): { }
         Result::Err(e): { Fs::remove(to); return fail(e.message); }
     }
-    cout << "saved " << to << "\n";
+    jout << "saved " << to << "\n";
     return 0;
 }
 
@@ -663,14 +663,14 @@ int do_import(String path) {
                 n += 1;
             }
         }
-        cout << "mujic: " << n << " songs copied to " << music_dir() << "\n";
+        jout << "mujic: " << n << " songs copied to " << music_dir() << "\n";
         return 0;
     }
     if !Fs::exists(path) || !is_audio(path) { return fail("not a song or a folder: " + path); }
     String[] a = arr(3);
     a.push(path); a.push(music_dir() + "/");
     Proc::run("cp", a);
-    cout << "mujic: copied " << Path::name(path) << " to " << music_dir() << "\n";
+    jout << "mujic: copied " << Path::name(path) << " to " << music_dir() << "\n";
     return 0;
 }
 
@@ -742,12 +742,12 @@ int do_find(String[] a) {
     }
     JsonDoc doc = json_open(body);
     int docs = doc.get(doc.get(doc.root(), "response"), "docs");
-    if docs < 0 || doc.len(docs) == 0 { cout << "nothing found\n"; return 0; }
+    if docs < 0 || doc.len(docs) == 0 { jout << "nothing found\n"; return 0; }
     for k in 0..doc.len(docs) {
         int d = doc.at(docs, k);
-        cout << "  archive:" << doc.text(doc.get(d, "identifier")) << "   " << doc.text(doc.get(d, "title")) << "\n";
+        jout << "  archive:" << doc.text(doc.get(d, "identifier")) << "   " << doc.text(doc.get(d, "title")) << "\n";
     }
-    cout << "Fetch:  mujic get archive:ID   (check the licence of the item on archive.org first)\n";
+    jout << "Fetch:  mujic get archive:ID   (check the licence of the item on archive.org first)\n";
     return 0;
 }
 
@@ -791,7 +791,7 @@ void choose_backend() {
 }
 
 void osc_audio(String cmd) {
-    cout << "\e]7777;audio;" << cmd << "\a";
+    jout << "\e]7777;audio;" << cmd << "\a";
 }
 
 int now() { return Time::now_ms(); }
@@ -1499,10 +1499,10 @@ void fetch_outside(String what) {
     String[] a = arr(4);
     a.push("mujic"); a.push("get"); a.push(what);
     raw_off();
-    cout << "\e[?1049l\e[0m\e[?25h";
+    jout << "\e[?1049l\e[0m\e[?25h";
     int rc = do_get(a);
     if rc == 0 { Time::sleep_ms(700); } else { Time::sleep_ms(2200); }
-    cout << "\e[?1049h" << t_base << "\e[2J";
+    jout << "\e[?1049h" << t_base << "\e[2J";
     raw_on();
     String keep = "";
     if g_play >= 0 { keep = g_files[g_play] + ""; }
@@ -1514,10 +1514,10 @@ void fetch_outside(String what) {
 
 void lyrics_outside(int which) {
     raw_off();
-    cout << "\e[?1049l\e[0m\e[?25h";
+    jout << "\e[?1049l\e[0m\e[?25h";
     int rc = fetch_lyrics(g_files[which], "");
     if rc == 0 { Time::sleep_ms(700); } else { Time::sleep_ms(2200); }
-    cout << "\e[?1049h" << t_base << "\e[2J";
+    jout << "\e[?1049h" << t_base << "\e[2J";
     raw_on();
     if which == g_play || g_play < 0 { lyrics_load_for(g_files[which]); }
     if rc == 0 { g_note = "lyrics saved"; } else { g_note = "no lyrics found"; }
@@ -1636,7 +1636,7 @@ void run_command(String line) {
         String want = arg + "";
         bool found = false;
         for i in 0..tn.len { if tn[i] == want { found = true; } }
-        if found { theme_set(want); theme_save(); cout << t_base << "\e[2J"; g_note = "theme " + want; }
+        if found { theme_set(want); theme_save(); jout << t_base << "\e[2J"; g_note = "theme " + want; }
         else {
             pk_open(6, "theme (now " + g_theme + ")");
             for i in 0..tn.len { g_pk_show.push(tn[i] + ""); g_pk_val.push(tn[i] + ""); }
@@ -1664,10 +1664,10 @@ void run_command(String line) {
         if arg.len == 0 { g_note = "/import PATH   (a song or a folder of songs, copied into " + music_dir() + ")"; }
         else {
             raw_off();
-            cout << "\e[?1049l\e[0m\e[?25h";
+            jout << "\e[?1049l\e[0m\e[?25h";
             int rc = do_import(arg);
             Time::sleep_ms(1200);
-            cout << "\e[?1049h" << t_base << "\e[2J";
+            jout << "\e[?1049h" << t_base << "\e[2J";
             raw_on();
             load_files();
             if rc == 0 { g_note = "imported: " + arg; } else { g_note = "could not import " + arg; }
@@ -1732,7 +1732,7 @@ void pk_choose() {
         else { g_note = "no songs in " + v; }
         return;
     }
-    if kind == 6 { theme_set(v); theme_save(); cout << t_base << "\e[2J"; g_note = "theme " + v; return; }
+    if kind == 6 { theme_set(v); theme_save(); jout << t_base << "\e[2J"; g_note = "theme " + v; return; }
     if kind == 5 { play_path(v); return; }
     if kind == 4 {
         if v == ".." { dir_picker(Path::join(g_cwd, "..")); }
@@ -1765,14 +1765,14 @@ void draw() {
     if g_repeat == 1 { head = head + "   repeat all"; }
     if g_repeat == 2 { head = head + "   repeat one"; }
     if g_backend == 1 { head = head + "   vol " + str(g_volume); }
-    f = f + "\e[1;1H" + sgr(t_head, pad(head, cols));
+    f = f + "\e[1;1H" + sgr(t_head, pad_to(head, cols));
     // now playing
     int pos = cur_pos();
     String title = "nothing is playing";
     if g_play >= 0 { title = song_title(g_files[g_play]); }
     String mark = " ■ ";
     if g_state == 1 { mark = " ▶ "; } else if g_state == 2 { mark = " ❙❙ "; }
-    f = f + "\e[2;1H" + sgr("1", pad(mark + title, cols));
+    f = f + "\e[2;1H" + sgr("1", pad_to(mark + title, cols));
     String t = clock(pos);
     if g_len > 0 { t = t + " / " + clock(g_len); }
     int barw = cols - shown_width(t) - 4;
@@ -1780,14 +1780,14 @@ void draw() {
     int filled = 0;
     if g_len > 0 { filled = pos * barw / g_len; }
     if filled > barw { filled = barw; }
-    f = f + "\e[3;1H " + sgr(t_bar, repeat_text("━", filled) + repeat_text("─", barw - filled)) + " " + pad(t, cols - barw - 3);
+    f = f + "\e[3;1H " + sgr(t_bar, repeat_text("━", filled) + repeat_text("─", barw - filled)) + " " + pad_to(t, cols - barw - 3);
     // the panel: rows 5 .. rows - 6
     int top = 5;
     int bottom = rows - 6;
     int ph = bottom - top + 1;
-    for r in 0..ph { f = f + "\e[" + str(top + r) + ";1H" + pad("", cols); }
+    for r in 0..ph { f = f + "\e[" + str(top + r) + ";1H" + pad_to("", cols); }
     if g_pk_on {
-        f = f + "\e[" + str(top) + ";1H" + sgr(t_pick, pad(" " + g_pk_title, cols));
+        f = f + "\e[" + str(top) + ";1H" + sgr(t_pick, pad_to(" " + g_pk_title, cols));
         int n = pk_count();
         if g_pk_sel >= n { g_pk_sel = n - 1; }
         if g_pk_sel < 0 { g_pk_sel = 0; }
@@ -1796,26 +1796,26 @@ void draw() {
         if g_pk_sel >= vis { first = g_pk_sel - vis + 1; }
         for r in 0..vis {
             int k = first + r;
-            String line = pad("", cols);
+            String line = pad_to("", cols);
             if k < n {
                 int i = pk_nth(k);
                 String lead2 = "    ";
                 if k == g_pk_sel { lead2 = "  ❯ "; }
-                line = pad(lead2 + g_pk_show[i], cols);
+                line = pad_to(lead2 + g_pk_show[i], cols);
                 if k == g_pk_sel { line = sgr("7", line); }
             }
             f = f + "\e[" + str(top + 1 + r) + ";1H" + line;
         }
-        f = f + "\e[" + str(bottom - 1) + ";1H" + sgr("2", pad("  type to narrow:  " + g_pk_filter + "   (" + str(n) + " of " + str(g_pk_show.len) + ")", cols));
-        f = f + "\e[" + str(bottom) + ";1H" + sgr("2", pad("  up/down choose   Enter select   Esc close", cols));
+        f = f + "\e[" + str(bottom - 1) + ";1H" + sgr("2", pad_to("  type to narrow:  " + g_pk_filter + "   (" + str(n) + " of " + str(g_pk_show.len) + ")", cols));
+        f = f + "\e[" + str(bottom) + ";1H" + sgr("2", pad_to("  up/down choose   Enter select   Esc close", cols));
     } else if g_view == 2 {
         int total = g_out.len;
         int from = total - ph;
         if from < 0 { from = 0; }
-        if total == 0 { f = f + "\e[" + str(top) + ";1H" + sgr("2", pad("  no output yet:  !command  runs a shell command in " + g_cwd, cols)); }
+        if total == 0 { f = f + "\e[" + str(top) + ";1H" + sgr("2", pad_to("  no output yet:  !command  runs a shell command in " + g_cwd, cols)); }
         for r in 0..ph {
             int i = from + r;
-            if i < total { f = f + "\e[" + str(top + r) + ";1H" + pad(" " + fit(g_out[i], cols - 2), cols); }
+            if i < total { f = f + "\e[" + str(top + r) + ";1H" + pad_to(" " + fit(g_out[i], cols - 2), cols); }
         }
     } else if g_view == 1 && lcount > 0 {
         int cur = lyrics_at(pos + 200);
@@ -1833,16 +1833,16 @@ void draw() {
                 if text.len == 0 { text = " "; }
                 int lead = (cols - shown_width(text)) / 2;
                 if lead < 0 { lead = 0; }
-                String ln = pad(repeat_text(" ", lead) + text, cols);
+                String ln = pad_to(repeat_text(" ", lead) + text, cols);
                 if i == cur { ln = sgr(t_cur, ln); } else { ln = sgr("2", ln); }
                 f = f + "\e[" + str(top + r) + ";1H" + ln;
             }
         }
     } else if g_view == 1 {
-        f = f + "\e[" + str(top + ph / 2) + ";1H" + sgr("2", pad("  no lyrics for this song.   /lyrics get  fetches them", cols));
+        f = f + "\e[" + str(top + ph / 2) + ";1H" + sgr("2", pad_to("  no lyrics for this song.   /lyrics get  fetches them", cols));
     } else {
         int n = g_files.len;
-        if n == 0 { f = f + "\e[" + str(top) + ";1H" + sgr("2", pad("  no songs in " + music_dir() + "   -   /get fetches free songs", cols)); }
+        if n == 0 { f = f + "\e[" + str(top) + ";1H" + sgr("2", pad_to("  no songs in " + music_dir() + "   -   /get fetches free songs", cols)); }
         int first = 0;
         if g_sel >= ph { first = g_sel - ph + 1; }
         for r in 0..ph {
@@ -1850,7 +1850,7 @@ void draw() {
             if i < n {
                 String m = "    ";
                 if i == g_play { m = "  ▶ "; if g_state == 2 { m = "  ❙ "; } }
-                String line = pad(m + str(i + 1) + ". " + song_title(g_files[i]), cols);
+                String line = pad_to(m + str(i + 1) + ". " + song_title(g_files[i]), cols);
                 if i == g_sel { line = sgr("7", line); } else if i == g_play { line = sgr(t_play, line); }
                 f = f + "\e[" + str(top + r) + ";1H" + line;
             }
@@ -1867,25 +1867,25 @@ void draw() {
         if g_menu_sel >= show { firstm = g_menu_sel - show + 1; }
         for r in 0..show {
             int ci = menu_nth(firstm + r);
-            String entry = pad("  /" + cmd_name[ci], 12) + cmd_help[ci];
-            String ln = pad(entry, cols);
+            String entry = pad_to("  /" + cmd_name[ci], 12) + cmd_help[ci];
+            String ln = pad_to(entry, cols);
             if firstm + r == g_menu_sel { ln = sgr("7", ln); } else { ln = sgr("2", ln); }
             f = f + "\e[" + str(bottom - show + 1 + r) + ";1H" + ln;
         }
     }
     // the note, the box and the hint
-    f = f + "\e[" + str(rows - 4) + ";1H" + sgr(t_note, pad(" " + g_note, cols));
+    f = f + "\e[" + str(rows - 4) + ";1H" + sgr(t_note, pad_to(" " + g_note, cols));
     f = f + "\e[" + str(rows - 3) + ";1H" + sgr("2", "╭" + repeat_text("─", cols - 2) + "╮");
     String shown_in = fit(g_input, cols - 6);
-    f = f + "\e[" + str(rows - 2) + ";1H" + sgr("2", "│") + " " + sgr(t_pick, ">") + " " + pad(shown_in, cols - 5) + sgr("2", "│");
+    f = f + "\e[" + str(rows - 2) + ";1H" + sgr("2", "│") + " " + sgr(t_pick, ">") + " " + pad_to(shown_in, cols - 5) + sgr("2", "│");
     f = f + "\e[" + str(rows - 1) + ";1H" + sgr("2", "╰" + repeat_text("─", cols - 2) + "╯");
     String hint = "  / commands   Enter play   Space pause   ← → seek   Tab lyrics   Esc leave";
     if g_input.len > 0 { hint = "  Enter run   Esc clear   ↑ ↓ history"; }
-    f = f + "\e[" + str(rows) + ";1H" + sgr("2", pad(hint, cols));
+    f = f + "\e[" + str(rows) + ";1H" + sgr("2", pad_to(hint, cols));
     // the cursor in the box
     int cx = 5 + shown_width(fit(g_input.slice(0, g_cur), cols - 6));
     f = f + "\e[" + str(rows - 2) + ";" + str(cx) + "H\e[?25h";
-    cout << f;
+    jout << f;
 }
 
 // the letter typed (a code of next_event) as text: ASCII, or a Unicode letter sent as 100000 + the code point
@@ -1937,7 +1937,7 @@ int do_player(String start) {
         g_sel = s;
     }
     raw_on();
-    cout << "\e[?1049h" << t_base << "\e[2J";
+    jout << "\e[?1049h" << t_base << "\e[2J";
     if start.len > 0 { play_index(g_sel); }
     if g_files.len == 0 { g_note = "no songs yet:  /get  fetches free songs,  /find  searches the web,  or put files in " + music_dir(); }
     int last_poll = now();
@@ -2019,7 +2019,7 @@ int do_player(String start) {
         if g_msg.len > 0 { g_note = g_msg + ""; g_msg = ""; }
     }
     snd_stop();
-    cout << "\e[?25h\e[?1049l";
+    jout << "\e[?25h\e[?1049l";
     raw_off();
     return 0;
 }
@@ -2051,9 +2051,9 @@ int do_background(String what) {
         snd_play(full);
         if g_msg.len > 0 { return fail(g_msg); }
     }
-    cout << "playing " << song_title(full) << " in the background";
-    if g_backend == 1 { cout << "   (mujic pause | resume | next | prev | stop)"; }
-    cout << "\n";
+    jout << "playing " << song_title(full) << " in the background";
+    if g_backend == 1 { jout << "   (mujic pause | resume | next | prev | stop)"; }
+    jout << "\n";
     return 0;
 }
 
@@ -2099,7 +2099,7 @@ int choose_mode() {
     if rows < 10 { rows = 24; }
     if cols < 20 { cols = 40; }
     raw_on();
-    cout << "\e[?1049h" << t_base << "\e[2J\e[?25l";
+    jout << "\e[?1049h" << t_base << "\e[2J\e[?25l";
     String[] names = arr(3);
     names.push("Terminal"); names.push("Window"); names.push("CD deck");
     String[] about = arr(3);
@@ -2109,21 +2109,21 @@ int choose_mode() {
     int result = -1;
     bool done = false;
     while !done {
-        String f = "\e[1;1H" + sgr(t_head, pad("  mujic  -  how do you want to listen?", cols));
+        String f = "\e[1;1H" + sgr(t_head, pad_to("  mujic  -  how do you want to listen?", cols));
         for i in 0..3 {
             int row = 4 + i * 4;
             String mark = "  ";
             String line1 = "  " + str(i + 1) + "   " + names[i];
             String line2 = "      " + about[i];
-            if i == sel { line1 = sgr("7", pad(line1, cols)); line2 = sgr("7", pad(line2, cols)); }
-            else { line1 = pad(line1, cols); line2 = sgr("2", pad(line2, cols)); }
+            if i == sel { line1 = sgr("7", pad_to(line1, cols)); line2 = sgr("7", pad_to(line2, cols)); }
+            else { line1 = pad_to(line1, cols); line2 = sgr("2", pad_to(line2, cols)); }
             f = f + "\e[" + str(row) + ";1H" + line1 + "\e[" + str(row + 1) + ";1H" + line2;
         }
         String box = "[ ]";
         if remember { box = "[x]"; }
-        f = f + "\e[" + str(rows - 3) + ";1H" + pad("  " + box + " d   do not ask again (mujic mode ask  brings this page back)", cols);
-        f = f + "\e[" + str(rows) + ";1H" + sgr("2", pad("  1 2 3 or up/down and Enter     Esc leave", cols));
-        cout << f;
+        f = f + "\e[" + str(rows - 3) + ";1H" + pad_to("  " + box + " d   do not ask again (mujic mode ask  brings this page back)", cols);
+        f = f + "\e[" + str(rows) + ";1H" + sgr("2", pad_to("  1 2 3 or up/down and Enter     Esc leave", cols));
+        jout << f;
         int ev = next_event(300);
         if ev == 27 || ev == 3 || ev == 'q' || ev == -9 { done = true; result = -1; }
         else if ev == 257 { if sel > 0 { sel -= 1; } }
@@ -2132,7 +2132,7 @@ int choose_mode() {
         else if ev == '1' || ev == '2' || ev == '3' { sel = ev - '1'; result = sel; done = true; }
         else if ev == 13 || ev == 10 { result = sel; done = true; }
     }
-    cout << "\e[0m\e[?25h\e[?1049l";
+    jout << "\e[0m\e[?25h\e[?1049l";
     raw_off();
     if result >= 0 && remember {
         String[] key = arr(3);
@@ -2144,7 +2144,7 @@ int choose_mode() {
 
 int do_list() {
     load_files();
-    if g_files.len == 0 { cout << "no songs in " << music_dir() << ".  mujic catalog shows free ones, mujic get NAME fetches.\n"; return 0; }
+    if g_files.len == 0 { jout << "no songs in " << music_dir() << ".  mujic catalog shows free ones, mujic get NAME fetches.\n"; return 0; }
     for i in 0..g_files.len {
         String base = strip_ext(abs_of(g_files[i]));
         String mark = "";
@@ -2153,7 +2153,7 @@ int do_list() {
             String other = find_lyrics_file(g_files[i]);               // in a folder of lyrics, by the name
             if other.len > 0 { if other.lower().ends_with(".lrc") { mark = "  [lyrics, synced]"; } else { mark = "  [lyrics]"; } }
         }
-        cout << "  " << i + 1 << ". " << song_title(g_files[i]) << mark << "\n";
+        jout << "  " << i + 1 << ". " << song_title(g_files[i]) << mark << "\n";
     }
     return 0;
 }
@@ -2183,11 +2183,11 @@ int do_scan_cli(String[] a) {
     for k in 0..sc_path.len {
         String mark = " ";
         if sc_est[k] { mark = "~"; }
-        cout << mark << clock(sc_secs[k] * 1000) << "  " << sc_path[k] << "\n";
+        jout << mark << clock(sc_secs[k] * 1000) << "  " << sc_path[k] << "\n";
     }
-    cerr << sc_path.len << " songs of " << scan_minsec << " seconds or more in " << sc_dirs << " folders";
-    if scan_add { cerr << ", " << added << " added to the list"; }
-    cerr << "\n";
+    jerr << sc_path.len << " songs of " << scan_minsec << " seconds or more in " << sc_dirs << " folders";
+    if scan_add { jerr << ", " << added << " added to the list"; }
+    jerr << "\n";
     return 0;
 }
 
@@ -2203,7 +2203,7 @@ int do_remove_cli(String[] a) {
     if what.len == 0 { return fail("usage: mujic remove [-f] NAME"); }
     int n = find_song(what);
     if n < 0 { return fail("no song like '" + what + "'"); }
-    cout << remove_song(n, force) << "\n";
+    jout << remove_song(n, force) << "\n";
     return 0;
 }
 
@@ -2211,7 +2211,7 @@ int main() {
     g_album = "";
     String VERSION = "0.15.1";
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { cout << "mujic " << VERSION << "\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { jout << "mujic " << VERSION << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
     if args.len > 1 && args[1] == "-session" {
         bool in_app = false;
@@ -2222,7 +2222,7 @@ int main() {
         if in_app {
             String rest = "mujic";
             for i in 2..args.len { rest = rest + " " + args[i]; }
-            cout << "\e]7777;session;new;" << rest << "\a";
+            jout << "\e]7777;session;new;" << rest << "\a";
             return 0;
         }
         String[] shifted = arr(args.len);
@@ -2241,55 +2241,55 @@ int main() {
         if c == "lyrics" { return do_lyrics(args); }
         if c == "theme" {
             String[] tn = theme_names();
-            if args.len < 3 { theme_load(); cout << "theme: " << g_theme << "   (mujic theme NAME:"; for i in 0..tn.len { cout << " " << tn[i]; } cout << ")\n"; return 0; }
+            if args.len < 3 { theme_load(); jout << "theme: " << g_theme << "   (mujic theme NAME:"; for i in 0..tn.len { jout << " " << tn[i]; } jout << ")\n"; return 0; }
             bool ok = false;
             for i in 0..tn.len { if tn[i] == args[2] { ok = true; } }
             if !ok { return fail("no such theme: " + args[2]); }
-            theme_set(args[2]); theme_save(); cout << "theme " << g_theme << "\n"; return 0;
+            theme_set(args[2]); theme_save(); jout << "theme " << g_theme << "\n"; return 0;
         }
         if c == "-t" || c == "--terminal" { return do_player(""); }
         if c == "mode" {
-            if args.len < 3 { cout << "mode: " << mode_get() << "   (mujic mode terminal | window | cd | ask)\n"; return 0; }
+            if args.len < 3 { jout << "mode: " << mode_get() << "   (mujic mode terminal | window | cd | ask)\n"; return 0; }
             String m = args[2] + "";
             if m != "terminal" && m != "window" && m != "cd" && m != "ask" { return fail("mode: terminal, window, cd or ask"); }
             if m == "ask" { Fs::remove(mode_file()); } else { mode_set(m); }
-            cout << "mode " << m << "\n";
+            jout << "mode " << m << "\n";
             return 0;
         }
-        if c == "-c" || c == "--cd" { cout << "\e]7777;music;cd\a"; return 0; }
-        if c == "cd" { cout << "\e]7777;music;cd\a"; return 0; }                              // the player as a CD deck: the cover is a disc that turns
-        if c == "window" || c == "-w" { cout << "\e]7777;music;window\a"; return 0; }          // the window of the player in the Jaric app (cover, buttons, queue)
+        if c == "-c" || c == "--cd" { jout << "\e]7777;music;cd\a"; return 0; }
+        if c == "cd" { jout << "\e]7777;music;cd\a"; return 0; }                              // the player as a CD deck: the cover is a disc that turns
+        if c == "window" || c == "-w" { jout << "\e]7777;music;window\a"; return 0; }          // the window of the player in the Jaric app (cover, buttons, queue)
         if c == "albums" {                                         // the folders of the music folder that hold songs
             g_album = "";
             String[] al = album_names();
-            if al.len == 0 { cout << "no albums: the songs are not in folders (a folder of songs is an album)\n"; return 0; }
-            for i in 0..al.len { cout << "  " << al[i] << "   " << g_alb_n[i] << " songs\n"; }
+            if al.len == 0 { jout << "no albums: the songs are not in folders (a folder of songs is an album)\n"; return 0; }
+            for i in 0..al.len { jout << "  " << al[i] << "   " << g_alb_n[i] << " songs\n"; }
             return 0;
         }
         if c == "folder" {                                         // the folder of the songs: the whole folder is the library (jsong in the storage of the phone is found by its name)
             String f = anchor_file();
             if args.len < 3 {
-                cout << "music folder: " << music_dir() << "\n";
-                cout << "  change it:  mujic folder PATH   (a name like jsong is looked for in /sdcard)     back to the default:  mujic folder -\n";
+                jout << "music folder: " << music_dir() << "\n";
+                jout << "  change it:  mujic folder PATH   (a name like jsong is looked for in /sdcard)     back to the default:  mujic folder -\n";
                 return 0;
             }
-            if args[2] == "-" { Fs::remove(f); cout << "back to the default folder\n"; return 0; }
+            if args[2] == "-" { Fs::remove(f); jout << "back to the default folder\n"; return 0; }
             String want = expand_path(args[2]);
             String named = "/sdcard/" + args[2];
             if !Dir::exists(want) && Dir::exists(named) { want = named; }
             if !Dir::exists(want) { return fail("no such folder: " + args[2]); }
             Dir::make_all(Path::parent(f));
             Fs::write_text(f, want + "\n");
-            cout << "music folder: " << want << "\n";
+            jout << "music folder: " << want << "\n";
             return 0;
         }
         if c == "lyrics-dir" {                                   // the folders of lyrics: with no path they are listed, with a path it is added
             String cfg = lyrics_config();
             if args.len < 3 {
-                cout << "folders of lyrics (a .lrc or .txt with the name of the song is used from there):\n";
+                jout << "folders of lyrics (a .lrc or .txt with the name of the song is used from there):\n";
                 String[] seen = lyric_dirs("");
-                for i in 0..seen.len { if i > 0 && Dir::exists(seen[i]) { cout << "  " << seen[i] << "\n"; } }
-                cout << "add one:  mujic lyrics-dir PATH\n";
+                for i in 0..seen.len { if i > 0 && Dir::exists(seen[i]) { jout << "  " << seen[i] << "\n"; } }
+                jout << "add one:  mujic lyrics-dir PATH\n";
                 return 0;
             }
             String add = expand_path(args[2]);
@@ -2298,7 +2298,7 @@ int main() {
             if Fs::exists(cfg) { Result<String, Error> rr = Fs::read_text(cfg); if rr.is_ok() { old = rr.take(); } }
             Dir::make_all(Path::parent(cfg));
             Fs::write_text(cfg, old + add + "\n");
-            cout << "added " << add << "\n";
+            jout << "added " << add << "\n";
             return 0;
         }
         if c == "pause" || c == "resume" || c == "stop" || c == "next" || c == "prev" { return do_remote(c); }
@@ -2312,14 +2312,14 @@ int main() {
             return do_player(w);
         }
         if c == "help" || c == "-h" || c == "--help" {
-            cout << "mujic: a music player for the terminal (songs in " << music_dir() << ")\n";
-            cout << "  mujic                 the player      mujic play NAME   start with a song\n";
-            cout << "  mujic list            the songs       mujic catalog     free songs to fetch\n";
-            cout << "  mujic window          the window of the player in the Jaric app (cover, buttons, the queue)   mujic cd   the same as a CD deck\n";
-            cout << "  mujic play NAME -b    play in the background (the prompt stays free)   mujic pause | resume | next | prev | stop\n";
-            cout << "  mujic get NAME|URL|archive:ID [-n NAME]   fetch a song      mujic find WORDS   search archive.org\n";
-            cout << "  mujic lyrics NAME [-q WORDS]              fetch the lyrics (kept as NAME.lrc)\n";
-            cout << "  keys in the player: up/down enter space n p < > l g v s q;  put your own .lrc/.txt next to a song\n";
+            jout << "mujic: a music player for the terminal (songs in " << music_dir() << ")\n";
+            jout << "  mujic                 the player      mujic play NAME   start with a song\n";
+            jout << "  mujic list            the songs       mujic catalog     free songs to fetch\n";
+            jout << "  mujic window          the window of the player in the Jaric app (cover, buttons, the queue)   mujic cd   the same as a CD deck\n";
+            jout << "  mujic play NAME -b    play in the background (the prompt stays free)   mujic pause | resume | next | prev | stop\n";
+            jout << "  mujic get NAME|URL|archive:ID [-n NAME]   fetch a song      mujic find WORDS   search archive.org\n";
+            jout << "  mujic lyrics NAME [-q WORDS]              fetch the lyrics (kept as NAME.lrc)\n";
+            jout << "  keys in the player: up/down enter space n p < > l g v s q;  put your own .lrc/.txt next to a song\n";
             return 0;
         }
         return do_player(c);
@@ -2336,8 +2336,8 @@ int main() {
         int how = 0;
         if saved == "window" { how = 1; } else if saved == "cd" { how = 2; } else if saved == "ask" { how = choose_mode(); }
         if how < 0 { return 0; }
-        if how == 1 { cout << "\e]7777;music;window\a"; return 0; }
-        if how == 2 { cout << "\e]7777;music;cd\a"; return 0; }
+        if how == 1 { jout << "\e]7777;music;window\a"; return 0; }
+        if how == 2 { jout << "\e]7777;music;cd\a"; return 0; }
     }
     return do_player("");
 }

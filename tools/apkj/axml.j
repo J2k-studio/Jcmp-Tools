@@ -94,7 +94,7 @@ void ax_add(String name, bool android, int type, int data) {
     int idx = ax_name_idx(name);
     int id = 0;
     if android {
-        if idx < 0 { cerr << "axml: the attribute " << name << " has no resource id (add it to axml_begin)\n"; return; }
+        if idx < 0 { jerr << "axml: the attribute " << name << " has no resource id (add it to axml_begin)\n"; return; }
         id = ax_pool_id[idx];
     } else {
         idx = ax_str(name);

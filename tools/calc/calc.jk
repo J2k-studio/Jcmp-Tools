@@ -449,14 +449,14 @@ String fmt_double(double d) {
 
 void show_result(bool quiet) {
     if r_f {
-        cout << fmt_double(r_d) << "\n";
+        jout << fmt_double(r_d) << "\n";
         return;
     }
-    if quiet { cout << r_i << "\n"; return; }
-    cout << r_i << "\n";
-    cout << "  hex  0x" << to_base(r_i, 16, 64) << "\n";
-    cout << "  bin  0b" << group4(to_base(r_i, 2, 64)) << "\n";
-    cout << "  oct  0o" << to_base(r_i, 8, 64) << "\n";
+    if quiet { jout << r_i << "\n"; return; }
+    jout << r_i << "\n";
+    jout << "  hex  0x" << to_base(r_i, 16, 64) << "\n";
+    jout << "  bin  0b" << group4(to_base(r_i, 2, 64)) << "\n";
+    jout << "  oct  0o" << to_base(r_i, 8, 64) << "\n";
 }
 
 // one line: "x = expr" makes a variable, anything else is shown
@@ -479,7 +479,7 @@ int eval_line(String line, bool quiet) {
             parse_or();
             skip_ws();
             if err.len == 0 && pos < src.len { fail_at("unexpected '" + src.slice(pos, pos + 1) + "'"); }
-            if err.len > 0 { cerr << "calc: " << err << "\n"; return 1; }
+            if err.len > 0 { jerr << "calc: " << err << "\n"; return 1; }
             set_var(name, r_f, r_i, r_d);
             show_result(quiet);
             return 0;
@@ -488,7 +488,7 @@ int eval_line(String line, bool quiet) {
     parse_or();
     skip_ws();
     if err.len == 0 && pos < src.len { fail_at("unexpected '" + src.slice(pos, pos + 1) + "'"); }
-    if err.len > 0 { cerr << "calc: " << err << "\n"; return 1; }
+    if err.len > 0 { jerr << "calc: " << err << "\n"; return 1; }
     ans_f = r_f; ans_i = r_i; ans_d = r_d;
     show_result(quiet);
     return 0;
@@ -508,11 +508,11 @@ String read_line(bool^ eof) {
 }
 
 void help() {
-    cout << "calc: a calculator.   calc \"EXPRESSION\"   |   calc   (a prompt: exit, quit or Ctrl-D leaves)\n";
-    cout << "  numbers   255  0xff  0b1111_1111  0o377  16#ff  3.14  1e3        names   pi e tau ans   x = 5\n";
-    cout << "  operators + - * / // % ** (power)   << >>   < <= > >= == !=   and & | or xor not ~   ( )   (7/2 is 3.5, 8/2 is 4, 7//2 is 3)\n";
-    cout << "  functions sqrt cbrt sin cos tan asin acos atan atan2 sinh cosh tanh exp ln log log2 abs floor ceil round trunc min max pow hypot gcd lcm fact popcount bswap deg rad\n";
-    cout << "  a whole number is shown in decimal, hex, binary and octal.   -q  only the value\n";
+    jout << "calc: a calculator.   calc \"EXPRESSION\"   |   calc   (a prompt: exit, quit or Ctrl-D leaves)\n";
+    jout << "  numbers   255  0xff  0b1111_1111  0o377  16#ff  3.14  1e3        names   pi e tau ans   x = 5\n";
+    jout << "  operators + - * / // % ** (power)   << >>   < <= > >= == !=   and & | or xor not ~   ( )   (7/2 is 3.5, 8/2 is 4, 7//2 is 3)\n";
+    jout << "  functions sqrt cbrt sin cos tan asin acos atan atan2 sinh cosh tanh exp ln log log2 abs floor ceil round trunc min max pow hypot gcd lcm fact popcount bswap deg rad\n";
+    jout << "  a whole number is shown in decimal, hex, binary and octal.   -q  only the value\n";
 }
 
 int main() {
@@ -521,7 +521,7 @@ int main() {
     bool quiet = false;
     String expr = "";
     for i in 1..a.len {
-        if a[i] == "--version" || a[i] == "-V" { cout << "calc " << calc_version() << "\n"; return 0; }
+        if a[i] == "--version" || a[i] == "-V" { jout << "calc " << calc_version() << "\n"; return 0; }
         if a[i] == "--help" || a[i] == "-h" || a[i] == "-help" || a[i] == "help" { help(); return 0; }
         if a[i] == "-q" { quiet = true; continue; }
         if expr.len > 0 { expr = expr + " "; }
@@ -529,13 +529,13 @@ int main() {
     }
     if expr.len > 0 { return eval_line(expr, quiet); }
     bool tty = Sys::isatty(0) == 0;
-    if tty { cout << "calc " << calc_version() << "  (calc --help; exit, quit or Ctrl-D leaves)\n"; }
+    if tty { jout << "calc " << calc_version() << "  (calc --help; exit, quit or Ctrl-D leaves)\n"; }
     int rc = 0;
     while true {
-        if tty { cout << "calc> "; }
+        if tty { jout << "calc> "; }
         bool eof = false;
         String line = read_line(@eof).trim();
-        if eof && line.len == 0 { if tty { cout << "\n"; } break; }
+        if eof && line.len == 0 { if tty { jout << "\n"; } break; }
         if line == "exit" || line == "quit" || line == "q" { break; }
         if line.len == 0 { continue; }                       // an empty line only shows the prompt again
         rc = eval_line(line, quiet);
