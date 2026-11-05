@@ -32,3 +32,4 @@ jgit|git written in J2K: init, add, commit, status, log, diff, branch, switch; t
 drive|New drives for Jaric: a new place or a name for a folder (drive, drive new NAME [PATH], drive remove NAME)
 calc|A calculator for the terminal: sums, hex, binary, xor and, or, shifts, functions, variables (calc "0xff xor 0x0f")
 jaric-os|(paused) Jaric OS: the operating system of the Jaric project in a machine inside the app: jaric-os starts it (start screen, then a console on a disk made of a folder)
+learnj|A game that teaches computers, English and the J2K language: tracks, quizzes, a dragon duel, exams (progress in ~/.learnj)

@@ -32,3 +32,4 @@ apkj 0.2.0
 jnote 0.1.0
 jmaip 0.3.0
 jx86 0.1.0
+learnj 0.5.0
