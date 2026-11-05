@@ -144,12 +144,8 @@ int fail(String msg) {
 }
 
 String vault_dir() {
-    Option<String> d = Env::get("JMAIP_DIR");
-    if d.is_some() { return d.unwrap(); }
-    Option<String> home = Env::get("HOME");
-    String base = "/tmp";
-    if home.is_some() { base = home.unwrap(); }
-    return base + "/.jmaip";
+    String home = Env::get("HOME").or("/tmp");
+    return Env::get("JMAIP_DIR").or(home + "/.jmaip");
 }
 
 bool write_private(String path, String data) {

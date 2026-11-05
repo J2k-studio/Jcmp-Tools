@@ -369,7 +369,15 @@ int cmd_tool(String[] av, int at) {
             pw.push("pkg");
             pw.push("install");
             pw.push(name + "");
-            if cmd_pkg(pw) != 0 { err("jc: there is no tool or package '" + name + "' (jc tools, jc pkg search)\n"); rc = 1; }
+            if cmd_pkg(pw) != 0 {
+                String[] tn = arr(16);
+                for i in 0..ls.len { String[] tw = ls[i].split("|"); if tw.len > 0 { tn.push(tw[0] + ""); } }
+                String near = near_names(name + "", tn);
+                String hint = "";
+                if near.len > 0 { hint = "; did you mean: " + near; }
+                err("jc: there is no tool or package '" + name + "'" + hint + " (jc tools, jc pkg search)\n");
+                rc = 1;
+            }
             continue;
         }
         String lv = dir + "/." + name + ".latest";

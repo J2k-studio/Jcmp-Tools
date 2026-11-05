@@ -162,18 +162,70 @@ int pkg_list() {
     return 0;
 }
 
+// the number of single-letter changes between two names (case ignored); used to say "did you mean ..."
+int edit_dist(String a0, String b0) {
+    String a = a0.lower();
+    String b = b0.lower();
+    int n = a.len;
+    int m = b.len;
+    int[] prev = arr(m + 1);
+    int[] cur = arr(m + 1);
+    for j in 0..m + 1 { prev.push(j); cur.push(0); }
+    for i in 1..n + 1 {
+        cur[0] = i;
+        for j in 1..m + 1 {
+            int cost = 1;
+            if a[i - 1] == b[j - 1] { cost = 0; }
+            int best = prev[j - 1] + cost;
+            if prev[j] + 1 < best { best = prev[j] + 1; }
+            if cur[j - 1] + 1 < best { best = cur[j - 1] + 1; }
+            cur[j] = best;
+        }
+        for j in 0..m + 1 { prev[j] = cur[j]; }
+    }
+    return prev[m];
+}
+
+// up to three names close to the word (one or two letters off, or one contains the other), as "a, b, c"; "" when none
+String near_names(String word, String[] names) {
+    String r = "";
+    int shown = 0;
+    int limit = 1;
+    if word.len >= 4 { limit = 2; }
+    for i in 0..names.len {
+        String nm = names[i] + "";
+        if nm.len == 0 || shown >= 3 { continue; }
+        bool close = edit_dist(word, nm) <= limit || (word.len >= 3 && (nm.contains(word) || word.contains(nm)));
+        if close {
+            if shown > 0 { r = r + ", "; }
+            r = r + nm;
+            shown += 1;
+        }
+    }
+    return r;
+}
+
 int pkg_search(String index, String word) {
     Result<JsonDoc, Error> pj = Json::parse(index);
     switch pj {
         Result::Ok(d): {
+            int found = 0;
+            String[] all = arr(16);
             for i in 0..d.len(0) {
                 int e = d.at(0, i);
                 int nn = d.get(e, "name");
                 int vn = d.get(e, "version");
                 if nn >= 0 && vn >= 0 {
                     String nm = d.text(nn);
-                    if word.len == 0 || nm.contains(word) { jout << nm << "  " << d.text(vn) << "\n"; }
+                    all.push(nm + "");
+                    if word.len == 0 || nm.contains(word) { jout << nm << "  " << d.text(vn) << "\n"; found += 1; }
                 }
+            }
+            if found == 0 && word.len > 0 {
+                jout << "jc: no package of Jcmp-pkg matches '" << word << "'";
+                String near = near_names(word, all);
+                if near.len > 0 { jout << "; did you mean: " << near; }
+                jout << "\n(the tools of Jcmp-Tools are listed by  jc tools ; your own program is not in an index: it has to be published first)\n";
             }
         }
         Result::Err(e): { err("jc: the package index is not valid JSON\n"); return 1; }
