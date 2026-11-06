@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0
+* **Added:** `cp` and `mv` take several sources and a folder at the end (`cp a.mp3 b.mp3 music/`, `mv *.txt notes/`); `-v` says what is copied or moved, `-n` keeps a file that is already there.
+* **Fixed:** none.
+
 ## 0.11.0
 * **Added:** `cp -r FOLDER TO` copies a folder and what is in it (files byte for byte, the right to run stays). `mv` between drives (`mv Jcmp 0:/`, from the home to the shared storage): the system cannot rename between drives (error 18), so the file or folder is copied and the old one is removed only after the copy had no error. `mv` and `cp` refuse to put a folder into itself.
 * **Fixed:** `mv FOLDER 0:/` failed with "the system refused (error 18)".

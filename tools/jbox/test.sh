@@ -136,6 +136,15 @@ mkdir mvdest && "$J" mv tree2 mvdest || { echo "jbox test: mv of a folder"; exit
 "$J" rm -rf mvdest tree || { echo "jbox test: rm -rf"; exit 1; }
 [ ! -e mvdest ] && [ ! -e tree ] || { echo "jbox test: rm -rf left something"; exit 1; }
 if "$J" cp -r mvdest/x mvdest/x/y > /dev/null 2>&1; then echo "jbox test: cp of nothing must fail"; exit 1; fi
+# several sources go into a folder (cp a b dir/, mv a b dir/); -n keeps a file that is there; -v says what it does
+mkdir sdest && printf '1' > s1.txt && printf '2' > s2.txt
+"$J" cp s1.txt s2.txt sdest || { echo "jbox test: cp of two files into a folder"; exit 1; }
+[ "$(cat sdest/s1.txt)$(cat sdest/s2.txt)" = "12" ] || { echo "jbox test: cp of two files: contents"; exit 1; }
+printf 'new' > s1.txt; "$J" cp -n s1.txt sdest; [ "$(cat sdest/s1.txt)" = "1" ] || { echo "jbox test: cp -n overwrote"; exit 1; }
+[ "$("$J" cp -v s2.txt sdest/s3.txt)" = "s2.txt -> sdest/s3.txt" ] || { echo "jbox test: cp -v"; exit 1; }
+mkdir sdest2 && "$J" mv s1.txt s2.txt sdest2 || { echo "jbox test: mv of two files"; exit 1; }
+[ -f sdest2/s1.txt ] && [ -f sdest2/s2.txt ] && [ ! -e s1.txt ] || { echo "jbox test: mv of two files: result"; exit 1; }
+if "$J" mv sdest2/s1.txt sdest2/s2.txt nofolder > /dev/null 2>&1; then echo "jbox test: mv of two files into a non-folder must fail"; exit 1; fi
 # --install: a stale link (to another program, or to nothing) is made again; a real file stays
 mkdir "$T/lnk" && cd "$T/lnk" && ln -s /bin/sh cp && ln -s nowhere sort && printf 'mine' > uniq
 "$J" --install . > /dev/null || { echo "jbox test: --install failed"; exit 1; }

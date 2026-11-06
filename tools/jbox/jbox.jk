@@ -866,37 +866,53 @@ i64 copy_tree(String app, String from, String to, i64 depth) {
     return rc;
 }
 
-i64 do_cp(String[] a) {
-    bool deep = has_flag(a, 'r') || has_flag(a, 'R');
-    String[] ops = operands(a, false);
-    if ops.len != 2 { return fail("cp", "usage: cp [-r] FROM TO   (TO may be a folder; a file is copied byte for byte, also a song or a picture; -r copies a folder)"); }
-    String from = ops[0];
-    String to = ops[1];
+// cp for one source: to is the name given on the line (a folder: the source goes into it)
+i64 cp_one(String from, String to0, bool deep, bool verbose, bool noclobber) {
+    String to = to0;
     if needs_root(to) { return need_root_fail("cp", to); }
     if Dir::exists(from) {
         if !deep { return fail("cp", from + ": is a folder (cp -r copies a folder and what is in it)"); }
         if Dir::exists(to) { to = Path::join(to, Path::name(from)); }
         String inner = from + "/";
         if to == from || to.starts_with(inner) { return fail("cp", "cannot copy a folder into itself"); }
+        if noclobber && Fs::exists(to) { return 0; }
+        if verbose { cout << from << " -> " << to << "\n"; }
         return copy_tree("cp", from, to, 0);
     }
     if Dir::exists(to) { to = Path::join(to, Path::name(from)); }
+    if noclobber && Fs::exists(to) { return 0; }
+    if verbose { cout << from << " -> " << to << "\n"; }
     return copy_file("cp", from, to);
 }
 
-// mv: a rename; when the other drive is meant (error 18: the system cannot rename between drives, for example f:/ and 0:/) the folder or file is copied
-// and the old one removed, but only after the copy was made without an error
-i64 do_mv(String[] a) {
+// cp [-r] [-v] [-n] FROM... TO   (with several sources TO is a folder)
+i64 do_cp(String[] a) {
+    bool deep = has_flag(a, 'r') || has_flag(a, 'R');
+    bool verbose = has_flag(a, 'v');
+    bool noclobber = has_flag(a, 'n');
     String[] ops = operands(a, false);
-    if ops.len != 2 { return fail("mv", "usage: mv FROM TO"); }
-    String from = ops[0];
-    String to = ops[1];
+    if ops.len < 2 { return fail("cp", "usage: cp [-r -v -n] FROM... TO   (several sources: TO is a folder; a file is copied byte for byte, also a song or a picture; -r copies a folder; -n keeps a file that is there)"); }
+    String to = ops[ops.len - 1];
+    if ops.len > 2 && !Dir::exists(to) { return fail("cp", to + ": is not a folder (several files go into a folder)"); }
+    i64 rc = 0;
+    for i in 0..ops.len - 1 {
+        if cp_one(ops[i], to, deep, verbose, noclobber) != 0 { rc = 1; }
+    }
+    return rc;
+}
+
+// mv for one source: a rename; when the other drive is meant (error 18: the system cannot rename between drives, for example f:/ and 0:/) the file or
+// folder is copied and the old one removed, but only after the copy was made without an error
+i64 mv_one(String from, String to0, bool verbose, bool noclobber) {
+    String to = to0;
     if needs_root(to) { return need_root_fail("mv", to); }
     if needs_root(from) { return need_root_fail("mv", from); }
     if Dir::exists(to) { to = Path::join(to, Path::name(from)); }
     if to == from { return 0; }
+    if noclobber && Fs::exists(to) { return 0; }
     String inner = from + "/";
     if Dir::exists(from) && to.starts_with(inner) { return fail("mv", "cannot move a folder into itself"); }
+    if verbose { cout << from << " -> " << to << "\n"; }
     String why = "";
     switch Fs::rename(from, to) {
         Result::Ok(v): return 0;
@@ -915,6 +931,21 @@ i64 do_mv(String[] a) {
                 Result::Err(e): rc = fail("mv", from + ": copied, but the old file could not be removed: " + e.message);
             }
         }
+    }
+    return rc;
+}
+
+// mv [-v] [-n] FROM... TO   (with several sources TO is a folder)
+i64 do_mv(String[] a) {
+    bool verbose = has_flag(a, 'v');
+    bool noclobber = has_flag(a, 'n');
+    String[] ops = operands(a, false);
+    if ops.len < 2 { return fail("mv", "usage: mv [-v -n] FROM... TO   (several sources: TO is a folder; -n keeps a file that is there)"); }
+    String to = ops[ops.len - 1];
+    if ops.len > 2 && !Dir::exists(to) { return fail("mv", to + ": is not a folder (several files go into a folder)"); }
+    i64 rc = 0;
+    for i in 0..ops.len - 1 {
+        if mv_one(ops[i], to, verbose, noclobber) != 0 { rc = 1; }
     }
     return rc;
 }
@@ -1814,7 +1845,7 @@ i64 do_install(String[] args) {
 
 i64 main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.11.0\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.12.0\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
