@@ -4,7 +4,7 @@
 // jsh runs `jbox NAME args` for the commands it does not find in PATH. Only the library and Sys:: calls are used.
 #import <stdlib>
 
-int fail(String app, String msg) {
+i64 fail(String app, String msg) {
     jerr << app << ": " << msg << "\n";
     return 1;
 }
@@ -12,7 +12,7 @@ int fail(String app, String msg) {
 String stdin_all() {
     String r = "";
     char b[4097];
-    int n = Sys::read(0, @b, 4096);
+    i64 n = Sys::read(0, @b, 4096);
     while n > 0 {
         b[n] = 0;
         r.append((char^)@b);
@@ -22,7 +22,7 @@ String stdin_all() {
 }
 
 // the text of a file, or of the standard input when the name is "-" or missing
-String load(String app, String path, int^ rc) {
+String load(String app, String path, i64^ rc) {
     if path == "-" { return stdin_all(); }
     String out = "";
     Result<String, Error> r = Fs::read_text(path);
@@ -63,7 +63,7 @@ bool needs_file(String app, String[] ops) {
 
 String[] operands(String[] a, bool valued) {
     String[] r = arr(a.len + 1);
-    int i = 1;
+    i64 i = 1;
     while i < a.len {
         if valued && a[i] == "-n" { i += 2; continue; }
         if !is_flag(a[i]) { r.push(a[i]); }
@@ -72,7 +72,7 @@ String[] operands(String[] a, bool valued) {
     return r;
 }
 // the value after -n, or the default
-int count_of(String[] a, int dflt) {
+i64 count_of(String[] a, i64 dflt) {
     for i in 1..a.len - 1 {
         if a[i] == "-n" { return a[i + 1].to_int(); }
     }
@@ -83,15 +83,15 @@ int count_of(String[] a, int dflt) {
 // ---- dir (ls): at a terminal the names stand in columns that fit the width of the screen (like ls), folders in blue and programs in green;
 //      -l one line for each with the rights and the size (-h: 1.5 KB), -1 one name on a line, -a also the names that start with a dot.
 //      Into a pipe or a file: one name on a line (a folder has a / after it).
-int name_cells(String n) {
+i64 name_cells(String n) {
     // the width on the screen: a letter is one cell, a combining mark of Thai (a vowel above or below, a tone mark) is none
-    int w = 0;
-    int i = 0;
+    i64 w = 0;
+    i64 i = 0;
     while i < n.len {
-        int c = n[i] & 255;
+        i64 c = n[i] & 255;
         if c < 128 { w += 1; i += 1; }
         else if c >= 224 && i + 2 < n.len {
-            int cp = ((c & 15) << 12) | ((n[i + 1] & 63) << 6) | (n[i + 2] & 63);
+            i64 cp = ((c & 15) << 12) | ((n[i + 1] & 63) << 6) | (n[i + 2] & 63);
             bool mark = cp == 3633 || (cp >= 3636 && cp <= 3642) || (cp >= 3655 && cp <= 3662);
             if !mark { w += 1; }
             i += 3;
@@ -102,9 +102,9 @@ int name_cells(String n) {
     return w;
 }
 
-String rights_of(int mode) {
+String rights_of(i64 mode) {
     String t = "-";
-    int kind = mode & 61440;
+    i64 kind = mode & 61440;
     if kind == 16384 { t = "d"; } else if kind == 40960 { t = "l"; }
     String r = t;
     String bits = "rwxrwxrwx";
@@ -112,7 +112,7 @@ String rights_of(int mode) {
     return r;
 }
 
-String ls_size(int sz, bool human) {
+String ls_size(i64 sz, bool human) {
     if !human { return str(sz); }
     if sz < 1024 { return str(sz); }
     if sz < 1048576 { return str(sz / 1024) + "." + str((sz % 1024) * 10 / 1024) + "K"; }
@@ -120,7 +120,7 @@ String ls_size(int sz, bool human) {
     return str(sz / 1073741824) + "." + str((sz % 1073741824) * 10 / 1073741824) + "G";
 }
 
-int do_ls(String[] a) {
+i64 do_ls(String[] a) {
     bool all = has_flag(a, 'a');
     bool lng = has_flag(a, 'l');
     bool human = has_flag(a, 'h');
@@ -128,7 +128,7 @@ int do_ls(String[] a) {
     bool tty = Sys::isatty(1) == 0;
     String[] ops = operands(a, false);
     if ops.len == 0 { ops.push("."); }
-    int rc = 0;
+    i64 rc = 0;
     for p in 0..ops.len {
         String[] raw = arr(4);
         String base = ops[p];
@@ -148,13 +148,13 @@ int do_ls(String[] a) {
             if !all && n.len > 0 && n[0] == 46 { continue; }
             names.push(n + "");
         }
-        int cnt = names.len;
-        int[] order = arr(cnt + 1);
+        i64 cnt = names.len;
+        i64[] order = arr(cnt + 1);
         for i in 0..cnt { order.push(i); }
         for i in 1..cnt {
-            int cur = order[i];
+            i64 cur = order[i];
             String key = names[cur].lower();
-            int k = i - 1;
+            i64 k = i - 1;
             while k >= 0 {
                 String before = names[order[k]].lower();
                 if !(before > key) { break; }
@@ -166,17 +166,17 @@ int do_ls(String[] a) {
         // what each one is: folder?, program?, size, rights
         bool[] isdir = arr(cnt + 1);
         bool[] isexe = arr(cnt + 1);
-        int[] sizes = arr(cnt + 1);
-        int[] modes = arr(cnt + 1);
+        i64[] sizes = arr(cnt + 1);
+        i64[] modes = arr(cnt + 1);
         String[] shown = arr(cnt + 1);
-        int[] cells = arr(cnt + 1);
+        i64[] cells = arr(cnt + 1);
         for q in 0..cnt {
             String n = names[order[q]];
             String full = n;
             if base.len > 0 { full = Path::join(base, n); }
             char st[128];
-            int mode = 0;
-            int sz = 0;
+            i64 mode = 0;
+            i64 sz = 0;
             if Sys::stat(full.c(), @st) == 0 {
                 mode = (st[16] & 255) | ((st[17] & 255) << 8) | ((st[18] & 255) << 16);
                 for z in 0..8 { sz = sz | ((st[48 + z] & 255) << (8 * z)); }
@@ -197,8 +197,8 @@ int do_ls(String[] a) {
         String off = "";
         if tty { blue = "\e[1;34m"; green = "\e[1;32m"; off = "\e[0m"; }
         if lng {
-            int sw = 0;
-            for q in 0..cnt { int l = ls_size(sizes[q], human).len; if l > sw { sw = l; } }
+            i64 sw = 0;
+            for q in 0..cnt { i64 l = ls_size(sizes[q], human).len; if l > sw { sw = l; } }
             for q in 0..cnt {
                 String sz = ls_size(sizes[q], human);
                 String col = "";
@@ -216,19 +216,19 @@ int do_ls(String[] a) {
                 jout << col << shown[q] << endc << "\n";
             }
         } else {
-            int width = Term::cols();
+            i64 width = Term::cols();
             if width < 20 { width = 80; }
             // as many columns as fit: the names go down the first column, then the next (like ls)
-            int ncols = cnt;
-            int rows = 1;
-            int[] colw = arr(cnt + 1);
+            i64 ncols = cnt;
+            i64 rows = 1;
+            i64[] colw = arr(cnt + 1);
             while ncols >= 1 {
                 rows = (cnt + ncols - 1) / ncols;
-                int total = 0;
+                i64 total = 0;
                 colw = arr(ncols + 1);
                 for c in 0..ncols {
-                    int m = 0;
-                    for r in 0..rows { int idx = c * rows + r; if idx < cnt && cells[idx] > m { m = cells[idx]; } }
+                    i64 m = 0;
+                    for r in 0..rows { i64 idx = c * rows + r; if idx < cnt && cells[idx] > m { m = cells[idx]; } }
                     colw.push(m + 2);
                     total += m + 2;
                 }
@@ -238,7 +238,7 @@ int do_ls(String[] a) {
             for r in 0..rows {
                 String line = "";
                 for c in 0..ncols {
-                    int idx = c * rows + r;
+                    i64 idx = c * rows + r;
                     if idx >= cnt { continue; }
                     String col = "";
                     if isdir[idx] { col = blue; } else if isexe[idx] { col = green; }
@@ -255,33 +255,33 @@ int do_ls(String[] a) {
     return rc;
 }
 
-int do_cat(String[] a) {
+i64 do_cat(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 { ops.push("-"); }
-    int rc = 0;
+    i64 rc = 0;
     for i in 0..ops.len { jout << load("cat", ops[i], @rc); }
     return rc;
 }
 
-int do_head_tail(String[] a, bool head) {
-    int n = count_of(a, 10);
+i64 do_head_tail(String[] a, bool head) {
+    i64 n = count_of(a, 10);
     String[] ops = operands(a, true);
     if needs_file(Path::name(a[0]), ops) { return 2; }
     if ops.len == 0 { ops.push("-"); }
-    int rc = 0;
+    i64 rc = 0;
     for p in 0..ops.len {
         String who = "tail";
         if head { who = "head"; }
         String[] ls = lines_of(load(who, ops[p], @rc));
-        int first = 0;
-        int last = ls.len;
+        i64 first = 0;
+        i64 last = ls.len;
         if head { if n < last { last = n; } } else { if ls.len > n { first = ls.len - n; } }
         for i in first..last { jout << ls[i] << "\n"; }
     }
     return rc;
 }
 
-int do_wc(String[] a) {
+i64 do_wc(String[] a) {
     bool l = has_flag(a, 'l');
     bool w = has_flag(a, 'w');
     bool c = has_flag(a, 'c');
@@ -289,11 +289,11 @@ int do_wc(String[] a) {
     String[] ops = operands(a, false);
     if needs_file("wc", ops) { return 2; }
     if ops.len == 0 { ops.push("-"); }
-    int rc = 0;
+    i64 rc = 0;
     for p in 0..ops.len {
         String t = load("wc", ops[p], @rc);
-        int nl = 0;
-        int nw = 0;
+        i64 nl = 0;
+        i64 nw = 0;
         bool inw = false;
         for i in 0..t.len {
             char ch = t[i];
@@ -311,15 +311,15 @@ int do_wc(String[] a) {
 }
 
 // nl [FILE]: the lines with numbers in front (empty lines are not numbered, like nl);   tac [FILE]: the lines from the last to the first
-int do_nl(String[] a) {
+i64 do_nl(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 { ops.push("-"); }
-    int rc = 0;
-    int n = 0;
+    i64 rc = 0;
+    i64 n = 0;
     for p in 0..ops.len {
         String t = load("nl", ops[p], @rc);
         String[] lines = t.split("\n");
-        int last = lines.len;
+        i64 last = lines.len;
         if last > 0 && lines[last - 1].len == 0 { last -= 1; }
         for i in 0..last {
             if lines[i].len == 0 { jout << "       \n"; continue; }
@@ -332,16 +332,16 @@ int do_nl(String[] a) {
     return rc;
 }
 
-int do_tac(String[] a) {
+i64 do_tac(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 { ops.push("-"); }
-    int rc = 0;
+    i64 rc = 0;
     for p in 0..ops.len {
         String t = load("tac", ops[p], @rc);
         String[] lines = t.split("\n");
-        int last = lines.len;
+        i64 last = lines.len;
         if last > 0 && lines[last - 1].len == 0 { last -= 1; }
-        int i = last - 1;
+        i64 i = last - 1;
         while i >= 0 { jout << lines[i] << "\n"; i -= 1; }
     }
     return rc;
@@ -350,12 +350,12 @@ int do_tac(String[] a) {
 // ---------------------------------------------------------------- 0.6.0: more of the small commands
 String read_all_bin(String path, bool^ ok) {
     ok[0] = false;
-    if path == "-" { String r0 = ""; char b0[8192]; int n0 = Sys::read(0, @b0, 8192); while n0 > 0 { for i in 0..n0 { r0.push(b0[i]); } n0 = Sys::read(0, @b0, 8192); } ok[0] = true; return r0; }
-    int fd = Sys::open_read(path.c());
+    if path == "-" { String r0 = ""; char b0[8192]; i64 n0 = Sys::read(0, @b0, 8192); while n0 > 0 { for i in 0..n0 { r0.push(b0[i]); } n0 = Sys::read(0, @b0, 8192); } ok[0] = true; return r0; }
+    i64 fd = Sys::open_read(path.c());
     if fd < 0 { return ""; }
     String r = "";
     char buf[8192];
-    int n = Sys::read(fd, @buf, 8192);
+    i64 n = Sys::read(fd, @buf, 8192);
     while n > 0 {
         for i in 0..n { r.push(buf[i]); }
         n = Sys::read(fd, @buf, 8192);
@@ -375,14 +375,14 @@ String first_line_of(String path, String fallback) {
 }
 
 // rev: every line backwards (by letters, so Thai and others stay whole)
-int do_rev(String[] a) {
+i64 do_rev(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 { ops.push("-"); }
-    int rc = 0;
+    i64 rc = 0;
     for p in 0..ops.len {
         String t = load("rev", ops[p], @rc);
         String[] lines = t.split("\n");
-        int last = lines.len;
+        i64 last = lines.len;
         if last > 0 && lines[last - 1].len == 0 { last -= 1; }
         for i in 0..last {
             String[] ch = lines[i].chars();
@@ -393,7 +393,7 @@ int do_rev(String[] a) {
                 if mark && units.len > 0 { units[units.len - 1] = units[units.len - 1] + c; } else { units.push(c + ""); }
             }
             String o = "";
-            int k = units.len - 1;
+            i64 k = units.len - 1;
             while k >= 0 { o = o + units[k]; k -= 1; }
             jout << o << "\n";
         }
@@ -401,7 +401,7 @@ int do_rev(String[] a) {
     return rc;
 }
 
-int do_yes(String[] a) {
+i64 do_yes(String[] a) {
     String w = "y";
     if a.len > 1 { w = a[1]; for i in 2..a.len { w = w + " " + a[i]; } }
     String line = w + "\n";
@@ -411,7 +411,7 @@ int do_yes(String[] a) {
     return 0;
 }
 
-int do_uname(String[] a) {
+i64 do_uname(String[] a) {
     String os = first_line_of("/proc/sys/kernel/ostype", "Linux");
     String host = first_line_of("/proc/sys/kernel/hostname", "localhost");
     String rel = first_line_of("/proc/sys/kernel/osrelease", "");
@@ -423,12 +423,12 @@ int do_uname(String[] a) {
     return 0;
 }
 
-int do_hostname(String[] a) {
+i64 do_hostname(String[] a) {
     jout << first_line_of("/proc/sys/kernel/hostname", "localhost") << "\n";
     return 0;
 }
 
-int do_whoami(String[] a) {
+i64 do_whoami(String[] a) {
     switch Env::get("USER") {
         Option::Some(u): { if u.len > 0 { jout << u << "\n"; return 0; } }
         Option::None: { }
@@ -438,7 +438,7 @@ int do_whoami(String[] a) {
 }
 
 // realpath: the full path with . and .. worked out (the file need not exist)
-int do_realpath(String[] a) {
+i64 do_realpath(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 { return fail("realpath", "a path is needed"); }
     for k in 0..ops.len {
@@ -464,7 +464,7 @@ int do_realpath(String[] a) {
     return 0;
 }
 
-int do_base64(String[] a) {
+i64 do_base64(String[] a) {
     bool dec = has_flag(a, 'd');
     String[] ops = operands(a, false);
     String path = "-";
@@ -480,9 +480,9 @@ int do_base64(String[] a) {
         return 0;
     }
     String e = Base64::encode(t);
-    int at = 0;
+    i64 at = 0;
     while at < e.len {                                                  // lines of 76 letters, like the others
-        int to = at + 76;
+        i64 to = at + 76;
         if to > e.len { to = e.len; }
         jout << e.slice(at, to) << "\n";
         at = to;
@@ -490,10 +490,10 @@ int do_base64(String[] a) {
     return 0;
 }
 
-int do_sha256sum(String[] a) {
+i64 do_sha256sum(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 { ops.push("-"); }
-    int rc = 0;
+    i64 rc = 0;
     for p in 0..ops.len {
         bool ok = false;
         String t = read_all_bin(ops[p], @ok);
@@ -504,7 +504,7 @@ int do_sha256sum(String[] a) {
 }
 
 // cmp A B: the first byte that differs
-int do_cmp(String[] a) {
+i64 do_cmp(String[] a) {
     String[] ops = operands(a, false);
     if ops.len < 2 { return fail("cmp", "two files are needed"); }
     bool ok1 = false;
@@ -513,7 +513,7 @@ int do_cmp(String[] a) {
     String y = read_all_bin(ops[1], @ok2);
     if !ok1 { return fail("cmp", "cannot read " + ops[0]); }
     if !ok2 { return fail("cmp", "cannot read " + ops[1]); }
-    int n = x.len;
+    i64 n = x.len;
     if y.len < n { n = y.len; }
     for i in 0..n {
         if x[i] != y[i] { jout << ops[0] << " " << ops[1] << " differ: byte " << i + 1 << "\n"; return 1; }
@@ -528,18 +528,18 @@ int do_cmp(String[] a) {
 }
 
 // paste A B: the lines side by side with a tab
-int do_paste(String[] a) {
+i64 do_paste(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 { return fail("paste", "files are needed"); }
-    int rc = 0;
+    i64 rc = 0;
     String[] all = arr(64);
-    int[] starts = arr(ops.len + 1);
-    int[] lens = arr(ops.len + 1);
-    int most = 0;
+    i64[] starts = arr(ops.len + 1);
+    i64[] lens = arr(ops.len + 1);
+    i64 most = 0;
     for k in 0..ops.len {
         String t = load("paste", ops[k], @rc);
         String[] l = t.split("\n");
-        int n = l.len;
+        i64 n = l.len;
         if n > 0 && l[n - 1].len == 0 { n -= 1; }
         starts.push(all.len);
         lens.push(n);
@@ -558,25 +558,25 @@ int do_paste(String[] a) {
 }
 
 // fold -w N: lines cut at N letters
-int do_fold(String[] a) {
-    int w = 80;
+i64 do_fold(String[] a) {
+    i64 w = 80;
     String[] ops = arr(a.len + 1);
-    int i = 1;
+    i64 i = 1;
     while i < a.len {
         if a[i] == "-w" && i + 1 < a.len { w = a[i + 1].to_int(); i += 2; }
         else { ops.push(a[i] + ""); i += 1; }
     }
     if w < 1 { w = 80; }
     if ops.len == 0 { ops.push("-"); }
-    int rc = 0;
+    i64 rc = 0;
     for p in 0..ops.len {
         String t = load("fold", ops[p], @rc);
         String[] lines = t.split("\n");
-        int last = lines.len;
+        i64 last = lines.len;
         if last > 0 && lines[last - 1].len == 0 { last -= 1; }
         for k in 0..last {
             String[] ch = lines[k].chars();
-            int n = 0;
+            i64 n = 0;
             String cur = "";
             for q in 0..ch.len {
                 if n == w { jout << cur << "\n"; cur = ""; n = 0; }
@@ -590,15 +590,15 @@ int do_fold(String[] a) {
 }
 
 // printf FORMAT args...: %s %d %x %c %% and \n \t \\ ; the format is used again while arguments are left
-int do_printf(String[] a) {
+i64 do_printf(String[] a) {
     if a.len < 2 { return fail("printf", "a format is needed"); }
     String f = a[1];
-    int arg = 2;
+    i64 arg = 2;
     bool again = true;
     while again {
         again = false;
-        int used = 0;
-        int i = 0;
+        i64 used = 0;
+        i64 i = 0;
         while i < f.len {
             char c = f[i];
             if c == '\\' && i + 1 < f.len {
@@ -612,7 +612,7 @@ int do_printf(String[] a) {
                 if d == 's' { jout << v; }
                 else if d == 'd' { jout << str(v.to_int()); }
                 else if d == 'x' {
-                    int hv = v.to_int();
+                    i64 hv = v.to_int();
                     String hs = "";
                     String hd = "0123456789abcdef";
                     if hv == 0 { hs = "0"; }
@@ -630,16 +630,16 @@ int do_printf(String[] a) {
     return 0;
 }
 
-int do_uptime(String[] a) {
+i64 do_uptime(String[] a) {
     String u = first_line_of("/proc/uptime", "0 0");
     String[] p = u.split(" ");
     String[] whole = p[0].split(".");
-    int secs = whole[0].to_int();
+    i64 secs = whole[0].to_int();
     jout << "up " << secs / 86400 << " days, " << (secs % 86400) / 3600 << ":" << two_digits((secs % 3600) / 60) << "\n";
     return 0;
 }
 
-String two_digits(int n) {
+String two_digits(i64 n) {
     String r = str(n);
     if r.len < 2 { r = "0" + r; }
     return r;
@@ -658,14 +658,14 @@ String[] words_of(String line) {
 }
 
 // free: the memory of the phone in MB (from /proc/meminfo)
-int do_free(String[] a) {
+i64 do_free(String[] a) {
     bool mok = false;
     String mt = read_all_bin("/proc/meminfo", @mok);
     if !mok { return fail("free", "cannot read /proc/meminfo"); }
     String[] lines = mt.split("\n");
-    int total = 0;
-    int avail = 0;
-    int swap = 0;
+    i64 total = 0;
+    i64 avail = 0;
+    i64 swap = 0;
     for i in 0..lines.len {
         String l = lines[i];
         String[] p = words_of(l);
@@ -678,10 +678,10 @@ int do_free(String[] a) {
     return 0;
 }
 
-int do_nproc(String[] a) {
+i64 do_nproc(String[] a) {
     bool cok = false;
     String ct = read_all_bin("/proc/cpuinfo", @cok);
-    int n = 0;
+    i64 n = 0;
     if cok {
         String[] lines = ct.split("\n");
         for i in 0..lines.len { if lines[i].starts_with("processor") { n += 1; } }
@@ -714,15 +714,15 @@ bool needs_root(String path) {
     return false;
 }
 
-int need_root_fail(String app, String path) { return fail(app, path + ": the commands of the system are changed by root (login root, or  root " + app + " ...)"); }
+i64 need_root_fail(String app, String path) { return fail(app, path + ": the commands of the system are changed by root (login root, or  root " + app + " ...)"); }
 
-int do_mkdir(String[] a) {
+i64 do_mkdir(String[] a) {
     bool deep = has_flag(a, 'p');
     String[] ops = operands(a, false);
     if ops.len == 0 { return fail("mkdir", "a folder name is needed"); }
-    int rc = 0;
+    i64 rc = 0;
     for i in 0..ops.len {
-        Result<int, Error> r = Dir::make(ops[i]);
+        Result<i64, Error> r = Dir::make(ops[i]);
         if deep { r = Dir::make_all(ops[i]); }
         switch r {
             Result::Ok(v): rc = rc;
@@ -738,8 +738,8 @@ bool is_link(String p) {                                  // a symbolic link: re
 }
 
 // rm -r: a folder and everything in it (symbolic links are removed, not followed)
-int remove_tree(String dir) {
-    int rc = 0;
+i64 remove_tree(String dir) {
+    i64 rc = 0;
     switch Dir::list(dir) {
         Result::Ok(names): {
             for i in 0..names.len {
@@ -755,12 +755,12 @@ int remove_tree(String dir) {
     return rc;
 }
 
-int do_rm(String[] a) {
+i64 do_rm(String[] a) {
     bool force = has_flag(a, 'f');
     bool deep = has_flag(a, 'r') || has_flag(a, 'R');
     String[] ops = operands(a, false);
     if ops.len == 0 && !force { return fail("rm", "a file name is needed"); }
-    int rc = 0;
+    i64 rc = 0;
     for i in 0..ops.len {
         String target = ops[i];
         if needs_root(target) { rc = need_root_fail("rm", target); continue; }
@@ -777,7 +777,7 @@ int do_rm(String[] a) {
             if remove_tree(target) != 0 && !force { rc = fail("rm", target + ": could not remove everything"); }
             continue;
         }
-        Result<int, Error> r = Fs::remove(target);
+        Result<i64, Error> r = Fs::remove(target);
         switch r {
             Result::Ok(v): rc = rc;
             Result::Err(e): if !force { rc = fail("rm", target + ": " + e.message); }
@@ -786,12 +786,12 @@ int do_rm(String[] a) {
     return rc;
 }
 
-int do_rmdir(String[] a) {
+i64 do_rmdir(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 { return fail("rmdir", "a folder name is needed"); }
-    int rc = 0;
+    i64 rc = 0;
     for i in 0..ops.len {
-        Result<int, Error> r = Dir::remove(ops[i]);
+        Result<i64, Error> r = Dir::remove(ops[i]);
         switch r {
             Result::Ok(v): rc = rc;
             Result::Err(e): rc = fail("rmdir", e.message);
@@ -800,13 +800,13 @@ int do_rmdir(String[] a) {
     return rc;
 }
 
-int do_touch(String[] a) {
+i64 do_touch(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 { return fail("touch", "a file name is needed"); }
-    int rc = 0;
+    i64 rc = 0;
     for i in 0..ops.len {
         if !Fs::exists(ops[i]) {
-            Result<int, Error> r = Fs::write_text(ops[i], "");
+            Result<i64, Error> r = Fs::write_text(ops[i], "");
             switch r {
                 Result::Ok(v): rc = rc;
                 Result::Err(e): rc = fail("touch", ops[i] + ": " + e.message);
@@ -816,7 +816,7 @@ int do_touch(String[] a) {
     return rc;
 }
 
-int do_cp(String[] a) {
+i64 do_cp(String[] a) {
     String[] ops = operands(a, false);
     if ops.len != 2 { return fail("cp", "usage: cp FROM TO   (TO may be a folder; a file is copied byte for byte, also a song or a picture)"); }
     String from = ops[0];
@@ -833,7 +833,7 @@ int do_cp(String[] a) {
             Result::Err(e): return fail("cp", from + ": " + e.message);
         }
     }
-    Result<int, Error> w = Fs::write_bytes(to, data);
+    Result<i64, Error> w = Fs::write_bytes(to, data);
     switch w {
         Result::Ok(v): data = data;
         Result::Err(e): return fail("cp", to + ": " + e.message);
@@ -841,21 +841,21 @@ int do_cp(String[] a) {
     // an executable stays executable
     char st[128];
     if from != "-" && Sys::stat(from.c(), @st) == 0 {
-        int mode = (st[16] & 255) | ((st[17] & 255) << 8);
+        i64 mode = (st[16] & 255) | ((st[17] & 255) << 8);
         Sys::chmod(to.c(), mode & 511);
     }
     return 0;
 }
 
-int do_mv(String[] a) {
+i64 do_mv(String[] a) {
     String[] ops = operands(a, false);
     if ops.len != 2 { return fail("mv", "usage: mv FROM TO"); }
     String to = ops[1];
     if needs_root(to) { return need_root_fail("mv", to); }
     if needs_root(ops[0]) { return need_root_fail("mv", ops[0]); }
     if Dir::exists(to) { to = Path::join(to, Path::name(ops[0])); }
-    int rc = 0;
-    Result<int, Error> r = Fs::rename(ops[0], to);
+    i64 rc = 0;
+    Result<i64, Error> r = Fs::rename(ops[0], to);
     switch r {
         Result::Ok(v): rc = rc;
         Result::Err(e): rc = fail("mv", ops[0] + ": " + e.message);
@@ -863,7 +863,7 @@ int do_mv(String[] a) {
     return rc;
 }
 
-int do_grep(String[] a) {
+i64 do_grep(String[] a) {
     bool number = has_flag(a, 'n');
     bool invert = has_flag(a, 'v');
     bool icase = has_flag(a, 'i');
@@ -871,9 +871,9 @@ int do_grep(String[] a) {
     if ops.len == 0 { return fail("grep", "usage: grep [-n -v -i] PATTERN [FILE]"); }
     String pat = ops[0];
     if icase { pat = pat.lower(); }
-    int rc = 1;
-    int errs = 0;
-    int nfiles = ops.len - 1;
+    i64 rc = 1;
+    i64 errs = 0;
+    i64 nfiles = ops.len - 1;
     if ops.len == 1 && Sys::isatty(0) == 0 { jerr << "grep: a file name is needed (or text piped in)\n"; return 2; }
     if nfiles == 0 { ops.push("-"); nfiles = 1; }
     for p in 1..ops.len {
@@ -894,11 +894,11 @@ int do_grep(String[] a) {
     return rc;
 }
 
-int do_sort(String[] a) {
+i64 do_sort(String[] a) {
     String[] ops = operands(a, false);
     if needs_file("sort", ops) { return 2; }
     if ops.len == 0 { ops.push("-"); }
-    int rc = 0;
+    i64 rc = 0;
     String[] all = arr(16);
     for p in 0..ops.len {
         String[] ls = lines_of(load("sort", ops[p], @rc));
@@ -911,11 +911,11 @@ int do_sort(String[] a) {
     return rc;
 }
 
-int do_uniq(String[] a) {
+i64 do_uniq(String[] a) {
     String[] ops = operands(a, false);
     if needs_file("uniq", ops) { return 2; }
     if ops.len == 0 { ops.push("-"); }
-    int rc = 0;
+    i64 rc = 0;
     String[] ls = lines_of(load("uniq", ops[0], @rc));
     for i in 0..ls.len {
         if i == 0 || ls[i] != ls[i - 1] { jout << ls[i] << "\n"; }
@@ -923,14 +923,14 @@ int do_uniq(String[] a) {
     return rc;
 }
 
-int do_tee(String[] a) {
+i64 do_tee(String[] a) {
     bool append = has_flag(a, 'a');
     String[] ops = operands(a, false);
     String t = stdin_all();
     jout << t;
-    int rc = 0;
+    i64 rc = 0;
     for i in 0..ops.len {
-        Result<int, Error> r = Fs::write_text(ops[i], t);
+        Result<i64, Error> r = Fs::write_text(ops[i], t);
         if append { r = Fs::append_text(ops[i], t); }
         switch r {
             Result::Ok(v): rc = rc;
@@ -940,10 +940,10 @@ int do_tee(String[] a) {
     return rc;
 }
 
-int do_seq(String[] a) {
+i64 do_seq(String[] a) {
     String[] ops = operands(a, false);
-    int lo = 1;
-    int hi = 0;
+    i64 lo = 1;
+    i64 hi = 0;
     if ops.len == 1 { hi = ops[0].to_int(); }
     else if ops.len >= 2 { lo = ops[0].to_int(); hi = ops[1].to_int(); }
     else { return fail("seq", "usage: seq [FIRST] LAST"); }
@@ -951,31 +951,31 @@ int do_seq(String[] a) {
     return 0;
 }
 
-int do_basename(String[] a) {
+i64 do_basename(String[] a) {
     if a.len < 2 { return fail("basename", "a path is needed"); }
     jout << Path::name(a[1]) << "\n";
     return 0;
 }
 
-int do_dirname(String[] a) {
+i64 do_dirname(String[] a) {
     if a.len < 2 { return fail("dirname", "a path is needed"); }
     jout << Path::parent(a[1]) << "\n";
     return 0;
 }
 
-int do_sleep(String[] a) {
+i64 do_sleep(String[] a) {
     if a.len < 2 { return fail("sleep", "seconds are needed"); }
     Time::sleep_ms(a[1].to_int() * 1000);
     return 0;
 }
 
-int do_clear() {
+i64 do_clear() {
     jout << (char)27 << "[2J" << (char)27 << "[H";
     return 0;
 }
 
-int do_env() {
-    int ne = 0;
+i64 do_env() {
+    i64 ne = 0;
     while Sys::arg(Sys::argc() + 1 + ne) != null {
         String e = "";
         e.append((char^)Sys::arg(Sys::argc() + 1 + ne));
@@ -985,10 +985,10 @@ int do_env() {
     return 0;
 }
 
-int do_kill(String[] a) {
-    int sig = 15;
-    int rc = 0;
-    int count = 0;
+i64 do_kill(String[] a) {
+    i64 sig = 15;
+    i64 rc = 0;
+    i64 count = 0;
     for i in 1..a.len {
         String w = a[i];
         if w.len > 1 && w[0] == '-' {
@@ -1016,7 +1016,7 @@ bool is_digits(String s) {
     return true;
 }
 
-int do_help() {
+i64 do_help() {
     jout << "jbox commands: dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
     jout << "flags: dir -a -l   tree -a -d -s -L N   find -name P -type f|d -maxdepth N   ln -s   cut -d X -f N   tr -d   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
     return 0;
@@ -1028,13 +1028,13 @@ bool tree_dirs_only;        // -d : folders only
 bool tree_sizes;            // -s : the size of each file
 bool tree_denied;           // a folder could not be read
 
-String size_text(int n) {
+String size_text(i64 n) {
     if n < 1024 { return str(n) + " B"; }
     if n < 1024 * 1024 { return str(n / 1024) + " KB"; }
     return str(n / (1024 * 1024)) + " MB";
 }
 
-int tree_walk(String dir, String prefix, bool all, int depth, int maxd, int^ nd, int^ nf) {
+i64 tree_walk(String dir, String prefix, bool all, i64 depth, i64 maxd, i64^ nd, i64^ nf) {
     if depth >= maxd { return 0; }
     Result<String[], Error> r = Dir::list(dir);
     if !r.is_ok() { jout << prefix << "`-- [cannot read this folder]\n"; tree_denied = true; return 1; }
@@ -1058,7 +1058,7 @@ int tree_walk(String dir, String prefix, bool all, int depth, int maxd, int^ nd,
         if isdir { jout << prefix << mark << shown[i] << "/\n"; nd[0] += 1; }
         else {
             String extra = "";
-            if tree_sizes { Result<int, Error> sz = Fs::size(full); if sz.is_ok() { extra = "  (" + size_text(sz.take()) + ")"; } }
+            if tree_sizes { Result<i64, Error> sz = Fs::size(full); if sz.is_ok() { extra = "  (" + size_text(sz.take()) + ")"; } }
             jout << prefix << mark << shown[i] << extra << "\n";
             nf[0] += 1;
         }
@@ -1070,14 +1070,14 @@ int tree_walk(String dir, String prefix, bool all, int depth, int maxd, int^ nd,
     }
     return 0;
 }
-int do_tree(String[] a) {
+i64 do_tree(String[] a) {
     bool all = has_flag(a, 'a');
     tree_dirs_only = has_flag(a, 'd');
     tree_sizes = has_flag(a, 's');
     tree_denied = false;
-    int maxd = 64;
+    i64 maxd = 64;
     String root = ".";
-    int i = 1;
+    i64 i = 1;
     while i < a.len {
         if a[i] == "-L" && i + 1 < a.len { maxd = a[i + 1].to_int(); i += 2; continue; }
         if !is_flag(a[i]) { root = a[i] + ""; }
@@ -1085,16 +1085,16 @@ int do_tree(String[] a) {
     }
     if !Dir::exists(root) { return fail("tree", root + ": no such folder"); }
     jout << root << "\n";
-    int nd = 0;
-    int nf = 0;
-    int rc = tree_walk(root, "", all, 0, maxd, @nd, @nf);
+    i64 nd = 0;
+    i64 nf = 0;
+    i64 rc = tree_walk(root, "", all, 0, maxd, @nd, @nf);
     jout << "\n" << nd << " folders, " << nf << " files\n";
     if tree_denied && nd == 0 && nf == 0 { jerr << "tree: " << root << " cannot be listed here (Android hides it); try a folder under $HOME or $PREFIX\n"; }
     return rc;
 }
 
 // ---------------------------------------------------------------- more commands: find ln chmod cut tr diff
-bool glob_match(String p, int pi, String s, int si) {
+bool glob_match(String p, i64 pi, String s, i64 si) {
     while pi < p.len {
         if p[pi] == '*' {
             for k in si..s.len + 1 { if glob_match(p, pi + 1, s, k) { return true; } }
@@ -1109,7 +1109,7 @@ bool glob_match(String p, int pi, String s, int si) {
 }
 
 // find [FOLDER] [-name PATTERN] [-type f|d] [-maxdepth N]
-void find_walk(String dir, String pat, char kind, int depth, int maxd) {
+void find_walk(String dir, String pat, char kind, i64 depth, i64 maxd) {
     Result<String[], Error> r = Dir::list(dir);
     if !r.is_ok() { return; }
     String[] names = r.take();
@@ -1125,12 +1125,12 @@ void find_walk(String dir, String pat, char kind, int depth, int maxd) {
         if isdir && depth + 1 < maxd { find_walk(full, pat, kind, depth + 1, maxd); }
     }
 }
-int do_find(String[] a) {
+i64 do_find(String[] a) {
     String root = ".";
     String pat = "";
     char kind = 0;
-    int maxd = 64;
-    int i = 1;
+    i64 maxd = 64;
+    i64 i = 1;
     while i < a.len {
         if a[i] == "-name" && i + 1 < a.len { pat = a[i + 1] + ""; i += 2; }
         else if a[i] == "-type" && i + 1 < a.len { kind = a[i + 1][0]; i += 2; }
@@ -1142,21 +1142,21 @@ int do_find(String[] a) {
     return 0;
 }
 
-int do_ln(String[] a) {
+i64 do_ln(String[] a) {
     bool sym = has_flag(a, 's');
     String[] ops = operands(a, false);
     if ops.len != 2 { return fail("ln", "usage: ln -s TARGET LINK"); }
     if !sym { return fail("ln", "only symbolic links (ln -s TARGET LINK) are made here"); }
-    if Sys::call(36, (int)ops[0].c(), 0 - 100, (int)ops[1].c(), 0, 0, 0) < 0 { return fail("ln", "cannot make " + ops[1]); }
+    if Sys::call(36, (i64)ops[0].c(), 0 - 100, (i64)ops[1].c(), 0, 0, 0) < 0 { return fail("ln", "cannot make " + ops[1]); }
     return 0;
 }
 
-int do_chmod(String[] a) {
+i64 do_chmod(String[] a) {
     String[] ops = operands(a, false);
     if ops.len < 2 { return fail("chmod", "usage: chmod 755 FILE   or   chmod +x FILE"); }
-    int rc = 0;
+    i64 rc = 0;
     for i in 1..ops.len {
-        int mode = 0;
+        i64 mode = 0;
         if ops[0] == "+x" || ops[0] == "a+x" || ops[0] == "u+x" { mode = 493; }
         else if ops[0] == "-x" { mode = 420; }
         else {
@@ -1168,11 +1168,11 @@ int do_chmod(String[] a) {
 }
 
 // cut -d DELIM -f N [FILE]  (one field; fields count from 1)
-int do_cut(String[] a) {
+i64 do_cut(String[] a) {
     String delim = "\t";
-    int field = 1;
+    i64 field = 1;
     String file = "-";
-    int i = 1;
+    i64 i = 1;
     while i < a.len {
         if a[i] == "-d" && i + 1 < a.len { delim = a[i + 1] + ""; i += 2; }
         else if a[i] == "-f" && i + 1 < a.len { field = a[i + 1].to_int(); i += 2; }
@@ -1180,7 +1180,7 @@ int do_cut(String[] a) {
         else if a[i].len > 2 && a[i].starts_with("-f") { field = a[i].slice(2, a[i].len).to_int(); i += 1; }
         else { file = a[i] + ""; i += 1; }
     }
-    int rc = 0;
+    i64 rc = 0;
     String[] ls = lines_of(load("cut", file, @rc));
     for k in 0..ls.len {
         String[] parts = ls[k].split(delim);
@@ -1190,7 +1190,7 @@ int do_cut(String[] a) {
 }
 
 // tr FROM TO : each letter of FROM becomes the letter at the same place of TO (from the standard input); tr -d SET deletes
-int do_tr(String[] a) {
+i64 do_tr(String[] a) {
     String[] ops = operands(a, false);
     bool del = has_flag(a, 'd');
     if (del && ops.len < 1) || (!del && ops.len < 2) { return fail("tr", "usage: tr FROM TO   or   tr -d SET"); }
@@ -1198,7 +1198,7 @@ int do_tr(String[] a) {
     String out = "";
     for i in 0..text.len {
         char c = text[i];
-        int at = 0 - 1;
+        i64 at = 0 - 1;
         for k in 0..ops[0].len { if ops[0][k] == c && at < 0 { at = k; } }
         if at < 0 { out.push(c); }
         else if !del { char t = ops[1][ops[1].len - 1]; if at < ops[1].len { t = ops[1][at]; } out.push(t); }
@@ -1208,34 +1208,34 @@ int do_tr(String[] a) {
 }
 
 // diff A B : the lines that differ ("< line" only in A, "> line" only in B), found with the longest common part
-int do_diff(String[] a) {
+i64 do_diff(String[] a) {
     String[] ops = operands(a, false);
     if ops.len != 2 { return fail("diff", "usage: diff FILE1 FILE2"); }
-    int rc = 0;
+    i64 rc = 0;
     String[] x = lines_of(load("diff", ops[0], @rc));
     String[] y = lines_of(load("diff", ops[1], @rc));
     if rc != 0 { return 2; }
-    int n = x.len;
-    int m = y.len;
-    int[] lcs = arr((n + 1) * (m + 1) + 1);
+    i64 n = x.len;
+    i64 m = y.len;
+    i64[] lcs = arr((n + 1) * (m + 1) + 1);
     for i in 0..(n + 1) * (m + 1) { lcs.push(0); }
-    int i = n - 1;
+    i64 i = n - 1;
     while i >= 0 {
-        int j = m - 1;
+        i64 j = m - 1;
         while j >= 0 {
             if x[i] == y[j] { lcs[i * (m + 1) + j] = lcs[(i + 1) * (m + 1) + j + 1] + 1; }
             else {
-                int d1 = lcs[(i + 1) * (m + 1) + j];
-                int d2 = lcs[i * (m + 1) + j + 1];
+                i64 d1 = lcs[(i + 1) * (m + 1) + j];
+                i64 d2 = lcs[i * (m + 1) + j + 1];
                 if d1 >= d2 { lcs[i * (m + 1) + j] = d1; } else { lcs[i * (m + 1) + j] = d2; }
             }
             j -= 1;
         }
         i -= 1;
     }
-    int p = 0;
-    int q = 0;
-    int diffs = 0;
+    i64 p = 0;
+    i64 q = 0;
+    i64 diffs = 0;
     while p < n || q < m {
         if p < n && q < m && x[p] == y[q] { p += 1; q += 1; }
         else if q >= m || (p < n && lcs[(p + 1) * (m + 1) + q] >= lcs[p * (m + 1) + q + 1]) { jout << "< " << x[p] << "\n"; p += 1; diffs += 1; }
@@ -1246,8 +1246,8 @@ int do_diff(String[] a) {
 }
 
 // ---------------------------------------------------------------- date du xargs sed less stat
-int do_date(String[] a) {                                       // date [+%s]: the time now (UTC); +%s the seconds since 1970
-    int ms = Time::now_ms();
+i64 do_date(String[] a) {                                       // date [+%s]: the time now (UTC); +%s the seconds since 1970
+    i64 ms = Time::now_ms();
     if a.len > 1 && a[1] == "+%s" { jout << ms / 1000 << "\n"; return 0; }
     Date d;
     d.set_unix(ms / 1000);
@@ -1255,13 +1255,13 @@ int do_date(String[] a) {                                       // date [+%s]: t
     return 0;
 }
 
-int du_size(String path) {
+i64 du_size(String path) {
     if !Dir::exists(path) {
-        Result<int, Error> r = Fs::size(path);
+        Result<i64, Error> r = Fs::size(path);
         if r.is_ok() { return r.unwrap(); }
         return 0;
     }
-    int total = 0;
+    i64 total = 0;
     Result<String[], Error> l = Dir::list(path);
     if l.is_ok() {
         String[] names = l.take();
@@ -1269,12 +1269,12 @@ int du_size(String path) {
     }
     return total;
 }
-int do_du(String[] a) {                                         // du [-h] [FOLDER...]: the bytes under each (the sum of the sizes of the files)
+i64 do_du(String[] a) {                                         // du [-h] [FOLDER...]: the bytes under each (the sum of the sizes of the files)
     bool human = has_flag(a, 'h');
     String[] ops = operands(a, false);
     if ops.len == 0 { ops.push("."); }
     for i in 0..ops.len {
-        int n = du_size(ops[i]);
+        i64 n = du_size(ops[i]);
         if human {
             if n >= 1048576 { jout << n / 1048576 << "M\t" << ops[i] << "\n"; }
             else if n >= 1024 { jout << n / 1024 << "K\t" << ops[i] << "\n"; }
@@ -1284,13 +1284,13 @@ int do_du(String[] a) {                                         // du [-h] [FOLD
     return 0;
 }
 
-int do_stat(String[] a) {
+i64 do_stat(String[] a) {
     String[] ops = operands(a, false);
-    int rc = 0;
+    i64 rc = 0;
     for i in 0..ops.len {
         if Dir::exists(ops[i]) { jout << ops[i] << ": folder\n"; }
         else if Fs::exists(ops[i]) {
-            Result<int, Error> r = Fs::size(ops[i]);
+            Result<i64, Error> r = Fs::size(ops[i]);
             jout << ops[i] << ": file, " << r.unwrap() << " bytes\n";
         } else { rc = fail("stat", ops[i] + ": no such file or folder"); }
     }
@@ -1298,7 +1298,7 @@ int do_stat(String[] a) {
 }
 
 // xargs COMMAND [args]: the words of the input are added to the command as arguments (one run for all)
-int do_xargs(String[] a) {
+i64 do_xargs(String[] a) {
     if a.len < 2 { return fail("xargs", "usage: xargs COMMAND [args]   (the words of the input become more arguments)"); }
     String text = stdin_all();
     String[] words = text.replace("\n", " ").split(" ");
@@ -1315,7 +1315,7 @@ int do_xargs(String[] a) {
 }
 
 // sed 's/old/new/[g]' [FILE]: replaces text in every line (the old text is plain text, not a pattern)
-int do_sed(String[] a) {
+i64 do_sed(String[] a) {
     String[] ops = operands(a, false);
     if ops.len < 1 || ops[0].len < 4 || ops[0][0] != 's' { return fail("sed", "usage: sed 's/old/new/g' [FILE]   (only the replacement s/// is here)"); }
     char sep = ops[0][1];
@@ -1326,14 +1326,14 @@ int do_sed(String[] a) {
     bool all = parts.len > 2 && parts[2].contains("g");
     String file = "-";
     if ops.len > 1 { file = ops[1] + ""; }
-    int rc = 0;
+    i64 rc = 0;
     String[] ls = lines_of(load("sed", file, @rc));
     for i in 0..ls.len {
         String l = ls[i];
         if from.len > 0 {
             if all { l = l.replace(from, to); }
             else {
-                int at = 0;
+                i64 at = 0;
                 bool found = false;
                 while at + from.len <= l.len && !found { if l.slice(at, at + from.len) == from { found = true; } else { at += 1; } }
                 if found { l = l.slice(0, at) + to + l.slice(at + from.len, l.len); }
@@ -1344,21 +1344,21 @@ int do_sed(String[] a) {
     return rc;
 }
 
-int last_shown(int top, int page, int total) { if top + page < total { return top + page; } return total; }
+i64 last_shown(i64 top, i64 page, i64 total) { if top + page < total { return top + page; } return total; }
 
 // less FILE: one page at a time; space = next page, Enter = next line, b = back a page, q = quit
 // ---------------------------------------------------------------- the pager (less, man)
 // the keys come from /dev/tty (the text may come from a pipe); the lines are cut to the width of the screen at a letter, not in the middle of one
-String[] wrap_lines(String[] ls, int[] style, int width, int[] out_style) {
+String[] wrap_lines(String[] ls, i64[] style, i64 width, i64[] out_style) {
     String[] out = arr(ls.len + 8);
     for i in 0..ls.len {
         String l = ls[i].replace("\t", "    ").replace("\r", "");
-        int st = 0;
+        i64 st = 0;
         if i < style.len { st = style[i]; }
         if l.len <= width { out.push(l); out_style.push(st); continue; }
-        int at = 0;
+        i64 at = 0;
         while at < l.len {
-            int to = at + width;
+            i64 to = at + width;
             if to >= l.len { out.push(l.slice(at, l.len)); out_style.push(st); break; }
             while to > at + 1 && (l[to] & 192) == 128 { to -= 1; }                    // not in the middle of a letter
             out.push(l.slice(at, to));
@@ -1372,11 +1372,11 @@ String[] wrap_lines(String[] ls, int[] style, int width, int[] out_style) {
 String hilite(String line, String pat) {
     if pat.len == 0 { return line; }
     String r = "";
-    int at = 0;
+    i64 at = 0;
     String low = line.lower();
     String lp = pat.lower();
     while at < line.len {
-        int k = Net::http_find_from(low, lp, at);
+        i64 k = Net::http_find_from(low, lp, at);
         if k < 0 { break; }
         r = r + line.slice(at, k) + "\e[7m" + line.slice(k, k + pat.len) + "\e[27m";
         at = k + pat.len;
@@ -1385,30 +1385,30 @@ String hilite(String line, String pat) {
 }
 
 // shows the lines; style 1 = a heading (bold), 2 = code (grey), 0 = plain
-int pager(String title, String[] raw, int[] raw_style) {
-    int fdin = Sys::open_read("/dev/tty".c());
+i64 pager(String title, String[] raw, i64[] raw_style) {
+    i64 fdin = Sys::open_read("/dev/tty".c());
     if fdin < 0 || Sys::isatty(1) != 0 {
         for i in 0..raw.len { jout << raw[i] << "\n"; }
         return 0;
     }
     char t[64];
-    Sys::call(29, fdin, 21505, (int)@t, 0, 0, 0);
+    Sys::call(29, fdin, 21505, (i64)@t, 0, 0, 0);
     char rw[64];
     for i in 0..64 { rw[i] = t[i]; }
     rw[12] = rw[12] & 245;
     rw[23] = 1;
     rw[22] = 0;
-    Sys::call(29, fdin, 21506, (int)@rw, 0, 0, 0);
+    Sys::call(29, fdin, 21506, (i64)@rw, 0, 0, 0);
     char w[8];
-    Sys::call(29, 1, 21523, (int)@w, 0, 0, 0);
-    int rows = (w[0] & 255) | ((w[1] & 255) << 8);
-    int cols = (w[2] & 255) | ((w[3] & 255) << 8);
+    Sys::call(29, 1, 21523, (i64)@w, 0, 0, 0);
+    i64 rows = (w[0] & 255) | ((w[1] & 255) << 8);
+    i64 cols = (w[2] & 255) | ((w[3] & 255) << 8);
     if rows < 4 { rows = 24; }
     if cols < 20 { cols = 80; }
-    int[] st = arr(raw.len + 8);
+    i64[] st = arr(raw.len + 8);
     String[] ls = wrap_lines(raw, raw_style, cols - 1, st);
-    int page = rows - 1;
-    int top = 0;
+    i64 page = rows - 1;
+    i64 top = 0;
     String pat = "";
     String note = "";
     String e = "\e";
@@ -1417,7 +1417,7 @@ int pager(String title, String[] raw, int[] raw_style) {
     while !done {
         String o = e + "[H";
         for i in 0..page {
-            int k = top + i;
+            i64 k = top + i;
             String ln = "";
             if k < ls.len {
                 ln = hilite(ls[k], pat);
@@ -1426,7 +1426,7 @@ int pager(String title, String[] raw, int[] raw_style) {
             }
             o = o + e + "[2K" + ln + "\r\n";
         }
-        int pct = 100;
+        i64 pct = 100;
         if ls.len > page { pct = (top + page) * 100 / ls.len; if pct > 100 { pct = 100; } }
         String foot = " " + title + "  " + str(pct) + "%";
         if note.len > 0 { foot = foot + "  " + note; } else { foot = foot + "   (space next, b back, / find, n next match, g top, G end, h help, q quit)"; }
@@ -1435,21 +1435,21 @@ int pager(String title, String[] raw, int[] raw_style) {
         jout << o;
         note = "";
         char k[2];
-        int n = Sys::read(fdin, @k, 1);
+        i64 n = Sys::read(fdin, @k, 1);
         if n <= 0 || k[0] == 'q' { break; }
-        int c = k[0] & 255;
+        i64 c = k[0] & 255;
         if c == 27 {
             if !Input::ready(40) { break; }
             char k2[2];
             Sys::read(fdin, @k2, 1);
             Sys::read(fdin, @k2, 1);
-            int d = k2[0] & 255;
+            i64 d = k2[0] & 255;
             if d == 'A' { c = 'k'; } else if d == 'B' { c = 'j'; } else if d == 'H' { c = 'g'; } else if d == 'F' { c = 'G'; }
             else if d == '5' { Sys::read(fdin, @k2, 1); c = 'b'; } else if d == '6' { Sys::read(fdin, @k2, 1); c = ' '; }
             else if d == '1' { Sys::read(fdin, @k2, 1); c = 'g'; } else if d == '4' { Sys::read(fdin, @k2, 1); c = 'G'; }
             else { continue; }
         }
-        int maxtop = ls.len - page;
+        i64 maxtop = ls.len - page;
         if maxtop < 0 { maxtop = 0; }
         if c == ' ' || c == 'f' { top += page; if top > maxtop { top = maxtop; } }
         else if c == 13 || c == 10 || c == 'j' { if top < maxtop { top += 1; } }
@@ -1465,7 +1465,7 @@ int pager(String title, String[] raw, int[] raw_style) {
             hl.push("jbox pager"); hl.push(""); hl.push("space / f   next page        b   back a page"); hl.push("Enter / j   next line        k   back a line (the arrows too)");
             hl.push("d / u       half a page         g / G   top / end"); hl.push("/ TEXT      find (not caring about capitals)     n   next match    N   back");
             hl.push("q           leave"); hl.push("");
-            int[] hs = arr(12);
+            i64[] hs = arr(12);
             for i in 0..hl.len { hs.push(0); }
             hs[0] = 1;
             pager("help", hl, hs);
@@ -1477,7 +1477,7 @@ int pager(String title, String[] raw, int[] raw_style) {
             while true {
                 char ch[2];
                 if Sys::read(fdin, @ch, 1) <= 0 { break; }
-                int cc = ch[0] & 255;
+                i64 cc = ch[0] & 255;
                 if cc == 13 || cc == 10 { break; }
                 if cc == 27 { q = ""; break; }
                 if cc == 127 || cc == 8 { if q.len > 0 { q = q.slice(0, q.len - 1); } }
@@ -1496,7 +1496,7 @@ int pager(String title, String[] raw, int[] raw_style) {
                     for k2 in (top + 1)..ls.len { if !found { String ll = ls[k2].lower(); if ll.contains(lp) { top = k2; found = true; } } }
                     if !found { for k2 in 0..(top + 1) { if !found { String ll = ls[k2].lower(); if ll.contains(lp) { top = k2; found = true; note = "(from the top)"; } } } }
                 } else {
-                    int k2 = top - 1;
+                    i64 k2 = top - 1;
                     while k2 >= 0 && !found { String ll = ls[k2].lower(); if ll.contains(lp) { top = k2; found = true; } k2 -= 1; }
                 }
                 if !found { note = "not found: " + pat; }
@@ -1505,13 +1505,13 @@ int pager(String title, String[] raw, int[] raw_style) {
         }
     }
     jout << e << "[?1049l";
-    Sys::call(29, fdin, 21506, (int)@t, 0, 0, 0);
+    Sys::call(29, fdin, 21506, (i64)@t, 0, 0, 0);
     return 0;
 }
 
-int do_less(String[] a) {
+i64 do_less(String[] a) {
     String[] ops = operands(a, false);
-    int rc = 0;
+    i64 rc = 0;
     String file = "-";
     if ops.len > 0 { file = ops[0] + ""; }
     String[] ls = lines_of(load("less", file, @rc));
@@ -1519,7 +1519,7 @@ int do_less(String[] a) {
         for i in 0..ls.len { jout << ls[i] << "\n"; }
         return rc;
     }
-    int[] none = arr(2);
+    i64[] none = arr(2);
     pager(file, ls, none);
     return rc;
 }
@@ -1563,7 +1563,7 @@ String man_find(String name, bool^ from_net) {
 }
 
 // a Markdown text as lines with a style each: headings bold, code grey, the marks of Markdown taken away
-void man_render(String md, String[] out, int[] st) {
+void man_render(String md, String[] out, i64[] st) {
     String[] ls = md.split("\n");
     bool code = false;
     for i in 0..ls.len {
@@ -1577,11 +1577,11 @@ void man_render(String md, String[] out, int[] st) {
         if t.starts_with("* ") || t.starts_with("- ") { t = "  - " + t.slice(2, t.len); }
         // [text](address) -> text
         String r = "";
-        int p = 0;
+        i64 p = 0;
         while p < t.len {
             if t[p] == '[' {
-                int close = Net::http_find_from(t, "](", p);
-                int endp = 0 - 1;
+                i64 close = Net::http_find_from(t, "](", p);
+                i64 endp = 0 - 1;
                 if close > 0 { endp = Net::http_find_from(t, ")", close); }
                 if close > 0 && endp > 0 { r = r + t.slice(p + 1, close); p = endp + 1; continue; }
             }
@@ -1592,11 +1592,11 @@ void man_render(String md, String[] out, int[] st) {
     }
 }
 
-int do_man(String[] a) {
+i64 do_man(String[] a) {
     String[] ops = operands(a, false);
     if ops.len == 0 {
         // the list of the manuals: the tools and the libraries
-        String[] out = arr(40); int[] st = arr(40);
+        String[] out = arr(40); i64[] st = arr(40);
         out.push("MANUALS OF JARIC"); st.push(1);
         out.push(""); st.push(0);
         out.push("man NAME shows the manual of a tool or a library (from the phone, else from GitHub once)."); st.push(0);
@@ -1606,7 +1606,7 @@ int do_man(String[] a) {
         Result<String, Error> tt = Net::http_try_get("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools.txt");
         if tt.is_ok() {
             String[] tl = tt.take().split("\n");
-            for i in 0..tl.len { if tl[i].len > 0 && !tl[i].starts_with("#") { int bar = tl[i].find("|"); if bar > 0 { out.push("  " + tl[i].slice(0, bar) + "   " + tl[i].slice(bar + 1, tl[i].len)); st.push(0); } } }
+            for i in 0..tl.len { if tl[i].len > 0 && !tl[i].starts_with("#") { i64 bar = tl[i].find("|"); if bar > 0 { out.push("  " + tl[i].slice(0, bar) + "   " + tl[i].slice(bar + 1, tl[i].len)); st.push(0); } } }
         } else { out.push("  (the list needs the network)"); st.push(0); }
         pager("man", out, st);
         return 0;
@@ -1615,7 +1615,7 @@ int do_man(String[] a) {
     bool net = false;
     String md = man_find(name, @net);
     if md.len == 0 { return fail("man", "no manual for " + ops[0] + " (man shows the list; " + ops[0] + " --help may tell something)"); }
-    String[] out = arr(100); int[] st = arr(100);
+    String[] out = arr(100); i64[] st = arr(100);
     man_render(md, out, st);
     if Sys::isatty(1) != 0 { for i in 0..out.len { jout << out[i] << "\n"; } return 0; }
     pager("man " + name, out, st);
@@ -1624,14 +1624,14 @@ int do_man(String[] a) {
 
 // ---------------------------------------------------------------- df, ps, hex
 // df [-h] [FOLDER...]: the size, the use and the free place of the drives that hold the folders (home, /sdcard, /data and / without an argument)
-String df_size(int kb, bool human) {
+String df_size(i64 kb, bool human) {
     if !human { return str(kb); }
     if kb >= 1048576 { return str(kb / 1048576) + "." + str((kb % 1048576) * 10 / 1048576) + "G"; }
     if kb >= 1024 { return str(kb / 1024) + "." + str((kb % 1024) * 10 / 1024) + "M"; }
     return str(kb) + "K";
 }
 
-int do_df(String[] a) {
+i64 do_df(String[] a) {
     bool human = false;
     String[] ops = arr(4);
     for i in 1..a.len { if a[i] == "-h" { human = true; } else if !a[i].starts_with("-") { ops.push(a[i] + ""); } }
@@ -1642,43 +1642,43 @@ int do_df(String[] a) {
     jout << "  SIZE    USED   AVAIL USE%  FOLDER\n";
     for i in 0..ops.len {
         char buf[128];
-        if Sys::call(43, (int)ops[i].c(), (int)@buf, 0, 0, 0, 0) != 0 { continue; }
-        int bsize = 0; int blocks = 0; int avail = 0; int freeb = 0;
+        if Sys::call(43, (i64)ops[i].c(), (i64)@buf, 0, 0, 0, 0) != 0 { continue; }
+        i64 bsize = 0; i64 blocks = 0; i64 avail = 0; i64 freeb = 0;
         for k in 0..8 { bsize = bsize | ((buf[8 + k] & 255) << (8 * k)); blocks = blocks | ((buf[16 + k] & 255) << (8 * k)); freeb = freeb | ((buf[24 + k] & 255) << (8 * k)); avail = avail | ((buf[32 + k] & 255) << (8 * k)); }
-        int size = blocks / 1024 * bsize;
-        int usedkb = (blocks - freeb) / 1024 * bsize;
-        int availkb = avail / 1024 * bsize;
-        int pct = 0;
+        i64 size = blocks / 1024 * bsize;
+        i64 usedkb = (blocks - freeb) / 1024 * bsize;
+        i64 availkb = avail / 1024 * bsize;
+        i64 pct = 0;
         if blocks > 0 { pct = (blocks - freeb) * 100 / blocks; }
         jout << lpad(df_size(size, human), 6) << " " << lpad(df_size(usedkb, human), 7) << " " << lpad(df_size(availkb, human), 7) << " " << lpad(str(pct) + "%", 4) << "  " << ops[i] << "\n";
     }
     return 0;
 }
 
-String lpad(String s, int w) { String r = s; while r.len < w { r = " " + r; } return r; }
+String lpad(String s, i64 w) { String r = s; while r.len < w { r = " " + r; } return r; }
 
 // ps: the programs you can see: pid, state, memory (MB), cpu seconds, name
-int do_ps(String[] a) {
+i64 do_ps(String[] a) {
     Result<String[], Error> r = Dir::list("/proc");
     if r.is_err() { return fail("ps", "cannot read /proc"); }
     String[] names = r.take();
     names.sort();
     jout << lpad("PID", 7) << " S " << lpad("MEM MB", 7) << lpad("CPU s", 7) << "  NAME\n";
-    int shown = 0;
+    i64 shown = 0;
     for i in 0..names.len {
         String pid = names[i];
         bool digits = pid.len > 0;
         for k in 0..pid.len { if pid[k] < '0' || pid[k] > '9' { digits = false; } }
         if !digits { continue; }
-        int fd = Sys::open_read(("/proc/" + pid + "/stat").c());
+        i64 fd = Sys::open_read(("/proc/" + pid + "/stat").c());
         if fd < 0 { continue; }
         String st = "";
         char b[1024];
-        int n = Sys::read(fd, @b, 1024);
+        i64 n = Sys::read(fd, @b, 1024);
         Sys::close(fd);
         for k in 0..n { st.push(b[k]); }
-        int op = st.find("(");
-        int cl = 0 - 1;
+        i64 op = st.find("(");
+        i64 cl = 0 - 1;
         for k in 0..st.len { if st[k] == ')' { cl = k; } }
         if op < 0 || cl < op { continue; }
         String[] f = st.slice(cl + 2, st.len).trim().split(" ");
@@ -1691,19 +1691,19 @@ int do_ps(String[] a) {
 }
 
 // hex FILE: the bytes of a file in hex, 16 on a line, with the letters at the right
-int do_hex(String[] a) {
+i64 do_hex(String[] a) {
     String[] ops = operands(a, false);
-    int rc = 0;
+    i64 rc = 0;
     String file = "-";
     if ops.len > 0 { file = ops[0] + ""; }
     String data = load("hex", file, @rc);
     if rc != 0 { return rc; }
     String hx = "0123456789abcdef";
-    int at = 0;
+    i64 at = 0;
     while at < data.len {
         String line = "";
         String off = "";
-        int v = at;
+        i64 v = at;
         for k in 0..8 { off = str(0) + off; }
         off = "";
         for k in 0..8 { off = hx.slice(v % 16, v % 16 + 1) + off; v = v / 16; }
@@ -1711,7 +1711,7 @@ int do_hex(String[] a) {
         String asc = "";
         for k in 0..16 {
             if at + k < data.len {
-                int c = data[at + k] & 255;
+                i64 c = data[at + k] & 255;
                 hexs = hexs + hx.slice(c >> 4, (c >> 4) + 1) + hx.slice(c & 15, (c & 15) + 1);
                 if k % 2 == 1 { hexs = hexs + " "; }
                 if c >= 32 && c < 127 { asc.push((char)c); } else { asc.push('.'); }
@@ -1726,7 +1726,7 @@ int do_hex(String[] a) {
     return 0;
 }
 
-int do_install(String[] args) {
+i64 do_install(String[] args) {
     String names_text = "dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false df ps hex";
     String[] names = names_text.split(" ");
     String dir = ".";
@@ -1737,12 +1737,12 @@ int do_install(String[] args) {
         dir = Path::parent(self);
         if dir.len == 0 { dir = "."; }
     }
-    int rc = 0;
+    i64 rc = 0;
     for i in 0..names.len {
         String link = Path::join(dir, names[i]);
         // a link that points somewhere else than jbox (left by an older install, or a wrong one) is made again; a real file or a link to jbox stays
         char tgt[256];
-        int tn = Sys::call(78, 0 - 100, (int)link.c(), (int)@tgt, 255, 0, 0);
+        i64 tn = Sys::call(78, 0 - 100, (i64)link.c(), (i64)@tgt, 255, 0, 0);
         if tn >= 0 {
             tgt[tn] = 0;
             String target = "";
@@ -1750,13 +1750,13 @@ int do_install(String[] args) {
             if target == "jbox" { continue; }
             Sys::unlink(link.c());
         } else if Fs::exists(link) { continue; }
-        if Sys::call(36, (int)"jbox".c(), 0 - 100, (int)link.c(), 0, 0, 0) < 0 { rc = fail("jbox", "cannot make " + link); }
+        if Sys::call(36, (i64)"jbox".c(), 0 - 100, (i64)link.c(), 0, 0, 0) < 0 { rc = fail("jbox", "cannot make " + link); }
     }
     if rc == 0 { jout << "jbox: " << names.len << " commands linked in " << dir << "\n"; }
     return rc;
 }
 
-int main() {
+i64 main() {
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.10.1\n"; return 0; }
     String self_name = Path::name(args[0]);

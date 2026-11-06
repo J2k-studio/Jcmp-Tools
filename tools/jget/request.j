@@ -23,7 +23,7 @@ bool req_flag_takes_value(String a) {
 }
 
 // is this a request in the curl sense (not a plain download)?
-bool req_wanted(String[] av, int at) {
+bool req_wanted(String[] av, i64 at) {
     for i in at..av.len {
         String a = av[i];
         if a == "-X" || a == "-H" || a == "-d" || a == "-I" || a == "-i" || a == "-u" || a == "-A" || a == "-f" || a == "-w" || a == "--no-location" || a == "--head" || a == "--include" || a == "--data" || a == "--header" || a == "--request" || a == "--fail" || a == "--data-raw" { return true; }
@@ -51,7 +51,7 @@ String req_read_body(String spec) {
     return spec + "";
 }
 
-int cmd_request(String[] av, int at) {
+i64 cmd_request(String[] av, i64 at) {
     ReqOpts o;
     o.method = "";
     o.headers = "";
@@ -60,7 +60,7 @@ int cmd_request(String[] av, int at) {
     o.url = "";
     o.follow = true;
     bool has_ctype = false;
-    int i = at;
+    i64 i = at;
     while i < av.len {
         String a = av[i];
         if req_flag_takes_value(a) && i + 1 >= av.len { err("jget: " + a + " needs a value\n"); return 2; }
@@ -98,17 +98,17 @@ int cmd_request(String[] av, int at) {
         else { o.method = "GET"; }
     }
     if o.body.len > 0 && !has_ctype { o.headers.append("Content-Type: application/x-www-form-urlencoded\r\n"); }
-    int follow = 0;
+    i64 follow = 0;
     if o.follow { follow = 1; }
     String reply = "";
     switch Net::http_exchange(o.method, o.url, o.headers, o.body, follow, 0) {
         Result::Ok(t): { reply = t; }
         Result::Err(e): { err("jget: " + e.message + "\n"); return 1; }
     }
-    int he = reply.find("\r\n\r\n");
+    i64 he = reply.find("\r\n\r\n");
     String head = reply.slice(0, he) + "";
     String body = reply.slice(he + 4, reply.len) + "";
-    int code = 0;
+    i64 code = 0;
     if head.len >= 12 { code = head.slice(9, 12).to_int(); }
     String out = "";
     if o.head_only { out = head + "\r\n\r\n"; }

@@ -11,21 +11,21 @@ String jx86_version() { return "0.1.0"; }
 
 // ---------- the guest: memory, registers, flags
 char^ gm;                       // the guest memory: guest address a is gm[a]
-int gsize;                      // its size in bytes
-int r[16];                      // rax rcx rdx rbx rsp rbp rsi rdi r8 .. r15
-int rip;
-int cf; int zf; int sf; int of; int pf; int af; int df;
-int fsbase;
-int running;
-int exit_code;
-int g_min;                      // the top bit: unsigned comparison = signed comparison of (a xor g_min)
-int brk_start; int brk_cur;
-int mmap_next;
-int icount;
-int ilimit;
-int want_count;
-int ops[512];                   // how many times each opcode ran (0..255, and 256 + the second byte of 0F xx)
-int trace;
+i64 gsize;                      // its size in bytes
+i64 r[16];                      // rax rcx rdx rbx rsp rbp rsi rdi r8 .. r15
+i64 rip;
+i64 cf; i64 zf; i64 sf; i64 of; i64 pf; i64 af; i64 df;
+i64 fsbase;
+i64 running;
+i64 exit_code;
+i64 g_min;                      // the top bit: unsigned comparison = signed comparison of (a xor g_min)
+i64 brk_start; i64 brk_cur;
+i64 mmap_next;
+i64 icount;
+i64 ilimit;
+i64 want_count;
+i64 ops[512];                   // how many times each opcode ran (0..255, and 256 + the second byte of 0F xx)
+i64 trace;
 
 void fault(String msg) {
     jerr << "jx86: " << msg << " at rip=0x" << tohex(rip) << "\n";
@@ -33,47 +33,47 @@ void fault(String msg) {
     exit_code = 139;
 }
 
-bool ult(int a, int b) { return (a xor g_min) < (b xor g_min); }
+bool ult(i64 a, i64 b) { return (a xor g_min) < (b xor g_min); }
 
-int mask_of(int sz) {
+i64 mask_of(i64 sz) {
     if sz == 8 { return -1; }
     return (1 << (sz * 8)) - 1;
 }
 
-int sign_of(int sz) { return 1 << (sz * 8 - 1); }
+i64 sign_of(i64 sz) { return 1 << (sz * 8 - 1); }
 
-int shr(int x, int n) {
+i64 shr(i64 x, i64 n) {
     if n <= 0 { return x; }
     if n >= 64 { return 0; }
     return (x >> n) & ((1 << (64 - n)) - 1);
 }
 
 // ---------- memory
-int rd8(int a) {
+i64 rd8(i64 a) {
     if a < 0 || a >= gsize { fault("read outside the memory (" + tohex(a) + ")"); return 0; }
     return gm[a] & 255;
 }
 
-void wr8(int a, int v) {
+void wr8(i64 a, i64 v) {
     if a < 0 || a >= gsize { fault("write outside the memory (" + tohex(a) + ")"); return; }
     gm[a] = (char)(v & 255);
 }
 
-int rd(int a, int sz) {
+i64 rd(i64 a, i64 sz) {
     if a < 0 || a + sz > gsize { fault("read outside the memory (" + tohex(a) + ")"); return 0; }
-    int v = 0;
-    int i = sz - 1;
+    i64 v = 0;
+    i64 i = sz - 1;
     while i >= 0 { v = (v << 8) | (gm[a + i] & 255); i -= 1; }
     return v;
 }
 
-void wr(int a, int sz, int v) {
+void wr(i64 a, i64 sz, i64 v) {
     if a < 0 || a + sz > gsize { fault("write outside the memory (" + tohex(a) + ")"); return; }
     for i in 0..sz { gm[a + i] = (char)(v & 255); v = v >> 8; }
 }
 
 // ---------- registers by size
-int getr(int n, int sz, int rex) {
+i64 getr(i64 n, i64 sz, i64 rex) {
     if sz == 8 { return r[n]; }
     if sz == 4 { return r[n] & 0xffffffff; }
     if sz == 2 { return r[n] & 0xffff; }
@@ -81,7 +81,7 @@ int getr(int n, int sz, int rex) {
     return r[n] & 255;
 }
 
-void setr(int n, int sz, int v, int rex) {
+void setr(i64 n, i64 sz, i64 v, i64 rex) {
     if sz == 8 { r[n] = v; return; }
     if sz == 4 { r[n] = v & 0xffffffff; return; }
     if sz == 2 { r[n] = (r[n] & ~0xffff) | (v & 0xffff); return; }
@@ -90,40 +90,40 @@ void setr(int n, int sz, int v, int rex) {
 }
 
 // the value v of size sz, as a signed number
-int sx(int v, int sz) {
+i64 sx(i64 v, i64 sz) {
     if sz == 8 { return v; }
-    int s = sign_of(sz);
+    i64 s = sign_of(sz);
     v = v & mask_of(sz);
     if (v & s) != 0 { return v - (s << 1); }
     return v;
 }
 
 // ---------- flags
-int parity(int v) {
-    int b = v & 255;
-    int c = 0;
+i64 parity(i64 v) {
+    i64 b = v & 255;
+    i64 c = 0;
     while b != 0 { c += b & 1; b = b >> 1; }
     if (c & 1) == 0 { return 1; }
     return 0;
 }
 
-void flags_zsp(int res, int sz) {
-    int m = mask_of(sz);
-    int v = res & m;
+void flags_zsp(i64 res, i64 sz) {
+    i64 m = mask_of(sz);
+    i64 v = res & m;
     zf = 0; if v == 0 { zf = 1; }
     sf = 0; if (v & sign_of(sz)) != 0 { sf = 1; }
     pf = parity(v);
 }
 
 // the ALU: 0 add 1 or 2 adc 3 sbb 4 and 5 sub 6 xor 7 cmp; returns the result (cmp: the difference)
-int alu(int op, int a, int b, int sz) {
-    int m = mask_of(sz);
-    int s = sign_of(sz);
+i64 alu(i64 op, i64 a, i64 b, i64 sz) {
+    i64 m = mask_of(sz);
+    i64 s = sign_of(sz);
     a = a & m;
     b = b & m;
-    int res = 0;
+    i64 res = 0;
     if op == 0 || op == 2 {
-        int c = 0;
+        i64 c = 0;
         if op == 2 { c = cf; }
         res = (a + b + c) & m;
         cf = 0;
@@ -132,7 +132,7 @@ int alu(int op, int a, int b, int sz) {
         of = 0; if (((a xor res) & (b xor res) & s) != 0) { of = 1; }
         af = 0; if (((a xor b xor res) & 16) != 0) { af = 1; }
     } else if op == 5 || op == 7 || op == 3 {
-        int c = 0;
+        i64 c = 0;
         if op == 3 { c = cf; }
         res = (a - b - c) & m;
         cf = 0;
@@ -150,9 +150,9 @@ int alu(int op, int a, int b, int sz) {
     return res;
 }
 
-bool cond(int cc) {
-    int v = 0;
-    int c = cc >> 1;
+bool cond(i64 cc) {
+    i64 v = 0;
+    i64 c = cc >> 1;
     if c == 0 { v = of; }
     else if c == 1 { v = cf; }
     else if c == 2 { v = zf; }
@@ -166,42 +166,42 @@ bool cond(int cc) {
 }
 
 // ---------- decoding
-int pc;                         // the byte being read
-int pfx66; int pfxf2; int pfxf3; int seg;
-int rex; int rexw; int rexr; int rexx; int rexb;
-int mdmod; int mdreg; int mdrm; int ea; int ismem;
+i64 pc;                         // the byte being read
+i64 pfx66; i64 pfxf2; i64 pfxf3; i64 seg;
+i64 rex; i64 rexw; i64 rexr; i64 rexx; i64 rexb;
+i64 mdmod; i64 mdreg; i64 mdrm; i64 ea; i64 ismem;
 
-int fetch8() { int v = rd8(pc); pc += 1; return v; }
-int fetch16() { int v = rd(pc, 2); pc += 2; return v; }
-int fetch32() { int v = rd(pc, 4); pc += 4; return v; }
-int fetch64() { int v = rd(pc, 8); pc += 8; return v; }
-int fetch_imm(int sz) {
+i64 fetch8() { i64 v = rd8(pc); pc += 1; return v; }
+i64 fetch16() { i64 v = rd(pc, 2); pc += 2; return v; }
+i64 fetch32() { i64 v = rd(pc, 4); pc += 4; return v; }
+i64 fetch64() { i64 v = rd(pc, 8); pc += 8; return v; }
+i64 fetch_imm(i64 sz) {
     if sz == 1 { return sx(fetch8(), 1); }
     if sz == 2 { return sx(fetch16(), 2); }
     return sx(fetch32(), 4);                                  // 4 and 8: a 32 bit immediate, sign extended
 }
 
 // reads the ModRM byte (and SIB, displacement); immsz is the number of bytes of immediate that follow (the base of a rip relative address)
-void modrm(int immsz) {
-    int b = fetch8();
+void modrm(i64 immsz) {
+    i64 b = fetch8();
     mdmod = b >> 6;
     mdreg = ((b >> 3) & 7) | (rexr << 3);
     mdrm = b & 7;
     ismem = 1;
     if mdmod == 3 { ismem = 0; mdrm = mdrm | (rexb << 3); return; }
-    int base = 0;
+    i64 base = 0;
     if mdrm == 4 {
-        int sib = fetch8();
-        int scale = sib >> 6;
-        int idx = ((sib >> 3) & 7) | (rexx << 3);
-        int bs = sib & 7;
-        int addr = 0;
+        i64 sib = fetch8();
+        i64 scale = sib >> 6;
+        i64 idx = ((sib >> 3) & 7) | (rexx << 3);
+        i64 bs = sib & 7;
+        i64 addr = 0;
         if idx != 4 { addr = r[idx] << scale; }
         if bs == 5 && mdmod == 0 { addr += sx(fetch32(), 4); }
         else { addr += r[bs | (rexb << 3)]; }
         base = addr;
     } else if mdrm == 5 && mdmod == 0 {
-        int d = sx(fetch32(), 4);
+        i64 d = sx(fetch32(), 4);
         base = pc + immsz + d;                               // rip relative: the address after the instruction
     } else {
         base = r[mdrm | (rexb << 3)];
@@ -212,43 +212,43 @@ void modrm(int immsz) {
     ea = base;
 }
 
-int rm_read(int sz) {
+i64 rm_read(i64 sz) {
     if ismem == 0 { return getr(mdrm, sz, rex); }
     return rd(ea, sz);
 }
 
-void rm_write(int sz, int v) {
+void rm_write(i64 sz, i64 v) {
     if ismem == 0 { setr(mdrm, sz, v, rex); return; }
     wr(ea, sz, v);
 }
 
-void push(int v) { r[4] -= 8; wr(r[4], 8, v); }
-int pop() { int v = rd(r[4], 8); r[4] += 8; return v; }
+void push(i64 v) { r[4] -= 8; wr(r[4], 8, v); }
+i64 pop() { i64 v = rd(r[4], 8); r[4] += 8; return v; }
 
 // ---------- 128 bit helpers
-int mulhi_u(int a, int b) {
-    int a0 = a & 0xffffffff; int a1 = shr(a, 32);
-    int b0 = b & 0xffffffff; int b1 = shr(b, 32);
-    int p00 = a0 * b0; int p01 = a0 * b1; int p10 = a1 * b0; int p11 = a1 * b1;
-    int mid = shr(p00, 32) + (p01 & 0xffffffff) + (p10 & 0xffffffff);
+i64 mulhi_u(i64 a, i64 b) {
+    i64 a0 = a & 0xffffffff; i64 a1 = shr(a, 32);
+    i64 b0 = b & 0xffffffff; i64 b1 = shr(b, 32);
+    i64 p00 = a0 * b0; i64 p01 = a0 * b1; i64 p10 = a1 * b0; i64 p11 = a1 * b1;
+    i64 mid = shr(p00, 32) + (p01 & 0xffffffff) + (p10 & 0xffffffff);
     return p11 + shr(p01, 32) + shr(p10, 32) + shr(mid, 32);
 }
 
-int mulhi_s(int a, int b) {
-    int h = mulhi_u(a, b);
+i64 mulhi_s(i64 a, i64 b) {
+    i64 h = mulhi_u(a, b);
     if a < 0 { h -= b; }
     if b < 0 { h -= a; }
     return h;
 }
 
-int q128; int rem128;
+i64 q128; i64 rem128;
 // the unsigned division of hi:lo by d (hi < d); the quotient in q128, the remainder in rem128
-void udiv128(int hi, int lo, int d) {
+void udiv128(i64 hi, i64 lo, i64 d) {
     if hi == 0 && lo >= 0 && d > 0 { q128 = lo / d; rem128 = lo % d; return; }
-    int rem = hi;
-    int q = 0;
+    i64 rem = hi;
+    i64 q = 0;
     for i in 0..64 {
-        int top = shr(rem, 63);
+        i64 top = shr(rem, 63);
         rem = (rem << 1) | shr(lo, 63);
         lo = lo << 1;
         q = q << 1;
@@ -259,11 +259,11 @@ void udiv128(int hi, int lo, int d) {
 }
 
 // ---------- the system calls (Linux x86_64)
-int guest_string_len(int a) { int n = 0; while rd8(a + n) != 0 && running == 1 { n += 1; } return n; }
+i64 guest_string_len(i64 a) { i64 n = 0; while rd8(a + n) != 0 && running == 1 { n += 1; } return n; }
 
-int do_syscall() {
-    int nr = r[0];
-    int a1 = r[7]; int a2 = r[6]; int a3 = r[2]; int a4 = r[10];
+i64 do_syscall() {
+    i64 nr = r[0];
+    i64 a1 = r[7]; i64 a2 = r[6]; i64 a3 = r[2]; i64 a4 = r[10];
     if nr == 1 {                                              // write
         if a2 < 0 || a2 + a3 > gsize { return -14; }
         if a3 <= 0 { return 0; }
@@ -274,12 +274,12 @@ int do_syscall() {
         return Sys::read(a1, (void^)(gm + a2), a3);
     }
     if nr == 20 {                                             // writev
-        int total = 0;
+        i64 total = 0;
         for i in 0..a3 {
-            int base = rd(a2 + i * 16, 8);
-            int len = rd(a2 + i * 16 + 8, 8);
+            i64 base = rd(a2 + i * 16, 8);
+            i64 len = rd(a2 + i * 16 + 8, 8);
             if len > 0 {
-                int w = Sys::write(a1, (void^)(gm + base), len);
+                i64 w = Sys::write(a1, (void^)(gm + base), len);
                 if w < 0 { return w; }
                 total += w;
             }
@@ -293,9 +293,9 @@ int do_syscall() {
         return brk_cur;
     }
     if nr == 9 {                                              // mmap: anonymous only
-        int len = (a2 + 4095) & ~4095;
+        i64 len = (a2 + 4095) & ~4095;
         if (a4 & 32) == 0 { return -19; }
-        int at = mmap_next;
+        i64 at = mmap_next;
         if at + len > gsize - 0x1000000 { return -12; }
         mmap_next = at + len;
         return at;
@@ -307,7 +307,7 @@ int do_syscall() {
         return -22;
     }
     if nr == 228 {                                            // clock_gettime
-        int ms = Time::now_ms();
+        i64 ms = Time::now_ms();
         wr(a2, 8, ms / 1000);
         wr(a2 + 8, 8, (ms % 1000) * 1000000);
         return 0;
@@ -336,9 +336,9 @@ int do_syscall() {
 }
 
 // ---------- one instruction
-int rip_start;
+i64 rip_start;
 
-void unknown(int op, int op2) {
+void unknown(i64 op, i64 op2) {
     String bytes = "";
     for i in 0..8 { bytes = bytes + padl(tohex(rd8(rip_start + i)), 2) + " "; }
     jerr << "jx86: unknown instruction " << tohex(op) << " " << tohex(op2) << "  [" << bytes << "] at rip=0x" << tohex(rip_start) << "\n";
@@ -346,13 +346,13 @@ void unknown(int op, int op2) {
     exit_code = 132;
 }
 
-int shift_op(int kind, int v, int cnt, int sz) {
-    int m = mask_of(sz);
-    int bits = sz * 8;
-    int s = sign_of(sz);
+i64 shift_op(i64 kind, i64 v, i64 cnt, i64 sz) {
+    i64 m = mask_of(sz);
+    i64 bits = sz * 8;
+    i64 s = sign_of(sz);
     if sz == 8 { cnt = cnt & 63; } else { cnt = cnt & 31; }
     if cnt == 0 { return v & m; }
-    int res = 0;
+    i64 res = 0;
     v = v & m;
     if kind == 4 || kind == 6 {                                // shl
         if cnt > bits { cf = 0; } else { cf = shr(v, bits - cnt) & 1; }
@@ -365,19 +365,19 @@ int shift_op(int kind, int v, int cnt, int sz) {
         of = 0; if cnt == 1 { if (v & s) != 0 { of = 1; } }
         flags_zsp(res, sz);
     } else if kind == 7 {                                      // sar
-        int sv = sx(v, sz);
+        i64 sv = sx(v, sz);
         cf = (sv >> (cnt - 1)) & 1;
         res = (sv >> cnt) & m;
         of = 0;
         flags_zsp(res, sz);
     } else if kind == 0 {                                      // rol
-        int c = cnt % bits;
+        i64 c = cnt % bits;
         res = ((v << c) | shr(v, bits - c)) & m;
         if c == 0 { res = v; }
         cf = res & 1;
         of = 0; if cnt == 1 { if (((res & s) != 0) != (cf == 1)) { of = 1; } }
     } else if kind == 1 {                                      // ror
-        int c = cnt % bits;
+        i64 c = cnt % bits;
         res = (shr(v, c) | (v << (bits - c))) & m;
         if c == 0 { res = v; }
         cf = 0; if (res & s) != 0 { cf = 1; }
@@ -388,19 +388,19 @@ int shift_op(int kind, int v, int cnt, int sz) {
     return res;
 }
 
-void do_string(int op, int sz) {
-    int size = 1;
+void do_string(i64 op, i64 sz) {
+    i64 size = 1;
     if (op & 1) == 1 { size = sz; }
-    int step = size;
+    i64 step = size;
     if df == 1 { step = 0 - size; }
-    int rep = 0;
+    i64 rep = 0;
     if pfxf3 == 1 || pfxf2 == 1 { rep = 1; }
-    int kind = op & 0xfe;                                      // a4 movs, a6 cmps, aa stos, ac lods, ae scas
+    i64 kind = op & 0xfe;                                      // a4 movs, a6 cmps, aa stos, ac lods, ae scas
     while true {
         if rep == 1 && r[1] == 0 { break; }
         if kind == 0xa4 { wr(r[7], size, rd(r[6], size)); r[6] += step; r[7] += step; }
         else if kind == 0xaa { wr(r[7], size, r[0]); r[7] += step; }
-        else if kind == 0xac { int v = rd(r[6], size); setr(0, size, v, 1); r[6] += step; }
+        else if kind == 0xac { i64 v = rd(r[6], size); setr(0, size, v, 1); r[6] += step; }
         else if kind == 0xa6 { alu(7, rd(r[6], size), rd(r[7], size), size); r[6] += step; r[7] += step; }
         else { alu(7, getr(0, size, 1), rd(r[7], size), size); r[7] += step; }
         if rep == 0 || running == 0 { break; }
@@ -417,7 +417,7 @@ void step() {
     pc = rip;
     pfx66 = 0; pfxf2 = 0; pfxf3 = 0; seg = 0;
     rex = 0; rexw = 0; rexr = 0; rexx = 0; rexb = 0;
-    int op = fetch8();
+    i64 op = fetch8();
     bool more = true;
     while more && running == 1 {
         if op == 0x66 { pfx66 = 1; op = fetch8(); }
@@ -432,77 +432,77 @@ void step() {
         rexw = (op >> 3) & 1; rexr = (op >> 2) & 1; rexx = (op >> 1) & 1; rexb = op & 1;
         op = fetch8();
     }
-    int sz = 4;
+    i64 sz = 4;
     if rexw == 1 { sz = 8; } else if pfx66 == 1 { sz = 2; }
     if want_count == 1 { ops[op] += 1; }
     if op < 0x40 && (op & 7) < 6 {                              // add or adc sbb and sub xor cmp
-        int g = op >> 3;
-        int form = op & 7;
-        int size = sz;
+        i64 g = op >> 3;
+        i64 form = op & 7;
+        i64 size = sz;
         if (form & 1) == 0 { size = 1; }
         if form >= 4 {
-            int imm = 0;
+            i64 imm = 0;
             if size == 1 { imm = sx(fetch8(), 1); } else { imm = fetch_imm(size); }
-            int a = getr(0, size, rex);
-            int res = alu(g, a, imm, size);
+            i64 a = getr(0, size, rex);
+            i64 res = alu(g, a, imm, size);
             if g != 7 { setr(0, size, res, rex); }
         } else {
             modrm(0);
             if form < 2 {                                      // r/m, r
-                int res = alu(g, rm_read(size), getr(mdreg, size, rex), size);
+                i64 res = alu(g, rm_read(size), getr(mdreg, size, rex), size);
                 if g != 7 { rm_write(size, res); }
             } else {                                           // r, r/m
-                int res = alu(g, getr(mdreg, size, rex), rm_read(size), size);
+                i64 res = alu(g, getr(mdreg, size, rex), rm_read(size), size);
                 if g != 7 { setr(mdreg, size, res, rex); }
             }
         }
     } else if op >= 0x50 && op <= 0x57 { push(r[(op & 7) | (rexb << 3)]); }
     else if op >= 0x58 && op <= 0x5f { r[(op & 7) | (rexb << 3)] = pop(); }
-    else if op == 0x63 { modrm(0); int v = sx(rm_read(4), 4); setr(mdreg, sz, v, rex); }
+    else if op == 0x63 { modrm(0); i64 v = sx(rm_read(4), 4); setr(mdreg, sz, v, rex); }
     else if op == 0x68 { push(fetch_imm(4)); }
     else if op == 0x6a { push(sx(fetch8(), 1)); }
     else if op == 0x69 || op == 0x6b {
-        int immsz = 4; if op == 0x6b { immsz = 1; }
+        i64 immsz = 4; if op == 0x6b { immsz = 1; }
         modrm(immsz);
-        int src = sx(rm_read(sz), sz);
-        int imm = 0;
+        i64 src = sx(rm_read(sz), sz);
+        i64 imm = 0;
         if op == 0x6b { imm = sx(fetch8(), 1); } else { imm = fetch_imm(sz); }
-        int res = src * imm;
-        if sz == 8 { int hi = mulhi_s(src, imm); cf = 0; if hi != (res >> 63) { cf = 1; } }
+        i64 res = src * imm;
+        if sz == 8 { i64 hi = mulhi_s(src, imm); cf = 0; if hi != (res >> 63) { cf = 1; } }
         else { cf = 0; if res != sx(res, sz) { cf = 1; } }
         of = cf;
         setr(mdreg, sz, res, rex);
     }
-    else if op >= 0x70 && op <= 0x7f { int d = sx(fetch8(), 1); if cond(op & 15) { pc += d; } }
+    else if op >= 0x70 && op <= 0x7f { i64 d = sx(fetch8(), 1); if cond(op & 15) { pc += d; } }
     else if op == 0x80 || op == 0x81 || op == 0x83 {
-        int size = sz; if op == 0x80 { size = 1; }
-        int immsz = 1; if op == 0x81 { immsz = 4; if size == 2 { immsz = 2; } }
+        i64 size = sz; if op == 0x80 { size = 1; }
+        i64 immsz = 1; if op == 0x81 { immsz = 4; if size == 2 { immsz = 2; } }
         modrm(immsz);
-        int imm = 0;
+        i64 imm = 0;
         if op == 0x81 { imm = fetch_imm(size); } else { imm = sx(fetch8(), 1); }
-        int res = alu(mdreg & 7, rm_read(size), imm, size);
+        i64 res = alu(mdreg & 7, rm_read(size), imm, size);
         if (mdreg & 7) != 7 { rm_write(size, res); }
     }
     else if op == 0x84 || op == 0x85 {
-        int size = sz; if op == 0x84 { size = 1; }
+        i64 size = sz; if op == 0x84 { size = 1; }
         modrm(0);
         alu(4, rm_read(size), getr(mdreg, size, rex), size);
     }
     else if op == 0x86 || op == 0x87 {
-        int size = sz; if op == 0x86 { size = 1; }
+        i64 size = sz; if op == 0x86 { size = 1; }
         modrm(0);
-        int a = rm_read(size); int b = getr(mdreg, size, rex);
+        i64 a = rm_read(size); i64 b = getr(mdreg, size, rex);
         rm_write(size, b); setr(mdreg, size, a, rex);
     }
     else if op >= 0x88 && op <= 0x8b {
-        int size = sz; if (op & 1) == 0 { size = 1; }
+        i64 size = sz; if (op & 1) == 0 { size = 1; }
         modrm(0);
         if op < 0x8a { rm_write(size, getr(mdreg, size, rex)); } else { setr(mdreg, size, rm_read(size), rex); }
     }
     else if op == 0x8d { modrm(0); setr(mdreg, sz, ea - (seg * fsbase), rex); }
     else if op == 0x8f { modrm(0); rm_write(8, pop()); }
     else if op == 0x90 { }
-    else if op > 0x90 && op <= 0x97 { int n = (op & 7) | (rexb << 3); int t = getr(0, sz, rex); setr(0, sz, getr(n, sz, rex), rex); setr(n, sz, t, rex); }
+    else if op > 0x90 && op <= 0x97 { i64 n = (op & 7) | (rexb << 3); i64 t = getr(0, sz, rex); setr(0, sz, getr(n, sz, rex), rex); setr(n, sz, t, rex); }
     else if op == 0x98 {
         if sz == 8 { r[0] = sx(r[0], 4); } else if sz == 4 { r[0] = sx(r[0], 2) & 0xffffffff; } else { setr(0, 2, sx(r[0], 1), 0); }
     }
@@ -512,33 +512,33 @@ void step() {
         else { if (r[0] & 0x8000) != 0 { setr(2, 2, 0xffff, 0); } else { setr(2, 2, 0, 0); } }
     }
     else if op == 0x9c { push((cf) | (pf << 2) | (af << 4) | (zf << 6) | (sf << 7) | (df << 10) | (of << 11) | 2); }
-    else if op == 0x9d { int f = pop(); cf = f & 1; pf = (f >> 2) & 1; af = (f >> 4) & 1; zf = (f >> 6) & 1; sf = (f >> 7) & 1; df = (f >> 10) & 1; of = (f >> 11) & 1; }
+    else if op == 0x9d { i64 f = pop(); cf = f & 1; pf = (f >> 2) & 1; af = (f >> 4) & 1; zf = (f >> 6) & 1; sf = (f >> 7) & 1; df = (f >> 10) & 1; of = (f >> 11) & 1; }
     else if op == 0xa8 { alu(4, getr(0, 1, rex), sx(fetch8(), 1), 1); }
     else if op == 0xa9 { alu(4, getr(0, sz, rex), fetch_imm(sz), sz); }
     else if (op >= 0xa4 && op <= 0xa7) || (op >= 0xaa && op <= 0xaf) { do_string(op, sz); }
     else if op >= 0xb0 && op <= 0xb7 { setr((op & 7) | (rexb << 3), 1, fetch8(), rex); }
     else if op >= 0xb8 && op <= 0xbf {
-        int n = (op & 7) | (rexb << 3);
+        i64 n = (op & 7) | (rexb << 3);
         if sz == 8 { r[n] = fetch64(); } else if sz == 4 { r[n] = fetch32() & 0xffffffff; } else { setr(n, 2, fetch16(), rex); }
     }
     else if op == 0xc0 || op == 0xc1 || op == 0xd0 || op == 0xd1 || op == 0xd2 || op == 0xd3 {
-        int size = sz; if (op & 1) == 0 { size = 1; }
-        int immsz = 0; if op < 0xd0 { immsz = 1; }
+        i64 size = sz; if (op & 1) == 0 { size = 1; }
+        i64 immsz = 0; if op < 0xd0 { immsz = 1; }
         modrm(immsz);
-        int cnt = 1;
+        i64 cnt = 1;
         if op < 0xd0 { cnt = fetch8(); } else if op >= 0xd2 { cnt = r[1] & 255; }
-        int res = shift_op(mdreg & 7, rm_read(size), cnt, size);
+        i64 res = shift_op(mdreg & 7, rm_read(size), cnt, size);
         rm_write(size, res);
     }
     else if op == 0xc3 { rip = pop(); return; }
-    else if op == 0xc2 { int n = fetch16(); rip = pop(); r[4] += n; return; }
+    else if op == 0xc2 { i64 n = fetch16(); rip = pop(); r[4] += n; return; }
     else if op == 0xc6 { modrm(1); rm_write(1, fetch8()); }
-    else if op == 0xc7 { int immsz = 4; if sz == 2 { immsz = 2; } modrm(immsz); rm_write(sz, fetch_imm(sz)); }
+    else if op == 0xc7 { i64 immsz = 4; if sz == 2 { immsz = 2; } modrm(immsz); rm_write(sz, fetch_imm(sz)); }
     else if op == 0xc9 { r[4] = r[5]; r[5] = pop(); }
     else if op == 0xcc { fault("int3"); }
-    else if op == 0xe8 { int d = sx(fetch32(), 4); push(pc); pc += d; }
-    else if op == 0xe9 { int d = sx(fetch32(), 4); pc += d; }
-    else if op == 0xeb { int d = sx(fetch8(), 1); pc += d; }
+    else if op == 0xe8 { i64 d = sx(fetch32(), 4); push(pc); pc += d; }
+    else if op == 0xe9 { i64 d = sx(fetch32(), 4); pc += d; }
+    else if op == 0xeb { i64 d = sx(fetch8(), 1); pc += d; }
     else if op == 0xf4 { running = 0; }
     else if op == 0xf5 { cf = 1 - cf; }
     else if op == 0xf8 { cf = 0; }
@@ -546,28 +546,28 @@ void step() {
     else if op == 0xfc { df = 0; }
     else if op == 0xfd { df = 1; }
     else if op == 0xf6 || op == 0xf7 {
-        int size = sz; if op == 0xf6 { size = 1; }
-        int immsz = 0;
-        int m0 = rd8(pc);
+        i64 size = sz; if op == 0xf6 { size = 1; }
+        i64 immsz = 0;
+        i64 m0 = rd8(pc);
         if ((m0 >> 3) & 7) < 2 { immsz = size; if immsz == 8 { immsz = 4; } }
         modrm(immsz);
-        int g = mdreg & 7;
-        int m = mask_of(size);
+        i64 g = mdreg & 7;
+        i64 m = mask_of(size);
         if g < 2 { alu(4, rm_read(size), fetch_imm(size), size); }
         else if g == 2 { rm_write(size, ~rm_read(size)); }
         else if g == 3 {
-            int v = rm_read(size);
-            int res = alu(5, 0, v, size);
+            i64 v = rm_read(size);
+            i64 res = alu(5, 0, v, size);
             cf = 0; if (v & m) != 0 { cf = 1; }
             rm_write(size, res);
         }
         else if g == 4 || g == 5 {                              // mul, imul (one operand)
-            int src = rm_read(size);
+            i64 src = rm_read(size);
             if g == 5 { src = sx(src, size); }
-            int a = getr(0, size, rex);
+            i64 a = getr(0, size, rex);
             if g == 5 { a = sx(a, size); }
-            int lo = a * src;
-            int hi = 0;
+            i64 lo = a * src;
+            i64 hi = 0;
             if size == 8 { if g == 4 { hi = mulhi_u(a, src); } else { hi = mulhi_s(a, src); } }
             if size == 1 { setr(0, 2, lo, 0); }
             else if size == 2 { setr(0, 2, lo, 0); setr(2, 2, shr(lo, 16), 0); }
@@ -579,24 +579,24 @@ void step() {
             of = cf;
         }
         else {                                                  // div, idiv
-            int src = rm_read(size);
+            i64 src = rm_read(size);
             if g == 7 { src = sx(src, size); }
             if src == 0 { fault("division by zero"); return; }
             if size == 1 {
-                int dividend = r[0] & 0xffff;
+                i64 dividend = r[0] & 0xffff;
                 if g == 7 { dividend = sx(dividend, 2); }
-                int q = dividend / src; int rm = dividend % src;
+                i64 q = dividend / src; i64 rm = dividend % src;
                 setr(0, 1, q, 0); setr(4, 1, rm, 0);            // al, ah
                 r[0] = (r[0] & ~0xffff) | (q & 255) | ((rm & 255) << 8);
             } else if size == 2 {
-                int dividend = ((r[2] & 0xffff) << 16) | (r[0] & 0xffff);
+                i64 dividend = ((r[2] & 0xffff) << 16) | (r[0] & 0xffff);
                 if g == 7 { dividend = sx(dividend, 4); }
-                int q = dividend / src; int rm = dividend % src;
+                i64 q = dividend / src; i64 rm = dividend % src;
                 setr(0, 2, q, 0); setr(2, 2, rm, 0);
             } else if size == 4 {
                 if g == 7 {
-                    int dividend = (sx(r[2], 4) << 32) | (r[0] & 0xffffffff);
-                    int q = dividend / src; int rm = dividend % src;
+                    i64 dividend = (sx(r[2], 4) << 32) | (r[0] & 0xffffffff);
+                    i64 q = dividend / src; i64 rm = dividend % src;
                     r[0] = q & 0xffffffff; r[2] = rm & 0xffffffff;
                 } else {
                     udiv128(0, ((r[2] & 0xffffffff) << 32) | (r[0] & 0xffffffff), src & 0xffffffff);
@@ -604,7 +604,7 @@ void step() {
                 }
             } else {
                 if g == 7 {
-                    if r[2] == (r[0] >> 63) { int q = r[0] / src; int rm = r[0] % src; r[0] = q; r[2] = rm; }
+                    if r[2] == (r[0] >> 63) { i64 q = r[0] / src; i64 rm = r[0] % src; r[0] = q; r[2] = rm; }
                     else { fault("idiv of a 128 bit dividend is not implemented"); }
                 } else {
                     udiv128(r[2], r[0], src);
@@ -614,37 +614,37 @@ void step() {
         }
     }
     else if op == 0xfe || op == 0xff {
-        int size = sz; if op == 0xfe { size = 1; }
+        i64 size = sz; if op == 0xfe { size = 1; }
         modrm(0);
-        int g = mdreg & 7;
+        i64 g = mdreg & 7;
         if g < 2 {                                              // inc, dec: the carry flag stays
-            int c = cf;
-            int res = alu(0, rm_read(size), 1, size);
+            i64 c = cf;
+            i64 res = alu(0, rm_read(size), 1, size);
             if g == 1 { res = alu(5, rm_read(size), 1, size); }
             cf = c;
             rm_write(size, res);
         }
-        else if g == 2 { int t = rm_read(8); push(pc); pc = t; }
+        else if g == 2 { i64 t = rm_read(8); push(pc); pc = t; }
         else if g == 4 { pc = rm_read(8); }
         else if g == 6 { push(rm_read(8)); }
         else { unknown(op, g); }
     }
     else if op == 0x0f {
-        int op2 = fetch8();
+        i64 op2 = fetch8();
         if want_count == 1 { ops[256 + op2] += 1; }
         if op2 == 0x05 { r[0] = do_syscall(); r[1] = pc; r[11] = (cf) | (pf << 2) | (af << 4) | (zf << 6) | (sf << 7) | 0x202; }
         else if op2 == 0x0b { fault("ud2"); }
         else if op2 == 0x1f || op2 == 0x1e || op2 == 0x18 { modrm(0); }
-        else if op2 >= 0x40 && op2 <= 0x4f { modrm(0); int v = rm_read(sz); if cond(op2 & 15) { setr(mdreg, sz, v, rex); } else if sz == 4 { r[mdreg] = r[mdreg] & 0xffffffff; } }
-        else if op2 >= 0x80 && op2 <= 0x8f { int d = sx(fetch32(), 4); if cond(op2 & 15) { pc += d; } }
-        else if op2 >= 0x90 && op2 <= 0x9f { modrm(0); int v = 0; if cond(op2 & 15) { v = 1; } rm_write(1, v); }
+        else if op2 >= 0x40 && op2 <= 0x4f { modrm(0); i64 v = rm_read(sz); if cond(op2 & 15) { setr(mdreg, sz, v, rex); } else if sz == 4 { r[mdreg] = r[mdreg] & 0xffffffff; } }
+        else if op2 >= 0x80 && op2 <= 0x8f { i64 d = sx(fetch32(), 4); if cond(op2 & 15) { pc += d; } }
+        else if op2 >= 0x90 && op2 <= 0x9f { modrm(0); i64 v = 0; if cond(op2 & 15) { v = 1; } rm_write(1, v); }
         else if op2 == 0xa2 {                                   // cpuid: a plain x86_64 with SSE2
-            int leaf = r[0] & 0xffffffff;
+            i64 leaf = r[0] & 0xffffffff;
             if leaf == 0 { r[0] = 1; r[3] = 0x756e6547; r[2] = 0x49656e69; r[1] = 0x6c65746e; }
             else if leaf == 1 { r[0] = 0x000306a9; r[3] = 0; r[1] = 0; r[2] = (1 << 0) | (1 << 8) | (1 << 15) | (1 << 25) | (1 << 26); }
             else { r[0] = 0; r[3] = 0; r[1] = 0; r[2] = 0; }
         }
-        else if op2 == 0xaf { modrm(0); int a = sx(getr(mdreg, sz, rex), sz); int b = sx(rm_read(sz), sz); int res = a * b; cf = 0;
+        else if op2 == 0xaf { modrm(0); i64 a = sx(getr(mdreg, sz, rex), sz); i64 b = sx(rm_read(sz), sz); i64 res = a * b; cf = 0;
             if sz == 8 { if mulhi_s(a, b) != (res >> 63) { cf = 1; } } else if res != sx(res, sz) { cf = 1; } of = cf; setr(mdreg, sz, res, rex); }
         else if op2 == 0xb6 { modrm(0); setr(mdreg, sz, rm_read(1), rex); }
         else if op2 == 0xb7 { modrm(0); setr(mdreg, sz, rm_read(2), rex); }
@@ -652,14 +652,14 @@ void step() {
         else if op2 == 0xbf { modrm(0); setr(mdreg, sz, sx(rm_read(2), 2), rex); }
         else if op2 == 0xbc || op2 == 0xbd {                    // bsf, bsr (with F3: tzcnt, lzcnt)
             modrm(0);
-            int v = rm_read(sz) & mask_of(sz);
-            int bits = sz * 8;
+            i64 v = rm_read(sz) & mask_of(sz);
+            i64 bits = sz * 8;
             if v == 0 {
                 zf = 1;
                 if pfxf3 == 1 { cf = 1; setr(mdreg, sz, bits, rex); } else { cf = 0; }
             } else {
                 zf = 0; cf = 0;
-                int idx = 0;
+                i64 idx = 0;
                 if op2 == 0xbc { while ((v >> idx) & 1) == 0 { idx += 1; } }
                 else { idx = bits - 1; while ((shr(v, idx)) & 1) == 0 { idx -= 1; } }
                 if pfxf3 == 1 && op2 == 0xbd { idx = bits - 1 - idx; }
@@ -667,53 +667,53 @@ void step() {
             }
         }
         else if op2 >= 0xc8 && op2 <= 0xcf {                    // bswap
-            int n = (op2 & 7) | (rexb << 3);
-            int v = r[n]; int res = 0;
-            int bytes = 4; if rexw == 1 { bytes = 8; }
+            i64 n = (op2 & 7) | (rexb << 3);
+            i64 v = r[n]; i64 res = 0;
+            i64 bytes = 4; if rexw == 1 { bytes = 8; }
             for i in 0..bytes { res = (res << 8) | (v & 255); v = shr(v, 8); }
             r[n] = res;
         }
         else if op2 == 0xb0 || op2 == 0xb1 {                    // cmpxchg
-            int size = sz; if op2 == 0xb0 { size = 1; }
+            i64 size = sz; if op2 == 0xb0 { size = 1; }
             modrm(0);
-            int cur = rm_read(size);
+            i64 cur = rm_read(size);
             alu(7, getr(0, size, rex), cur, size);
             if zf == 1 { rm_write(size, getr(mdreg, size, rex)); } else { setr(0, size, cur, rex); }
         }
         else if op2 == 0xc0 || op2 == 0xc1 {                    // xadd
-            int size = sz; if op2 == 0xc0 { size = 1; }
+            i64 size = sz; if op2 == 0xc0 { size = 1; }
             modrm(0);
-            int a = rm_read(size); int b = getr(mdreg, size, rex);
-            int res = alu(0, a, b, size);
+            i64 a = rm_read(size); i64 b = getr(mdreg, size, rex);
+            i64 res = alu(0, a, b, size);
             setr(mdreg, size, a, rex);
             rm_write(size, res);
         }
         else if op2 == 0xa3 || op2 == 0xab || op2 == 0xb3 || op2 == 0xbb || op2 == 0xba {   // bt, bts, btr, btc
-            int immsz = 0; if op2 == 0xba { immsz = 1; }
+            i64 immsz = 0; if op2 == 0xba { immsz = 1; }
             modrm(immsz);
-            int bit = 0;
-            int kind = 0;
+            i64 bit = 0;
+            i64 kind = 0;
             if op2 == 0xba { bit = fetch8(); kind = (mdreg & 7) - 4; }
             else { bit = getr(mdreg, sz, rex); if op2 == 0xab { kind = 1; } else if op2 == 0xb3 { kind = 2; } else if op2 == 0xbb { kind = 3; } }
-            int bits = sz * 8;
+            i64 bits = sz * 8;
             bit = bit % bits;
-            int v = rm_read(sz);
+            i64 v = rm_read(sz);
             cf = shr(v, bit) & 1;
             if kind == 1 { rm_write(sz, v | (1 << bit)); }
             else if kind == 2 { rm_write(sz, v & ~(1 << bit)); }
             else if kind == 3 { rm_write(sz, v xor (1 << bit)); }
         }
         else if op2 == 0xa4 || op2 == 0xa5 || op2 == 0xac || op2 == 0xad {               // shld, shrd
-            int immsz = 0; if (op2 & 1) == 0 { immsz = 1; }
+            i64 immsz = 0; if (op2 & 1) == 0 { immsz = 1; }
             modrm(immsz);
-            int cnt = 0;
+            i64 cnt = 0;
             if (op2 & 1) == 0 { cnt = fetch8(); } else { cnt = r[1] & 255; }
-            int bits = sz * 8;
+            i64 bits = sz * 8;
             if sz == 8 { cnt = cnt & 63; } else { cnt = cnt & 31; }
             if cnt != 0 {
-                int dst = rm_read(sz) & mask_of(sz);
-                int src = getr(mdreg, sz, rex);
-                int res = 0;
+                i64 dst = rm_read(sz) & mask_of(sz);
+                i64 src = getr(mdreg, sz, rex);
+                i64 res = 0;
                 if op2 < 0xa8 { res = ((dst << cnt) | shr(src & mask_of(sz), bits - cnt)) & mask_of(sz); cf = shr(dst, bits - cnt) & 1; }
                 else { res = (shr(dst, cnt) | (src << (bits - cnt))) & mask_of(sz); cf = shr(dst, cnt - 1) & 1; }
                 flags_zsp(res, sz);
@@ -727,28 +727,28 @@ void step() {
 }
 
 // ---------- the ELF loader
-int load_elf(String path, String[] args, int first_arg) {
+i64 load_elf(String path, String[] args, i64 first_arg) {
     Result<String, Error> rr = Fs::read_bytes(path);
     if rr.is_err() { jerr << "jx86: cannot read " << path << "\n"; return 0; }
     String f = rr.unwrap();
     if f.len < 64 || (f[0] & 255) != 0x7f || f[1] != 'E' || f[2] != 'L' || f[3] != 'F' { jerr << "jx86: " << path << " is not an ELF file\n"; return 0; }
     if (f[4] & 255) != 2 { jerr << "jx86: only 64 bit programs\n"; return 0; }
-    int machine = ((f[19] & 255) << 8) | (f[18] & 255);
+    i64 machine = ((f[19] & 255) << 8) | (f[18] & 255);
     if machine != 0x3e { jerr << "jx86: " << path << " is not an x86_64 program (machine " << machine << ")\n"; return 0; }
-    int etype = ((f[17] & 255) << 8) | (f[16] & 255);
+    i64 etype = ((f[17] & 255) << 8) | (f[16] & 255);
     if etype != 2 { jerr << "jx86: only static programs (ET_EXEC) in this version\n"; return 0; }
-    int entry = 0;
+    i64 entry = 0;
     for i in 0..8 { entry = entry | ((f[24 + i] & 255) << (8 * i)); }
-    int phoff = 0;
+    i64 phoff = 0;
     for i in 0..8 { phoff = phoff | ((f[32 + i] & 255) << (8 * i)); }
-    int phnum = ((f[57] & 255) << 8) | (f[56] & 255);
-    int phent = ((f[55] & 255) << 8) | (f[54] & 255);
-    int top = 0;
+    i64 phnum = ((f[57] & 255) << 8) | (f[56] & 255);
+    i64 phent = ((f[55] & 255) << 8) | (f[54] & 255);
+    i64 top = 0;
     for p in 0..phnum {
-        int o = phoff + p * phent;
-        int ptype = (f[o] & 255) | ((f[o + 1] & 255) << 8) | ((f[o + 2] & 255) << 16) | ((f[o + 3] & 255) << 24);
+        i64 o = phoff + p * phent;
+        i64 ptype = (f[o] & 255) | ((f[o + 1] & 255) << 8) | ((f[o + 2] & 255) << 16) | ((f[o + 3] & 255) << 24);
         if ptype != 1 { continue; }
-        int off = 0; int vaddr = 0; int filesz = 0; int memsz = 0;
+        i64 off = 0; i64 vaddr = 0; i64 filesz = 0; i64 memsz = 0;
         for i in 0..8 {
             off = off | ((f[o + 8 + i] & 255) << (8 * i));
             vaddr = vaddr | ((f[o + 16 + i] & 255) << (8 * i));
@@ -763,9 +763,9 @@ int load_elf(String path, String[] args, int first_arg) {
     brk_cur = brk_start;
     mmap_next = gsize / 2;
     // the stack: the strings, then argc, argv, envp, auxv
-    int sp = gsize - 4096;
-    int n = args.len - first_arg;
-    int[] ptrs = arr(8);
+    i64 sp = gsize - 4096;
+    i64 n = args.len - first_arg;
+    i64[] ptrs = arr(8);
     for i in 0..n {
         String s = args[first_arg + i];
         sp -= s.len + 1;
@@ -774,13 +774,13 @@ int load_elf(String path, String[] args, int first_arg) {
         ptrs.push(sp);
     }
     sp -= 16;
-    int rnd = sp;
+    i64 rnd = sp;
     for k in 0..16 { gm[rnd + k] = (char)(k * 11 + 7); }
     sp = sp & ~15;
-    int words = 1 + n + 1 + 1 + 6;                          // argc, argv, NULL, envp NULL, three auxv pairs
+    i64 words = 1 + n + 1 + 1 + 6;                          // argc, argv, NULL, envp NULL, three auxv pairs
     if (words & 1) == 1 { sp -= 8; }
     sp -= words * 8;
-    int w = sp;
+    i64 w = sp;
     wr(w, 8, n); w += 8;
     for i in 0..n { wr(w, 8, ptrs[i]); w += 8; }
     wr(w, 8, 0); w += 8;
@@ -793,9 +793,9 @@ int load_elf(String path, String[] args, int first_arg) {
     return 1;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
-    int at = 1;
+    i64 at = 1;
     g_min = 1 << 63;
     while at < a.len && a[at].starts_with("--") {
         if a[at] == "--count" { want_count = 1; }
@@ -824,7 +824,7 @@ int main() {
     if want_count == 1 {
         jerr << "jx86: " << icount << " instructions\n";
         for rank in 0..12 {
-            int best = -1; int bc = 0;
+            i64 best = -1; i64 bc = 0;
             for k in 0..512 { if ops[k] > bc { bc = ops[k]; best = k; } }
             if best < 0 { break; }
             String name = tohex(best);

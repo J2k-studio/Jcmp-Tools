@@ -17,44 +17,44 @@ bool g_raw;
 
 void raw_on() {
     if g_raw || Sys::isatty(0) != 0 { return; }
-    Sys::call(29, 0, 21505, (int)@g_tio, 0, 0, 0);
+    Sys::call(29, 0, 21505, (i64)@g_tio, 0, 0, 0);
     char r[64];
     for i in 0..64 { r[i] = g_tio[i]; }
     r[12] = r[12] & 244;
-    Sys::call(29, 0, 21506, (int)@r, 0, 0, 0);
+    Sys::call(29, 0, 21506, (i64)@r, 0, 0, 0);
     g_raw = true;
 }
 
 void raw_off() {
     if !g_raw { return; }
-    Sys::call(29, 0, 21506, (int)@g_tio, 0, 0, 0);
+    Sys::call(29, 0, 21506, (i64)@g_tio, 0, 0, 0);
     g_raw = false;
 }
 
-int read_byte(int wait_ms) {
+i64 read_byte(i64 wait_ms) {
     if !Input::ready(wait_ms) { return -1; }
     char b[2];
-    int n = Sys::read(0, @b, 1);
+    i64 n = Sys::read(0, @b, 1);
     if n <= 0 { return -9; }
     return b[0] & 255;
 }
 
 // the next message of the app (the text after ESC ] 7777 ;), "" when none came within wait_ms
-String next_message(int wait_ms) {
-    int c = read_byte(wait_ms);
+String next_message(i64 wait_ms) {
+    i64 c = read_byte(wait_ms);
     if c < 0 { return ""; }
     if c != 27 { return ""; }
-    int d = read_byte(100);
+    i64 d = read_byte(100);
     if d != ']' { return ""; }
     String m = "";
-    int e = read_byte(300);
+    i64 e = read_byte(300);
     while e >= 0 && e != 7 && e != 27 { m.push((char)e); e = read_byte(300); }
     if e == 27 { read_byte(100); }
     if m.starts_with("7777;") { return m.slice(5, m.len); }
     return "";
 }
 
-String joined(String[] a, int from) {
+String joined(String[] a, i64 from) {
     String r = "";
     for i in from..a.len { if i > from { r += " "; } r += a[i]; }
     return r;
@@ -65,7 +65,7 @@ String ask(String msg) {
     raw_on();
     jout << "\e]7777;" << msg << "\a";
     String got = "";
-    int waited = 0;
+    i64 waited = 0;
     while waited < 6000 {
         String m = next_message(200);
         if m.starts_with("intent-") { got = m; break; }
@@ -77,11 +77,11 @@ String ask(String msg) {
 
 // the real path of a file: a name next to the program (Blonde.mp3), a path of the virtual root or a drive path all become the path the app can open; "" when there is no such file
 String real_file(String name) {
-    int fd = Sys::open_read(name.c());
+    i64 fd = Sys::open_read(name.c());
     if fd < 0 { return ""; }
     String link = "/proc/self/fd/" + str(fd);
     char buf[4096];
-    int n = Sys::readlink(link.c(), (char^)@buf, 4095);
+    i64 n = Sys::readlink(link.c(), (char^)@buf, 4095);
     Sys::close(fd);
     if n <= 0 { return ""; }
     buf[n] = 0;
@@ -89,12 +89,12 @@ String real_file(String name) {
     return r + "";
 }
 
-int usage() {
+i64 usage() {
     jerr << "usage: jearlink -viw URL | -snd TEXT | -sh FILE | -pk [image] | -cll NUMBER | -ap NAME | -aps | -ntf TITLE [TEXT]   (also: view send share pick call app apps notify)\n";
     return 2;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version") { jout << "jearlink 0.1.1\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" { usage(); if a.len < 2 { return 2; } return 0; }

@@ -6,24 +6,24 @@
 #import <stdlib>
 #import <native>
 
-int fail(String msg) {
+i64 fail(String msg) {
     jerr << "jvp4: " << msg << "\n";
     return 1;
 }
 
-int g_fd;
-int g_size;
+i64 g_fd;
+i64 g_size;
 
 // n bytes at the offset off of the file (pread); "" when they are not there
-String read_at(int off, int n) {
+String read_at(i64 off, i64 n) {
     if n <= 0 || off < 0 || off + n > g_size { return ""; }
     String r = "";
     char buf[4096];
-    int done = 0;
+    i64 done = 0;
     while done < n {
-        int want = n - done;
+        i64 want = n - done;
         if want > 4096 { want = 4096; }
-        int got = Sys::call(67, g_fd, (int)@buf, want, off + done, 0, 0);       // pread64
+        i64 got = Sys::call(67, g_fd, (i64)@buf, want, off + done, 0, 0);       // pread64
         if got <= 0 { return ""; }
         for i in 0..got { r.push(buf[i]); }
         done += got;
@@ -31,22 +31,22 @@ String read_at(int off, int n) {
     return r;
 }
 
-int be16(String s, int at) { return ((s[at] & 255) << 8) | (s[at + 1] & 255); }
-int be32(String s, int at) { return (be16(s, at) << 16) | be16(s, at + 2); }
-int be64(String s, int at) { return (be32(s, at) << 32) | be32(s, at + 4); }
-String four(String s, int at) { return s.slice(at, at + 4); }
+i64 be16(String s, i64 at) { return ((s[at] & 255) << 8) | (s[at + 1] & 255); }
+i64 be32(String s, i64 at) { return (be16(s, at) << 16) | be16(s, at + 2); }
+i64 be64(String s, i64 at) { return (be32(s, at) << 32) | be32(s, at + 4); }
+String four(String s, i64 at) { return s.slice(at, at + 4); }
 
 // ---------------------------------------------------------------- the boxes of mp4 / mov: size(4) type(4) [large size(8)] payload
-int b_start;     // the start of the payload
-int b_end;       // the end of the box
+i64 b_start;     // the start of the payload
+i64 b_end;       // the end of the box
 String b_type;
 
 // the box that starts at off (inside the limit); false at the end
-bool box_at(int off, int limit) {
+bool box_at(i64 off, i64 limit) {
     if off + 8 > limit { return false; }
     String h = read_at(off, 8);
     if h.len < 8 { return false; }
-    int size = be32(h, 0);
+    i64 size = be32(h, 0);
     b_type = four(h, 4);
     b_start = off + 8;
     if size == 1 {
@@ -63,10 +63,10 @@ bool box_at(int off, int limit) {
 }
 
 // the first child box of this type inside [from, to): start and end of its payload in found_s / found_e; false when none
-int found_s;
-int found_e;
-bool find_box(int from, int to, String type) {
-    int off = from;
+i64 found_s;
+i64 found_e;
+bool find_box(i64 from, i64 to, String type) {
+    i64 off = from;
     while box_at(off, to) {
         if b_type == type { found_s = b_start; found_e = b_end; return true; }
         off = b_end;
@@ -90,7 +90,7 @@ String codec_name(String fourcc) {
     return "unknown";
 }
 
-String avc_profile(int p) {
+String avc_profile(i64 p) {
     if p == 66 { return "Baseline"; }
     if p == 77 { return "Main"; }
     if p == 88 { return "Extended"; }
@@ -101,8 +101,8 @@ String avc_profile(int p) {
     return "profile " + str(p);
 }
 
-String clock_text(int ms) {
-    int s = ms / 1000;
+String clock_text(i64 ms) {
+    i64 s = ms / 1000;
     String m = str(s / 60);
     String sec = str(s % 60);
     if sec.len < 2 { sec = "0" + sec; }
@@ -110,25 +110,25 @@ String clock_text(int ms) {
 }
 
 // one track: trak payload in [s, e)
-void show_track(int s, int e, int n) {
-    int width = 0;
-    int height = 0;
+void show_track(i64 s, i64 e, i64 n) {
+    i64 width = 0;
+    i64 height = 0;
     if find_box(s, e, "tkhd") {
         String t = read_at(found_s, found_e - found_s);
-        int ver = t[0] & 255;
-        int at = 76;                                                      // version 0: the width is the 16.16 number 76 bytes in
+        i64 ver = t[0] & 255;
+        i64 at = 76;                                                      // version 0: the width is the 16.16 number 76 bytes in
         if ver == 1 { at = 88; }
         if t.len >= at + 8 { width = be32(t, at) >> 16; height = be32(t, at + 4) >> 16; }
     }
-    int timescale = 1;
-    int duration = 0;
+    i64 timescale = 1;
+    i64 duration = 0;
     String kind = "";
-    int samples = 0;
+    i64 samples = 0;
     String fourcc = "";
     String extra = "";
     if find_box(s, e, "mdia") {
-        int ms = found_s;
-        int me = found_e;
+        i64 ms = found_s;
+        i64 me = found_e;
         if find_box(ms, me, "mdhd") {
             String h = read_at(found_s, found_e - found_s);
             if (h[0] & 255) == 1 { timescale = be32(h, 20); duration = be64(h, 24); } else { timescale = be32(h, 12); duration = be32(h, 16); }
@@ -138,11 +138,11 @@ void show_track(int s, int e, int n) {
             if h.len >= 12 { kind = four(h, 8); }
         }
         if find_box(ms, me, "minf") {
-            int fs = found_s;
-            int fe = found_e;
+            i64 fs = found_s;
+            i64 fe = found_e;
             if find_box(fs, fe, "stbl") {
-                int ss = found_s;
-                int se = found_e;
+                i64 ss = found_s;
+                i64 se = found_e;
                 if find_box(ss, se, "stsz") {
                     String z = read_at(found_s, 12);
                     if z.len >= 12 {
@@ -156,18 +156,18 @@ void show_track(int s, int e, int n) {
                         fourcc = four(d, 12);
                         if kind == "vide" && d.len >= 8 + 8 + 78 {
                             // the sample entry: 8 header, 6 reserved, 2 index, 16 pre-defined, width(2) height(2) ...; the boxes follow after 78 bytes
-                            int w2 = be16(d, 8 + 8 + 24);
-                            int h2 = be16(d, 8 + 8 + 26);
+                            i64 w2 = be16(d, 8 + 8 + 24);
+                            i64 h2 = be16(d, 8 + 8 + 26);
                             if width == 0 { width = w2; height = h2; }
-                            int entry = found_s + 8 + 8 + 78;
+                            i64 entry = found_s + 8 + 8 + 78;
                             if find_box(entry, found_e, "avcC") {
                                 String c = read_at(found_s, found_e - found_s);
                                 if c.len >= 4 { extra = avc_profile(c[1] & 255) + ", level " + str((c[3] & 255) / 10) + "." + str((c[3] & 255) % 10); }
                             }
                         }
                         if kind == "soun" && d.len >= 8 + 8 + 20 {
-                            int ch = be16(d, 8 + 8 + 16);
-                            int rate = be16(d, 8 + 8 + 24);
+                            i64 ch = be16(d, 8 + 8 + 16);
+                            i64 rate = be16(d, 8 + 8 + 24);
                             extra = str(rate) + " Hz, " + str(ch) + " channels";
                         }
                     }
@@ -181,17 +181,17 @@ void show_track(int s, int e, int n) {
     else { line = line + kind + "  " + fourcc; }
     if extra.len > 0 { line = line + "  " + extra; }
     if duration > 0 && timescale > 0 {
-        int ms = duration * 1000 / timescale;
+        i64 ms = duration * 1000 / timescale;
         line = line + "  " + clock_text(ms);
         if kind == "vide" && samples > 0 && ms > 0 { line = line + "  " + str(samples) + " frames, " + str(samples * 10000 / ms / 10) + "." + str((samples * 10000 / ms) % 10) + " fps"; }
     }
     jout << line << "\n";
 }
 
-int do_info(String path) {
+i64 do_info(String path) {
     g_fd = Sys::open_read(path.c());
     if g_fd < 0 { return fail("cannot read " + path); }
-    Result<int, Error> sz = Fs::size(path);
+    Result<i64, Error> sz = Fs::size(path);
     if !sz.is_ok() { return fail("cannot read " + path); }
     g_size = sz.take();
     String head = read_at(0, 12);
@@ -214,17 +214,17 @@ int do_info(String path) {
         return fail(path + ": not a video file that jvp4 knows (mp4, mov; mkv, webm, avi are coming)");
     }
     if !find_box(0, g_size, "moov") { return fail("no moov box: a fragmented or damaged mp4 (not supported yet)"); }
-    int ms = found_s;
-    int me = found_e;
+    i64 ms = found_s;
+    i64 me = found_e;
     if find_box(ms, me, "mvhd") {
         String h = read_at(found_s, found_e - found_s);
-        int timescale = 1;
-        int duration = 0;
+        i64 timescale = 1;
+        i64 duration = 0;
         if (h[0] & 255) == 1 { timescale = be32(h, 20); duration = be64(h, 24); } else { timescale = be32(h, 12); duration = be32(h, 16); }
         if timescale > 0 { jout << "length: " << clock_text(duration * 1000 / timescale) << "\n"; }
     }
-    int n = 0;
-    int off = ms;
+    i64 n = 0;
+    i64 off = ms;
     while box_at(off, me) {
         if b_type == "trak" { n += 1; show_track(b_start, b_end, n); }
         off = b_end;
@@ -235,10 +235,10 @@ int do_info(String path) {
 }
 
 // ---- sound: a WAV file (PCM, 8 or 16 bits) through AAudio (libaaudio.so of Android, called with <native>; a program built with -dyn)
-int le16(String d, int at) { return (d[at] & 255) | ((d[at + 1] & 255) << 8); }
-int le32(String d, int at) { return le16(d, at) | (le16(d, at + 2) << 16); }
+i64 le16(String d, i64 at) { return (d[at] & 255) | ((d[at + 1] & 255) << 8); }
+i64 le32(String d, i64 at) { return le16(d, at) | (le16(d, at + 2) << 16); }
 
-int play_wav(String path) {
+i64 play_wav(String path) {
     Result<String, Error> r = Fs::read_bytes(path);
     if !r.is_ok() { return fail("cannot read " + path); }
     String d = r.take();
@@ -246,39 +246,39 @@ int play_wav(String path) {
     String wave = "";
     if d.len >= 12 { riff = d.slice(0, 4); wave = d.slice(8, 12); }
     if d.len < 44 || riff != "RIFF" || wave != "WAVE" { return fail(path + " is not a WAV file"); }
-    int pos = 12;
-    int channels = 0; int rate = 0; int bits = 0; int fmt = 0;
-    int data_at = 0; int data_len = 0;
+    i64 pos = 12;
+    i64 channels = 0; i64 rate = 0; i64 bits = 0; i64 fmt = 0;
+    i64 data_at = 0; i64 data_len = 0;
     while pos + 8 <= d.len {
         String id = d.slice(pos, pos + 4);
-        int size = le32(d, pos + 4);
+        i64 size = le32(d, pos + 4);
         if id == "fmt " { fmt = le16(d, pos + 8); channels = le16(d, pos + 10); rate = le32(d, pos + 12); bits = le16(d, pos + 22); }
         if id == "data" { data_at = pos + 8; data_len = size; if data_at + data_len > d.len { data_len = d.len - data_at; } break; }
         pos = pos + 8 + size + (size & 1);
     }
     if fmt != 1 || data_len == 0 { return fail("only PCM WAV files for now (format " + str(fmt) + ")"); }
     if bits != 16 { return fail("only 16 bit WAV files for now (this one has " + str(bits) + " bits)"); }
-    int lib = Native::open("libaaudio.so");
+    i64 lib = Native::open("libaaudio.so");
     if lib == 0 { return fail("no libaaudio.so: this needs Android (build with jcmp -dyn)"); }
-    int builder = 0;
-    if Native::call1(Native::sym(lib, "AAudio_createStreamBuilder"), (int)@builder) != 0 { return fail("AAudio: no stream builder"); }
+    i64 builder = 0;
+    if Native::call1(Native::sym(lib, "AAudio_createStreamBuilder"), (i64)@builder) != 0 { return fail("AAudio: no stream builder"); }
     Native::call2(Native::sym(lib, "AAudioStreamBuilder_setSampleRate"), builder, rate);
     Native::call2(Native::sym(lib, "AAudioStreamBuilder_setChannelCount"), builder, channels);
     Native::call2(Native::sym(lib, "AAudioStreamBuilder_setFormat"), builder, 1);        // AAUDIO_FORMAT_PCM_I16
-    int stream = 0;
-    if Native::call2(Native::sym(lib, "AAudioStreamBuilder_openStream"), builder, (int)@stream) != 0 { return fail("AAudio: cannot open the sound output"); }
+    i64 stream = 0;
+    if Native::call2(Native::sym(lib, "AAudioStreamBuilder_openStream"), builder, (i64)@stream) != 0 { return fail("AAudio: cannot open the sound output"); }
     Native::call1(Native::sym(lib, "AAudioStream_requestStart"), stream);
-    int write = Native::sym(lib, "AAudioStream_write");
-    int frame = channels * 2;
+    i64 write = Native::sym(lib, "AAudioStream_write");
+    i64 frame = channels * 2;
     char buf[16384];
-    int done = 0;
-    int total = data_len / frame;
+    i64 done = 0;
+    i64 total = data_len / frame;
     jout << path << ": " << rate << " Hz, " << channels << " channels, " << total / rate << " s\n";
     while done < total {
-        int n = 4096;
+        i64 n = 4096;
         if done + n > total { n = total - done; }
         for k in 0..n * frame { buf[k] = d[data_at + done * frame + k]; }
-        int w = Native::call4(write, stream, (int)@buf, n, 2000000000);
+        i64 w = Native::call4(write, stream, (i64)@buf, n, 2000000000);
         if w <= 0 { break; }
         done += w;
     }
@@ -287,7 +287,7 @@ int play_wav(String path) {
     return 0;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jvp4 0.2.0\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" {

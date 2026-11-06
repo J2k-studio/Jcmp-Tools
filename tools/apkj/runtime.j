@@ -4,8 +4,8 @@
 String rt_hex_to_bytes(String h) {
     String r = "";
     for i in 0..h.len / 2 {
-        int hi = h[2 * i] - 48;
-        int lo = h[2 * i + 1] - 48;
+        i64 hi = h[2 * i] - 48;
+        i64 lo = h[2 * i + 1] - 48;
         if hi > 9 { hi = hi - 39; }
         if lo > 9 { lo = lo - 39; }
         r.push((char)(hi * 16 + lo));

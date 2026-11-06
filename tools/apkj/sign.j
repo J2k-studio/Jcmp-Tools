@@ -5,14 +5,14 @@
 
 // the curve: the context for ec_mul / ec_add (p, R^2 mod p, n0, limbs) and the numbers n, R^2 mod n
 struct P256 {
-    int pm[16];
-    int prr[16];
-    int nm[16];
-    int nrr[16];
-    int ctx[40];
-    int pn0;
-    int nn0;
-    int n;
+    i64 pm[16];
+    i64 prr[16];
+    i64 nm[16];
+    i64 nrr[16];
+    i64 ctx[40];
+    i64 pn0;
+    i64 nn0;
+    i64 n;
 }
 
 void p256_init(P256^ c) {
@@ -30,31 +30,31 @@ void p256_init(P256^ c) {
 }
 
 // k * point, with the point given as affine (x, y) normal-form numbers (limbs); the result as affine bytes. false: infinity.
-bool p256_mul(P256^ c, int^ k, int^ gx, int^ gy, char^ xo, char^ yo) {
-    int one[16];
+bool p256_mul(P256^ c, i64^ k, i64^ gx, i64^ gy, char^ xo, char^ yo) {
+    i64 one[16];
     for i in 0..16 { one[i] = 0; }
     one[0] = 1;
-    int g[48];
+    i64 g[48];
     for i in 0..48 { g[i] = 0; }
     Crypto::mont_mul(@g, gx, @c^.prr, @c^.pm, 10, c^.pn0);
     Crypto::mont_mul(@g + 128, gy, @c^.prr, @c^.pm, 10, c^.pn0);
     Crypto::mont_mul(@g + 256, @one, @c^.prr, @c^.pm, 10, c^.pn0);
-    int r[48];
+    i64 r[48];
     Crypto::ec_mul(@r, k, 10, @g, @c^.ctx);
     if Crypto::bn_is_zero(@r + 256, 10) { return false; }
     char pm2[48];
     Crypto::unhex(Crypto::ec_const(256, 0), @pm2);
     pm2[31] = (char)(pm2[31] - 2);
-    int zi[16];
-    int zi2[16];
-    int zi3[16];
+    i64 zi[16];
+    i64 zi2[16];
+    i64 zi3[16];
     Crypto::mont_pow(@zi, @r + 256, @pm2, 32, @c^.pm, 10, @c^.prr, c^.pn0);
     Crypto::mont_mul(@zi, @zi, @c^.prr, @c^.pm, 10, c^.pn0);
     Crypto::mont_mul(@zi, @zi, @c^.prr, @c^.pm, 10, c^.pn0);
     Crypto::mont_mul(@zi2, @zi, @zi, @c^.pm, 10, c^.pn0);
     Crypto::mont_mul(@zi3, @zi2, @zi, @c^.pm, 10, c^.pn0);
-    int xa[16];
-    int ya[16];
+    i64 xa[16];
+    i64 ya[16];
     Crypto::mont_mul(@xa, @r, @zi2, @c^.pm, 10, c^.pn0);
     Crypto::mont_mul(@xa, @xa, @one, @c^.pm, 10, c^.pn0);
     Crypto::mont_mul(@ya, @r + 128, @zi3, @c^.pm, 10, c^.pn0);
@@ -64,7 +64,7 @@ bool p256_mul(P256^ c, int^ k, int^ gx, int^ gy, char^ xo, char^ yo) {
     return true;
 }
 
-void p256_base(P256^ c, int^ gx, int^ gy) {
+void p256_base(P256^ c, i64^ gx, i64^ gy) {
     char buf[48];
     Crypto::unhex(Crypto::ec_const(256, 2), @buf);
     Crypto::bn_from_bytes(gx, 10, @buf, 32);
@@ -74,7 +74,7 @@ void p256_base(P256^ c, int^ gx, int^ gy) {
 
 // a fresh private key: 32 random bytes, below n and not zero
 void p256_new_key(P256^ c, char^ d) {
-    int x[16];
+    i64 x[16];
     while true {
         Sys::random(d, 32);
         Crypto::bn_from_bytes(@x, 10, d, 32);
@@ -84,9 +84,9 @@ void p256_new_key(P256^ c, char^ d) {
 
 // the public key (x, y as 32 bytes each) of the private key d
 bool p256_public(P256^ c, char^ d, char^ xo, char^ yo) {
-    int gx[16];
-    int gy[16];
-    int k[16];
+    i64 gx[16];
+    i64 gy[16];
+    i64 k[16];
     p256_base(c, @gx, @gy);
     Crypto::bn_from_bytes(@k, 10, d, 32);
     return p256_mul(c, @k, @gx, @gy, xo, yo);
@@ -95,45 +95,45 @@ bool p256_public(P256^ c, char^ d, char^ xo, char^ yo) {
 // signs the 32-byte hash e with the private key d; r and s as 32 bytes. k is derived from d and e (sha256, counter),
 // so the same message gives the same signature (the dangerous thing in ECDSA is a repeated k for two messages).
 void p256_sign(P256^ c, char^ d, char^ hash, char^ rout, char^ sout) {
-    int gx[16];
-    int gy[16];
+    i64 gx[16];
+    i64 gy[16];
     p256_base(c, @gx, @gy);
     char seed[100];
     for i in 0..32 { seed[i] = d[i]; seed[32 + i] = hash[i]; }
-    int counter = 0;
+    i64 counter = 0;
     while true {
         seed[64] = (char)counter;
         char kb[32];
         Crypto::sha256(@seed, 65, @kb);
         counter += 1;
-        int k[16];
+        i64 k[16];
         Crypto::bn_from_bytes(@k, 10, @kb, 32);
         if Crypto::bn_is_zero(@k, 10) || Crypto::bn_cmp(@k, @c^.nm, 10) >= 0 { continue; }
         char xb[32];
         char yb[32];
         if !p256_mul(c, @k, @gx, @gy, @xb, @yb) { continue; }
-        int r[16];
+        i64 r[16];
         Crypto::bn_from_bytes(@r, 10, @xb, 32);
         if Crypto::bn_cmp(@r, @c^.nm, 10) >= 0 { Crypto::bn_sub(@r, @c^.nm, 10); }
         if Crypto::bn_is_zero(@r, 10) { continue; }
         // s = k^-1 (e + r d) mod n
-        int e[16];
-        int dd[16];
+        i64 e[16];
+        i64 dd[16];
         Crypto::bn_from_bytes(@e, 10, hash, 32);
         if Crypto::bn_cmp(@e, @c^.nm, 10) >= 0 { Crypto::bn_sub(@e, @c^.nm, 10); }
         Crypto::bn_from_bytes(@dd, 10, d, 32);
-        int t[16];
-        int u[16];
+        i64 t[16];
+        i64 u[16];
         Crypto::mont_mul(@t, @r, @c^.nrr, @c^.nm, 10, c^.nn0);      // r in the Montgomery form
         Crypto::mont_mul(@u, @t, @dd, @c^.nm, 10, c^.nn0);          // r d (normal)
         Crypto::fe_add(@u, @u, @e, @c^.nm, 10);
         char n2[48];
         Crypto::unhex(Crypto::ec_const(256, 1), @n2);
         n2[31] = (char)(n2[31] - 2);
-        int ki[16];
+        i64 ki[16];
         Crypto::mont_pow(@ki, @k, @n2, 32, @c^.nm, 10, @c^.nrr, c^.nn0);
         Crypto::mont_mul(@t, @u, @c^.nrr, @c^.nm, 10, c^.nn0);
-        int s[16];
+        i64 s[16];
         Crypto::mont_mul(@s, @t, @ki, @c^.nm, 10, c^.nn0);
         if Crypto::bn_is_zero(@s, 10) { continue; }
         Crypto::bn_to_bytes(@r, 10, rout, 32);

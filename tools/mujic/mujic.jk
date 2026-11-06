@@ -8,7 +8,7 @@
 #import <stdlib>
 
 
-int fail(String msg) {
+i64 fail(String msg) {
     jerr << "mujic: " << msg << "\n";
     return 1;
 }
@@ -62,7 +62,7 @@ bool is_audio(String name) {
 }
 
 String strip_ext(String name) {
-    int dot = -1;
+    i64 dot = -1;
     for i in 0..name.len { if name[i] == '.' { dot = i; } }
     if dot <= 0 { return name; }
     return name.slice(0, dot);
@@ -79,7 +79,7 @@ String abs_of(String name) {
 
 String song_title(String name) {                          // what the list shows: no folder of a full path, no extension
     if !name.starts_with("/") { return strip_ext(name); }
-    int sl = 0 - 1;
+    i64 sl = 0 - 1;
     for i in 0..name.len { if name[i] == '/' { sl = i; } }
     return strip_ext(name.slice(sl + 1, name.len));
 }
@@ -108,10 +108,10 @@ void library_write(String[] lines) {
 }
 
 String g_album;                         // the album (a folder of the music folder) that is the list now; "" = all the songs
-int[] g_alb_n;                          // the number of songs of each album that album_names found
+i64[] g_alb_n;                          // the number of songs of each album that album_names found
 
 // the songs of a folder and of the folders in it (down to three levels): a name is the way from the music folder ("album/song.mp3")
-void add_dir(String dir, String rel, int depth) {
+void add_dir(String dir, String rel, i64 depth) {
     Result<String[], Error> r = Dir::list(dir);
     if !r.is_ok() { return; }
     String[] names = r.take();
@@ -154,12 +154,12 @@ String[] album_names() {
     for i in 0..g_files.len {
         String f = g_files[i];
         if f.starts_with("/") { continue; }
-        int first = 0 - 1;
-        int last = 0 - 1;
+        i64 first = 0 - 1;
+        i64 last = 0 - 1;
         for k in 0..f.len { if f[k] == '/' { if first < 0 { first = k; } last = k; } }
         if last < 0 { continue; }                                   // a song straight in the music folder: no album
         String name = f.slice(0, last) + "";                          // the folder of the song, as deep as it goes
-        int idx = 0 - 1;
+        i64 idx = 0 - 1;
         for k in 0..names.len { if names[k] == name { idx = k; } }
         if idx < 0 { names.push(name); g_alb_n.push(1); } else { g_alb_n[idx] += 1; }
     }
@@ -172,7 +172,7 @@ void dedupe_files() {
     String[] kept = arr(g_files.len);
     for i in 0..g_files.len {
         String full = abs_of(g_files[i]);
-        int size = 0;
+        i64 size = 0;
         switch Fs::size(full) { Result::Ok(v): { size = v; } Result::Err(e): { size = 0; } }
         String base = song_title(g_files[i]).lower();
         String key = base + "|" + str(size);
@@ -185,25 +185,25 @@ void dedupe_files() {
 
 // /mv NAME FOLDER: move a song into a folder of the music folder (made when it is not there); FOLDER "." brings it back
 String move_song(String what, String folder) {
-    int n = find_song(what);
+    i64 n = find_song(what);
     if n < 0 { return "no song like '" + what + "'"; }
     String file = g_files[n];
     if file.starts_with("/") { return "this song is not in the music folder (it came from /scan): /remove takes it out of the list"; }
     String base = file;
-    int slash = -1;
+    i64 slash = -1;
     for i in 0..file.len { if file[i] == '/' { slash = i; } }
     if slash >= 0 { base = file.slice(slash + 1, file.len); }
     if folder.contains("..") || folder.starts_with("/") { return "the folder must be a plain name inside " + music_dir(); }
     String dest_dir = music_dir();
     if folder != "." && folder.len > 0 {
         dest_dir = Path::join(music_dir(), folder);
-        Result<int, Error> mk = Dir::make_all(dest_dir);
+        Result<i64, Error> mk = Dir::make_all(dest_dir);
         if !mk.is_ok() { return "cannot make the folder " + folder; }
     }
     // the files of the song that belong together: sound, lyrics (.lrc, .txt)
     String from_base = Path::join(music_dir(), strip_ext(file));
     String to_base = Path::join(dest_dir, strip_ext(base));
-    Result<int, Error> r = Fs::rename(Path::join(music_dir(), file), Path::join(dest_dir, base));
+    Result<i64, Error> r = Fs::rename(Path::join(music_dir(), file), Path::join(dest_dir, base));
     if !r.is_ok() { return "cannot move " + file; }
     Fs::rename(from_base + ".lrc", to_base + ".lrc");
     Fs::rename(from_base + ".txt", to_base + ".txt");
@@ -214,11 +214,11 @@ String move_song(String what, String folder) {
 // the song for a number, a name or a part of a name; -1 when none
 // the real path of a file (a name next to you, a path of the virtual root): "" when there is no such file
 String real_file(String name) {
-    int fd = Sys::open_read(name.c());
+    i64 fd = Sys::open_read(name.c());
     if fd < 0 { return ""; }
     String link = "/proc/self/fd/" + str(fd);
     char buf[4096];
-    int n = Sys::readlink(link.c(), (char^)@buf, 4095);
+    i64 n = Sys::readlink(link.c(), (char^)@buf, 4095);
     Sys::close(fd);
     if n <= 0 { return ""; }
     buf[n] = 0;
@@ -226,12 +226,12 @@ String real_file(String name) {
     return r + "";
 }
 
-int find_song(String what) {
+i64 find_song(String what) {
     if !g_files_ready { load_files(); }
     bool digits = what.len > 0;
     for i in 0..what.len { if what[i] < '0' || what[i] > '9' { digits = false; } }
     if digits {
-        int n = what.to_int() - 1;
+        i64 n = what.to_int() - 1;
         if n >= 0 && n < g_files.len { return n; }
     }
     String w = what.lower();
@@ -245,7 +245,7 @@ String url_encode(String s) {
     String r = "";
     String hex = "0123456789ABCDEF";
     for i in 0..s.len {
-        int c = s[i] & 255;
+        i64 c = s[i] & 255;
         bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~';
         if plain { r.push((char)c); }
         else { r.push('%'); r.push(hex[c >> 4]); r.push(hex[c & 15]); }
@@ -253,7 +253,7 @@ String url_encode(String s) {
     return r;
 }
 
-int hexv(int c) {
+i64 hexv(i64 c) {
     if c >= '0' && c <= '9' { return c - '0'; }
     if c >= 'a' && c <= 'f' { return c - 'a' + 10; }
     if c >= 'A' && c <= 'F' { return c - 'A' + 10; }
@@ -262,7 +262,7 @@ int hexv(int c) {
 
 String url_decode(String s) {
     String r = "";
-    int i = 0;
+    i64 i = 0;
     while i < s.len {
         if s[i] == '%' && i + 2 < s.len + 0 && hexv(s[i + 1] & 255) >= 0 && hexv(s[i + 2] & 255) >= 0 {
             r.push((char)(hexv(s[i + 1] & 255) * 16 + hexv(s[i + 2] & 255)));
@@ -276,33 +276,33 @@ String url_decode(String s) {
 String safe_file(String s) {
     String r = "";
     for i in 0..s.len {
-        int c = s[i] & 255;
+        i64 c = s[i] & 255;
         if c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|' || c < 32 { r.push('_'); } else { r.push((char)c); }
     }
     return r.trim();
 }
 
 // the width of a letter on the screen: 0 for the marks of Thai that sit on a letter, 2 for the wide ones
-int cp_width(int cp) {
+i64 cp_width(i64 cp) {
     if cp == 3633 || (cp >= 3636 && cp <= 3642) || (cp >= 3655 && cp <= 3662) { return 0; }
     if (cp >= 4352 && cp <= 4447) || (cp >= 11904 && cp <= 42191) || (cp >= 44032 && cp <= 55203) || (cp >= 65280 && cp <= 65376) || cp >= 127744 { return 2; }
     return 1;
 }
 
 // the text cut so that it takes at most w places on the screen (UTF-8 is not cut in the middle of a letter)
-String fit(String s, int w) {
+String fit(String s, i64 w) {
     String r = "";
-    int i = 0;
-    int used = 0;
+    i64 i = 0;
+    i64 used = 0;
     while i < s.len {
-        int b = s[i] & 255;
-        int n = 1;
-        int cp = b;
+        i64 b = s[i] & 255;
+        i64 n = 1;
+        i64 cp = b;
         if b >= 240 { n = 4; cp = ((b & 7) << 18) | ((s[i + 1] & 63) << 12) | ((s[i + 2] & 63) << 6) | (s[i + 3] & 63); }
         else if b >= 224 { n = 3; cp = ((b & 15) << 12) | ((s[i + 1] & 63) << 6) | (s[i + 2] & 63); }
         else if b >= 192 { n = 2; cp = ((b & 31) << 6) | (s[i + 1] & 63); }
         if i + n > s.len { break; }
-        int cw = cp_width(cp);
+        i64 cw = cp_width(cp);
         if used + cw > w { break; }
         for k in 0..n { r.push(s[i + k]); }
         used += cw;
@@ -311,13 +311,13 @@ String fit(String s, int w) {
     return r;
 }
 
-int shown_width(String s) {
-    int used = 0;
-    int i = 0;
+i64 shown_width(String s) {
+    i64 used = 0;
+    i64 i = 0;
     while i < s.len {
-        int b = s[i] & 255;
-        int n = 1;
-        int cp = b;
+        i64 b = s[i] & 255;
+        i64 n = 1;
+        i64 cp = b;
         if b >= 240 { n = 4; cp = ((b & 7) << 18) | ((s[i + 1] & 63) << 12) | ((s[i + 2] & 63) << 6) | (s[i + 3] & 63); }
         else if b >= 224 { n = 3; cp = ((b & 15) << 12) | ((s[i + 1] & 63) << 6) | (s[i + 2] & 63); }
         else if b >= 192 { n = 2; cp = ((b & 31) << 6) | (s[i + 1] & 63); }
@@ -327,22 +327,22 @@ int shown_width(String s) {
     return used;
 }
 
-String pad_to(String s, int w) {
+String pad_to(String s, i64 w) {
     String r = fit(s, w);
-    int used = shown_width(r);
+    i64 used = shown_width(r);
     while used < w { r.push(' '); used += 1; }
     return r;
 }
 
-String two(int n) {
+String two(i64 n) {
     String r = str(n);
     if r.len < 2 { r = "0" + r; }
     return r;
 }
 
-String clock(int ms) {
+String clock(i64 ms) {
     if ms < 0 { ms = 0; }
-    int s = ms / 1000;
+    i64 s = ms / 1000;
     return two(s / 60) + ":" + two(s % 60);
 }
 
@@ -356,9 +356,9 @@ JsonDoc json_open(String text) {
 }
 
 // ---------------------------------------------------------------- lyrics
-int[] lt;                                // the time of a line (ms), -1 when the lyrics have no times
+i64[] lt;                                // the time of a line (ms), -1 when the lyrics have no times
 String[] ltx;
-int lcount;
+i64 lcount;
 bool lsynced;
 String ltitle;                           // the song the lyrics belong to
 
@@ -369,7 +369,7 @@ void lyrics_clear() {
     lsynced = false;
 }
 
-void lyrics_add(int t, String text) {
+void lyrics_add(i64 t, String text) {
     lt.push(t);
     ltx.push(text);
     lcount += 1;
@@ -381,14 +381,14 @@ void lyrics_parse(String text) {
     String[] lines = text.replace("\r", "").split("\n");
     for i in 0..lines.len {
         String ln = lines[i];
-        int p = 0;
-        int[] stamps = arr(4);
+        i64 p = 0;
+        i64[] stamps = arr(4);
         while p < ln.len && ln[p] == '[' {
-            int close = -1;
+            i64 close = -1;
             for k in p..ln.len { if ln[k] == ']' { close = k; break; } }
             if close < 0 { break; }
             String tag = ln.slice(p + 1, close);
-            int colon = -1;
+            i64 colon = -1;
             for k in 0..tag.len { if tag[k] == ':' { colon = k; break; } }
             bool numeric = colon > 0;
             for k in 0..colon { if tag[k] < '0' || tag[k] > '9' { numeric = false; } }
@@ -396,12 +396,12 @@ void lyrics_parse(String text) {
                 if stamps.len == 0 { p = close + 1; continue; }        // [ar:Name] and the like at the start
                 break;
             }
-            int mm = tag.slice(0, colon).to_int();
+            i64 mm = tag.slice(0, colon).to_int();
             String rest = tag.slice(colon + 1, tag.len);
-            int dot = -1;
+            i64 dot = -1;
             for k in 0..rest.len { if rest[k] == '.' || rest[k] == ':' { dot = k; break; } }
-            int ss = 0;
-            int ms = 0;
+            i64 ss = 0;
+            i64 ms = 0;
             if dot < 0 { ss = rest.to_int(); }
             else {
                 ss = rest.slice(0, dot).to_int();
@@ -423,9 +423,9 @@ void lyrics_parse(String text) {
     }
     if lsynced {                                                   // in the order of time (a line with two stamps)
         for a in 1..lcount {
-            int t = lt[a];
+            i64 t = lt[a];
             String x = ltx[a];
-            int b = a - 1;
+            i64 b = a - 1;
             while b >= 0 && lt[b] > t { lt[b + 1] = lt[b]; ltx[b + 1] = ltx[b]; b -= 1; }
             lt[b + 1] = t;
             ltx[b + 1] = x;
@@ -437,12 +437,12 @@ void lyrics_parse(String text) {
 // the letters, digits and Thai letters of a name, in small letters, without (..) and [..], and without the words songs carry
 String plain_name(String file) {
     String n = strip_ext(file);
-    int sl = 0 - 1;
+    i64 sl = 0 - 1;
     for i in 0..n.len { if n[i] == '/' { sl = i; } }
     if sl >= 0 { n = n.slice(sl + 1, n.len); }
     n = n.lower();
     String cut = "";
-    int depth = 0;
+    i64 depth = 0;
     for i in 0..n.len {                                        // text in (..) and [..] is dropped
         if n[i] == '(' || n[i] == '[' { depth += 1; }
         else if (n[i] == ')' || n[i] == ']') && depth > 0 { depth -= 1; }
@@ -451,7 +451,7 @@ String plain_name(String file) {
     cut = cut.replace("official", " ").replace("lyrics", " ").replace("lyric", " ").replace("video", " ").replace("audio", " ").replace("music", " ");
     String r = "";
     for i in 0..cut.len {
-        int ch = cut[i] & 255;
+        i64 ch = cut[i] & 255;
         if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch >= 128 { r.push((char)ch); }
     }
     return r;
@@ -467,7 +467,7 @@ String lyrics_config() {
 String[] lyric_dirs(String songfile) {
     String[] d = arr(16);
     String full = abs_of(songfile);
-    int sl = 0 - 1;
+    i64 sl = 0 - 1;
     for i in 0..full.len { if full[i] == '/' { sl = i; } }
     if sl > 0 { d.push(full.slice(0, sl) + ""); }
     d.push(music_dir() + "");
@@ -489,7 +489,7 @@ String find_lyrics_file(String songfile) {
     String want = plain_name(songfile);
     if want.len < 3 { return ""; }
     String best = "";
-    int best_score = 0;
+    i64 best_score = 0;
     String[] dirs = lyric_dirs(songfile);
     for k in 0..dirs.len {
         if !Dir::exists(dirs[k]) { continue; }
@@ -502,7 +502,7 @@ String find_lyrics_file(String songfile) {
             if !(low.ends_with(".lrc") || low.ends_with(".txt")) { continue; }
             String have = plain_name(n);
             if have.len < 3 { continue; }
-            int score = 0;
+            i64 score = 0;
             if have == want { score = 100; }
             else if have.contains(want) || want.contains(have) { score = 50; }
             if score > 0 && low.ends_with(".lrc") { score += 1; }
@@ -533,15 +533,15 @@ bool lyrics_load_for(String file) {
 }
 
 // the line to show at the time t: the last one that has started; -1 before the first
-int lyrics_at(int t) {
+i64 lyrics_at(i64 t) {
     if !lsynced { return -1; }
-    int cur = -1;
+    i64 cur = -1;
     for i in 0..lcount { if lt[i] >= 0 && lt[i] <= t { cur = i; } }
     return cur;
 }
 
 // fetch the lyrics of a song from lrclib.net and keep them next to the song; the text of the answer is searched for the best one
-int fetch_lyrics(String file, String query) {
+i64 fetch_lyrics(String file, String query) {
     String q = query;
     if q.len == 0 { q = strip_ext(file).replace(" - ", " ").replace("_", " "); }
     jout << "searching lyrics for: " << q << "\n";
@@ -551,14 +551,14 @@ int fetch_lyrics(String file, String query) {
         Result::Err(e): { return fail("lrclib.net: " + e.message); }
     }
     JsonDoc doc = json_open(body);
-    int root = doc.root();
-    int n = doc.len(root);
-    int best = -1;
-    int plain = -1;
+    i64 root = doc.root();
+    i64 n = doc.len(root);
+    i64 best = -1;
+    i64 plain = -1;
     for i in 0..n {
-        int item = doc.at(root, i);
-        int sy = doc.get(item, "syncedLyrics");
-        int pl = doc.get(item, "plainLyrics");
+        i64 item = doc.at(root, i);
+        i64 sy = doc.get(item, "syncedLyrics");
+        i64 pl = doc.get(item, "plainLyrics");
         if best < 0 && sy >= 0 && !doc.is_null(sy) {
             String st = doc.text(sy);
             if st.len > 0 { best = i; }
@@ -570,13 +570,13 @@ int fetch_lyrics(String file, String query) {
     }
     String base = strip_ext(abs_of(file));
     if best >= 0 {
-        int item = doc.at(root, best);
+        i64 item = doc.at(root, best);
         Fs::write_text(base + ".lrc", doc.text(doc.get(item, "syncedLyrics")));
         jout << "saved " << strip_ext(file) << ".lrc  (" << doc.text(doc.get(item, "artistName")) << " - " << doc.text(doc.get(item, "trackName")) << ", with times)\n";
         return 0;
     }
     if plain >= 0 {
-        int item = doc.at(root, plain);
+        i64 item = doc.at(root, plain);
         Fs::write_text(base + ".txt", doc.text(doc.get(item, "plainLyrics")));
         jout << "saved " << strip_ext(file) << ".txt  (" << doc.text(doc.get(item, "artistName")) << " - " << doc.text(doc.get(item, "trackName")) << ", without times)\n";
         return 0;
@@ -603,7 +603,7 @@ void catalog_init() {
     }
 }
 
-int do_catalog() {
+i64 do_catalog() {
     catalog_init();
     jout << "Free songs (Kevin MacLeod, CC BY 4.0). Fetch one:  mujic get NAME\n";
     for i in 0..cat_id.len { jout << "  " << cat_id[i] << "   (" << cat_title[i] << ")\n"; }
@@ -611,7 +611,7 @@ int do_catalog() {
     return 0;
 }
 
-int download_to(String url, String name) {
+i64 download_to(String url, String name) {
     String dir = music_dir();
     if !Dir::exists(dir) { Dir::make_all(dir); }
     String to = Path::join(dir, name);
@@ -631,7 +631,7 @@ bool is_video_site(String u) {
 }
 
 // yt-dlp is the owner's own program (pip install yt-dlp); use it only for what you may download
-int ytdlp_get(String url, String name) {
+i64 ytdlp_get(String url, String name) {
     String[] v = arr(1);
     v.push("--version");
     if !Proc::run("yt-dlp", v).is_ok() { return fail("yt-dlp is not installed  (pip install yt-dlp);  use it only for songs you may download"); }
@@ -641,20 +641,20 @@ int ytdlp_get(String url, String name) {
     String[] a = arr(8);
     a.push("-f"); a.push("bestaudio[ext=m4a]/bestaudio");
     a.push("--no-playlist"); a.push("-o"); a.push(out); a.push(url);
-    Result<int, Error> r = Proc::run("yt-dlp", a);
+    Result<i64, Error> r = Proc::run("yt-dlp", a);
     if !r.is_ok() { return fail("yt-dlp could not run"); }
     if r.take() != 0 { return 1; }
     return 0;
 }
 
 // /import PATH: copy a song, or the songs of a folder, into the music folder
-int do_import(String path) {
+i64 do_import(String path) {
     Dir::make_all(music_dir());
     if Dir::exists(path) {
         Result<String[], Error> r = Dir::list(path);
         if !r.is_ok() { return fail("cannot read " + path); }
         String[] names = r.take();
-        int n = 0;
+        i64 n = 0;
         for i in 0..names.len {
             if is_audio(names[i]) {
                 String[] a = arr(3);
@@ -674,10 +674,10 @@ int do_import(String path) {
     return 0;
 }
 
-int do_get(String[] a) {
+i64 do_get(String[] a) {
     String what = "";
     String name = "";
-    int i = 2;
+    i64 i = 2;
     while i < a.len {
         if a[i] == "-n" && i + 1 < a.len { name = a[i + 1] + ""; i += 2; }
         else { what = a[i] + ""; i += 1; }
@@ -700,10 +700,10 @@ int do_get(String[] a) {
             Result::Err(e): { return fail(e.message); }
         }
         JsonDoc doc = json_open(body);
-        int files = doc.get(doc.root(), "files");
+        i64 files = doc.get(doc.root(), "files");
         if files < 0 { return fail("no such item: " + id); }
         for k in 0..doc.len(files) {
-            int f = doc.at(files, k);
+            i64 f = doc.at(files, k);
             String fname = doc.text(doc.get(f, "name"));
             String lname = fname.lower();
             if lname.ends_with(".mp3") || lname.ends_with(".ogg") {
@@ -718,7 +718,7 @@ int do_get(String[] a) {
     if is_video_site(what) { return ytdlp_get(what, name); }
     if what.starts_with("http://") || what.starts_with("https://") {
         String last = what;
-        int q = -1;
+        i64 q = -1;
         for k in 0..last.len { if last[k] == '?' { q = k; break; } }
         if q >= 0 { last = last.slice(0, q); }
         String file = name;
@@ -730,7 +730,7 @@ int do_get(String[] a) {
     return fail("'" + what + "' is not in the catalog, an address, or archive:ID");
 }
 
-int do_find(String[] a) {
+i64 do_find(String[] a) {
     String words = "";
     for i in 2..a.len { if words.len > 0 { words = words + " "; } words = words + a[i]; }
     if words.len == 0 { return fail("usage: mujic find WORDS"); }
@@ -741,10 +741,10 @@ int do_find(String[] a) {
         Result::Err(e): { return fail(e.message); }
     }
     JsonDoc doc = json_open(body);
-    int docs = doc.get(doc.get(doc.root(), "response"), "docs");
+    i64 docs = doc.get(doc.get(doc.root(), "response"), "docs");
     if docs < 0 || doc.len(docs) == 0 { jout << "nothing found\n"; return 0; }
     for k in 0..doc.len(docs) {
-        int d = doc.at(docs, k);
+        i64 d = doc.at(docs, k);
         jout << "  archive:" << doc.text(doc.get(d, "identifier")) << "   " << doc.text(doc.get(d, "title")) << "\n";
     }
     jout << "Fetch:  mujic get archive:ID   (check the licence of the item on archive.org first)\n";
@@ -752,20 +752,20 @@ int do_find(String[] a) {
 }
 
 // ---------------------------------------------------------------- the sound
-int g_backend;                          // 0 none, 1 the Jaric app, 2 termux-media-player, 3 a program started here
-int g_pid;
+i64 g_backend;                          // 0 none, 1 the Jaric app, 2 termux-media-player, 3 a program started here
+i64 g_pid;
 String g_player;
 bool g_state_known;
-int g_state;                            // 0 stopped, 1 playing, 2 paused
-int g_pos;                              // ms at g_pos_at
-int g_pos_at;
-int g_len;                              // ms, 0 when unknown
+i64 g_state;                            // 0 stopped, 1 playing, 2 paused
+i64 g_pos;                              // ms at g_pos_at
+i64 g_pos_at;
+i64 g_len;                              // ms, 0 when unknown
 String g_msg;
 bool g_shuffle;
-int g_repeat;                           // 0 off, 1 all, 2 one
-int g_volume;                     // percent (the app)
+i64 g_repeat;                           // 0 off, 1 all, 2 one
+i64 g_volume;                     // percent (the app)
 String g_filter;                        // only the songs that contain these letters
-int g_seed;
+i64 g_seed;
 
 bool have_program(String name) {
     String path = "";
@@ -794,12 +794,12 @@ void osc_audio(String cmd) {
     jout << "\e]7777;audio;" << cmd << "\a";
 }
 
-int now() { return Time::now_ms(); }
+i64 now() { return Time::now_ms(); }
 
 void stop_child() {
     if g_pid > 0 {
         Sys::kill(g_pid, 9);
-        int st = 0;
+        i64 st = 0;
         Sys::wait(g_pid, @st);
         g_pid = 0;
     }
@@ -845,7 +845,7 @@ void snd_stop() {
     else if g_backend == 3 { stop_child(); }
 }
 
-void snd_volume(int delta) {
+void snd_volume(i64 delta) {
     g_volume += delta;
     if g_volume < 0 { g_volume = 0; }
     if g_volume > 100 { g_volume = 100; }
@@ -854,9 +854,9 @@ void snd_volume(int delta) {
     if g_backend != 1 { g_msg = g_msg + " (only in the Jaric app; use the phone's volume keys)"; }
 }
 
-void snd_seek(int delta) {
+void snd_seek(i64 delta) {
     if g_backend != 1 || g_state == 0 { return; }          // only the app can jump (the other players are started with a fixed way)
-    int p = g_pos + delta;
+    i64 p = g_pos + delta;
     if g_state == 1 { p += now() - g_pos_at; }
     if p < 0 { p = 0; }
     if g_len > 0 && p > g_len - 500 { p = g_len - 500; }
@@ -864,7 +864,7 @@ void snd_seek(int delta) {
     osc_audio("seek;" + str(p));
 }
 
-int cur_pos() {
+i64 cur_pos() {
     if g_state == 1 { return g_pos + (now() - g_pos_at); }
     return g_pos;
 }
@@ -879,7 +879,7 @@ void snd_poll() {
         if r.is_ok() {
             String t = r.take();
             if t.contains("Stopped") || t.contains("No track") { if g_pos > 0 || now() - g_pos_at > 3000 { g_state = 0; } }
-            int at = -1;
+            i64 at = -1;
             String key = "Current Position: ";
             for i in 0..t.len { if t.slice(i, i + key.len) == key { at = i + key.len; break; } }
             if at >= 0 {
@@ -896,8 +896,8 @@ void snd_poll() {
             }
         }
     } else if g_backend == 3 && g_pid > 0 && g_state == 1 {
-        int st = 0;
-        int done = Sys::call(260, g_pid, (int)@st, 1, 0, 0, 0);        // wait4 with WNOHANG: the program has ended
+        i64 st = 0;
+        i64 done = Sys::call(260, g_pid, (i64)@st, 1, 0, 0, 0);        // wait4 with WNOHANG: the program has ended
         if done == g_pid { g_pid = 0; g_state = 0; }
     }
 }
@@ -908,24 +908,24 @@ bool g_raw;
 
 void raw_on() {
     if g_raw || Sys::isatty(0) != 0 { return; }
-    Sys::call(29, 0, 21505, (int)@g_tio, 0, 0, 0);
+    Sys::call(29, 0, 21505, (i64)@g_tio, 0, 0, 0);
     char r[64];
     for i in 0..64 { r[i] = g_tio[i]; }
     r[12] = r[12] & 244;                                          // no signals, no line editing, no echo
-    Sys::call(29, 0, 21506, (int)@r, 0, 0, 0);
+    Sys::call(29, 0, 21506, (i64)@r, 0, 0, 0);
     g_raw = true;
 }
 
 void raw_off() {
     if !g_raw { return; }
-    Sys::call(29, 0, 21506, (int)@g_tio, 0, 0, 0);
+    Sys::call(29, 0, 21506, (i64)@g_tio, 0, 0, 0);
     g_raw = false;
 }
 
-int read_byte(int wait_ms) {
+i64 read_byte(i64 wait_ms) {
     if !Input::ready(wait_ms) { return -1; }
     char b[2];
-    int n = Sys::read(0, @b, 1);
+    i64 n = Sys::read(0, @b, 1);
     if n <= 0 { return -9; }
     return b[0] & 255;
 }
@@ -934,31 +934,31 @@ int read_byte(int wait_ms) {
 // A message of the app (ESC ] 7777 ; pos ; ms ; state ; length BEL) is taken here and gives -1.
 String g_media;                         // "prev" / "pause" / "next" from the notification, done in the loop
 
-int next_event(int wait_ms) {
-    int c = read_byte(wait_ms);
+i64 next_event(i64 wait_ms) {
+    i64 c = read_byte(wait_ms);
     if c >= 194 && c < 248 {                                       // a letter that is not ASCII (Thai ...): the code point + 100000
-        int need = 1;
-        int cp = c & 31;
+        i64 need = 1;
+        i64 cp = c & 31;
         if c >= 240 { need = 3; cp = c & 7; } else if c >= 224 { need = 2; cp = c & 15; }
         for k in 0..need {
-            int cb = read_byte(30);
+            i64 cb = read_byte(30);
             if cb < 0 { return -1; }
             cp = (cp << 6) | (cb & 63);
         }
         return 100000 + cp;
     }
     if c != 27 { return c; }
-    int d = read_byte(30);
+    i64 d = read_byte(30);
     if d < 0 { return 27; }
     if d == '[' || d == 'O' {
-        int e = read_byte(30);
+        i64 e = read_byte(30);
         if e == 'A' { return 257; }
         if e == 'B' { return 258; }
         if e == 'C' { return 259; }
         if e == 'D' { return 260; }
         if e == 'H' { return 261; }
         if e == 'F' { return 262; }
-        int num = 0;
+        i64 num = 0;
         while e >= '0' && e <= '9' || e == ';' { if e >= '0' && e <= '9' { num = num * 10 + (e - '0'); } e = read_byte(30); }
         if e == '~' && num == 3 { return 263; }                           // Delete
         if e == '~' && num == 1 { return 261; }
@@ -967,13 +967,13 @@ int next_event(int wait_ms) {
     }
     if d == ']' {
         String m = "";
-        int e = read_byte(60);
+        i64 e = read_byte(60);
         while e >= 0 && e != 7 && e != 27 { m.push((char)e); e = read_byte(60); }
         if e == 27 { read_byte(30); }
         String[] p = m.split(";");
         if p.len >= 5 && p[0] == "7777" && p[1] == "pos" {
-            int st = p[3].to_int();
-            int len = p[4].to_int();
+            i64 st = p[3].to_int();
+            i64 len = p[4].to_int();
             g_pos = p[2].to_int(); g_pos_at = now(); g_len = len;
             if st == 0 && g_state == 1 && now() - g_pos_at >= 0 { g_state = 0; } else if st == 1 { g_state = 1; } else if st == 2 { g_state = 2; }
         } else if p.len >= 3 && p[0] == "7777" && p[1] == "media" { g_media = p[2] + "";          // a button of the notification of the app: prev, pause, next
@@ -984,24 +984,24 @@ int next_event(int wait_ms) {
 }
 
 // ---------------------------------------------------------------- the player: a screen with a typing box, menus and pickers (like the chat of Claude Code)
-int g_sel;                              // the song under the cursor
-int g_play;                             // the song that plays (-1: none)
+i64 g_sel;                              // the song under the cursor
+i64 g_play;                             // the song that plays (-1: none)
 bool g_quit;
-int g_view;                             // 0 the songs, 1 the lyrics, 2 the output of !command
+i64 g_view;                             // 0 the songs, 1 the lyrics, 2 the output of !command
 
 // the song after the current one (shuffle, repeat); -1 when the list ends
-int next_song(int dir) {
-    int n = g_files.len;
+i64 next_song(i64 dir) {
+    i64 n = g_files.len;
     if n == 0 { return -1; }
     if g_repeat == 2 && g_play >= 0 { return g_play; }
     if g_shuffle && n > 1 {
         g_seed = g_seed * 1103515245 + 12345 + now();
-        int k = (g_seed >> 8) % n;
+        i64 k = (g_seed >> 8) % n;
         if k < 0 { k = 0 - k; }
         if k == g_play { k = (k + 1) % n; }
         return k;
     }
-    int k = g_play + dir;
+    i64 k = g_play + dir;
     if k >= n || k < 0 {
         if g_repeat == 1 { return (k + n) % n; }
         return -1;
@@ -1009,7 +1009,7 @@ int next_song(int dir) {
     return k;
 }
 
-void play_index(int n) {
+void play_index(i64 n) {
     if n < 0 || n >= g_files.len { return; }
     g_play = n;
     g_sel = n;
@@ -1117,22 +1117,22 @@ void cmd_init() {
 
 // ---- the typing box
 String g_input;
-int g_cur;                              // byte index in g_input
+i64 g_cur;                              // byte index in g_input
 String[] g_hist;
-int g_hist_i;
-int g_menu_sel;
+i64 g_hist_i;
+i64 g_menu_sel;
 String g_note;                          // one line under the panel: what happened
 
 // ---- a picker: a list to choose from (arrows, type to narrow, Enter, Esc)
 bool g_pk_on;
-int g_pk_kind;                          // 1 songs, 2 catalog, 3 archive results, 4 folders, 5 songs found by /scan
+i64 g_pk_kind;                          // 1 songs, 2 catalog, 3 archive results, 4 folders, 5 songs found by /scan
 String g_pk_title;
 String[] g_pk_show;
 String[] g_pk_val;
 String g_pk_filter;
-int g_pk_sel;
+i64 g_pk_sel;
 
-void pk_open(int kind, String title) {
+void pk_open(i64 kind, String title) {
     g_pk_on = true;
     g_pk_kind = kind;
     g_pk_title = title;
@@ -1142,14 +1142,14 @@ void pk_open(int kind, String title) {
     g_pk_sel = 0;
 }
 
-bool pk_match(int i) {
+bool pk_match(i64 i) {
     if g_pk_filter.len == 0 { return true; }
     return g_pk_show[i].lower().contains(g_pk_filter.lower());
 }
 
 // the index (in the picker's list) of the k-th item that matches the filter; -1
-int pk_nth(int k) {
-    int seen = 0;
+i64 pk_nth(i64 k) {
+    i64 seen = 0;
     for i in 0..g_pk_show.len {
         if pk_match(i) {
             if seen == k { return i; }
@@ -1159,8 +1159,8 @@ int pk_nth(int k) {
     return 0 - 1;
 }
 
-int pk_count() {
-    int c = 0;
+i64 pk_count() {
+    i64 c = 0;
     for i in 0..g_pk_show.len { if pk_match(i) { c += 1; } }
     return c;
 }
@@ -1207,7 +1207,7 @@ void play_path(String full) {
     g_play = 0 - 1;
     lyrics_clear();
     String base = full;
-    int sl = 0 - 1;
+    i64 sl = 0 - 1;
     for i in 0..full.len { if full[i] == '/' { sl = i; } }
     if sl >= 0 { base = full.slice(sl + 1, full.len); }
     ltitle = strip_ext(base);
@@ -1262,26 +1262,26 @@ void shell_line(String cmdline) {
 // (shown with a ~).  Returns seconds; g_est tells if it is a guess.
 bool g_est;
 
-int be32(char^ b, int at) { return ((b[at] & 255) << 24) | ((b[at + 1] & 255) << 16) | ((b[at + 2] & 255) << 8) | (b[at + 3] & 255); }
-int le32(char^ b, int at) { return (b[at] & 255) | ((b[at + 1] & 255) << 8) | ((b[at + 2] & 255) << 16) | ((b[at + 3] & 255) << 24); }
+i64 be32(char^ b, i64 at) { return ((b[at] & 255) << 24) | ((b[at + 1] & 255) << 16) | ((b[at + 2] & 255) << 8) | (b[at + 3] & 255); }
+i64 le32(char^ b, i64 at) { return (b[at] & 255) | ((b[at + 1] & 255) << 8) | ((b[at + 2] & 255) << 16) | ((b[at + 3] & 255) << 24); }
 
-int song_seconds(String path, int size) {
+i64 song_seconds(String path, i64 size) {
     g_est = true;
     String l = path.lower();
     char^ buf = (char^)Mem::alloc(8192);
-    int fd = Sys::open_read(path.c());
+    i64 fd = Sys::open_read(path.c());
     if fd < 0 { Mem::free(buf); return size / 16000; }
-    int got = Sys::read(fd, buf, 8192);
-    int secs = size / 16000;                                  // 128 kbit/s is 16000 bytes a second
+    i64 got = Sys::read(fd, buf, 8192);
+    i64 secs = size / 16000;                                  // 128 kbit/s is 16000 bytes a second
     if got >= 44 && l.ends_with(".wav") && buf[0] == 'R' && buf[1] == 'I' && buf[8] == 'W' {
-        int rate = le32(buf, 28);
+        i64 rate = le32(buf, 28);
         if rate > 0 { secs = (size - 44) / rate; g_est = false; }
     } else if got >= 10 && l.ends_with(".mp3") {
-        int at = 0;
+        i64 at = 0;
         if buf[0] == 'I' && buf[1] == 'D' && buf[2] == '3' {
             at = 10 + (((buf[6] & 127) << 21) | ((buf[7] & 127) << 14) | ((buf[8] & 127) << 7) | (buf[9] & 127));
         }
-        int tag = at;
+        i64 tag = at;
         if at >= 8192 {
             // the tag is big (a picture): read the place after it
             Sys::close(fd);
@@ -1290,40 +1290,40 @@ int song_seconds(String path, int size) {
             got = Sys::read(fd, buf, 8192);
             at = 0;
         }
-        int i = at;
+        i64 i = at;
         while i + 4 < got && !((buf[i] & 255) == 255 && (buf[i + 1] & 224) == 224 && ((buf[i + 1] >> 1) & 3) == 1) { i += 1; }
         if i + 4 < got {
-            int ver = (buf[i + 1] >> 3) & 3;                    // 3 = MPEG 1, 2 = MPEG 2, 0 = MPEG 2.5
-            int bri = (buf[i + 2] >> 4) & 15;
-            int sri = (buf[i + 2] >> 2) & 3;
-            int mono = 0;
+            i64 ver = (buf[i + 1] >> 3) & 3;                    // 3 = MPEG 1, 2 = MPEG 2, 0 = MPEG 2.5
+            i64 bri = (buf[i + 2] >> 4) & 15;
+            i64 sri = (buf[i + 2] >> 2) & 3;
+            i64 mono = 0;
             if ((buf[i + 3] >> 6) & 3) == 3 { mono = 1; }
-            int kbps = 0;
-            int hz = 0;
+            i64 kbps = 0;
+            i64 hz = 0;
             if bri > 0 && bri < 15 && sri < 3 && ver != 1 {
                 if ver == 3 {
-                    int t1[15] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
+                    i64 t1[15] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
                     kbps = t1[bri];
-                    int h1[3] = {44100, 48000, 32000};
+                    i64 h1[3] = {44100, 48000, 32000};
                     hz = h1[sri];
                 } else {
-                    int t2[15] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160};
+                    i64 t2[15] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160};
                     kbps = t2[bri];
-                    int h2[3] = {22050, 24000, 16000};
+                    i64 h2[3] = {22050, 24000, 16000};
                     hz = h2[sri];
                     if ver == 0 { hz = hz / 2; }
                 }
-                int spf = 1152;
+                i64 spf = 1152;
                 if ver != 3 { spf = 576; }
-                int audio = size - (tag + i - at);
+                i64 audio = size - (tag + i - at);
                 if kbps > 0 { secs = audio * 8 / (kbps * 1000); g_est = false; }
                 // a variable rate file has a Xing / Info tag with the number of frames
-                int side = 32;
+                i64 side = 32;
                 if ver == 3 && mono == 1 { side = 17; }
                 if ver != 3 { side = 17; if mono == 1 { side = 9; } }
-                int x = i + 4 + side;
+                i64 x = i + 4 + side;
                 if x + 12 < got && ((buf[x] == 'X' && buf[x + 1] == 'i') || (buf[x] == 'I' && buf[x + 1] == 'n')) && (buf[x + 7] & 1) == 1 && hz > 0 {
-                    int frames = be32(buf, x + 8);
+                    i64 frames = be32(buf, x + 8);
                     secs = frames * spf / hz;
                     g_est = false;
                 }
@@ -1336,11 +1336,11 @@ int song_seconds(String path, int size) {
 }
 
 String[] sc_path;                       // the songs found
-int[] sc_secs;
+i64[] sc_secs;
 bool[] sc_est;
-int sc_dirs;
+i64 sc_dirs;
 
-void scan_dir(String dir, int depth, int minsec, int limit) {
+void scan_dir(String dir, i64 depth, i64 minsec, i64 limit) {
     if depth > 8 || sc_path.len >= limit { return; }
     switch Dir::list(dir) {
         Result::Ok(names): {
@@ -1355,10 +1355,10 @@ void scan_dir(String dir, int depth, int minsec, int limit) {
                     sc_dirs += 1;
                     scan_dir(p, depth + 1, minsec, limit);
                 } else if is_audio(n) {
-                    int size = 0;
+                    i64 size = 0;
                     switch Fs::size(p) { Result::Ok(v): { size = v; } Result::Err(e): { size = 0; } }
                     if size < 20000 { continue; }                                // a click or a ringtone, not a song
-                    int sec = song_seconds(p, size);
+                    i64 sec = song_seconds(p, size);
                     if sec >= minsec {
                         sc_path.push(p + "");
                         sc_secs.push(sec);
@@ -1373,10 +1373,10 @@ void scan_dir(String dir, int depth, int minsec, int limit) {
 
 // /scan [-s SECONDS] [PATH ...]: look for songs at least SECONDS long (default 60) in the home folder and the storage of the phone, or in the PATHs
 // adds the found songs to the list for good (the file .library); the ones in the music folder are in the list already. Returns how many are new.
-int library_add() {
+i64 library_add() {
     String[] lib = library_read();
     String mdir = music_dir() + "/";
-    int added = 0;
+    i64 added = 0;
     for k in 0..sc_path.len {
         String p = sc_path[k];
         if p.starts_with(mdir) { continue; }
@@ -1400,7 +1400,7 @@ void reload_keep() {
 }
 
 // /remove NAME: a song found by /scan leaves the list (the file stays); with -f the file is deleted too. A song of the music folder needs -f (the file is the song).
-String remove_song(int n, bool force) {
+String remove_song(i64 n, bool force) {
     String name = g_files[n] + "";
     String title = song_title(name);
     String path = abs_of(name);
@@ -1424,13 +1424,13 @@ String remove_song(int n, bool force) {
     return "removed " + title + " from the list (the file stays)";
 }
 
-int scan_minsec;
+i64 scan_minsec;
 bool scan_add;
 void scan_collect(String arg) {
-    int minsec = 60;
+    i64 minsec = 60;
     String[] words = arg.split(" ");
     String[] roots = arr(4);
-    int i = 0;
+    i64 i = 0;
     while i < words.len {
         String w = words[i].trim();
         if w == "-s" && i + 1 < words.len { minsec = words[i + 1].to_int(); i += 2; continue; }
@@ -1456,10 +1456,10 @@ void scan_collect(String arg) {
 
 void do_scan(String arg) {
     scan_collect(arg);
-    int minsec = scan_minsec;
+    i64 minsec = scan_minsec;
     if sc_path.len == 0 { g_note = "no song of " + str(minsec) + " seconds or more in " + str(sc_dirs) + " folders  (/scan -s 30  looks for shorter ones)"; return; }
     // the songs go into the list at once (and stay there: /remove NAME takes one out)
-    int added = library_add();
+    i64 added = library_add();
     String keep = "";
     if g_play >= 0 && g_play < g_files.len { keep = g_files[g_play] + ""; }
     load_files();
@@ -1481,11 +1481,11 @@ bool archive_picker(String words) {
         Result::Err(e): { g_note = "search failed: " + e.message; return false; }
     }
     JsonDoc doc = json_open(body);
-    int docs = doc.get(doc.get(doc.root(), "response"), "docs");
+    i64 docs = doc.get(doc.get(doc.root(), "response"), "docs");
     if docs < 0 || doc.len(docs) == 0 { g_note = "nothing found for " + words; return false; }
     pk_open(3, "Internet Archive: " + words + "   (check the licence of what you fetch)");
     for k in 0..doc.len(docs) {
-        int d = doc.at(docs, k);
+        i64 d = doc.at(docs, k);
         String id = doc.text(doc.get(d, "identifier"));
         String title = doc.text(doc.get(d, "title"));
         g_pk_show.push(title + "   [" + id + "]");
@@ -1500,7 +1500,7 @@ void fetch_outside(String what) {
     a.push("mujic"); a.push("get"); a.push(what);
     raw_off();
     jout << "\e[?1049l\e[0m\e[?25h";
-    int rc = do_get(a);
+    i64 rc = do_get(a);
     if rc == 0 { Time::sleep_ms(700); } else { Time::sleep_ms(2200); }
     jout << "\e[?1049h" << t_base << "\e[2J";
     raw_on();
@@ -1512,10 +1512,10 @@ void fetch_outside(String what) {
     if rc == 0 { g_note = "fetched: " + what; } else { g_note = "could not fetch " + what; }
 }
 
-void lyrics_outside(int which) {
+void lyrics_outside(i64 which) {
     raw_off();
     jout << "\e[?1049l\e[0m\e[?25h";
-    int rc = fetch_lyrics(g_files[which], "");
+    i64 rc = fetch_lyrics(g_files[which], "");
     if rc == 0 { Time::sleep_ms(700); } else { Time::sleep_ms(2200); }
     jout << "\e[?1049h" << t_base << "\e[2J";
     raw_on();
@@ -1530,31 +1530,31 @@ void in_insert(String t) {
     g_menu_sel = 0;
 }
 
-int in_prev(int cur) {
-    int c = cur - 1;
+i64 in_prev(i64 cur) {
+    i64 c = cur - 1;
     while c > 0 && (g_input[c] & 192) == 128 { c -= 1; }
     if c < 0 { c = 0; }
     return c;
 }
-int in_next(int cur) {
-    int c = cur + 1;
+i64 in_next(i64 cur) {
+    i64 c = cur + 1;
     while c < g_input.len && (g_input[c] & 192) == 128 { c += 1; }
     if c > g_input.len { c = g_input.len; }
     return c;
 }
 
 // the commands that match what is typed after the /
-int menu_count() {
+i64 menu_count() {
     if g_input.len == 0 || g_input[0] != '/' { return 0; }
     String w = g_input.slice(1, g_input.len);
     if w.contains(" ") { return 0; }
-    int c = 0;
+    i64 c = 0;
     for i in 0..cmd_name.len { if cmd_name[i].starts_with(w) { c += 1; } }
     return c;
 }
-int menu_nth(int k) {
+i64 menu_nth(i64 k) {
     String w = g_input.slice(1, g_input.len);
-    int seen = 0;
+    i64 seen = 0;
     for i in 0..cmd_name.len {
         if cmd_name[i].starts_with(w) {
             if seen == k { return i; }
@@ -1572,7 +1572,7 @@ void say_help() {
 void run_command(String line) {
     String cmd = line;
     String arg = "";
-    int sp = line.find(" ");
+    i64 sp = line.find(" ");
     if sp >= 0 { cmd = line.slice(0, sp); arg = line.slice(sp + 1, line.len).trim(); }
     if cmd == "remove" {
         bool force = false;
@@ -1580,7 +1580,7 @@ void run_command(String line) {
         if what.starts_with("-f ") { force = true; what = what.slice(3, what.len).trim(); }
         if what.len == 0 { g_note = "/remove NAME   (a number or a part of the name; -f also deletes the file)"; }
         else {
-            int n = find_song(what);
+            i64 n = find_song(what);
             if n < 0 { g_note = "no song like '" + what + "'"; } else { g_note = remove_song(n, force); }
         }
     }
@@ -1603,7 +1603,7 @@ void run_command(String line) {
         if arg.len > 0 && pathy && pfile {
             play_path(pp);
         } else if arg.len > 0 {
-            int s = find_song(arg);
+            i64 s = find_song(arg);
             if s >= 0 { play_index(s); g_note = "playing " + song_title(g_files[s]); } else { g_note = "no song like '" + arg + "' (/get fetches songs)"; }
         } else if g_files.len == 0 { g_note = "no songs yet: /get";
         } else {
@@ -1612,8 +1612,8 @@ void run_command(String line) {
             g_pk_sel = g_sel;
         }
     } else if cmd == "pause" { snd_pause(); }
-    else if cmd == "next" { int k = next_song(1); if k >= 0 { play_index(k); } else if g_files.len > 0 { play_index(0); } }
-    else if cmd == "prev" { int k = next_song(0 - 1); if k >= 0 { play_index(k); } else if g_files.len > 0 { play_index(g_files.len - 1); } }
+    else if cmd == "next" { i64 k = next_song(1); if k >= 0 { play_index(k); } else if g_files.len > 0 { play_index(0); } }
+    else if cmd == "prev" { i64 k = next_song(0 - 1); if k >= 0 { play_index(k); } else if g_files.len > 0 { play_index(g_files.len - 1); } }
     else if cmd == "stop" { snd_stop(); g_note = "stopped"; }
     else if cmd == "queue" { g_view = 0; }
     else if cmd == "albums" {
@@ -1644,7 +1644,7 @@ void run_command(String line) {
     }
     else if cmd == "lyrics" {
         if arg == "get" {
-            int which = g_sel;
+            i64 which = g_sel;
             if g_play >= 0 { which = g_play; }
             if g_files.len > 0 { lyrics_outside(which); }
         } else { g_view = 1; }
@@ -1665,7 +1665,7 @@ void run_command(String line) {
         else {
             raw_off();
             jout << "\e[?1049l\e[0m\e[?25h";
-            int rc = do_import(arg);
+            i64 rc = do_import(arg);
             Time::sleep_ms(1200);
             jout << "\e[?1049h" << t_base << "\e[2J";
             raw_on();
@@ -1674,7 +1674,7 @@ void run_command(String line) {
         }
     }
     else if cmd == "mv" {
-        int sp = -1;
+        i64 sp = -1;
         for i in 0..arg.len { if arg[i] == ' ' { sp = i; } }
         if sp <= 0 { g_note = "/mv NAME FOLDER   (for example /mv rain relax;  /mv rain .  brings it back)"; }
         else { g_note = move_song(arg.slice(0, sp).trim(), arg.slice(sp + 1, arg.len).trim()); load_files(); }
@@ -1702,11 +1702,11 @@ void run_words(String words) {
     cmd_init();
     if words.starts_with("!") { shell_line(words.slice(1, words.len).trim()); return; }
     String w1 = words;
-    int fsp = words.find(" ");
+    i64 fsp = words.find(" ");
     if fsp > 0 { w1 = words.slice(0, fsp); }
     if w1 == "dir" || w1 == "ls" || w1 == "cd" || w1 == "pwd" { run_command(words); return; }
-    int hits = 0;
-    int first = 0 - 1;
+    i64 hits = 0;
+    i64 first = 0 - 1;
     String w = words.lower();
     for i in 0..g_files.len { if g_files[i].lower().contains(w) { hits += 1; if first < 0 { first = i; } } }
     if hits == 1 { play_index(first); g_note = "playing " + song_title(g_files[first]); }
@@ -1718,10 +1718,10 @@ void run_words(String words) {
 }
 
 void pk_choose() {
-    int i = pk_nth(g_pk_sel);
+    i64 i = pk_nth(g_pk_sel);
     if i < 0 { return; }
     String v = g_pk_val[i];
-    int kind = g_pk_kind;
+    i64 kind = g_pk_kind;
     g_pk_on = false;
     if kind == 7 {                                            // an album: the list is that folder; the first song plays
         g_album = v + "";
@@ -1740,12 +1740,12 @@ void pk_choose() {
         else { play_path(Path::join(g_cwd, v)); }
         return;
     }
-    if kind == 1 { int s = v.to_int(); play_index(s); g_note = "playing " + song_title(g_files[s]); }
+    if kind == 1 { i64 s = v.to_int(); play_index(s); g_note = "playing " + song_title(g_files[s]); }
     else { fetch_outside(v); }
 }
 
 // ---- drawing
-String repeat_text(String s, int n) {
+String repeat_text(String s, i64 n) {
     String r = "";
     for i in 0..n { r = r + s; }
     return r;
@@ -1753,8 +1753,8 @@ String repeat_text(String s, int n) {
 
 void draw() {
     cmd_init();
-    int cols = Term::cols();
-    int rows = Term::rows();
+    i64 cols = Term::cols();
+    i64 rows = Term::rows();
     if cols < 24 { cols = 24; }
     if rows < 10 { rows = 10; }
     String f = "";
@@ -1767,7 +1767,7 @@ void draw() {
     if g_backend == 1 { head = head + "   vol " + str(g_volume); }
     f = f + "\e[1;1H" + sgr(t_head, pad_to(head, cols));
     // now playing
-    int pos = cur_pos();
+    i64 pos = cur_pos();
     String title = "nothing is playing";
     if g_play >= 0 { title = song_title(g_files[g_play]); }
     String mark = " ■ ";
@@ -1775,30 +1775,30 @@ void draw() {
     f = f + "\e[2;1H" + sgr("1", pad_to(mark + title, cols));
     String t = clock(pos);
     if g_len > 0 { t = t + " / " + clock(g_len); }
-    int barw = cols - shown_width(t) - 4;
+    i64 barw = cols - shown_width(t) - 4;
     if barw < 4 { barw = 4; }
-    int filled = 0;
+    i64 filled = 0;
     if g_len > 0 { filled = pos * barw / g_len; }
     if filled > barw { filled = barw; }
     f = f + "\e[3;1H " + sgr(t_bar, repeat_text("━", filled) + repeat_text("─", barw - filled)) + " " + pad_to(t, cols - barw - 3);
     // the panel: rows 5 .. rows - 6
-    int top = 5;
-    int bottom = rows - 6;
-    int ph = bottom - top + 1;
+    i64 top = 5;
+    i64 bottom = rows - 6;
+    i64 ph = bottom - top + 1;
     for r in 0..ph { f = f + "\e[" + str(top + r) + ";1H" + pad_to("", cols); }
     if g_pk_on {
         f = f + "\e[" + str(top) + ";1H" + sgr(t_pick, pad_to(" " + g_pk_title, cols));
-        int n = pk_count();
+        i64 n = pk_count();
         if g_pk_sel >= n { g_pk_sel = n - 1; }
         if g_pk_sel < 0 { g_pk_sel = 0; }
-        int vis = ph - 3;
-        int first = 0;
+        i64 vis = ph - 3;
+        i64 first = 0;
         if g_pk_sel >= vis { first = g_pk_sel - vis + 1; }
         for r in 0..vis {
-            int k = first + r;
+            i64 k = first + r;
             String line = pad_to("", cols);
             if k < n {
-                int i = pk_nth(k);
+                i64 i = pk_nth(k);
                 String lead2 = "    ";
                 if k == g_pk_sel { lead2 = "  ❯ "; }
                 line = pad_to(lead2 + g_pk_show[i], cols);
@@ -1809,29 +1809,29 @@ void draw() {
         f = f + "\e[" + str(bottom - 1) + ";1H" + sgr("2", pad_to("  type to narrow:  " + g_pk_filter + "   (" + str(n) + " of " + str(g_pk_show.len) + ")", cols));
         f = f + "\e[" + str(bottom) + ";1H" + sgr("2", pad_to("  up/down choose   Enter select   Esc close", cols));
     } else if g_view == 2 {
-        int total = g_out.len;
-        int from = total - ph;
+        i64 total = g_out.len;
+        i64 from = total - ph;
         if from < 0 { from = 0; }
         if total == 0 { f = f + "\e[" + str(top) + ";1H" + sgr("2", pad_to("  no output yet:  !command  runs a shell command in " + g_cwd, cols)); }
         for r in 0..ph {
-            int i = from + r;
+            i64 i = from + r;
             if i < total { f = f + "\e[" + str(top + r) + ";1H" + pad_to(" " + fit(g_out[i], cols - 2), cols); }
         }
     } else if g_view == 1 && lcount > 0 {
-        int cur = lyrics_at(pos + 200);
-        int start = 0;
-        int mid = 0;
+        i64 cur = lyrics_at(pos + 200);
+        i64 start = 0;
+        i64 mid = 0;
         if cur >= 0 { mid = cur; }
         start = mid - ph / 2;
         if start < 0 { start = 0; }
         if start + ph > lcount { start = lcount - ph; }
         if start < 0 { start = 0; }
         for r in 0..ph {
-            int i = start + r;
+            i64 i = start + r;
             if i < lcount {
                 String text = ltx[i];
                 if text.len == 0 { text = " "; }
-                int lead = (cols - shown_width(text)) / 2;
+                i64 lead = (cols - shown_width(text)) / 2;
                 if lead < 0 { lead = 0; }
                 String ln = pad_to(repeat_text(" ", lead) + text, cols);
                 if i == cur { ln = sgr(t_cur, ln); } else { ln = sgr("2", ln); }
@@ -1841,12 +1841,12 @@ void draw() {
     } else if g_view == 1 {
         f = f + "\e[" + str(top + ph / 2) + ";1H" + sgr("2", pad_to("  no lyrics for this song.   /lyrics get  fetches them", cols));
     } else {
-        int n = g_files.len;
+        i64 n = g_files.len;
         if n == 0 { f = f + "\e[" + str(top) + ";1H" + sgr("2", pad_to("  no songs in " + music_dir() + "   -   /get fetches free songs", cols)); }
-        int first = 0;
+        i64 first = 0;
         if g_sel >= ph { first = g_sel - ph + 1; }
         for r in 0..ph {
-            int i = first + r;
+            i64 i = first + r;
             if i < n {
                 String m = "    ";
                 if i == g_play { m = "  ▶ "; if g_state == 2 { m = "  ❙ "; } }
@@ -1857,16 +1857,16 @@ void draw() {
         }
     }
     // the menu of commands, over the bottom of the panel
-    int mc = menu_count();
+    i64 mc = menu_count();
     if mc > 0 && !g_pk_on {
         if g_menu_sel >= mc { g_menu_sel = mc - 1; }
-        int show = mc;
+        i64 show = mc;
         if show > 7 { show = 7; }
         if show > ph { show = ph; }
-        int firstm = 0;
+        i64 firstm = 0;
         if g_menu_sel >= show { firstm = g_menu_sel - show + 1; }
         for r in 0..show {
-            int ci = menu_nth(firstm + r);
+            i64 ci = menu_nth(firstm + r);
             String entry = pad_to("  /" + cmd_name[ci], 12) + cmd_help[ci];
             String ln = pad_to(entry, cols);
             if firstm + r == g_menu_sel { ln = sgr("7", ln); } else { ln = sgr("2", ln); }
@@ -1883,16 +1883,16 @@ void draw() {
     if g_input.len > 0 { hint = "  Enter run   Esc clear   ↑ ↓ history"; }
     f = f + "\e[" + str(rows) + ";1H" + sgr("2", pad_to(hint, cols));
     // the cursor in the box
-    int cx = 5 + shown_width(fit(g_input.slice(0, g_cur), cols - 6));
+    i64 cx = 5 + shown_width(fit(g_input.slice(0, g_cur), cols - 6));
     f = f + "\e[" + str(rows - 2) + ";" + str(cx) + "H\e[?25h";
     jout << f;
 }
 
 // the letter typed (a code of next_event) as text: ASCII, or a Unicode letter sent as 100000 + the code point
-String key_text(int ev) {
+String key_text(i64 ev) {
     String r = "";
     if ev >= 100000 {
-        int cp = ev - 100000;
+        i64 cp = ev - 100000;
         if cp < 2048 { r.push((char)(192 | (cp >> 6))); r.push((char)(128 | (cp & 63))); }
         else if cp < 65536 { r.push((char)(224 | (cp >> 12))); r.push((char)(128 | ((cp >> 6) & 63))); r.push((char)(128 | (cp & 63))); }
         else { r.push((char)(240 | (cp >> 18))); r.push((char)(128 | ((cp >> 12) & 63))); r.push((char)(128 | ((cp >> 6) & 63))); r.push((char)(128 | (cp & 63))); }
@@ -1900,7 +1900,7 @@ String key_text(int ev) {
     return r;
 }
 
-int do_player(String start) {
+i64 do_player(String start) {
     theme_load();
     lyrics_clear();
     g_msg = "";
@@ -1925,7 +1925,7 @@ int do_player(String start) {
     choose_backend();
     cmd_init();
     if start.len > 0 {
-        int s = find_song(start);
+        i64 s = find_song(start);
         if s < 0 {                                               // not in the list: a file of any folder (mujic play Blonde.mp3 where the file is)
             String here = real_file(start);
             if here.len > 0 && is_audio(here) {
@@ -1940,11 +1940,11 @@ int do_player(String start) {
     jout << "\e[?1049h" << t_base << "\e[2J";
     if start.len > 0 { play_index(g_sel); }
     if g_files.len == 0 { g_note = "no songs yet:  /get  fetches free songs,  /find  searches the web,  or put files in " + music_dir(); }
-    int last_poll = now();
+    i64 last_poll = now();
     g_quit = false;
     while !g_quit {
         draw();
-        int ev = next_event(250);
+        i64 ev = next_event(250);
         if ev == -9 || ev == 3 { g_quit = true; }
         else if ev >= 0 {
             if g_pk_on {
@@ -1970,12 +1970,12 @@ int do_player(String start) {
                 else if ev == 16 { run_command("prev"); }
             } else {
                 // typing
-                int mc = menu_count();
+                i64 mc = menu_count();
                 if ev == 27 { g_input = ""; g_cur = 0; }
                 else if ev == 13 || ev == 10 {
                     String line = g_input.trim();
                     if mc > 0 && !line.contains(" ") {
-                        int ci = menu_nth(g_menu_sel);
+                        i64 ci = menu_nth(g_menu_sel);
                         line = cmd_name[ci] + "";                          // the chosen command of the menu
                         g_input = ""; g_cur = 0;
                         // a command that needs words waits for them
@@ -1991,7 +1991,7 @@ int do_player(String start) {
                     }
                 }
                 else if ev == 9 && mc > 0 {
-                    int ci = menu_nth(g_menu_sel);
+                    i64 ci = menu_nth(g_menu_sel);
                     g_input = "/" + cmd_name[ci] + " ";
                     g_cur = g_input.len;
                 }
@@ -1999,7 +1999,7 @@ int do_player(String start) {
                 else if ev == 258 { if mc > 0 { if g_menu_sel < mc - 1 { g_menu_sel += 1; } } else if g_hist_i < g_hist.len { g_hist_i += 1; if g_hist_i == g_hist.len { g_input = ""; } else { g_input = g_hist[g_hist_i] + ""; } g_cur = g_input.len; } }
                 else if ev == 259 { g_cur = in_next(g_cur); }
                 else if ev == 260 { g_cur = in_prev(g_cur); }
-                else if ev == 127 || ev == 8 { if g_cur > 0 { int pc = in_prev(g_cur); g_input = g_input.slice(0, pc) + g_input.slice(g_cur, g_input.len); g_cur = pc; g_menu_sel = 0; } }
+                else if ev == 127 || ev == 8 { if g_cur > 0 { i64 pc = in_prev(g_cur); g_input = g_input.slice(0, pc) + g_input.slice(g_cur, g_input.len); g_cur = pc; g_menu_sel = 0; } }
                 else if ev == 1 { g_cur = 0; }
                 else if ev == 5 { g_cur = g_input.len; }
                 else if ev == 21 { g_input = ""; g_cur = 0; }
@@ -2007,13 +2007,13 @@ int do_player(String start) {
             }
         }
         if g_media.len > 0 { String mk = g_media + ""; g_media = ""; run_command(mk); }
-        int tnow = now();
+        i64 tnow = now();
         if tnow - last_poll >= 700 { snd_poll(); last_poll = tnow; }
         // the song ended: the next one
         bool ended = g_state == 0 && g_play >= 0 && g_msg.len == 0 && (g_len > 0 || g_backend != 1);
         if g_backend == 1 && g_state == 1 && g_len > 0 && cur_pos() >= g_len + 1500 { ended = true; }
         if ended && g_files.len > 0 && g_pos_at > 0 && now() - g_pos_at > 1500 {
-            int k = next_song(1);
+            i64 k = next_song(1);
             if k >= 0 { play_index(k); } else { g_play = 0 - 1; g_pos = 0; }
         }
         if g_msg.len > 0 { g_note = g_msg + ""; g_msg = ""; }
@@ -2025,11 +2025,11 @@ int do_player(String start) {
 }
 
 // mujic play NAME -b  /  mujic bg NAME: the song plays in the background and the prompt is free (the Jaric app keeps it going with its notification)
-int do_background(String what) {
+i64 do_background(String what) {
     load_files();
     choose_backend();
     String full = "";
-    int s = find_song(what);
+    i64 s = find_song(what);
     if s >= 0 { full = abs_of(g_files[s]); }
     else {
         String here = real_file(what);
@@ -2039,7 +2039,7 @@ int do_background(String what) {
     if g_backend == 1 {
         // the app plays the whole list from this song: the next song starts by itself, the control panel and the notification have the buttons
         String all = "";
-        int at = 0;
+        i64 at = 0;
         for i in 0..g_files.len {
             String one = abs_of(g_files[i]);
             if one == full { at = i; }
@@ -2058,7 +2058,7 @@ int do_background(String what) {
 }
 
 // mujic pause | resume | next | prev | stop: the music that plays in the background (the Jaric app, or termux-media-player)
-int do_remote(String what) {
+i64 do_remote(String what) {
     choose_backend();
     if g_backend != 1 && g_backend != 2 { return fail("only the Jaric app (or termux-media-player) can be controlled from another prompt"); }
     if what == "next" || what == "prev" { if g_backend == 1 { osc_audio(what); } else { return fail("next and prev need the Jaric app"); } return 0; }
@@ -2091,11 +2091,11 @@ void mode_set(String m) {
 }
 
 // 0 the terminal, 1 the window, 2 the CD deck, -1 leave
-int choose_mode() {
-    int sel = 0;
+i64 choose_mode() {
+    i64 sel = 0;
     bool remember = false;
-    int rows = Term::rows();
-    int cols = Term::cols();
+    i64 rows = Term::rows();
+    i64 cols = Term::cols();
     if rows < 10 { rows = 24; }
     if cols < 20 { cols = 40; }
     raw_on();
@@ -2106,12 +2106,12 @@ int choose_mode() {
     about.push("this screen: type, search, /commands");
     about.push("a window like the old programs: cover, keys, lyrics");
     about.push("a CD player: the cover is a disc that turns");
-    int result = -1;
+    i64 result = -1;
     bool done = false;
     while !done {
         String f = "\e[1;1H" + sgr(t_head, pad_to("  mujic  -  how do you want to listen?", cols));
         for i in 0..3 {
-            int row = 4 + i * 4;
+            i64 row = 4 + i * 4;
             String mark = "  ";
             String line1 = "  " + str(i + 1) + "   " + names[i];
             String line2 = "      " + about[i];
@@ -2124,7 +2124,7 @@ int choose_mode() {
         f = f + "\e[" + str(rows - 3) + ";1H" + pad_to("  " + box + " d   do not ask again (mujic mode ask  brings this page back)", cols);
         f = f + "\e[" + str(rows) + ";1H" + sgr("2", pad_to("  1 2 3 or up/down and Enter     Esc leave", cols));
         jout << f;
-        int ev = next_event(300);
+        i64 ev = next_event(300);
         if ev == 27 || ev == 3 || ev == 'q' || ev == -9 { done = true; result = -1; }
         else if ev == 257 { if sel > 0 { sel -= 1; } }
         else if ev == 258 { if sel < 2 { sel += 1; } }
@@ -2142,7 +2142,7 @@ int choose_mode() {
     return result;
 }
 
-int do_list() {
+i64 do_list() {
     load_files();
     if g_files.len == 0 { jout << "no songs in " << music_dir() << ".  mujic catalog shows free ones, mujic get NAME fetches.\n"; return 0; }
     for i in 0..g_files.len {
@@ -2158,27 +2158,27 @@ int do_list() {
     return 0;
 }
 
-int do_lyrics(String[] a) {
+i64 do_lyrics(String[] a) {
     String what = "";
     String q = "";
-    int i = 2;
+    i64 i = 2;
     while i < a.len {
         if a[i] == "-q" && i + 1 < a.len { q = a[i + 1] + ""; i += 2; }
         else { what = a[i] + ""; i += 1; }
     }
     if what.len == 0 { return fail("usage: mujic lyrics NAME [-q \"artist title\"]"); }
-    int s = find_song(what);
+    i64 s = find_song(what);
     if s < 0 { return fail("no song like '" + what + "'"); }
     return fetch_lyrics(g_files[s], q);
 }
 
 // mujic scan [-s SECONDS] [PATH ...]: the same search, printed (length, path), for scripts
-int do_scan_cli(String[] a) {
+i64 do_scan_cli(String[] a) {
     String arg = "";
     for i in 2..a.len { arg = arg + a[i] + " "; }
     g_cwd = music_dir();
     scan_collect(arg.trim());
-    int added = 0;
+    i64 added = 0;
     if scan_add { added = library_add(); }
     for k in 0..sc_path.len {
         String mark = " ";
@@ -2192,7 +2192,7 @@ int do_scan_cli(String[] a) {
 }
 
 // mujic remove [-f] NAME: takes a song out of the list (the file stays; -f deletes it)
-int do_remove_cli(String[] a) {
+i64 do_remove_cli(String[] a) {
     bool force = false;
     String what = "";
     for i in 2..a.len {
@@ -2201,13 +2201,13 @@ int do_remove_cli(String[] a) {
         what = what + a[i];
     }
     if what.len == 0 { return fail("usage: mujic remove [-f] NAME"); }
-    int n = find_song(what);
+    i64 n = find_song(what);
     if n < 0 { return fail("no song like '" + what + "'"); }
     jout << remove_song(n, force) << "\n";
     return 0;
 }
 
-int main() {
+i64 main() {
     g_album = "";
     String VERSION = "0.15.1";
     String[] args = Env::args();
@@ -2333,7 +2333,7 @@ int main() {
     if in_app2 && Sys::isatty(0) == 0 {
         theme_load();
         String saved = mode_get();
-        int how = 0;
+        i64 how = 0;
         if saved == "window" { how = 1; } else if saved == "cd" { how = 2; } else if saved == "ask" { how = choose_mode(); }
         if how < 0 { return 0; }
         if how == 1 { jout << "\e]7777;music;window\a"; return 0; }

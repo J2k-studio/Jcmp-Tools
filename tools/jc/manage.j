@@ -76,7 +76,7 @@ void install_deps(String path, String dir) {
                 String line = ls[i];
                 if !line.starts_with("#import <") { continue; }
                 String dep = line.slice(9, line.len);
-                int close = dep.find(">");
+                i64 close = dep.find(">");
                 if close < 0 { continue; }
                 dep = dep.slice(0, close);
                 if builtin_name(dep) || dep == "gfx" || dep == "simd" { continue; }
@@ -89,11 +89,11 @@ void install_deps(String path, String dir) {
     }
 }
 
-int cmd_install(String name) {
+i64 cmd_install(String name) {
     if name == "gfx" {
         // the graphics library is made of canvas and screen
-        int a = cmd_install("canvas");
-        int b = cmd_install("screen");
+        i64 a = cmd_install("canvas");
+        i64 b = cmd_install("screen");
         if a != 0 { return a; }
         return b;
     }
@@ -139,7 +139,7 @@ int cmd_install(String name) {
     return 1;
 }
 
-int cmd_remove(String name) {
+i64 cmd_remove(String name) {
     if !name_ok(name) {
         err("jc: '" + name + "' is not a library name\n");
         return 1;
@@ -156,7 +156,7 @@ int cmd_remove(String name) {
     return 1;
 }
 
-int cmd_list() {
+i64 cmd_list() {
     String dir = lib_dir();
     if !make_dir(dir) { return 1; }
     String index = fetch_index(dir);
@@ -174,7 +174,7 @@ int cmd_list() {
     return 0;
 }
 
-int cmd_installed() {
+i64 cmd_installed() {
     String dir = lib_dir();
     switch Dir::list(dir) {
         Result::Ok(names): {
@@ -207,11 +207,11 @@ String tools_dl() {
 bool tool_ver_newer(String a, String b) {
     String[] x = a.split(".");
     String[] y = b.split(".");
-    int n = x.len;
+    i64 n = x.len;
     if y.len > n { n = y.len; }
     for i in 0..n {
-        int p = 0;
-        int q = 0;
+        i64 p = 0;
+        i64 q = 0;
         if i < x.len { p = x[i].to_int(); }
         if i < y.len { q = y[i].to_int(); }
         if p > q { return true; }
@@ -265,8 +265,8 @@ String tool_latest(String vtext, String name) {
 }
 
 // jc install unstall NAME ...: the program of a tool and the files that came with it
-int tool_unstall(String[] av, int at, String dir) {
-    int rc = 0;
+i64 tool_unstall(String[] av, i64 at, String dir) {
+    i64 rc = 0;
     for k in at..av.len {
         String name = av[k];
         if name == "jget" || name == "jc" { err("jc: " + name + " stays: jc uses it (delete the file by hand if you want to)\n"); rc = 1; continue; }
@@ -285,11 +285,11 @@ int tool_unstall(String[] av, int at, String dir) {
     return rc;
 }
 
-int cmd_tool(String[] av, int at) {
+i64 cmd_tool(String[] av, i64 at) {
     String me = self_path();
     if me.len == 0 { err("jc: cannot find where this program is\n"); return 1; }
     String dir = default_bin_dir();
-    int slash = 0 - 1;
+    i64 slash = 0 - 1;
     for i in 0..me.len { if me[i] == '/' { slash = i; } }
     if slash > 0 { dir = me.slice(0, slash); }                      // the tools go where jget is
     String list = me + ".tools";
@@ -323,7 +323,7 @@ int cmd_tool(String[] av, int at) {
     if want_update {
         String vtext = tool_versions_text(dir);
         String[] tl = text.split("\n");
-        int shown = 0;
+        i64 shown = 0;
         // jsh first, then the others in the order of the list
         String[] order = arr(16);
         order.push("jsh");
@@ -357,7 +357,7 @@ int cmd_tool(String[] av, int at) {
         if shown == 0 { jout << "everything is up to date" << nl; return 0; }
         if dry { jout << "(jc update installs them)" << nl; return 0; }
     }
-    int rc = 0;
+    i64 rc = 0;
     for k in 0..wanted.len {
         String name = wanted[k];
         bool known = false;
@@ -453,7 +453,7 @@ int cmd_tool(String[] av, int at) {
     return rc;
 }
 
-int cmd_library(String[] av, int at) {
+i64 cmd_library(String[] av, i64 at) {
     if av.len <= at { return usage(); }
     String cmd = av[at];
     if cmd == "list" { return cmd_list(); }

@@ -14,7 +14,7 @@
 
 String jash_version() { return "0.1.0"; }
 
-int fail(String msg) {
+i64 fail(String msg) {
     jerr << "jash: " << msg << "\n";
     return 1;
 }
@@ -45,7 +45,7 @@ String[] read_lines(String path) {
 String g_sec;
 String g_key;
 bool split_name(String name) {
-    int dot = name.find(".");
+    i64 dot = name.find(".");
     if dot <= 0 || dot + 1 >= name.len { return false; }
     g_sec = name.slice(0, dot);
     g_key = name.slice(dot + 1, name.len);
@@ -64,7 +64,7 @@ String get_value(String[] lines, String sec, String key, bool^ ok) {
             cur = ln.slice(1, ln.len - 1).trim();
             continue;
         }
-        int eq = ln.find("=");
+        i64 eq = ln.find("=");
         if eq <= 0 || cur != sec { continue; }
         if ln.slice(0, eq).trim() == key {
             ok[0] = true;
@@ -93,7 +93,7 @@ String with_value(String[] lines, String sec, String key, String value, bool rem
             out = out + raw + "\n";
             continue;
         }
-        int eq = ln.find("=");
+        i64 eq = ln.find("=");
         String name_here = "";
         if eq > 0 { name_here = ln.slice(0, eq).trim(); }
         if ln.len > 0 && ln[0] != '#' && eq > 0 && cur == sec && name_here == key {
@@ -118,18 +118,18 @@ void write_file(String text) {
     Fs::write_text(path, text);
 }
 
-int do_list(String[] a) {
+i64 do_list(String[] a) {
     String[] lines = read_lines(file_path());
     String want = "";
     if a.len > 2 { want = a[2]; }
     String cur = "";
-    int shown = 0;
+    i64 shown = 0;
     for i in 0..lines.len {
         String ln = lines[i].trim();
         if ln.len == 0 || ln == "[#jash]" { continue; }
         if ln[0] == '#' { continue; }
         if ln[0] == '[' { cur = ln.slice(1, ln.len - 1).trim(); continue; }
-        int eq = ln.find("=");
+        i64 eq = ln.find("=");
         if eq <= 0 { continue; }
         if want.len > 0 && cur != want { continue; }
         jout << cur << "." << ln.slice(0, eq).trim() << " = " << ln.slice(eq + 1, ln.len).trim() << "\n";
@@ -139,7 +139,7 @@ int do_list(String[] a) {
     return 0;
 }
 
-int do_get(String[] a) {
+i64 do_get(String[] a) {
     if a.len < 3 { return fail("usage: jash get SECTION.KEY"); }
     if !split_name(a[2]) { return fail("the name is SECTION.KEY, for example jsh.color_mark"); }
     bool ok = false;
@@ -149,7 +149,7 @@ int do_get(String[] a) {
     return 0;
 }
 
-int do_set(String[] a) {
+i64 do_set(String[] a) {
     if a.len < 4 { return fail("usage: jash set SECTION.KEY VALUE"); }
     if !split_name(a[2]) { return fail("the name is SECTION.KEY, for example jsh.color_mark"); }
     String value = a[3];
@@ -158,29 +158,29 @@ int do_set(String[] a) {
     return 0;
 }
 
-int do_unset(String[] a) {
+i64 do_unset(String[] a) {
     if a.len < 3 { return fail("usage: jash unset SECTION.KEY"); }
     if !split_name(a[2]) { return fail("the name is SECTION.KEY"); }
     write_file(with_value(read_lines(file_path()), g_sec, g_key, "", true));
     return 0;
 }
 
-int do_edit() {
+i64 do_edit() {
     String ed = env_or("EDITOR", "coderin");
     if !Fs::exists(file_path()) { write_file("[#jash]\n"); }
     String[] args = arr(1);
     args.push(file_path());
-    Result<int, Error> r = Proc::run(ed, args);
+    Result<i64, Error> r = Proc::run(ed, args);
     if !r.is_ok() { return fail("cannot start " + ed + "  (set EDITOR, or install coderin: jget tool coderin)"); }
     return 0;
 }
 
 // the older files: config.local and theme.toml (key = value lines) and the exports JSH_COLOR_* of ~/.jshrc
-int do_import() {
+i64 do_import() {
     String prefix = env_or("PREFIX", "");
     String[] lines = read_lines(file_path());
     String text = "";
-    int n = 0;
+    i64 n = 0;
     String[] names = arr(2);
     names.push("app"); names.push("theme");
     String[] files = arr(2);
@@ -190,7 +190,7 @@ int do_import() {
         String[] src = read_lines(files[f]);
         for i in 0..src.len {
             String ln = src[i].trim();
-            int eq = ln.find("=");
+            i64 eq = ln.find("=");
             if ln.len == 0 || ln[0] == '#' || ln[0] == '[' || eq <= 0 { continue; }
             lines = with_value(lines, names[f], ln.slice(0, eq).trim(), ln.slice(eq + 1, ln.len).trim().replace("\"", ""), false).split("\n");
             n += 1;
@@ -201,7 +201,7 @@ int do_import() {
     for i in 0..rcl.len {
         String ln = rcl[i].trim();
         if !ln.starts_with("export JSH_COLOR_") { continue; }
-        int eq = ln.find("=");
+        i64 eq = ln.find("=");
         if eq <= 0 { continue; }
         String key = ln.slice(7 + 4, eq).lower();                          // JSH_COLOR_MARK -> color_mark
         lines = with_value(lines, "jsh", key, ln.slice(eq + 1, ln.len).trim().replace("\"", ""), false).split("\n");
@@ -214,7 +214,7 @@ int do_import() {
     return 0;
 }
 
-int do_reset() {
+i64 do_reset() {
     String path = file_path();
     if Fs::exists(path) { Fs::rename(path, path + ".old"); }
     write_file("[#jash]\n");
@@ -222,7 +222,7 @@ int do_reset() {
     return 0;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jash " << jash_version() << "\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {

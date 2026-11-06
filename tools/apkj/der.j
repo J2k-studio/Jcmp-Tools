@@ -5,15 +5,15 @@
 
 String d_hex(String h) {
     char buf[128];
-    int n = Crypto::unhex(h, (char^)@buf);
+    i64 n = Crypto::unhex(h, (char^)@buf);
     String r = "";
     for i in 0..n { r.push(buf[i]); }
     return r;
 }
-String d_tlv(int tag, String c) {
+String d_tlv(i64 tag, String c) {
     String r = "";
     r.push((char)tag);
-    int n = c.len;
+    i64 n = c.len;
     if n < 128 { r.push((char)n); }
     else if n < 256 { r.push((char)0x81); r.push((char)n); }
     else { r.push((char)0x82); r.push((char)(n >> 8)); r.push((char)(n & 255)); }
@@ -24,8 +24,8 @@ String d_seq(String c) { return d_tlv(0x30, c); }
 String d_set(String c) { return d_tlv(0x31, c); }
 String d_oid(String hex) { return d_tlv(6, d_hex(hex)); }
 // an unsigned big-endian number (32 bytes) as an INTEGER: leading zeros dropped, one 0 added when the top bit is set
-String d_uint(char^ b, int n) {
-    int i = 0;
+String d_uint(char^ b, i64 n) {
+    i64 i = 0;
     while i < n - 1 && b[i] == 0 { i += 1; }
     String c = "";
     if (b[i] & 128) != 0 { c.push((char)0); }
@@ -76,17 +76,17 @@ String x509_make(P256^ c, char^ d, char^ serial8) {
 }
 
 // the serial number of a certificate made by x509_make (the INTEGER after the version)
-int der_content(String s, int p) {
-    int l = s[p + 1] & 255;
+i64 der_content(String s, i64 p) {
+    i64 l = s[p + 1] & 255;
     if l == 0x81 { return p + 3; }
     if l == 0x82 { return p + 4; }
     return p + 2;
 }
 String x509_serial_der(String cert) {
-    int q = der_content(cert, 0);             // into the certificate
+    i64 q = der_content(cert, 0);             // into the certificate
     q = der_content(cert, q);                 // into the tbs part
     q += 5;                                   // the version  a0 03 02 01 02
-    int n = cert[q + 1] & 255;
+    i64 n = cert[q + 1] & 255;
     return cert.slice(q, q + 2 + n) + "";
 }
 
@@ -111,10 +111,10 @@ String pkcs7_make(P256^ c, char^ d, String cert, String sf) {
 String jar_line(String key, String value) {
     String line = key + ": " + value;
     String r = "";
-    int p = 0;
-    int room = 70;
+    i64 p = 0;
+    i64 room = 70;
     while p < line.len {
-        int e = p + room;
+        i64 e = p + room;
         if e > line.len { e = line.len; }
         r.append(line.slice(p, e));
         r.append("\r\n");
@@ -132,7 +132,7 @@ String tohex_bytes(String b) {
     String h = "0123456789abcdef";
     String r = "";
     for i in 0..b.len {
-        int v = b[i] & 255;
+        i64 v = b[i] & 255;
         r.push(h[v >> 4]);
         r.push(h[v & 15]);
     }

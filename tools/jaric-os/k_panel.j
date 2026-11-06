@@ -1,9 +1,9 @@
 // ---- the control panel: a card from the top (swipe down from the top edge, or a tap on the status line): switches that work, and what the machine is (the OS, the CPU and its bits, the memory, the screen, the disk).
 // What is under it is kept and put back when the panel is closed. A part of kernel.jk: put together with #import after the desktop.
-int kb_on;                             // the keyboard of the phone: asked for by the switch of the panel
-int panel_open;
+i64 kb_on;                             // the keyboard of the phone: asked for by the switch of the panel
+i64 panel_open;
 
-void panel_line(int px, int y, int w0, int w1, int v, int w2) {
+void panel_line(i64 px, i64 y, i64 w0, i64 w1, i64 v, i64 w2) {
     t8(px + 24, y, w0, 1, rgb(150, 175, 215));
     t8(px + 24 + 80, y, w1, 1, rgb(150, 175, 215));
     if v >= 0 { num(px + 240, y, v, 1, rgb(235, 242, 255)); t8(px + 240 + digits(v) * 10 + 10, y, w2, 1, rgb(235, 242, 255)); }
@@ -13,20 +13,20 @@ void panel_line(int px, int y, int w0, int w1, int v, int w2) {
 void control_panel() {
     if panel_open == 1 || sready == 0 { return; }
     panel_open = 1;
-    int pw = 500;
-    int px = (scrW - pw) / 2;
-    int ph = 580;
+    i64 pw = 500;
+    i64 px = (scrW - pw) / 2;
+    i64 ph = 580;
     if ph > scrH - 60 { ph = scrH - 60; }
     // what is under the card is kept
-    int^ pic = (int^)sfb;
-    int^ keep = (int^)0x42500000;
-    int words = scrW * ph / 2;
+    i64^ pic = (i64^)sfb;
+    i64^ keep = (i64^)0x42500000;
+    i64 words = scrW * ph / 2;
     for i in 0..words { keep[i] = pic[i]; }
     rrect(px - 3, 0 - 3, pw + 6, ph + 3, 30, rgb(60, 78, 130));
     rrect(px, 0 - 3, pw, ph, 28, rgb(22, 30, 58));
     t8(px + 24 + 0, 22, 0x6c6f72746e6f43, 2, rgb(255, 255, 255));
     // the switches
-    int ky = 84;
+    i64 ky = 84;
     rrect(px + 24, ky, 140, 92, 22, rgb(40, 54, 98));
     if kb_on == 1 { rrect(px + 24, ky, 140, 92, 22, rgb(70, 150, 255)); }
     t8(px + 24 + 16 + 0, ky + 16, 0x6472616f6279654b, 1, rgb(255, 255, 255));
@@ -39,12 +39,12 @@ void control_panel() {
     t8(px + 336 + 16 + 0, ky + 52, 0x7261632073696874, 1, rgb(150, 175, 215)); t8(px + 336 + 16 + 80, ky + 52, 0x64, 1, rgb(150, 175, 215));
     // what the machine is
     rrect(px + 24, 200, pw - 48, 360, 22, rgb(32, 44, 82));
-    int ly = 218;
+    i64 ly = 218;
     panel_line(px, ly, 0x534f, 0, 0 - 1, 0x534f20636972614a );
     panel_line(px, ly + 36, 0x555043, 0, 0 - 1, 0x34364d5241 );
     panel_line(px, ly + 72, 0x73746942, 0, 64, 0);
     panel_line(px, ly + 108, 0x6c6576654c, 0, g_el, 0x302065726f63 );
-    int used = (scrW * scrH * 4) / 1048576;
+    i64 used = (scrW * scrH * 4) / 1048576;
     panel_line(px, ly + 144, 0x79726f6d654d, 0, g_ram, 0x6c61746f7420424d );
     panel_line(px, ly + 180, 0x65727574636950, 0, used, 0x424d );
     panel_line(px, ly + 216, 0x6874646957, 0, scrW, 0x73746f64 );
@@ -53,7 +53,7 @@ void control_panel() {
     present();
     bool again = true;
     while again {
-        int r = wait_event();
+        i64 r = wait_event();
         if r != 1 { continue; }
         again = false;
         if tap_y < ph && tap_x >= px && tap_x < px + pw {

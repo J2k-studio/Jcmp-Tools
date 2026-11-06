@@ -6,7 +6,7 @@
 struct Url {
     bool secure;
     String host;
-    int port;
+    i64 port;
     String hostport;
     String path;                       // /user/repo.git (without a slash at the end)
 }
@@ -15,28 +15,28 @@ struct Url {
 bool parse_url(String url0, Url^ out) {
     String url = url0 + "";
     if url.starts_with("git@") && url.contains(":") && !url.contains("://") {
-        int c = url.find(":");
+        i64 c = url.find(":");
         url = "https://" + url.slice(4, c) + "/" + url.slice(c + 1, url.len);
     }
-    int plen = 0;
+    i64 plen = 0;
     out^.secure = false;
     out^.port = 80;
     if url.starts_with("https://") { plen = 8; out^.secure = true; out^.port = 443; }
     else if url.starts_with("http://") { plen = 7; }
     else { return false; }
     String rest = url.slice(plen, url.len);
-    int slash = rest.find("/");
+    i64 slash = rest.find("/");
     if slash < 0 { return false; }
     out^.hostport = rest.slice(0, slash);
     out^.path = rest.slice(slash, rest.len);
     while out^.path.len > 1 && out^.path.ends_with("/") { out^.path = out^.path.slice(0, out^.path.len - 1); }
     out^.host = out^.hostport;
-    int colon = out^.hostport.find(":");
+    i64 colon = out^.hostport.find(":");
     if colon >= 0 {
         out^.host = out^.hostport.slice(0, colon);
         out^.port = out^.hostport.slice(colon + 1, out^.hostport.len).to_int();
     }
-    int at = out^.host.find("@");                                     // user:password@host is not used: the token comes from jgit login
+    i64 at = out^.host.find("@");                                     // user:password@host is not used: the token comes from jgit login
     if at >= 0 { out^.host = out^.host.slice(at + 1, out^.host.len); out^.hostport = out^.hostport.slice(out^.hostport.find("@") + 1, out^.hostport.len); }
     return out^.host.len > 0;
 }
@@ -62,23 +62,23 @@ String auth_header(String host) {
 
 // ---------------------------------------------------------------- http
 struct Resp {
-    int code;
+    i64 code;
     String head;
     String body;
 }
 
-Resp http_do(String method, Url u, String path, String extra, String body, int depth) {
+Resp http_do(String method, Url u, String path, String extra, String body, i64 depth) {
     Resp r;
     r.code = 0; r.head = ""; r.body = "";
     if depth > 4 { return r; }
-    int h = 0;
-    int secv = 0;
+    i64 h = 0;
+    i64 secv = 0;
     if u.secure { secv = 1; }
     switch Net::http_open(u.host, u.port, secv) {
         Result::Ok(x): { h = x; }
         Result::Err(e): { r.head = e.message + ""; return r; }
     }
-    int sec = 0;
+    i64 sec = 0;
     if u.secure { sec = 1; }
     String req = method + " " + path + " HTTP/1.1\r\nHost: " + u.hostport + "\r\nUser-Agent: jgit/" + jgit_version() + "\r\nAccept: */*\r\nConnection: close\r\n" + auth_header(u.host) + extra;
     if method == "POST" { req = req + "Content-Length: " + str(body.len) + "\r\n"; }
@@ -89,9 +89,9 @@ Resp http_do(String method, Url u, String path, String extra, String body, int d
     }
     if method == "POST" {
         // the body in pieces (a pack can be big)
-        int at = 0;
+        i64 at = 0;
         while at < body.len {
-            int to = at + 60000;
+            i64 to = at + 60000;
             if to > body.len { to = body.len; }
             switch Net::http_chan_send(sec, h, body.slice(at, to)) {
                 Result::Ok(n): { }
@@ -106,16 +106,16 @@ Resp http_do(String method, Url u, String path, String extra, String body, int d
         Result::Err(e): { Net::http_chan_close(sec, h); r.head = e.message + ""; return r; }
     }
     Net::http_chan_close(sec, h);
-    int he = all.find("\r\n\r\n");
+    i64 he = all.find("\r\n\r\n");
     if he < 0 { r.head = "no header in the answer"; return r; }
     r.head = all.slice(0, he);
     String raw = all.slice(he + 4, all.len);
     String lh = Net::http_lower_ascii(r.head);
     if r.head.len > 12 && r.head.starts_with("HTTP/") { r.code = r.head.slice(9, 12).to_int(); }
     if r.code == 301 || r.code == 302 || r.code == 303 || r.code == 307 || r.code == 308 {
-        int li = lh.find("\r\nlocation:");
+        i64 li = lh.find("\r\nlocation:");
         if li >= 0 {
-            int le = Net::http_find_from(r.head, "\r\n", li + 11);
+            i64 le = Net::http_find_from(r.head, "\r\n", li + 11);
             if le < 0 { le = r.head.len; }
             String loc = r.head.slice(li + 11, le).trim();
             Url n;
@@ -123,19 +123,19 @@ Resp http_do(String method, Url u, String path, String extra, String body, int d
             if loc.starts_with("/") { String sch = "http://"; if u.secure { sch = "https://"; } full = sch + u.hostport + loc; }
             if parse_url(full, @n) {
                 String qs = "";
-                int qi = full.find("?");
+                i64 qi = full.find("?");
                 if qi >= 0 { qs = full.slice(qi, full.len); }
                 String np = n.path + qs;
                 // a redirect of  /info/refs?service=...  gives the new address of the repository: keep the tail we asked for
-                int ii = path.find("/info/refs");
-                int ni = np.find("/info/refs");
+                i64 ii = path.find("/info/refs");
+                i64 ni = np.find("/info/refs");
                 if ii >= 0 && ni < 0 { np = n.path + path.slice(ii, path.len); }
                 return http_do(method, n, np, extra, body, depth + 1);
             }
         }
     }
     if lh.contains("\r\ntransfer-encoding: chunked") {
-        int ok[1];
+        i64 ok[1];
         r.body = Net::http_unchunk(raw, @ok);
     } else { r.body = raw; }
     return r;
@@ -144,7 +144,7 @@ Resp http_do(String method, Url u, String path, String extra, String body, int d
 // ---------------------------------------------------------------- the lines of the protocol ("pkt-line": four hex digits with the length, then the line; 0000 is a flush)
 String pkt(String s) {
     String h = "0123456789abcdef";
-    int n = s.len + 4;
+    i64 n = s.len + 4;
     String r = "";
     r.push(h[(n >> 12) & 15]); r.push(h[(n >> 8) & 15]); r.push(h[(n >> 4) & 15]); r.push(h[n & 15]);
     return r + s;
@@ -153,10 +153,10 @@ String pkt(String s) {
 // the lines of a text of pkt-lines; a flush is an empty line "" that is marked by the number in `flush` (kept in the list as "\x00FLUSH")
 String[] pkt_split(String data) {
     String[] out = arr(16);
-    int p = 0;
+    i64 p = 0;
     while p + 4 <= data.len {
-        int n = 0;
-        for k in 0..4 { int hv = hexval(data[p + k]); if hv < 0 { return out; } n = n * 16 + hv; }
+        i64 n = 0;
+        for k in 0..4 { i64 hv = hexval(data[p + k]); if hv < 0 { return out; } n = n * 16 + hv; }
         if n == 0 { out.push("\x01FLUSH"); p += 4; continue; }
         if n < 4 || p + n > data.len { return out; }
         out.push(data.slice(p + 4, p + n));
@@ -185,7 +185,7 @@ bool advertise(Url u, String service) {
         String l = ls[i];
         if l == "\x01FLUSH" || l.starts_with("# service=") { continue; }
         if l.ends_with("\n") { l = l.slice(0, l.len - 1); }
-        int z = 0 - 1;
+        i64 z = 0 - 1;
         for q in 0..l.len { if l[q] == 0 && z < 0 { z = q; } }                  // the first zero byte: the capabilities follow it
         if z >= 0 { if first { g_caps = l.slice(z + 1, l.len); } l = l.slice(0, z); }
         first = false;
@@ -197,28 +197,28 @@ bool advertise(Url u, String service) {
 
 // ---------------------------------------------------------------- the objects of a pack
 // writes the objects of a pack as loose objects; the number written, or -1
-int unpack_pack(String pack) {
+i64 unpack_pack(String pack) {
     if pack.len < 32 || !pack.starts_with("PACK") { jerr << "jgit: the answer is not a pack\n"; return 0 - 1; }
-    int n = be32(pack, 8);
-    int p = 12;
-    int[] starts = arr(n + 1);
+    i64 n = be32(pack, 8);
+    i64 p = 12;
+    i64[] starts = arr(n + 1);
     String[] kinds = arr(n + 1);
     String[] bodies = arr(n + 1);
     String[] hexes = arr(n + 1);
     for i in 0..n {
         if p >= pack.len { jerr << "jgit: the pack is cut\n"; return 0 - 1; }
-        int start = p;
-        int c = pack[p] & 255;
+        i64 start = p;
+        i64 c = pack[p] & 255;
         p += 1;
-        int type = (c >> 4) & 7;
-        int size = c & 15;
-        int shift = 4;
+        i64 type = (c >> 4) & 7;
+        i64 size = c & 15;
+        i64 shift = 4;
         while (c & 128) != 0 { c = pack[p] & 255; p += 1; size = size | ((c & 127) << shift); shift += 7; }
-        int base_at = 0 - 1;
+        i64 base_at = 0 - 1;
         String base_hex = "";
         if type == 6 {
             c = pack[p] & 255; p += 1;
-            int off = c & 127;
+            i64 off = c & 127;
             while (c & 128) != 0 { c = pack[p] & 255; p += 1; off = ((off + 1) << 7) | (c & 127); }
             base_at = start - off;
         } else if type == 7 {
@@ -257,7 +257,7 @@ int unpack_pack(String pack) {
 
 // ---------------------------------------------------------------- fetch
 // asks for the objects of the wanted hashes (those that are not here yet) and writes them; the number of objects, or -1
-int fetch_objects(Url u, String[] want) {
+i64 fetch_objects(Url u, String[] want) {
     String body = "";
     bool first = true;
     for i in 0..want.len {
@@ -269,7 +269,7 @@ int fetch_objects(Url u, String[] want) {
     Resp r = http_do("POST", u, repo_path(u, "/git-upload-pack"), "Content-Type: application/x-git-upload-pack-request\r\nAccept: application/x-git-upload-pack-result\r\n", body, 0);
     if r.code != 200 { jerr << "jgit: the server answered " << r.code << " to the request of objects\n"; return 0 - 1; }
     // the answer: a line NAK (or ACK ...), then the pack
-    int at = r.body.find("PACK");
+    i64 at = r.body.find("PACK");
     if at < 0 { jerr << "jgit: no pack in the answer\n"; return 0 - 1; }
     return unpack_pack(r.body.slice(at, r.body.len));
 }
@@ -281,7 +281,7 @@ String remote_url(String name) {
 }
 
 // fetch: the branches of the remote go to refs/remotes/NAME/BRANCH; returns the number of new branch tips
-int do_fetch_remote(String name, bool quiet) {
+i64 do_fetch_remote(String name, bool quiet) {
     String us = remote_url(name);
     if us.len == 0 { return fail("there is no remote " + name + " (jgit remote add NAME URL)"); }
     Url u;
@@ -295,12 +295,12 @@ int do_fetch_remote(String name, bool quiet) {
             if !dup { want.push(g_ref_sha[i] + ""); }
         }
     }
-    int got = 0;
+    i64 got = 0;
     if want.len > 0 {
         got = fetch_objects(u, want);
         if got < 0 { return 1; }
     }
-    int moved = 0;
+    i64 moved = 0;
     for i in 0..g_ref_name.len {
         if !g_ref_name[i].starts_with("refs/heads/") { continue; }
         String b = g_ref_name[i].slice(11, g_ref_name[i].len);
@@ -318,7 +318,7 @@ int do_fetch_remote(String name, bool quiet) {
 
 // the files of a commit are written in the folder and the index is made (the tree of a branch)
 bool checkout_commit(String hex) {
-    String[] np = arr(8); String[] ns = arr(8); int[] nm = arr(8);
+    String[] np = arr(8); String[] ns = arr(8); i64[] nm = arr(8);
     String tree = commit_tree(hex);
     if tree.len != 40 { return false; }
     tree_files(tree, "", np, ns, nm);
@@ -336,7 +336,7 @@ bool checkout_commit(String hex) {
     return true;
 }
 
-int do_remote(String[] a) {
+i64 do_remote(String[] a) {
     if !find_repo() { return fail("this is not a repository"); }
     String cfg = read_text_file(g_git + "/config");
     if a.len == 2 || a[2] == "-v" {
@@ -372,7 +372,7 @@ int do_remote(String[] a) {
     return fail("usage: jgit remote [-v] | add NAME URL | remove NAME");
 }
 
-int do_clone(String[] a) {
+i64 do_clone(String[] a) {
     if a.len < 3 { return fail("usage: jgit clone URL [FOLDER]"); }
     String us = a[2];
     Url u;
@@ -381,7 +381,7 @@ int do_clone(String[] a) {
     if a.len > 3 { dir = a[3] + ""; }
     else {
         String last = u.path;
-        int sl = 0 - 1;
+        i64 sl = 0 - 1;
         for i in 0..last.len { if last[i] == '/' { sl = i; } }
         last = last.slice(sl + 1, last.len);
         if last.ends_with(".git") { last = last.slice(0, last.len - 4); }
@@ -406,10 +406,10 @@ int do_clone(String[] a) {
     if g_ref_name.len == 0 { jout << "the repository is empty\n"; return 0; }
     // the branch to bring: HEAD of the server (symref=HEAD:refs/heads/NAME), else main, master, the first
     String branch = "";
-    int sy = g_caps.find("symref=HEAD:refs/heads/");
+    i64 sy = g_caps.find("symref=HEAD:refs/heads/");
     if sy >= 0 {
         String t = g_caps.slice(sy + 23, g_caps.len);
-        int sp = t.find(" ");
+        i64 sp = t.find(" ");
         if sp >= 0 { t = t.slice(0, sp); }
         branch = t;
     }
@@ -418,7 +418,7 @@ int do_clone(String[] a) {
         if branch.len == 0 { for i in 0..g_ref_name.len { if g_ref_name[i] == "refs/heads/master" { branch = "master"; } } }
         if branch.len == 0 { for i in 0..g_ref_name.len { if g_ref_name[i].starts_with("refs/heads/") && branch.len == 0 { branch = g_ref_name[i].slice(11, g_ref_name[i].len); } } }
     }
-    int rc = do_fetch_remote("origin", true);
+    i64 rc = do_fetch_remote("origin", true);
     if rc != 0 { return rc; }
     String tip = ref_hash("refs/remotes/origin/" + branch);
     if tip.len != 40 { return fail("the server has no branch " + branch); }
@@ -435,7 +435,7 @@ bool is_ancestor(String a, String b) {
     String[] todo = arr(8);
     todo.push(b + "");
     String[] seen = arr(16);
-    int guard = 0;
+    i64 guard = 0;
     while todo.len > 0 && guard < 100000 {
         guard += 1;
         String c = todo[todo.len - 1];
@@ -462,13 +462,13 @@ String[] drop_last(String[] l) {
     return r;
 }
 
-int do_pull(String[] a) {
+i64 do_pull(String[] a) {
     if !find_repo() { return fail("this is not a repository"); }
     String remote = "origin";
     String br = head_ref();
     if !br.starts_with("refs/heads/") { return fail("not on a branch"); }
     String b = br.slice(11, br.len);
-    int rc = do_fetch_remote(remote, true);
+    i64 rc = do_fetch_remote(remote, true);
     if rc != 0 { return rc; }
     String theirs = ref_hash("refs/remotes/" + remote + "/" + b);
     String mine = head_commit();
@@ -490,9 +490,9 @@ int do_pull(String[] a) {
         if sha1_raw(hb) != ix_sha[i] { return fail(ix_path[i] + " has changes that are not saved: commit or undo them first"); }
     }
     // the files that are not in the new tree are removed
-    String[] op = arr(8); String[] os = arr(8); int[] om = arr(8);
+    String[] op = arr(8); String[] os = arr(8); i64[] om = arr(8);
     if mine.len == 40 { tree_files(commit_tree(mine), "", op, os, om); }
-    String[] np = arr(8); String[] ns = arr(8); int[] nm = arr(8);
+    String[] np = arr(8); String[] ns = arr(8); i64[] nm = arr(8);
     tree_files(commit_tree(theirs), "", np, ns, nm);
     for i in 0..op.len {
         bool keep = false;
@@ -513,12 +513,12 @@ void collect_tree(String hex, String[] out, String[] have) {
     out.push(hex + "");
     String body = read_object(hex);
     if g_kind != "tree" { return; }
-    int p = 0;
+    i64 p = 0;
     while p < body.len {
-        int sp = p;
+        i64 sp = p;
         while sp < body.len && body[sp] != ' ' { sp += 1; }
         String mode = body.slice(p, sp);
-        int z = sp;
+        i64 z = sp;
         while z < body.len && body[z] != 0 { z += 1; }
         String sha = to_hex(body.slice(z + 1, z + 21));
         p = z + 21;
@@ -536,7 +536,7 @@ void collect_tree(String hex, String[] out, String[] have) {
 void objects_of(String tip, String[] set) {
     String[] todo = arr(8);
     todo.push(tip + "");
-    int guard = 0;
+    i64 guard = 0;
     while todo.len > 0 && guard < 20000 {
         guard += 1;
         String c = todo[todo.len - 1];
@@ -556,10 +556,10 @@ void objects_of(String tip, String[] set) {
     }
 }
 
-String pack_header(int type, int size) {
+String pack_header(i64 type, i64 size) {
     String r = "";
-    int c = (type << 4) | (size & 15);
-    int rest = size >> 4;
+    i64 c = (type << 4) | (size & 15);
+    i64 rest = size >> 4;
     while rest > 0 { r.push((char)(c | 128)); c = rest & 127; rest = rest >> 7; }
     r.push((char)c);
     return r;
@@ -571,7 +571,7 @@ String make_pack(String[] hexes) {
     put32(pk, hexes.len);
     for i in 0..hexes.len {
         String body = read_object(hexes[i]);
-        int type = 3;
+        i64 type = 3;
         if g_kind == "commit" { type = 1; } else if g_kind == "tree" { type = 2; } else if g_kind == "tag" { type = 4; }
         pk.append(pack_header(type, body.len));
         pk.append(zlib_pack(body));
@@ -580,7 +580,7 @@ String make_pack(String[] hexes) {
     return pk;
 }
 
-int do_push(String[] a) {
+i64 do_push(String[] a) {
     if !find_repo() { return fail("this is not a repository"); }
     String remote = "origin";
     if a.len > 2 && !a[2].starts_with("-") { remote = a[2] + ""; }
@@ -610,7 +610,7 @@ int do_push(String[] a) {
     String[] send = arr(16);
     String[] todo = arr(8);
     todo.push(mine + "");
-    int guard = 0;
+    i64 guard = 0;
     while todo.len > 0 && guard < 20000 {
         guard += 1;
         String c = todo[todo.len - 1];
@@ -661,7 +661,7 @@ int do_push(String[] a) {
 }
 
 // the password (a token) of a host: kept in ~/.jgit/credentials, readable by you only
-int do_token(String[] a) {
+i64 do_token(String[] a) {
     if a.len < 4 { return fail("usage: jgit token HOST TOKEN [USER]   (for https://github.com make a token at github.com/settings/tokens; USER is free)"); }
     String user = "jgit";
     if a.len > 4 { user = a[4] + ""; }

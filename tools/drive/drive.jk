@@ -14,7 +14,7 @@ String env_or(String name, String fallback) {
 String list_file() { return env_or("HOME", "/") + "/.jsh_drives"; }
 String drives_root() { return env_or("HOME", "/") + "/drives"; }       // where a new drive without a folder is made
 
-int fail(String msg) { jerr << "drive: " << msg << "\n"; return 1; }
+i64 fail(String msg) { jerr << "drive: " << msg << "\n"; return 1; }
 
 bool name_ok(String n) {
     if n.len == 0 || n.len > 12 { return false; }
@@ -65,10 +65,10 @@ String path_of(String name) {
 String sizes_file() { return env_or("HOME", "/") + "/.jsh_drive_sizes"; }
 
 // 2G, 500M, 64K, 1.5G, 100 (bytes) -> bytes; -1 when it is not a size
-int parse_size(String t) {
+i64 parse_size(String t) {
     String x = t.trim().upper();
     if x.len == 0 { return 0 - 1; }
-    int mul = 1;
+    i64 mul = 1;
     char last = x[x.len - 1];
     if last == 'B' && x.len > 1 { x = x.slice(0, x.len - 1); last = x[x.len - 1]; }
     if last == 'K' { mul = 1024; x = x.slice(0, x.len - 1); }
@@ -76,30 +76,30 @@ int parse_size(String t) {
     else if last == 'G' { mul = 1073741824; x = x.slice(0, x.len - 1); }
     else if last == 'T' { mul = 1099511627776; x = x.slice(0, x.len - 1); }
     if x.len == 0 { return 0 - 1; }
-    int dot = 0 - 1;
+    i64 dot = 0 - 1;
     for i in 0..x.len {
         char c = x[i];
         if c == '.' { if dot >= 0 { return 0 - 1; } dot = i; }
         else if c < '0' || c > '9' { return 0 - 1; }
     }
     if dot < 0 { return x.to_int() * mul; }
-    int whole = x.slice(0, dot).to_int();
+    i64 whole = x.slice(0, dot).to_int();
     String frac = x.slice(dot + 1, x.len);
     if frac.len > 3 { frac = frac.slice(0, 3); }
-    int fv = 0;
-    int scale = 1;
+    i64 fv = 0;
+    i64 scale = 1;
     for i in 0..frac.len { fv = fv * 10 + (frac[i] - '0'); scale = scale * 10; }
     return whole * mul + fv * mul / scale;
 }
 
-String size_text(int n) {
+String size_text(i64 n) {
     if n >= 1073741824 { return str(n / 1073741824) + "." + str((n % 1073741824) * 10 / 1073741824) + " GB"; }
     if n >= 1048576 { return str(n / 1048576) + "." + str((n % 1048576) * 10 / 1048576) + " MB"; }
     if n >= 1024 { return str(n / 1024) + " KB"; }
     return str(n) + " B";
 }
 
-int limit_of(String name) {
+i64 limit_of(String name) {
     if !Fs::exists(sizes_file()) { return 0 - 1; }
     switch Fs::read_text(sizes_file()) {
         Result::Ok(t): {
@@ -115,7 +115,7 @@ int limit_of(String name) {
     return 0 - 1;
 }
 
-void set_limit(String name, int bytes) {                  // bytes < 0: no limit
+void set_limit(String name, i64 bytes) {                  // bytes < 0: no limit
     String out = "";
     String key = name + " ";
     if Fs::exists(sizes_file()) {
@@ -134,8 +134,8 @@ void set_limit(String name, int bytes) {                  // bytes < 0: no limit
     Fs::write_text(sizes_file(), out);
 }
 
-int used_bytes(String dir) {
-    int total = 0;
+i64 used_bytes(String dir) {
+    i64 total = 0;
     switch Dir::list(dir) {
         Result::Ok(names): {
             for i in 0..names.len {
@@ -149,7 +149,7 @@ int used_bytes(String dir) {
     return total;
 }
 
-int count_entries(String dir) {
+i64 count_entries(String dir) {
     switch Dir::list(dir) {
         Result::Ok(names): { return names.len; }
         Result::Err(e): { return 0; }
@@ -165,7 +165,7 @@ String real_of(String p) {
     if q == "~" || q == ":/" || q == ":" { return home + ""; }
     if q.starts_with("~/") { return Path::join(home, q.slice(2, q.len)); }
     if q.starts_with(":/") { return Path::join(home, q.slice(2, q.len)); }
-    int colon = q.find(":");
+    i64 colon = q.find(":");
     if colon > 0 && colon < 13 {
         String name = q.slice(0, colon) + "";
         String base = path_of(name);
@@ -189,7 +189,7 @@ String drive_of(String real) {
     String[] ls = read_list().split("\n");
     for i in 0..ls.len {
         String ln = ls[i].trim();
-        int sp = ln.find(" ");
+        i64 sp = ln.find(" ");
         if sp > 0 { names.push(ln.slice(0, sp) + ""); }
     }
     for i in 0..names.len {
@@ -224,7 +224,7 @@ void list_level(String dir, String indent, String shown) {
     }
 }
 
-int do_all() {
+i64 do_all() {
     String home = env_or("HOME", "/");
     String top = Path::parent(home);                    // the files folder of the app (home is files/home)
     jout << "the files of Jaric: " << top << "\n";
@@ -241,7 +241,7 @@ int do_all() {
     return 0;
 }
 
-int do_list() {
+i64 do_list() {
     jout << ":/   home (the same as ~/ and f:/)\n";
     String[] sys = "f 0 r".split(" ");
     for i in 0..sys.len {
@@ -251,11 +251,11 @@ int do_list() {
     String[] ls = read_list().split("\n");
     for i in 0..ls.len {
         String ln = ls[i].trim();
-        int sp = ln.find(" ");
+        i64 sp = ln.find(" ");
         if sp > 0 {
             String nm = ln.slice(0, sp) + "";
             String extra = "";
-            int lim = limit_of(nm);
+            i64 lim = limit_of(nm);
             if lim >= 0 { extra = "   limit " + size_text(lim); }
             jout << nm << ":/  " << ln.slice(sp + 1, ln.len).trim() << extra << "\n";
         }
@@ -263,16 +263,16 @@ int do_list() {
     return 0;
 }
 
-int do_info(String name) {
+i64 do_info(String name) {
     String p = path_of(name);
     if p.len == 0 { return fail("no drive " + name + " (drive shows them)"); }
     jout << name << ":/  " << p << "\n";
     if !Dir::exists(p) { jout << "  the folder is gone\n"; return 1; }
     jout << "  " << count_entries(p) << " entries\n";
-    int used = used_bytes(p);
-    int lim = limit_of(name);
+    i64 used = used_bytes(p);
+    i64 lim = limit_of(name);
     if lim < 0 { jout << "  used " << size_text(used) << "  (no limit;  drive size " << name << " 2G  sets one)\n"; return 0; }
-    int pct = 0;
+    i64 pct = 0;
     if lim > 0 { pct = used * 100 / lim; }
     jout << "  used " << size_text(used) << " of " << size_text(lim) << "  (" << pct << "%)\n";
     if used > lim { jout << "  over the limit by " << size_text(used - lim) << "\n"; return 1; }
@@ -291,13 +291,13 @@ void write_without(String name, String add) {
     Fs::write_text(list_file(), out);
 }
 
-int do_new(String[] a) {
+i64 do_new(String[] a) {
     String name = a[2];
     if !name_ok(name) { return fail("the name is letters, digits and _ (up to 12)"); }
     if system_path(name).len > 0 || name == "f" || name == "r" || name == "0" { return fail(name + " is a drive of the system and cannot be changed"); }
     if made_path(name).len > 0 { return fail("the drive " + name + " is there already (drive remove " + name + " first)"); }
     String path = "";
-    int limit = 0 - 1;
+    i64 limit = 0 - 1;
     String[] rest = arr(4);
     for i in 3..a.len { rest.push(a[i] + ""); }
     for i in 0..rest.len {                                       // a size (2G, 500M) may stand anywhere after the name
@@ -336,7 +336,7 @@ void remove_tree(String dir) {
 }
 
 // drive remove NAME: the drive goes; the folder stays.  With -d the folder goes too, but only a folder that  drive new  made (in ~/drives)
-int do_remove(String[] a) {
+i64 do_remove(String[] a) {
     String name = a[2];
     String p = made_path(name);
     if p.len == 0 { return fail("no drive " + name + " was made"); }
@@ -352,12 +352,12 @@ int do_remove(String[] a) {
 }
 
 // drive check: every drive that has a limit, with what it uses; the exit code is the number of drives over their limit
-int do_check() {
-    int over = 0;
+i64 do_check() {
+    i64 over = 0;
     String[] ls = read_list().split("\n");
     for i in 0..ls.len {
         String ln = ls[i].trim();
-        int sp = ln.find(" ");
+        i64 sp = ln.find(" ");
         if sp <= 0 { continue; }
         String nm = ln.slice(0, sp) + "";
         if limit_of(nm) < 0 { continue; }
@@ -366,7 +366,7 @@ int do_check() {
     return over;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "drive " << drive_version() << "\n"; return 0; }
     if a.len > 1 && (a[1] == "--help" || a[1] == "-h" || a[1] == "-help" || a[1] == "help") {
@@ -395,7 +395,7 @@ int main() {
     if a[1] == "size" && a.len >= 4 {                             // drive size NAME 2G   /   drive size NAME none
         if path_of(a[2]).len == 0 { return fail("no drive " + a[2]); }
         if a[3] == "none" { set_limit(a[2], 0 - 1); jout << a[2] << ":/ has no limit\n"; return 0; }
-        int b = parse_size(a[3]);
+        i64 b = parse_size(a[3]);
         if b < 0 { return fail("a size looks like 2G, 500M, 64K or 1.5G"); }
         set_limit(a[2], b);
         jout << a[2] << ":/ limit " << size_text(b) << "\n";

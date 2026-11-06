@@ -51,14 +51,14 @@ String pkg_entry(String index, String name) {
     Result<JsonDoc, Error> pj = Json::parse(index);
     switch pj {
         Result::Ok(d): {
-            int n = d.len(0);
+            i64 n = d.len(0);
             for i in 0..n {
-                int e = d.at(0, i);
-                int nn = d.get(e, "name");
+                i64 e = d.at(0, i);
+                i64 nn = d.get(e, "name");
                 if nn >= 0 {
                     if d.text(nn) == name {
                         String deps = "";
-                        int dn = d.get(e, "depends");
+                        i64 dn = d.get(e, "depends");
                         if dn >= 0 {
                             for k in 0..d.len(dn) {
                                 if deps.len > 0 { deps += ","; }
@@ -68,11 +68,11 @@ String pkg_entry(String index, String name) {
                         String ver = "";
                         String url = "";
                         String sha = "";
-                        int vn = d.get(e, "version");
+                        i64 vn = d.get(e, "version");
                         if vn >= 0 { ver = d.text(vn); }
-                        int un = d.get(e, "url");
+                        i64 un = d.get(e, "url");
                         if un >= 0 { url = d.text(un); }
-                        int sn = d.get(e, "sha256");
+                        i64 sn = d.get(e, "sha256");
                         if sn >= 0 { sha = d.text(sn); }
                         found = ver + "|" + url + "|" + sha + "|" + deps;
                     }
@@ -86,7 +86,7 @@ String pkg_entry(String index, String name) {
 
 bool pkg_installed(String name) { return Fs::exists(pkg_state() + "/" + name + ".list"); }
 
-int pkg_install(String index, String name, int depth) {
+i64 pkg_install(String index, String name, i64 depth) {
     if pkg_installed(name) { return 0; }
     if depth > 20 { err("jc: the dependencies of " + name + " go too deep\n"); return 1; }
     String line = pkg_entry(index, name);
@@ -120,12 +120,12 @@ int pkg_install(String index, String name, int depth) {
     Fs::remove(tmp);
     if !ok { err("jc: cannot unpack " + name + "\n"); return 1; }
     String list = f[0] + "\n" + tar_names;
-    Result<int, Error> wr = Fs::write_bytes(pkg_state() + "/" + name + ".list", list);
+    Result<i64, Error> wr = Fs::write_bytes(pkg_state() + "/" + name + ".list", list);
     if !wr.is_ok() { err("jc: cannot write the list of " + name + "\n"); return 1; }
     return 0;
 }
 
-int pkg_remove(String name) {
+i64 pkg_remove(String name) {
     String lp = pkg_state() + "/" + name + ".list";
     String listed = pkg_read(lp);
     if listed.len == 0 { err("jc: " + name + " is not installed\n"); return 1; }
@@ -148,7 +148,7 @@ String pkg_line(String st, String file) {
     return pname + "  " + v;
 }
 
-int pkg_list() {
+i64 pkg_list() {
     String st = pkg_state();
     if !Dir::exists(st) { return 0; }
     switch Dir::list(st) {
@@ -163,20 +163,20 @@ int pkg_list() {
 }
 
 // the number of single-letter changes between two names (case ignored); used to say "did you mean ..."
-int edit_dist(String a0, String b0) {
+i64 edit_dist(String a0, String b0) {
     String a = a0.lower();
     String b = b0.lower();
-    int n = a.len;
-    int m = b.len;
-    int[] prev = arr(m + 1);
-    int[] cur = arr(m + 1);
+    i64 n = a.len;
+    i64 m = b.len;
+    i64[] prev = arr(m + 1);
+    i64[] cur = arr(m + 1);
     for j in 0..m + 1 { prev.push(j); cur.push(0); }
     for i in 1..n + 1 {
         cur[0] = i;
         for j in 1..m + 1 {
-            int cost = 1;
+            i64 cost = 1;
             if a[i - 1] == b[j - 1] { cost = 0; }
-            int best = prev[j - 1] + cost;
+            i64 best = prev[j - 1] + cost;
             if prev[j] + 1 < best { best = prev[j] + 1; }
             if cur[j - 1] + 1 < best { best = cur[j - 1] + 1; }
             cur[j] = best;
@@ -189,8 +189,8 @@ int edit_dist(String a0, String b0) {
 // up to three names close to the word (one or two letters off, or one contains the other), as "a, b, c"; "" when none
 String near_names(String word, String[] names) {
     String r = "";
-    int shown = 0;
-    int limit = 1;
+    i64 shown = 0;
+    i64 limit = 1;
     if word.len >= 4 { limit = 2; }
     for i in 0..names.len {
         String nm = names[i] + "";
@@ -205,16 +205,16 @@ String near_names(String word, String[] names) {
     return r;
 }
 
-int pkg_search(String index, String word) {
+i64 pkg_search(String index, String word) {
     Result<JsonDoc, Error> pj = Json::parse(index);
     switch pj {
         Result::Ok(d): {
-            int found = 0;
+            i64 found = 0;
             String[] all = arr(16);
             for i in 0..d.len(0) {
-                int e = d.at(0, i);
-                int nn = d.get(e, "name");
-                int vn = d.get(e, "version");
+                i64 e = d.at(0, i);
+                i64 nn = d.get(e, "name");
+                i64 vn = d.get(e, "version");
                 if nn >= 0 && vn >= 0 {
                     String nm = d.text(nn);
                     all.push(nm + "");
@@ -234,7 +234,7 @@ int pkg_search(String index, String word) {
 }
 
 // the installed packages that have another version in the index: removed and installed again (dry: only shown)
-int pkg_update(String index, bool dry, bool quiet) {
+i64 pkg_update(String index, bool dry, bool quiet) {
     String st = pkg_state();
     if !Dir::exists(st) { if !quiet { jout << "no packages installed\n"; } return 0; }
     String[] mine = arr(8);
@@ -242,8 +242,8 @@ int pkg_update(String index, bool dry, bool quiet) {
         Result::Ok(names): { for i in 0..names.len { if names[i].ends_with(".list") { mine.push(names[i] + ""); } } }
         Result::Err(e): { }
     }
-    int shown = 0;
-    int rc = 0;
+    i64 shown = 0;
+    i64 rc = 0;
     for i in 0..mine.len {
         String line = pkg_line(st, mine[i] + "");
         String[] pv = line.split("  ");
@@ -263,7 +263,7 @@ int pkg_update(String index, bool dry, bool quiet) {
 }
 
 // jc pkg install NAME... | remove NAME... | list | search [WORD]
-int cmd_pkg(String[] a) {
+i64 cmd_pkg(String[] a) {
     if a.len < 3 { err("usage: jc pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n"); return 1; }
     String sub = a[2] + "";
     // jc update asks quietly: with no package installed there is nothing to update, so the index is not even fetched

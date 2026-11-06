@@ -20,13 +20,13 @@
 
 String neuron_version() { return "0.5.0"; }
 
-int fail(String msg) {
+i64 fail(String msg) {
     jerr << "neuron: " << msg << "\n";
     return 1;
 }
 
 // ---- a small generator of random numbers (the same every run for the same seed)
-int g_seed;
+i64 g_seed;
 double rnd() {
     g_seed = (g_seed * 6364136223846793005 + 1442695040888963407) & 0x7FFFFFFFFFFFFFFF;
     return (double)((g_seed >> 20) & 0xFFFFFF) / 16777216.0;
@@ -34,12 +34,12 @@ double rnd() {
 
 // ---- the model
 struct CharLm {
-    int k;                          // bytes of context
-    int d;                          // numbers per byte
-    int h;                          // neurons
-    int v;                          // size of the vocabulary
-    int[] bytes;                    // the byte of every word of the vocabulary
-    int[] index;                    // 256 entries: the word of a byte, or -1
+    i64 k;                          // bytes of context
+    i64 d;                          // numbers per byte
+    i64 h;                          // neurons
+    i64 v;                          // size of the vocabulary
+    i64[] bytes;                    // the byte of every word of the vocabulary
+    i64[] index;                    // 256 entries: the word of a byte, or -1
     double[] emb;                   // v * d
     double[] w1;                    // (k * d) * h
     double[] b1;                    // h
@@ -52,7 +52,7 @@ struct CharLm {
     String[] pa;                    // and their answers
 }
 
-CharLm lm_alloc(int k, int d, int h, int v) {
+CharLm lm_alloc(i64 k, i64 d, i64 h, i64 v) {
     CharLm m;
     m.k = k; m.d = d; m.h = h; m.v = v;
     m.bytes = arr(v + 1);
@@ -80,10 +80,10 @@ void lm_init_weights(CharLm m) {
 }
 
 // the probabilities of the next byte after the context ctx[0..k-1] (words of the vocabulary), in m.p
-void lm_forward(CharLm m, int[] ctx) {
-    int kd = m.k * m.d;
+void lm_forward(CharLm m, i64[] ctx) {
+    i64 kd = m.k * m.d;
     for j in 0..m.k {
-        int base = ctx[j] * m.d;
+        i64 base = ctx[j] * m.d;
         for t in 0..m.d { m.x[j * m.d + t] = m.emb[base + t]; }
     }
     for i in 0..m.h {
@@ -105,10 +105,10 @@ void lm_forward(CharLm m, int[] ctx) {
 }
 
 // one step of learning for one place of the text: returns -ln(p of the right byte)
-double lm_learn(CharLm m, int[] ctx, int target, double rate) {
+double lm_learn(CharLm m, i64[] ctx, i64 target, double rate) {
     lm_forward(m, ctx);
     double loss = 0.0 - Math::log(m.p[target] + 1.0e-12);
-    int kd = m.k * m.d;
+    i64 kd = m.k * m.d;
     double[] dh = arr(m.h + 1);
     for i in 0..m.h { dh.push(0.0); }
     for o in 0..m.v {
@@ -133,14 +133,14 @@ double lm_learn(CharLm m, int[] ctx, int target, double rate) {
         m.b1[i] -= rate * g;
     }
     for j in 0..m.k {
-        int base = ctx[j] * m.d;
+        i64 base = ctx[j] * m.d;
         for t in 0..m.d { m.emb[base + t] -= rate * dx[j * m.d + t]; }
     }
     return loss;
 }
 
 // ---- the file .jw (neuron-jw 2): lines of text; the numbers are written with spaces between
-String numbers(double[] a, int n) {
+String numbers(double[] a, i64 n) {
     String t = "";
     for i in 0..n { t = t + str(a[i]) + " "; }
     return t + "\n";
@@ -156,11 +156,11 @@ bool lm_save(CharLm m, String path) {
     return Fs::write_text(path, t).is_ok();
 }
 
-int header_value(String line, String key) {
+i64 header_value(String line, String key) {
     return line.slice(key.len + 1, line.len).trim().to_int();
 }
 
-void fill(double[] dst, String line, int n) {
+void fill(double[] dst, String line, i64 n) {
     String[] w = line.trim().split(" ");
     for i in 0..n { if i < w.len { dst[i] = w[i].to_double(); } }
 }
@@ -173,10 +173,10 @@ CharLm lm_load(String path, bool^ ok) {
     if !r.is_ok() { return none; }
     String[] ls = r.take().split("\n");
     if ls.len < 12 || ls[0] != "neuron-jw 2" || ls[1] != "kind charlm" { return none; }
-    int k = header_value(ls[2], "context");
-    int d = header_value(ls[3], "dim");
-    int h = header_value(ls[4], "hidden");
-    int v = header_value(ls[5], "vocab");
+    i64 k = header_value(ls[2], "context");
+    i64 d = header_value(ls[3], "dim");
+    i64 h = header_value(ls[4], "hidden");
+    i64 v = header_value(ls[5], "vocab");
     if k < 1 || d < 1 || h < 1 || v < 2 { return none; }
     CharLm m = lm_alloc(k, d, h, v);
     String[] vb = ls[6].trim().split(" ");
@@ -187,10 +187,10 @@ CharLm lm_load(String path, bool^ ok) {
     fill(m.w2, ls[10], h * v);
     fill(m.b2, ls[11], v);
     if ls.len > 12 && ls[12].starts_with("pairs ") {
-        int np = ls[12].slice(6, ls[12].len).to_int();
+        i64 np = ls[12].slice(6, ls[12].len).to_int();
         for i in 0..np {
             if 13 + i >= ls.len { break; }
-            int tab = ls[13 + i].find("\t");
+            i64 tab = ls[13 + i].find("\t");
             if tab <= 0 { continue; }
             m.pq.push(ls[13 + i].slice(0, tab) + "");
             m.pa.push(ls[13 + i].slice(tab + 1, ls[13 + i].len) + "");
@@ -201,16 +201,16 @@ CharLm lm_load(String path, bool^ ok) {
 }
 
 // ---- the vocabulary of a text: the bytes that are in it
-CharLm lm_for_text(String text, int k, int d, int h) {
-    int[] seen = arr(257);
+CharLm lm_for_text(String text, i64 k, i64 d, i64 h) {
+    i64[] seen = arr(257);
     for i in 0..256 { seen.push(0); }
     for i in 0..text.len { seen[text[i] & 255] = 1; }
     for i in 32..127 { seen[i] = 1; }                          // every printable letter of ASCII is always in, so the model can learn commands later
     seen[10] = 1; seen[9] = 1;
-    int v = 0;
+    i64 v = 0;
     for i in 0..256 { if seen[i] == 1 { v += 1; } }
     CharLm m = lm_alloc(k, d, h, v);
-    int at = 0;
+    i64 at = 0;
     for b in 0..256 { if seen[b] == 1 { m.bytes.push(b); m.index[b] = at; at += 1; } }
     lm_init_weights(m);
     return m;
@@ -236,7 +236,7 @@ String simple_form(String t) {
     String r = " ";
     bool space = true;
     for i in 0..t.len {
-        int c = t[i] & 255;
+        i64 c = t[i] & 255;
         if c >= 65 && c <= 90 { c += 32; }
         bool word = (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c >= 128;
         if word { r.push((char)c); space = false; }
@@ -248,12 +248,12 @@ String simple_form(String t) {
 
 // the likeness of two forms, 0 .. 1: how many of the groups of three letters they have in common (Dice)
 double likeness(String x, String y) {
-    int nx = x.len - 2;
-    int ny = y.len - 2;
+    i64 nx = x.len - 2;
+    i64 ny = y.len - 2;
     if nx < 1 || ny < 1 { return 0.0; }
-    int[] used = arr(ny + 1);
+    i64[] used = arr(ny + 1);
     for j in 0..ny { used.push(0); }
-    int common = 0;
+    i64 common = 0;
     for i in 0..nx {
         for j in 0..ny {
             if used[j] == 0 && x[i] == y[j] && x[i + 1] == y[j + 1] && x[i + 2] == y[j + 2] { used[j] = 1; common += 1; break; }
@@ -266,7 +266,7 @@ double likeness(String x, String y) {
 String search_answer(CharLm m, String q, double limit) {
     String fq = simple_form(q);
     double best = 0.0;
-    int at = 0 - 1;
+    i64 at = 0 - 1;
     for i in 0..m.pq.len {
         double s = likeness(fq, simple_form(m.pq[i]));
         if s > best { best = s; at = i; }
@@ -275,22 +275,22 @@ String search_answer(CharLm m, String q, double limit) {
     return "";
 }
 
-int word_of(CharLm m, int byte) {
-    int w = m.index[byte & 255];
+i64 word_of(CharLm m, i64 byte) {
+    i64 w = m.index[byte & 255];
     if w < 0 { return 0; }
     return w;
 }
 
 // the next byte after the text so far (the last k bytes); t = temperature (0: always the most probable)
-int lm_next(CharLm m, String text, double t) {
-    int[] ctx = arr(m.k + 1);
-    int space = word_of(m, 32);
+i64 lm_next(CharLm m, String text, double t) {
+    i64[] ctx = arr(m.k + 1);
+    i64 space = word_of(m, 32);
     for j in 0..m.k {
-        int at = text.len - m.k + j;
+        i64 at = text.len - m.k + j;
         if at >= 0 { ctx.push(word_of(m, text[at])); } else { ctx.push(space); }
     }
     lm_forward(m, ctx);
-    int best = 0;
+    i64 best = 0;
     for o in 1..m.v { if m.p[o] > m.p[best] { best = o; } }
     if t <= 0.0 { return m.bytes[best]; }
     double sum = 0.0;
@@ -302,11 +302,11 @@ int lm_next(CharLm m, String text, double t) {
 }
 
 // writes on from text: n bytes at most; stop_line = stop at the first line end
-String lm_write(CharLm m, String start, int n, double t, bool stop_line) {
+String lm_write(CharLm m, String start, i64 n, double t, bool stop_line) {
     String text = start + "";
     String made = "";
     for i in 0..n {
-        int b = lm_next(m, text, t);
+        i64 b = lm_next(m, text, t);
         if stop_line && b == 10 { break; }
         text.push((char)b);
         made.push((char)b);
@@ -319,17 +319,17 @@ String option(String[] a, String name, String fallback) {
     return fallback;
 }
 
-int do_train(String[] a) {
+i64 do_train(String[] a) {
     if a.len < 3 { return fail("usage: neuron train DATA.txt -o MODEL.jw [-k 8] [-d 12] [-h 96] [-e 5] [-r 0.05]"); }
     Result<String, Error> rd = Fs::read_bytes(a[2]);
     if !rd.is_ok() { return fail("cannot read " + a[2]); }
     String text = rd.take();
     if text.len < 20 { return fail("the text is too short to learn from (" + str(text.len) + " bytes)"); }
     String out = option(a, "-o", "model.jw");
-    int k = option(a, "-k", "8").to_int();
-    int d = option(a, "-d", "12").to_int();
-    int h = option(a, "-h", "96").to_int();
-    int epochs = option(a, "-e", "5").to_int();
+    i64 k = option(a, "-k", "8").to_int();
+    i64 d = option(a, "-d", "12").to_int();
+    i64 h = option(a, "-h", "96").to_int();
+    i64 epochs = option(a, "-e", "5").to_int();
     double rate = option(a, "-r", "0.05").to_double();
     g_seed = option(a, "-s", "12345").to_int();
     CharLm m = lm_for_text(text, k, d, h);
@@ -342,16 +342,16 @@ int do_train(String[] a) {
     }
     lm_collect_pairs(m, text);
     jout << "text " << text.len << " bytes, " << m.pq.len << " questions with answers, vocabulary " << m.v << ", model: context " << k << ", dim " << d << ", hidden " << h << ", " << epochs << " rounds\n";
-    int[] ctx = arr(k + 1);
+    i64[] ctx = arr(k + 1);
     for j in 0..k { ctx.push(0); }
-    int space = word_of(m, 32);
-    int started = Time::now_ms();
+    i64 space = word_of(m, 32);
+    i64 started = Time::now_ms();
     for e in 0..epochs {
         double total = 0.0;
-        int n = 0;
+        i64 n = 0;
         for at in 0..text.len {
             for j in 0..k {
-                int src = at - k + j;
+                i64 src = at - k + j;
                 if src >= 0 { ctx[j] = word_of(m, text[src]); } else { ctx[j] = space; }
             }
             total += lm_learn(m, ctx, word_of(m, text[at]), rate);
@@ -376,13 +376,13 @@ CharLm open_model(String path, bool^ ok) {
     return m;
 }
 
-int do_run(String[] a) {
+i64 do_run(String[] a) {
     if a.len < 4 { return fail("usage: neuron run MODEL.jw \"start of a text\" [-n 200] [-t 0.8]"); }
     bool ok = false;
     CharLm m = open_model(a[2], @ok);
     if !ok { return 1; }
     g_seed = Time::now_ms();
-    int n = option(a, "-n", "200").to_int();
+    i64 n = option(a, "-n", "200").to_int();
     double t = option(a, "-t", "0.8").to_double();
     jout << a[3] << lm_write(m, a[3], n, t, false) << "\n";
     return 0;
@@ -400,7 +400,7 @@ String assistant_path() {
 
 // neuron eval MODEL.jw TEST.txt [-n 200]: how many of the questions of the test text (never learned) are answered right,
 // by the search alone, by the model alone (the most likely byte each time) and by both together as xr does it
-int do_eval(String[] a) {
+i64 do_eval(String[] a) {
     if a.len < 4 { return fail("usage: neuron eval MODEL.jw TEST.txt [-n 200]"); }
     bool ok = false;
     CharLm m = open_model(a[2], @ok);
@@ -409,20 +409,20 @@ int do_eval(String[] a) {
     if !rd.is_ok() { return fail("cannot read " + a[3]); }
     CharLm probe = lm_alloc(1, 1, 1, 1);
     lm_collect_pairs(probe, rd.take());
-    int total = probe.pq.len;
+    i64 total = probe.pq.len;
     if total == 0 { return fail("no pairs (You: / Bot:) in " + a[3]); }
-    int maxn = option(a, "-n", "200").to_int();
+    i64 maxn = option(a, "-n", "200").to_int();
     if maxn > total { maxn = total; }
     String lim_text = jash_get("xr", "match", "0.5");
     double limit = lim_text.to_double();
-    int by_search = 0;
-    int by_model = 0;
-    int by_both = 0;
-    int answered = 0;
-    int step = total / maxn;
+    i64 by_search = 0;
+    i64 by_model = 0;
+    i64 by_both = 0;
+    i64 answered = 0;
+    i64 step = total / maxn;
     if step < 1 { step = 1; }
-    int done = 0;
-    int at = 0;
+    i64 done = 0;
+    i64 at = 0;
     while at < total && done < maxn {
         String q = probe.pq[at];
         String want = probe.pa[at];
@@ -442,7 +442,7 @@ int do_eval(String[] a) {
     return 0;
 }
 
-int do_install(String[] a) {
+i64 do_install(String[] a) {
     if a.len < 3 { return fail("usage: neuron install MODEL.jw   (it becomes the assistant: neuron chat)"); }
     bool ok = false;
     CharLm m = lm_load(a[2], @ok);
@@ -456,7 +456,7 @@ int do_install(String[] a) {
     return 0;
 }
 
-int do_chat(String[] a) {
+i64 do_chat(String[] a) {
     String model = assistant_path();
     if a.len >= 3 && a[2].len > 0 && a[2][0] != '-' { model = a[2]; }
     if !Fs::exists(model) { return fail("no model: neuron chat MODEL.jw, or install one: neuron install MODEL.jw"); }
@@ -464,7 +464,7 @@ int do_chat(String[] a) {
     CharLm m = open_model(model, @ok);
     if !ok { return 1; }
     g_seed = Time::now_ms();
-    int n = option(a, "-n", "200").to_int();
+    i64 n = option(a, "-n", "200").to_int();
     double t = option(a, "-t", "0.8").to_double();
     String talk = "";
     jout << "neuron chat: type a line, an empty line leaves. (the model was taught with lines like  You: ...  Bot: ...)\n";
@@ -481,7 +481,7 @@ int do_chat(String[] a) {
     return 0;
 }
 
-int do_info(String[] a) {
+i64 do_info(String[] a) {
     if a.len < 3 { return fail("usage: neuron info MODEL.jw"); }
     Result<String, Error> r = Fs::read_text(a[2]);
     if !r.is_ok() { return fail("cannot read " + a[2]); }
@@ -490,16 +490,16 @@ int do_info(String[] a) {
     bool ok = false;
     CharLm m = lm_load(a[2], @ok);
     if !ok { return fail(a[2] + " is not a model of neuron"); }
-    int numbers_n = m.v * m.d + m.k * m.d * m.h + m.h + m.h * m.v + m.v;
+    i64 numbers_n = m.v * m.d + m.k * m.d * m.h + m.h + m.h * m.v + m.v;
     jout << a[2] << ": a language model (neuron-jw 2): context " << m.k << " bytes, dim " << m.d << ", hidden " << m.h << ", vocabulary " << m.v << ", " << numbers_n << " numbers\n";
     return 0;
 }
 
-int do_ask(String[] a) {
+i64 do_ask(String[] a) {
     if a.len < 4 { return fail("usage: neuron ask MODEL.jw X1 X2 ..."); }
     Network net = Network::load(a[2]);
     if net.count == 0 { return fail(a[2] + " is not a numeric model (neuron-jw 1)"); }
-    int n = a.len - 3;
+    i64 n = a.len - 3;
     Tensor q = Tensor::zeros(1, n);
     for i in 0..n { q.set(0, i, a[3 + i].to_double()); }
     Tensor out = net.predict(q);
@@ -525,7 +525,7 @@ String jash_get(String section, String key, String fallback) {
         String ln = ls[i].trim();
         if ln.len == 0 || ln[0] == '#' { continue; }
         if ln[0] == '[' { if ln != "[#jash]" { cur = ln.slice(1, ln.len - 1).trim(); } continue; }
-        int eq = ln.find("=");
+        i64 eq = ln.find("=");
         if eq <= 0 || cur != section { continue; }
         if ln.slice(0, eq).trim() == key { return ln.slice(eq + 1, ln.len).trim().replace("\"", ""); }
     }
@@ -541,10 +541,10 @@ String xr_dir() {
     return home + "/.neuron";
 }
 
-int xr_port() { return jash_get("xr", "port", "7790").to_int(); }
+i64 xr_port() { return jash_get("xr", "port", "7790").to_int(); }
 
 // the reply to a question: the answer of the question that is the most like it (settings [xr] search = on, match = 0.5), else the model writes on
-String reply_to(CharLm m, String talk, String question, int n, double t) {
+String reply_to(CharLm m, String talk, String question, i64 n, double t) {
     if jash_get("xr", "search", "on") != "off" {
         String found = search_answer(m, question, jash_get("xr", "match", "0.5").to_double());
         if found.len > 0 { return found; }
@@ -563,13 +563,13 @@ String read_line_from(Connection c) {
         if piece.len == 0 { break; }
         got = got + piece;
     }
-    int nl = got.find("\n");
+    i64 nl = got.find("\n");
     if nl >= 0 { got = got.slice(0, nl); }
     return got.trim();
 }
 
 // the server: one request line in, one answer out.   ask TEXT | reset | ping | stop
-int xr_serve(String model, int port) {
+i64 xr_serve(String model, i64 port) {
     bool ok = false;
     CharLm m = lm_load(model, @ok);
     if !ok { return fail("no model to serve: " + model + "  (neuron install MODEL.jw)"); }
@@ -578,7 +578,7 @@ int xr_serve(String model, int port) {
     if l.fd < 0 { return fail("cannot listen on port " + str(port)); }
     g_seed = Time::now_ms();
     double t = jash_get("xr", "temperature", "0.7").to_double();
-    int n = jash_get("xr", "max", "200").to_int();
+    i64 n = jash_get("xr", "max", "200").to_int();
     String talk = "";
     while true {
         Connection c = l.accept();
@@ -625,25 +625,25 @@ bool xr_running() {
     return ok && r == "pong";
 }
 
-int xr_start() {
+i64 xr_start() {
     if xr_running() { jout << "xaiorin runs already (port " << xr_port() << ")\n"; return 0; }
     String model = assistant_path();
     if !Fs::exists(model) { return fail("no assistant yet: neuron install MODEL.jw  (or: makej init -ai, makej train, makej install)"); }
-    int pid = Sys::fork();
+    i64 pid = Sys::fork();
     if pid < 0 { return fail("cannot start the background program"); }
     if pid > 0 { Time::sleep_ms(400); jout << "xaiorin runs in the background (port " << xr_port() << ", stop it with: xr stop)\n"; return 0; }
     Sys::call(157, 0, 0, 0, 0, 0, 0);                              // setsid: no terminal any more
-    int nul_in = Sys::open_read("/dev/null".c());
-    int nul_out = Sys::open_write("/dev/null".c());
+    i64 nul_in = Sys::open_read("/dev/null".c());
+    i64 nul_out = Sys::open_write("/dev/null".c());
     Sys::call(24, nul_in, 0, 0, 0, 0, 0);                          // dup3 onto 0, 1, 2
     Sys::call(24, nul_out, 1, 0, 0, 0, 0);
     Sys::call(24, nul_out, 2, 0, 0, 0, 0);
-    int rc = xr_serve(model, xr_port());
+    i64 rc = xr_serve(model, xr_port());
     Sys::exit(rc);
     return rc;
 }
 
-int xr_stop() {
+i64 xr_stop() {
     bool ok = false;
     xr_call("stop", @ok);
     if ok { jout << "xaiorin stopped\n"; } else { jout << "xaiorin was not running\n"; }
@@ -658,7 +658,7 @@ String xr_answer(String question, CharLm^ own, bool^ have_own) {
     return "";
 }
 
-int xr_main(String[] a) {
+i64 xr_main(String[] a) {
     String cmd = "";
     if a.len > 1 { cmd = a[1]; }
     if cmd == "--version" || cmd == "-V" { jout << "xaiorin (xr) " << neuron_version() << " (the tool neuron)\n"; return 0; }
@@ -670,7 +670,7 @@ int xr_main(String[] a) {
     if cmd == "learn" {
         String[] la = arr(4);
         la.push("neuron"); la.push("learn");
-        int rc = do_learn(la);
+        i64 rc = do_learn(la);
         if rc == 0 && xr_running() { xr_stop(); xr_start(); }          // the background program loads the new model
         return rc;
     }
@@ -697,7 +697,7 @@ int xr_main(String[] a) {
         g_seed = Time::now_ms();
     }
     double t = jash_get("xr", "temperature", "0.7").to_double();
-    int n = jash_get("xr", "max", "200").to_int();
+    i64 n = jash_get("xr", "max", "200").to_int();
     if cmd.len > 0 {                                                     // xr "question words"
         String q = cmd;
         for i in 2..a.len { q = q + " " + a[i]; }
@@ -730,19 +730,19 @@ int xr_main(String[] a) {
 //        COMMAND <tab> EXIT-STATUS <tab> MESSAGE        (the message is what jsh itself said, for example "command not found")
 //      neuron learn turns them into a talk to learn: a wrong command followed by a right one that is almost the same
 //      ("You: gti status" / "Bot: Did you mean: git status") and the commands that follow each other again and again.
-int edits(String x, String y) {
-    int n = x.len;
-    int m = y.len;
+i64 edits(String x, String y) {
+    i64 n = x.len;
+    i64 m = y.len;
     if n > 30 || m > 30 { return 99; }
-    int[] prev = arr(m + 2);
-    int[] cur = arr(m + 2);
+    i64[] prev = arr(m + 2);
+    i64[] cur = arr(m + 2);
     for j in 0..m + 1 { prev.push(j); cur.push(0); }
     for i in 1..n + 1 {
         cur[0] = i;
         for j in 1..m + 1 {
-            int cost = 1;
+            i64 cost = 1;
             if x[i - 1] == y[j - 1] { cost = 0; }
-            int best = prev[j - 1] + cost;
+            i64 best = prev[j - 1] + cost;
             if prev[j] + 1 < best { best = prev[j] + 1; }
             if cur[j - 1] + 1 < best { best = cur[j - 1] + 1; }
             cur[j] = best;
@@ -753,22 +753,22 @@ int edits(String x, String y) {
 }
 
 String first_word(String cmd) {
-    int sp = cmd.find(" ");
+    i64 sp = cmd.find(" ");
     if sp < 0 { return cmd; }
     return cmd.slice(0, sp);
 }
 
-int do_learn(String[] a) {
+i64 do_learn(String[] a) {
     String events = xr_dir() + "/events.txt";
     String out = xr_dir() + "/learned.txt";
     if !Fs::exists(events) { return fail("nothing to learn from yet: no " + events + "  (turn it on in jaric setting: assistant learns from the shell)"); }
     Result<String, Error> r = Fs::read_text(events);
     if !r.is_ok() { return fail("cannot read " + events); }
     String[] ls = r.take().split("\n");
-    int from = 0;
+    i64 from = 0;
     if ls.len > 3000 { from = ls.len - 3000; }                  // the last 3000 events
     String[] cmd = arr(ls.len + 1);
-    int[] st = arr(ls.len + 1);
+    i64[] st = arr(ls.len + 1);
     String[] msg = arr(ls.len + 1);
     for i in from..ls.len {
         String[] f = ls[i].split("\t");
@@ -780,8 +780,8 @@ int do_learn(String[] a) {
         if f.len > 2 { msg.push(f[2].trim() + ""); } else { msg.push(""); }
     }
     String text = "";
-    int fixes = 0;
-    int habits = 0;
+    i64 fixes = 0;
+    i64 habits = 0;
     for i in 0..cmd.len {
         if st[i] != 0 {
             // the next right command within 3 that is almost the same word
@@ -818,7 +818,7 @@ int do_learn(String[] a) {
 }
 
 // where everything of the assistant lies, and how big it is
-int do_where() {
+i64 do_where() {
     String dir = xr_dir();
     String home = ".";
     switch Env::get("HOME") {
@@ -835,7 +835,7 @@ int do_where() {
     for i in 0..names.len {
         String size = "-";
         if Fs::exists(names[i]) {
-            Result<int, Error> r = Fs::size(names[i]);
+            Result<i64, Error> r = Fs::size(names[i]);
             if r.is_ok() { size = str(r.take() / 1024) + " KB"; }
         }
         String line = size;
@@ -846,9 +846,9 @@ int do_where() {
     return 0;
 }
 
-int do_forget() {
+i64 do_forget() {
     String dir = xr_dir();
-    int n = 0;
+    i64 n = 0;
     String[] names = arr(3);
     names.push(dir + "/events.txt"); names.push(dir + "/learned.txt");
     for i in 0..names.len { if Fs::exists(names[i]) { Fs::remove(names[i]); n += 1; } }
@@ -859,17 +859,17 @@ int do_forget() {
 // the name this program was started with (neuron, xr or xaiorin)
 String program_name() {
     char buf[600];
-    int n = Sys::readlink("/proc/self/exe", @buf, 590);
+    i64 n = Sys::readlink("/proc/self/exe", @buf, 590);
     String path = "";
     for i in 0..n { path.push(buf[i]); }
-    int cut = -1;
+    i64 cut = -1;
     for i in 0..path.len { if path[i] == '/' { cut = i; } }
     return path.slice(cut + 1, path.len);
 }
 
-int gpt_rng;
-int gpt_rand() {
-    int x = gpt_rng;
+i64 gpt_rng;
+i64 gpt_rand() {
+    i64 x = gpt_rng;
     x = x xor (x << 13);
     x = x xor ((x >> 7) & 72057594037927935);
     x = x xor (x << 17);
@@ -877,7 +877,7 @@ int gpt_rand() {
     return x & 2147483647;
 }
 
-String gopt(String[] a, int from, String name, String fallback) {
+String gopt(String[] a, i64 from, String name, String fallback) {
     String key = name + "=";
     for i in from..a.len { if a[i].starts_with(key) { return a[i].slice(key.len, a[i].len) + ""; } }
     return fallback;
@@ -893,9 +893,9 @@ bool text_name(String n) {
 }
 
 String gathered;
-int gathered_files;
+i64 gathered_files;
 
-void gather(String path, int depth) {
+void gather(String path, i64 depth) {
     if Dir::exists(path) {
         if depth > 6 { return; }
         String[] names = arr(64);
@@ -929,12 +929,12 @@ String text_of_path(String path) {
     return "";
 }
 
-int gpt_train(String[] a) {
+i64 gpt_train(String[] a) {
     if a.len < 3 { jerr << "usage: neuron gpt train FILE|FOLDER [size=small|tiny|medium|large] [steps=2000] [minutes=0] [batch=8] [lr=0.003] [out=model.gpt] [resume=1] [every=100] [prompt=text]\n"; return 1; }
     String text = text_of_path(a[2]);
     if text.len == 0 { jerr << "neuron gpt: no text found in " << a[2] << "\n"; return 1; }
     String size = gopt(a, 3, "size", "small");
-    int ctx = 64; int d = 64; int heads = 4; int layers = 2;
+    i64 ctx = 64; i64 d = 64; i64 heads = 4; i64 layers = 2;
     if size == "tiny" { ctx = 32; d = 32; heads = 2; layers = 1; }
     else if size == "medium" { ctx = 128; d = 128; heads = 4; layers = 4; }
     else if size == "large" { ctx = 256; d = 192; heads = 6; layers = 6; }
@@ -943,43 +943,43 @@ int gpt_train(String[] a) {
     d = gopt(a, 3, "d", str(d)).to_int();
     heads = gopt(a, 3, "heads", str(heads)).to_int();
     layers = gopt(a, 3, "layers", str(layers)).to_int();
-    int steps = gopt(a, 3, "steps", "2000").to_int();
+    i64 steps = gopt(a, 3, "steps", "2000").to_int();
     double minutes = gopt(a, 3, "minutes", "0").to_double();
-    int batch = gopt(a, 3, "batch", "8").to_int();
+    i64 batch = gopt(a, 3, "batch", "8").to_int();
     double lr = gopt(a, 3, "lr", "0.003").to_double();
     String out = gopt(a, 3, "out", "model.gpt");
-    int every = gopt(a, 3, "every", "100").to_int();
+    i64 every = gopt(a, 3, "every", "100").to_int();
     String prompt = gopt(a, 3, "prompt", "");
     if d % heads != 0 || (d / heads) % 4 != 0 { jerr << "neuron: d must be a multiple of 4 * heads (the width of a head a multiple of 4)\n"; return 1; }
-    int[] data = Gpt::bytes(text);
+    i64[] data = Gpt::bytes(text);
     if data.len < ctx * 4 + 2 { jerr << "neuron: the text is too short for ctx=" << ctx << " (" << data.len << " bytes)\n"; return 1; }
-    int cut = data.len * 9 / 10;
+    i64 cut = data.len * 9 / 10;
     gpt_rng = 88172645463325252;
     Gpt m = Gpt::make(256, ctx, d, heads, layers, 1);
     if gopt(a, 3, "resume", "0") == "1" {
         Gpt old = Gpt::load(out);
         if old.vocab == 256 { m = old; jout << "resumed from " << out << "\n"; }
     }
-    int params = 0;
+    i64 params = 0;
     for n in 0..m.g.keep { params += m.g.value(n).d.len; }
     jout << gathered_files << " file(s), " << data.len << " bytes (" << cut << " to learn from, the rest to check), model: " << params << " numbers, ctx " << m.ctx << ", width " << m.d << ", " << m.heads << " heads, " << m.layers << " layers\n";
-    int t0 = Time::now_ms();
+    i64 t0 = Time::now_ms();
     double window = 0.0;
-    int count = 0;
-    int step = 0;
-    int warm = 10;
+    i64 count = 0;
+    i64 step = 0;
+    i64 warm = 10;
     bool timed = minutes > 0.0;
     if timed { steps = 1000000; }
     while step < steps {
         if timed && step == 8 {                                      // 8 steps measured: how many fit in the time
             double per = (double)(Time::now_ms() - t0) / 8.0;
-            steps = (int)(minutes * 60000.0 / per);
+            steps = (i64)(minutes * 60000.0 / per);
             if steps < 20 { steps = 20; }
             jout << "about " << per << " ms per step: " << steps << " steps in " << minutes << " minutes\n";
             warm = steps / 20 + 1;
         }
         if !timed && step == 0 { warm = steps / 20 + 1; }
-        int[] starts = arr(batch + 1);
+        i64[] starts = arr(batch + 1);
         for q in 0..batch { starts.push(gpt_rand() % (cut - m.ctx - 1)); }
         double rate = lr;
         if !timed || step >= 8 { rate = Sched::cosine(step, steps, warm, lr, lr / 10.0); }
@@ -987,7 +987,7 @@ int gpt_train(String[] a) {
         count += 1;
         step += 1;
         if step % every == 0 || step == steps {
-            int[] vs = arr(9);
+            i64[] vs = arr(9);
             for q in 0..8 { vs.push(cut + (q * (data.len - cut - m.ctx - 1)) / 8); }
             double val = m.loss_on(data, vs);
             double ms = (double)(Time::now_ms() - t0) / (double)step;
@@ -995,7 +995,7 @@ int gpt_train(String[] a) {
             window = 0.0;
             count = 0;
             m.save(out);
-            int[] pr = Gpt::bytes(prompt);
+            i64[] pr = Gpt::bytes(prompt);
             if pr.len == 0 { for i in 0..8 { pr.push(data[i]); } }
             jout << "  [" << Gpt::text_of(pr) << m.write(pr, 120, 0.8, 20, step) << "]\n";
         }
@@ -1005,44 +1005,44 @@ int gpt_train(String[] a) {
     return 0;
 }
 
-int gpt_write(String[] a) {
+i64 gpt_write(String[] a) {
     if a.len < 3 { jerr << "usage: neuron gpt write MODEL \"start of the text\" [n=200] [temp=0.8] [topk=20] [seed=1]\n"; return 1; }
     Gpt m = Gpt::load(a[2]);
     if m.vocab != 256 { jerr << "neuron: cannot read the model " << a[2] << "\n"; return 1; }
     String start = "";
     if a.len >= 4 && !a[3].contains("=") { start = a[3] + ""; }
-    int n = gopt(a, 3, "n", "200").to_int();
+    i64 n = gopt(a, 3, "n", "200").to_int();
     double temp = gopt(a, 3, "temp", "0.8").to_double();
-    int topk = gopt(a, 3, "topk", "20").to_int();
-    int seed = gopt(a, 3, "seed", "1").to_int();
-    int[] pr = Gpt::bytes(start);
+    i64 topk = gopt(a, 3, "topk", "20").to_int();
+    i64 seed = gopt(a, 3, "seed", "1").to_int();
+    i64[] pr = Gpt::bytes(start);
     if pr.len == 0 { pr.push(10); }
     jout << start << m.write(pr, n, temp, topk, seed) << "\n";
     return 0;
 }
 
-int gpt_info(String[] a) {
+i64 gpt_info(String[] a) {
     if a.len < 3 { jerr << "usage: neuron gpt info MODEL\n"; return 1; }
     Gpt m = Gpt::load(a[2]);
     if m.vocab != 256 { jerr << "neuron: cannot read the model " << a[2] << "\n"; return 1; }
-    int params = 0;
+    i64 params = 0;
     for n in 0..m.g.keep { params += m.g.value(n).d.len; }
     jout << a[2] << ": a byte-level GPT, " << params << " numbers (" << params * 4 / 1024 << " KB as float32), context " << m.ctx << ", width " << m.d << ", " << m.heads << " heads, " << m.layers << " layers\n";
     return 0;
 }
 
-int llama_run(String[] a) {
+i64 llama_run(String[] a) {
     if a.len < 3 { jerr << "usage: neuron llama MODEL.gguf \"start of the text\" [n=100] [temp=0.8] [topk=40] [topp=0.95] [seed=1]\n"; return 1; }
     String start = "Once upon a time";
     if a.len >= 4 && !a[3].contains("=") { start = a[3] + ""; }
-    int n = gopt(a, 3, "n", "100").to_int();
+    i64 n = gopt(a, 3, "n", "100").to_int();
     double temp = gopt(a, 3, "temp", "0.8").to_double();
-    int topk = gopt(a, 3, "topk", "40").to_int();
+    i64 topk = gopt(a, 3, "topk", "40").to_int();
     double topp = gopt(a, 3, "topp", "0.95").to_double();
-    int seed = gopt(a, 3, "seed", "1").to_int();
+    i64 seed = gopt(a, 3, "seed", "1").to_int();
     switch Lm::load(a[2]) {
         Result::Ok(m): {
-            int[] ids = m.encode(start);
+            i64[] ids = m.encode(start);
             jout << start << m.generate(ids, n, temp, topk, topp, seed) << "\n";
             return 0;
         }
@@ -1051,27 +1051,27 @@ int llama_run(String[] a) {
     return 1;
 }
 
-int llama_bench(String[] a) {
+i64 llama_bench(String[] a) {
     if a.len < 3 { jerr << "usage: neuron bench MODEL.gguf [n=64]\n"; return 1; }
-    int n = gopt(a, 3, "n", "64").to_int();
-    int t0 = Time::now_ms();
+    i64 n = gopt(a, 3, "n", "64").to_int();
+    i64 t0 = Time::now_ms();
     switch Lm::load(a[2]) {
         Result::Ok(m): {
-            int t1 = Time::now_ms();
+            i64 t1 = Time::now_ms();
             jout << "model: " << m.embd << " wide, " << m.layers << " layers, " << m.heads << " heads (" << m.kv_heads << " kv), vocab " << m.vocab << ", load " << (t1 - t0) << " ms\n";
-            int[] ids = m.encode("Once upon a time");
+            i64[] ids = m.encode("Once upon a time");
             m.reset();
             Tensor32 lg = Tensor32::zeros(1, 1);
-            int p0 = Time::now_ms();
+            i64 p0 = Time::now_ms();
             for i in 0..ids.len { lg = m.step(ids[i]); }
-            int p1 = Time::now_ms();
-            int made = 0;
+            i64 p1 = Time::now_ms();
+            i64 made = 0;
             for k in 0..n {
                 if m.pos >= m.ctx { break; }
                 lg = m.step(m.sample(lg, 0.0, 0, 1.0));
                 made += 1;
             }
-            int p2 = Time::now_ms();
+            i64 p2 = Time::now_ms();
             double dg = (double)(p2 - p1);
             if dg < 1.0 { dg = 1.0; }
             jout << "prompt: " << ids.len << " tokens in " << (p1 - p0) << " ms; new tokens: " << made << " in " << (p2 - p1) << " ms = " << (double)made * 1000.0 / dg << " tokens/s\n";
@@ -1082,7 +1082,7 @@ int llama_bench(String[] a) {
     return 1;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     String me = program_name();
     if me == "xr" || me == "xaiorin" { return xr_main(a); }

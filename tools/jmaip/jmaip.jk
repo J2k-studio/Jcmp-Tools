@@ -23,11 +23,11 @@ String jmaip_version() { return "0.3.0"; }
 String hex_of(String s) {
     String r = "";
     String d = "0123456789abcdef";
-    for i in 0..s.len { int b = s[i] & 255; r.push(d[b >> 4]); r.push(d[b & 15]); }
+    for i in 0..s.len { i64 b = s[i] & 255; r.push(d[b >> 4]); r.push(d[b & 15]); }
     return r;
 }
 
-int hex_val(char c) {
+i64 hex_val(char c) {
     if c >= '0' && c <= '9' { return c - '0'; }
     if c >= 'a' && c <= 'f' { return c - 'a' + 10; }
     if c >= 'A' && c <= 'F' { return c - 'A' + 10; }
@@ -37,10 +37,10 @@ int hex_val(char c) {
 String from_hex(String h, bool^ ok) {
     String r = "";
     ok[0] = h.len % 2 == 0;
-    int i = 0;
+    i64 i = 0;
     while ok[0] && i + 1 < h.len {
-        int a = hex_val(h[i]);
-        int b = hex_val(h[i + 1]);
+        i64 a = hex_val(h[i]);
+        i64 b = hex_val(h[i + 1]);
         if a < 0 || b < 0 { ok[0] = false; break; }
         r.push((char)(a * 16 + b));
         i += 2;
@@ -48,21 +48,21 @@ String from_hex(String h, bool^ ok) {
     return r;
 }
 
-String zeros(int n) {
+String zeros(i64 n) {
     String r = "";
     for i in 0..n { r.push((char)0); }
     return r;
 }
 
-String random_bytes(int n) {
+String random_bytes(i64 n) {
     String r = "";
-    int fd = Sys::open_read("/dev/urandom");
+    i64 fd = Sys::open_read("/dev/urandom");
     if fd < 0 { return r; }
     char b[64];
     while r.len < n {
-        int want = n - r.len;
+        i64 want = n - r.len;
         if want > 64 { want = 64; }
-        int got = Sys::read(fd, @b, want);
+        i64 got = Sys::read(fd, @b, want);
         if got <= 0 { break; }
         for i in 0..got { r.push(b[i]); }
     }
@@ -87,7 +87,7 @@ String hmac256(String key, String msg) {
 }
 
 // PBKDF2-HMAC-SHA256 (RFC 8018): 32 bytes
-String pbkdf2(String pass, String salt, int rounds) {
+String pbkdf2(String pass, String salt, i64 rounds) {
     String u = hmac256(pass, salt + "\x00\x00\x00\x01");
     String t = u + "";
     for r in 1..rounds {
@@ -98,7 +98,7 @@ String pbkdf2(String pass, String salt, int rounds) {
 }
 
 // HKDF-SHA256: n bytes (n <= 255 * 32) from the secret ikm
-String hkdf(String ikm, String salt, String info, int n) {
+String hkdf(String ikm, String salt, String info, i64 n) {
     char prk[32];
     Crypto::hkdf_extract(256, salt.c(), salt.len, ikm.c(), ikm.len, @prk);
     char okm[128];
@@ -138,7 +138,7 @@ bool ends_with(String s, String t) {
     return true;
 }
 
-int fail(String msg) {
+i64 fail(String msg) {
     jerr << "jmaip: " << msg << "\n";
     return 1;
 }
@@ -149,9 +149,9 @@ String vault_dir() {
 }
 
 bool write_private(String path, String data) {
-    int fd = Sys::open_write(path.c());
+    i64 fd = Sys::open_write(path.c());
     if fd < 0 { return false; }
-    int n = 0;
+    i64 n = 0;
     if data.len > 0 { n = Sys::write(fd, (void^)data.c(), data.len); }
     Sys::close(fd);
     Sys::chmod(path.c(), 384);
@@ -168,7 +168,7 @@ String read_bytes(String path, bool^ ok) {
 String read_stdin() {
     String r = "";
     char buf[4096];
-    int n = Sys::read(0, @buf, 4096);
+    i64 n = Sys::read(0, @buf, 4096);
     while n > 0 {
         for i in 0..n { r.push(buf[i]); }
         n = Sys::read(0, @buf, 4096);
@@ -208,21 +208,21 @@ String ask_passphrase(String prompt) {
     char t[64];
     bool tty = Sys::isatty(0) == 0;
     if tty {
-        Sys::call(29, 0, 21505, (int)@t, 0, 0, 0);
+        Sys::call(29, 0, 21505, (i64)@t, 0, 0, 0);
         char raw[64];
         for i in 0..64 { raw[i] = t[i]; }
         raw[12] = raw[12] & 245;
-        Sys::call(29, 0, 21506, (int)@raw, 0, 0, 0);
+        Sys::call(29, 0, 21506, (i64)@raw, 0, 0, 0);
     }
     String pw = "";
     char b[2];
-    int n = Sys::read(0, @b, 1);
+    i64 n = Sys::read(0, @b, 1);
     while n > 0 && b[0] != 10 && b[0] != 13 {
         if b[0] == 127 || b[0] == 8 { if pw.len > 0 { pw = pw.slice(0, pw.len - 1); } }
         else { pw.push(b[0]); }
         n = Sys::read(0, @b, 1);
     }
-    if tty { Sys::call(29, 0, 21506, (int)@t, 0, 0, 0); }
+    if tty { Sys::call(29, 0, 21506, (i64)@t, 0, 0, 0); }
     jerr << "\n";
     return pw;
 }
@@ -334,7 +334,7 @@ String challenge_of(String arg, bool^ ok) {
 
 String key_id(String publichex) { return sha256_of(publichex).slice(0, 8); }
 
-int cmd_key(String[] a) {
+i64 cmd_key(String[] a) {
     if a.len < 3 { return fail("jmaip key new|list|public|sign|verify|rm ..."); }
     String sub = a[2];
     if sub == "verify" {
@@ -360,7 +360,7 @@ int cmd_key(String[] a) {
     String keys = vault_dir() + "/keys";
     if sub == "list" {
         String[] names = Dir::list(keys).unwrap();
-        int n = 0;
+        i64 n = 0;
         for i in 0..names.len {
             if ends_with(names[i], ".pub") {
                 String nm = names[i].slice(0, names[i].len - 4);
@@ -426,9 +426,9 @@ String prf_secret(char^ d) {
     return hkdf(sig, "jmaip", "jmaip prf", 32);
 }
 
-int cmd_enc(String[] a) {
+i64 cmd_enc(String[] a) {
     String name = "";
-    int at = 2;
+    i64 at = 2;
     if a.len > 3 && a[2] == "-k" { name = a[3]; at = 4; }
     if a.len <= at { return fail("jmaip enc [-k NAME] IN [OUT]"); }
     String in = a[at];
@@ -466,7 +466,7 @@ int cmd_enc(String[] a) {
     return 0;
 }
 
-int cmd_dec(String[] a) {
+i64 cmd_dec(String[] a) {
     if a.len < 3 { return fail("jmaip dec IN [OUT]"); }
     String in = a[2];
     String out = "";
@@ -524,7 +524,7 @@ int cmd_dec(String[] a) {
 }
 
 // ---------- secrets: small values kept in the vault
-int cmd_secret(String[] a) {
+i64 cmd_secret(String[] a) {
     if a.len < 3 { return fail("jmaip secret put|get|list|rm ..."); }
     if !open_vault() { return 1; }
     String dir = vault_dir() + "/secrets";
@@ -567,7 +567,7 @@ int cmd_secret(String[] a) {
     return fail("unknown secret command " + sub);
 }
 
-int cmd_init() {
+i64 cmd_init() {
     String d = vault_dir();
     if Fs::exists(d + "/master") { return fail("there is a vault in " + d + " already"); }
     String p1 = ask_passphrase("new passphrase: ");
@@ -588,13 +588,13 @@ int cmd_init() {
     return 0;
 }
 
-int cmd_status() {
+i64 cmd_status() {
     String d = vault_dir();
     jout << "jmaip " << jmaip_version() << "\nfolder: " << d << "\n";
     if !Fs::exists(d + "/master") { jout << "vault: none (jmaip init)\n"; return 0; }
     jout << "vault: yes\n";
     String[] k = Dir::list(d + "/keys").unwrap();
-    int nk = 0;
+    i64 nk = 0;
     for i in 0..k.len { if ends_with(k[i], ".key") { nk += 1; } }
     String[] s = Dir::list(d + "/secrets").unwrap();
     jout << "passkeys: " << nk << "\nsecrets: " << s.len << "\n";
@@ -611,7 +611,7 @@ int cmd_status() {
 String reply_err(String msg) { return "{\"ok\":false,\"error\":" + Json::quote(msg) + "}"; }
 
 String field(JsonDoc^ d, String name) {
-    int n = d^.get(d^.root(), name);
+    i64 n = d^.get(d^.root(), name);
     if n < 0 { return ""; }
     return d^.text(n);
 }
@@ -629,8 +629,8 @@ String handle(String line, String token) {
     JsonDoc d = pr.unwrap();
     String given = field(@d, "token");
     // a comparison that does not stop at the first different byte
-    int diff = given.len xor token.len;
-    for i in 0..token.len { int g = 0; if i < given.len { g = given[i] & 255; } diff = diff | (g xor (token[i] & 255)); }
+    i64 diff = given.len xor token.len;
+    for i in 0..token.len { i64 g = 0; if i < given.len { g = given[i] & 255; } diff = diff | (g xor (token[i] & 255)); }
     if diff != 0 { return reply_err("denied"); }
     String cmd = field(@d, "cmd");
     String keys = vault_dir() + "/keys";
@@ -653,7 +653,7 @@ String handle(String line, String token) {
     if cmd == "key.list" {
         String out = "{\"ok\":true,\"keys\":[";
         String[] names = Dir::list(keys).unwrap();
-        int n = 0;
+        i64 n = 0;
         for i in 0..names.len {
             if ends_with(names[i], ".pub") {
                 bool pok = false;
@@ -788,8 +788,8 @@ String handle(String line, String token) {
     return reply_err("unknown command " + cmd);
 }
 
-int cmd_serve(String[] a) {
-    int port = 7879;
+i64 cmd_serve(String[] a) {
+    i64 port = 7879;
     for i in 2..a.len {
         if a[i] == "--port" && i + 1 < a.len { port = a[i + 1].to_int(); }
     }
@@ -798,24 +798,24 @@ int cmd_serve(String[] a) {
     String token = hex_of(random_bytes(16));
     String tpath = vault_dir() + "/api.token";
     if !write_private(tpath, token + "\n") { return fail("cannot write " + tpath); }
-    int fd = Sys::socket_tcp();
+    i64 fd = Sys::socket_tcp();
     if fd < 0 { return fail("cannot make a socket"); }
     char sa[16];
     Net::make_addr(@sa, 127, 0, 0, 1, port);
     char one[4];
     one[0] = 1; one[1] = 0; one[2] = 0; one[3] = 0;
-    Sys::call(54, fd, 1, 2, (int)@one, 4, 0);                       // SO_REUSEADDR
+    Sys::call(54, fd, 1, 2, (i64)@one, 4, 0);                       // SO_REUSEADDR
     if Sys::bind(fd, (void^)@sa, 16) < 0 { return fail("cannot listen on 127.0.0.1:" + str(port)); }
     if Sys::listen(fd, 8) < 0 { return fail("cannot listen"); }
     jerr << "jmaip " << jmaip_version() << " listening on 127.0.0.1:" << port << "   token in " << tpath << "\n";
     while true {
-        int c = Sys::accept(fd);
+        i64 c = Sys::accept(fd);
         if c < 0 { continue; }
         String req = "";
         char buf[4096];
         bool done = false;
         while !done && req.len < 4000000 {
-            int n = Sys::read(c, @buf, 4096);
+            i64 n = Sys::read(c, @buf, 4096);
             if n <= 0 { break; }
             for i in 0..n { if buf[i] == 10 { done = true; break; } req.push(buf[i]); }
         }
@@ -826,7 +826,7 @@ int cmd_serve(String[] a) {
     return 0;
 }
 
-int usage() {
+i64 usage() {
     jout << "jmaip " << jmaip_version() << ": keys, passkeys and secrets for the programs of the Jaric world\n";
     jout << "  jmaip init                              make the vault (a passphrase)\n";
     jout << "  jmaip status\n";
@@ -843,7 +843,7 @@ int usage() {
     return 0;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     if a.len < 2 { return usage(); }
     String c = a[1];
@@ -861,7 +861,7 @@ int main() {
         rest.push("code");
         for i in 2..a.len { rest.push(a[i]); }
         if a.len > 2 && a[2] != "get" && a[2] != "code" { rest.clear(); for i in 2..a.len { rest.push(a[i]); } }
-        Result<int, Error> r = Proc::run("authj", rest);
+        Result<i64, Error> r = Proc::run("authj", rest);
         if r.is_err() { return fail("authj is not installed (jc install authj)"); }
         return r.unwrap();
     }

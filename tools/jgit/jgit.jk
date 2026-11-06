@@ -11,50 +11,50 @@
 
 String jgit_version() { return "0.4.0"; }
 
-int fail(String msg) {
+i64 fail(String msg) {
     jerr << "jgit: " << msg << "\n";
     return 1;
 }
 
 // ---------------------------------------------------------------- SHA-1 (the names of the objects), zlib
-int rotl(int x, int n) { return ((x << n) | (x >> (32 - n))) & 4294967295; }
+i64 rotl(i64 x, i64 n) { return ((x << n) | (x >> (32 - n))) & 4294967295; }
 
 String sha1_raw(String data) {
-    int h0 = 1732584193;
-    int h1 = 4023233417;
-    int h2 = 2562383102;
-    int h3 = 271733878;
-    int h4 = 3285377520;
+    i64 h0 = 1732584193;
+    i64 h1 = 4023233417;
+    i64 h2 = 2562383102;
+    i64 h3 = 271733878;
+    i64 h4 = 3285377520;
     String m = data + "";
     m.push((char)128);
     while m.len % 64 != 56 { m.push((char)0); }
-    int bits = data.len * 8;
+    i64 bits = data.len * 8;
     for i in 0..8 { m.push((char)((bits >> (56 - 8 * i)) & 255)); }
-    int[] w = arr(81);
+    i64[] w = arr(81);
     for i in 0..80 { w.push(0); }
-    int blocks = m.len / 64;
+    i64 blocks = m.len / 64;
     for b in 0..blocks {
         for t in 0..16 {
-            int p = b * 64 + t * 4;
+            i64 p = b * 64 + t * 4;
             w[t] = ((m[p] & 255) << 24) | ((m[p + 1] & 255) << 16) | ((m[p + 2] & 255) << 8) | (m[p + 3] & 255);
         }
         for t in 16..80 { w[t] = rotl(w[t - 3] xor w[t - 8] xor w[t - 14] xor w[t - 16], 1); }
-        int a = h0; int bb = h1; int c = h2; int d = h3; int e = h4;
+        i64 a = h0; i64 bb = h1; i64 c = h2; i64 d = h3; i64 e = h4;
         for t in 0..80 {
-            int f = 0;
-            int k = 0;
+            i64 f = 0;
+            i64 k = 0;
             if t < 20 { f = (bb & c) | ((bb xor 4294967295) & d); k = 1518500249; }
             else if t < 40 { f = bb xor c xor d; k = 1859775393; }
             else if t < 60 { f = (bb & c) | (bb & d) | (c & d); k = 2400959708; }
             else { f = bb xor c xor d; k = 3395469782; }
-            int tmp = (rotl(a, 5) + f + e + k + w[t]) & 4294967295;
+            i64 tmp = (rotl(a, 5) + f + e + k + w[t]) & 4294967295;
             e = d; d = c; c = rotl(bb, 30); bb = a; a = tmp;
         }
         h0 = (h0 + a) & 4294967295; h1 = (h1 + bb) & 4294967295; h2 = (h2 + c) & 4294967295;
         h3 = (h3 + d) & 4294967295; h4 = (h4 + e) & 4294967295;
     }
     String r = "";
-    int[] hs = arr(6);
+    i64[] hs = arr(6);
     hs.push(h0); hs.push(h1); hs.push(h2); hs.push(h3); hs.push(h4);
     for i in 0..5 { for k in 0..4 { r.push((char)((hs[i] >> (24 - 8 * k)) & 255)); } }
     return r;
@@ -63,11 +63,11 @@ String sha1_raw(String data) {
 String to_hex(String raw) {
     String h = "0123456789abcdef";
     String r = "";
-    for i in 0..raw.len { int b = raw[i] & 255; r.push(h[b >> 4]); r.push(h[b & 15]); }
+    for i in 0..raw.len { i64 b = raw[i] & 255; r.push(h[b >> 4]); r.push(h[b & 15]); }
     return r;
 }
 
-int hexval(char c) {
+i64 hexval(char c) {
     if c >= '0' && c <= '9' { return c - '0'; }
     if c >= 'a' && c <= 'f' { return c - 'a' + 10; }
     if c >= 'A' && c <= 'F' { return c - 'A' + 10; }
@@ -76,7 +76,7 @@ int hexval(char c) {
 
 String from_hex(String h) {
     String r = "";
-    int i = 0;
+    i64 i = 0;
     while i + 1 < h.len { r.push((char)(hexval(h[i]) * 16 + hexval(h[i + 1]))); i += 2; }
     return r;
 }
@@ -91,10 +91,10 @@ String zlib_pack(String data) {
     String r = "";
     r.push((char)120); r.push((char)156);
     r.append(Deflate::compress(data));
-    int a = 1;
-    int b = 0;
+    i64 a = 1;
+    i64 b = 0;
     for i in 0..data.len { a = (a + (data[i] & 255)) % 65521; b = (b + a) % 65521; }
-    int ad = (b << 16) | a;
+    i64 ad = (b << 16) | a;
     for k in 0..4 { r.push((char)((ad >> (24 - 8 * k)) & 255)); }
     return r;
 }
@@ -149,7 +149,7 @@ String write_object(String kind, String body) {
 // ---------------------------------------------------------------- packs: objects/pack/*.idx (version 2) and *.pack
 String[] pk_idx;
 String[] pk_data;
-int pk_loaded;
+i64 pk_loaded;
 
 void packs_load() {
     if pk_loaded == 1 { return; }
@@ -176,26 +176,26 @@ void packs_load() {
 }
 
 // the place of an object in a pack: sets g_pack to the pack and returns the offset, or -1
-int g_pack;
-int pack_find(String hex) {
+i64 g_pack;
+i64 pack_find(String hex) {
     packs_load();
     String raw = from_hex(hex);
-    int first = raw[0] & 255;
+    i64 first = raw[0] & 255;
     for pk in 0..pk_idx.len {
         String idx = pk_idx[pk];
-        int total = be32(idx, 8 + 255 * 4);
-        int lo = 0;
+        i64 total = be32(idx, 8 + 255 * 4);
+        i64 lo = 0;
         if first > 0 { lo = be32(idx, 8 + (first - 1) * 4); }
-        int hi = be32(idx, 8 + first * 4);              // the objects that start with this byte are lo .. hi-1
-        int shas = 8 + 256 * 4;
+        i64 hi = be32(idx, 8 + first * 4);              // the objects that start with this byte are lo .. hi-1
+        i64 shas = 8 + 256 * 4;
         while lo < hi {
-            int mid = (lo + hi) / 2;
+            i64 mid = (lo + hi) / 2;
             String here = idx.slice(shas + mid * 20, shas + mid * 20 + 20);
             if here == raw {
-                int offs = shas + total * 20 + total * 4;
-                int off = be32(idx, offs + mid * 4);
+                i64 offs = shas + total * 20 + total * 4;
+                i64 off = be32(idx, offs + mid * 4);
                 if off >= 2147483648 {                   // the high bit: the number of a 64 bit offset
-                    int big = offs + total * 4 + (off & 2147483647) * 8;
+                    i64 big = offs + total * 4 + (off & 2147483647) * 8;
                     off = (be32(idx, big) << 32) | be32(idx, big + 4);
                 }
                 g_pack = pk;
@@ -209,18 +209,18 @@ int pack_find(String hex) {
 
 // the result of a delta: base + instructions (copy from the base, insert new bytes)
 String apply_delta(String base, String d) {
-    int p = 0;
-    int shift = 0;
-    int c = 0;
+    i64 p = 0;
+    i64 shift = 0;
+    i64 c = 0;
     while true { c = d[p] & 255; p += 1; if (c & 128) == 0 { break; } }                  // the size of the base
     while true { c = d[p] & 255; p += 1; if (c & 128) == 0 { break; } }                  // the size of the result
     String out = "";
     while p < d.len {
-        int op = d[p] & 255;
+        i64 op = d[p] & 255;
         p += 1;
         if (op & 128) != 0 {
-            int off = 0;
-            int size = 0;
+            i64 off = 0;
+            i64 size = 0;
             for k in 0..4 { if (op & (1 << k)) != 0 { off = off | ((d[p] & 255) << (8 * k)); p += 1; } }
             for k in 0..3 { if (op & (16 << k)) != 0 { size = size | ((d[p] & 255) << (8 * k)); p += 1; } }
             if size == 0 { size = 65536; }
@@ -235,12 +235,12 @@ String apply_delta(String base, String d) {
 
 String g_kind;
 // the object at an offset of a pack; sets g_kind
-String pack_object(int pk, int offset) {
+String pack_object(i64 pk, i64 offset) {
     String data = pk_data[pk];
-    int p = offset;
-    int c = data[p] & 255;
+    i64 p = offset;
+    i64 c = data[p] & 255;
     p += 1;
-    int type = (c >> 4) & 7;
+    i64 type = (c >> 4) & 7;
     while (c & 128) != 0 { c = data[p] & 255; p += 1; }
     if type >= 1 && type <= 4 {
         bool ok = false;
@@ -252,9 +252,9 @@ String pack_object(int pk, int offset) {
     String base = "";
     String kind = "";
     if type == 6 {                                           // a delta against an object earlier in the same pack, by distance
-        int c2 = data[p] & 255;
+        i64 c2 = data[p] & 255;
         p += 1;
-        int ofs = c2 & 127;
+        i64 ofs = c2 & 127;
         while (c2 & 128) != 0 { c2 = data[p] & 255; p += 1; ofs = ((ofs + 1) << 7) | (c2 & 127); }
         base = pack_object(pk, offset - ofs);
         kind = g_kind;
@@ -278,7 +278,7 @@ String read_object(String hex) {
     g_kind = "";
     String p = obj_path(hex);
     if !Fs::exists(p) {
-        int off = pack_find(hex);                           // not a loose file: it may be in a pack (git gc, a clone)
+        i64 off = pack_find(hex);                           // not a loose file: it may be in a pack (git gc, a clone)
         if off >= 0 { return pack_object(g_pack, off); }
         return "";
     }
@@ -287,11 +287,11 @@ String read_object(String hex) {
     bool ok = false;
     String full = zlib_unpack(r.take(), @ok);
     if !ok { jerr << "jgit: the object " << hex << " is damaged\n"; return ""; }
-    int z = 0;
+    i64 z = 0;
     while z < full.len && full[z] != 0 { z += 1; }                       // the first zero byte ends the header "kind size"
     if z >= full.len { return ""; }
     String head = full.slice(0, z);
-    int sp = head.find(" ");
+    i64 sp = head.find(" ");
     g_kind = head.slice(0, sp);
     return full.slice(z + 1, full.len);
 }
@@ -344,14 +344,14 @@ String resolve(String name) {
 // ---------------------------------------------------------------- the index (version 2)
 String[] ix_path;
 String[] ix_sha;                       // raw 20 bytes
-int[] ix_mode;
-int[] ix_size;
-int[] ix_mtime;
+i64[] ix_mode;
+i64[] ix_size;
+i64[] ix_mtime;
 
 void ix_clear() { ix_path = arr(16); ix_sha = arr(16); ix_mode = arr(16); ix_size = arr(16); ix_mtime = arr(16); }
 
-int be32(String s, int at) { return ((s[at] & 255) << 24) | ((s[at + 1] & 255) << 16) | ((s[at + 2] & 255) << 8) | (s[at + 3] & 255); }
-void put32(String s, int v) { for k in 0..4 { s.push((char)((v >> (24 - 8 * k)) & 255)); } }
+i64 be32(String s, i64 at) { return ((s[at] & 255) << 24) | ((s[at + 1] & 255) << 16) | ((s[at + 2] & 255) << 8) | (s[at + 3] & 255); }
+void put32(String s, i64 v) { for k in 0..4 { s.push((char)((v >> (24 - 8 * k)) & 255)); } }
 
 bool ix_load() {
     ix_clear();
@@ -363,24 +363,24 @@ bool ix_load() {
     String magic = "";
     if d.len >= 4 { magic = d.slice(0, 4); }
     if d.len < 32 || magic != "DIRC" { jerr << "jgit: the index is not a git index\n"; return false; }
-    int ver = be32(d, 4);
+    i64 ver = be32(d, 4);
     if ver != 2 { jerr << "jgit: the index has version " << ver << "; jgit 0.1 reads version 2\n"; return false; }
-    int n = be32(d, 8);
-    int p = 12;
+    i64 n = be32(d, 8);
+    i64 p = 12;
     for i in 0..n {
         if p + 62 > d.len { return false; }
-        int mtime = be32(d, p + 8);
-        int mode = be32(d, p + 24);
-        int size = be32(d, p + 36);
+        i64 mtime = be32(d, p + 8);
+        i64 mode = be32(d, p + 24);
+        i64 size = be32(d, p + 36);
         String sha = d.slice(p + 40, p + 60);
-        int flags = ((d[p + 60] & 255) << 8) | (d[p + 61] & 255);
-        int nl = flags & 4095;
-        int q = p + 62;
+        i64 flags = ((d[p + 60] & 255) << 8) | (d[p + 61] & 255);
+        i64 nl = flags & 4095;
+        i64 q = p + 62;
         String name = "";
         if nl < 4095 { name = d.slice(q, q + nl); q += nl; }
         else { while q < d.len && d[q] != 0 { name.push(d[q]); q += 1; } }
-        int total = q - p;
-        int pad = 8 - (total % 8);                  // at least one zero byte, up to a multiple of 8
+        i64 total = q - p;
+        i64 pad = 8 - (total % 8);                  // at least one zero byte, up to a multiple of 8
         p = q + pad - 0;
         ix_path.push(name); ix_sha.push(sha); ix_mode.push(mode); ix_size.push(size); ix_mtime.push(mtime);
     }
@@ -389,12 +389,12 @@ bool ix_load() {
 
 void ix_save() {
     // sorted by path (bytes)
-    int n = ix_path.len;
-    int[] ord = arr(n + 1);
+    i64 n = ix_path.len;
+    i64[] ord = arr(n + 1);
     for i in 0..n { ord.push(i); }
     for i in 1..n {
-        int cur = ord[i];
-        int k = i - 1;
+        i64 cur = ord[i];
+        i64 k = i - 1;
         while k >= 0 {
             String before = ix_path[ord[k]];
             if !(before > ix_path[cur]) { break; }
@@ -407,19 +407,19 @@ void ix_save() {
     put32(out, 2);
     put32(out, n);
     for q in 0..n {
-        int i = ord[q];
-        int start = out.len;
+        i64 i = ord[q];
+        i64 start = out.len;
         put32(out, ix_mtime[i]); put32(out, 0); put32(out, ix_mtime[i]); put32(out, 0);
         put32(out, 0); put32(out, 0);
         put32(out, ix_mode[i]); put32(out, 0); put32(out, 0);
         put32(out, ix_size[i]);
         out.append(ix_sha[i]);
-        int nl = ix_path[i].len;
+        i64 nl = ix_path[i].len;
         if nl > 4095 { nl = 4095; }
         out.push((char)((nl >> 8) & 255)); out.push((char)(nl & 255));
         out.append(ix_path[i]);
-        int total = out.len - start;
-        int pad = 8 - (total % 8);
+        i64 total = out.len - start;
+        i64 pad = 8 - (total % 8);
         for z in 0..pad { out.push((char)0); }
     }
     String sum = sha1_raw(out);
@@ -427,21 +427,21 @@ void ix_save() {
     Fs::write_bytes(g_git + "/index", out);
 }
 
-int ix_find(String path) {
+i64 ix_find(String path) {
     for i in 0..ix_path.len { if ix_path[i] == path { return i; } }
     return 0 - 1;
 }
 
-void ix_set(String path, String sha, int mode, int size, int mtime) {
-    int i = ix_find(path);
+void ix_set(String path, String sha, i64 mode, i64 size, i64 mtime) {
+    i64 i = ix_find(path);
     if i < 0 { ix_path.push(path + ""); ix_sha.push(sha); ix_mode.push(mode); ix_size.push(size); ix_mtime.push(mtime); }
     else { ix_sha[i] = sha; ix_mode[i] = mode; ix_size[i] = size; ix_mtime[i] = mtime; }
 }
 
 void ix_remove(String path) {
-    int i = ix_find(path);
+    i64 i = ix_find(path);
     if i < 0 { return; }
-    String[] np = arr(ix_path.len); String[] ns = arr(ix_path.len); int[] nm = arr(ix_path.len); int[] nz = arr(ix_path.len); int[] nt = arr(ix_path.len);
+    String[] np = arr(ix_path.len); String[] ns = arr(ix_path.len); i64[] nm = arr(ix_path.len); i64[] nz = arr(ix_path.len); i64[] nt = arr(ix_path.len);
     for k in 0..ix_path.len { if k != i { np.push(ix_path[k]); ns.push(ix_sha[k]); nm.push(ix_mode[k]); nz.push(ix_size[k]); nt.push(ix_mtime[k]); } }
     ix_path = np; ix_sha = ns; ix_mode = nm; ix_size = nz; ix_mtime = nt;
 }
@@ -450,14 +450,14 @@ void ix_remove(String path) {
 bool is_exec(String full) {
     char st[128];
     if Sys::stat(full.c(), @st) != 0 { return false; }
-    int mode = (st[16] & 255) | ((st[17] & 255) << 8);
+    i64 mode = (st[16] & 255) | ((st[17] & 255) << 8);
     return (mode & 64) != 0;
 }
 
-int mtime_of(String full) {
+i64 mtime_of(String full) {
     char st[128];
     if Sys::stat(full.c(), @st) != 0 { return 0; }
-    int t = 0;
+    i64 t = 0;
     for z in 0..8 { t = t | ((st[88 + z] & 255) << (8 * z)); }
     return t & 4294967295;
 }
@@ -504,13 +504,13 @@ bool add_file(String rel) {
     if !r.is_ok() { return false; }
     String data = r.take();
     String hex = write_object("blob", data);
-    int mode = 33188;
+    i64 mode = 33188;
     if is_exec(full) { mode = 33261; }
     ix_set(rel, from_hex(hex), mode, data.len, mtime_of(full));
     return true;
 }
 
-int do_add(String[] a) {
+i64 do_add(String[] a) {
     if a.len < 3 { return fail("usage: jgit add PATH...   (jgit add . adds everything, also what was removed)"); }
     if !ix_load() { return 1; }
     for k in 2..a.len {
@@ -544,22 +544,22 @@ int do_add(String[] a) {
 
 // ---------------------------------------------------------------- trees and commits
 // the tree of the index paths from..to (sorted) that start with prefix; returns the hash (hex)
-String build_tree(String prefix, int from, int to) {
+String build_tree(String prefix, i64 from, i64 to) {
     String[] names = arr(8);
-    int[] kinds = arr(8);            // 0 file, 1 folder
-    int[] idx = arr(8);              // file: the place in the index
+    i64[] kinds = arr(8);            // 0 file, 1 folder
+    i64[] idx = arr(8);              // file: the place in the index
     String[] subs = arr(8);          // folder: the raw hash of its tree
-    int i = from;
+    i64 i = from;
     while i < to {
         String rest = ix_path[i].slice(prefix.len, ix_path[i].len);
-        int sl = rest.find("/");
+        i64 sl = rest.find("/");
         if sl < 0 {
             names.push(rest + ""); kinds.push(0); idx.push(i); subs.push("");
             i += 1;
         } else {
             String dirname = rest.slice(0, sl);
             String start = prefix + dirname + "/";
-            int j = i;
+            i64 j = i;
             while j < to && ix_path[j].starts_with(start) { j += 1; }
             names.push(dirname + ""); kinds.push(1); idx.push(0);
             subs.push(from_hex(build_tree(start, i, j)));
@@ -567,14 +567,14 @@ String build_tree(String prefix, int from, int to) {
         }
     }
     // git sorts the entries by name, a folder as if its name ended with /
-    int n = names.len;
+    i64 n = names.len;
     String[] keys = arr(n + 1);
     for k in 0..n { if kinds[k] == 1 { keys.push(names[k] + "/"); } else { keys.push(names[k] + ""); } }
-    int[] ord = arr(n + 1);
+    i64[] ord = arr(n + 1);
     for k in 0..n { ord.push(k); }
     for k in 1..n {
-        int cur = ord[k];
-        int m = k - 1;
+        i64 cur = ord[k];
+        i64 m = k - 1;
         while m >= 0 {
             String before = keys[ord[m]];
             if !(before > keys[cur]) { break; }
@@ -585,9 +585,9 @@ String build_tree(String prefix, int from, int to) {
     }
     String body = "";
     for q in 0..n {
-        int k = ord[q];
+        i64 k = ord[q];
         if kinds[k] == 0 {
-            int fi = idx[k];
+            i64 fi = idx[k];
             String mode = "100644";
             if ix_mode[fi] == 33261 { mode = "100755"; }
             body = body + mode + " " + names[k];
@@ -610,7 +610,7 @@ String config_value(String text, String section, String key) {
         String ln = ls[i].trim();
         if ln.len == 0 || ln[0] == '#' || ln[0] == ';' { continue; }
         if ln[0] == '[' { cur = ln.slice(1, ln.len - 1).trim().lower(); continue; }
-        int eq = ln.find("=");
+        i64 eq = ln.find("=");
         if eq <= 0 || cur != section { continue; }
         if ln.slice(0, eq).trim().lower() == key { return ln.slice(eq + 1, ln.len).trim(); }
     }
@@ -637,15 +637,15 @@ String who(String key, String envname) {
 }
 
 // the files of a tree, recursively: path -> raw hash (and mode), appended to the lists
-void tree_files(String hex, String prefix, String[] paths, String[] shas, int[] modes) {
+void tree_files(String hex, String prefix, String[] paths, String[] shas, i64[] modes) {
     String body = read_object(hex);
     if g_kind != "tree" { return; }
-    int p = 0;
+    i64 p = 0;
     while p < body.len {
-        int sp = body.slice(p, body.len).find(" ");
+        i64 sp = body.slice(p, body.len).find(" ");
         String mode = body.slice(p, p + sp);
-        int q = p + sp + 1;
-        int z = q;
+        i64 q = p + sp + 1;
+        i64 z = q;
         while z < body.len && body[z] != 0 { z += 1; }
         String name = body.slice(q, z);
         String raw = body.slice(z + 1, z + 21);
@@ -653,7 +653,7 @@ void tree_files(String hex, String prefix, String[] paths, String[] shas, int[] 
         if mode == "40000" { tree_files(to_hex(raw), prefix + name + "/", paths, shas, modes); }
         else {
             paths.push(prefix + name); shas.push(raw);
-            int m = 33188;
+            i64 m = 33188;
             if mode == "100755" { m = 33261; }
             modes.push(m);
         }
@@ -667,7 +667,7 @@ String commit_tree(String hex) {
     return "";
 }
 
-int do_commit(String[] a) {
+i64 do_commit(String[] a) {
     String msg = "";
     for i in 2..a.len - 1 { if a[i] == "-m" { msg = a[i + 1]; } }
     if msg.len == 0 { return fail("usage: jgit commit -m \"what you did\""); }
@@ -685,7 +685,7 @@ int do_commit(String[] a) {
     }
     if name.len == 0 || email.len == 0 { return fail("who are you? run  jgit login  (or JGIT_NAME and JGIT_EMAIL, or [user] in ~/.gitconfig)"); }
     // sorted by path for the tree
-    int n = ix_path.len;
+    i64 n = ix_path.len;
     ix_save();
     if !ix_load() { return 1; }
     String tree = build_tree("", 0, n);
@@ -693,7 +693,7 @@ int do_commit(String[] a) {
     String ptree = "";
     if parent.len == 40 { ptree = commit_tree(parent); }
     if ptree == tree { return fail("nothing changed since the last commit"); }
-    int now = Time::now_ms() / 1000;
+    i64 now = Time::now_ms() / 1000;
     String who_line = name + " <" + email + "> " + str(now) + " +0000";
     String body = "tree " + tree + "\n";
     if parent.len == 40 { body = body + "parent " + parent + "\n"; }
@@ -712,7 +712,7 @@ int do_commit(String[] a) {
 
 // ---------------------------------------------------------------- init, status, log, cat, branch, switch
 // jgit login: who you are, asked once (name and email), kept in ~/.jgit/user; the commits use it. jgit login --name N --email E asks nothing.
-int do_login(String[] a) {
+i64 do_login(String[] a) {
     String name = "";
     String email = "";
     for i in 2..a.len - 1 {
@@ -737,7 +737,7 @@ int do_login(String[] a) {
     return 0;
 }
 
-int do_init(String[] a) {
+i64 do_init(String[] a) {
     String dir = ".";
     if a.len > 2 { dir = a[2]; }
     Dir::make_all(dir + "/.git/objects");
@@ -749,17 +749,17 @@ int do_init(String[] a) {
     return 0;
 }
 
-int do_status() {
+i64 do_status() {
     if !ix_load() { return 1; }
-    String[] hp = arr(8); String[] hs = arr(8); int[] hm = arr(8);
+    String[] hp = arr(8); String[] hs = arr(8); i64[] hm = arr(8);
     String head = head_commit();
     if head.len == 40 { tree_files(commit_tree(head), "", hp, hs, hm); }
     String ref = head_ref();
     if ref.starts_with("refs/heads/") { jout << "on branch " << ref.slice(11, ref.len) << "\n"; }
-    int staged = 0; int changed = 0; int other = 0;
+    i64 staged = 0; i64 changed = 0; i64 other = 0;
     // staged: in the index and different from (or missing in) HEAD; and removed ones
     for i in 0..ix_path.len {
-        int h = 0 - 1;
+        i64 h = 0 - 1;
         for k in 0..hp.len { if hp[k] == ix_path[i] { h = k; } }
         if h < 0 { jout << "  A  " << ix_path[i] << "\n"; staged += 1; }
         else if hs[h] != ix_sha[i] { jout << "  M  " << ix_path[i] << "\n"; staged += 1; }
@@ -785,35 +785,35 @@ int do_status() {
     return 0;
 }
 
-String format_time(int t) {
+String format_time(i64 t) {
     Date d;
     d.set_unix(t);
     return d.text();
 }
 
-int do_log(String[] a) {
-    int limit = 20;
+i64 do_log(String[] a) {
+    i64 limit = 20;
     for i in 2..a.len - 1 { if a[i] == "-n" { limit = a[i + 1].to_int(); } }
     String h = head_commit();
     if h.len != 40 { jout << "no commits yet\n"; return 0; }
-    int shown = 0;
+    i64 shown = 0;
     while h.len == 40 && shown < limit {
         String body = read_object(h);
         if g_kind != "commit" { break; }
         String parent = "";
         String author = "";
         String[] ls = body.split("\n");
-        int msg_at = 0;
+        i64 msg_at = 0;
         for i in 0..ls.len {
             if ls[i].len == 0 { msg_at = i + 1; break; }
             if ls[i].starts_with("parent ") && parent.len == 0 { parent = ls[i].slice(7, 47); }
             if ls[i].starts_with("author ") { author = ls[i].slice(7, ls[i].len); }
         }
         // author: Name <mail> 1234567890 +0000
-        int gt = author.find(">");
+        i64 gt = author.find(">");
         String who_text = author;
         String when = "";
-        if gt > 0 { who_text = author.slice(0, gt + 1); String rest = author.slice(gt + 2, author.len); int sp = rest.find(" "); if sp > 0 { when = format_time(rest.slice(0, sp).to_int()) + " " + rest.slice(sp + 1, rest.len); } }
+        if gt > 0 { who_text = author.slice(0, gt + 1); String rest = author.slice(gt + 2, author.len); i64 sp = rest.find(" "); if sp > 0 { when = format_time(rest.slice(0, sp).to_int()) + " " + rest.slice(sp + 1, rest.len); } }
         jout << "commit " << h << "\nAuthor: " << who_text << "\nDate:   " << when << "\n\n";
         for i in msg_at..ls.len { if ls[i].len > 0 || i < ls.len - 1 { jout << "    " << ls[i] << "\n"; } }
         jout << "\n";
@@ -824,7 +824,7 @@ int do_log(String[] a) {
 }
 
 // jgit cat HASH: a commit or a file as text; a tree as a list (mode kind hash name, like git cat-file -p); -r: the raw bytes
-int do_cat(String[] a) {
+i64 do_cat(String[] a) {
     bool raw = false;
     String name = "";
     for i in 2..a.len { if a[i] == "-r" { raw = true; } else { name = a[i] + ""; } }
@@ -834,12 +834,12 @@ int do_cat(String[] a) {
     String body = read_object(h);
     if g_kind.len == 0 { return fail("cannot read the object " + h); }
     if g_kind == "tree" && !raw {
-        int p = 0;
+        i64 p = 0;
         while p < body.len {
-            int sp = body.slice(p, body.len).find(" ");
+            i64 sp = body.slice(p, body.len).find(" ");
             String mode = body.slice(p, p + sp);
-            int q = p + sp + 1;
-            int z = q;
+            i64 q = p + sp + 1;
+            i64 z = q;
             while z < body.len && body[z] != 0 { z += 1; }
             String entry = body.slice(q, z);
             String sha = to_hex(body.slice(z + 1, z + 21));
@@ -852,9 +852,9 @@ int do_cat(String[] a) {
     }
     // the bytes as they are (the text printer stops at a zero byte)
     char blk[4096];
-    int at = 0;
+    i64 at = 0;
     while at < body.len {
-        int n = body.len - at;
+        i64 n = body.len - at;
         if n > 4096 { n = 4096; }
         for k in 0..n { blk[k] = body[at + k]; }
         Sys::write(1, @blk, n);
@@ -863,7 +863,7 @@ int do_cat(String[] a) {
     return 0;
 }
 
-int do_branch(String[] a) {
+i64 do_branch(String[] a) {
     if a.len >= 3 {
         String head = head_commit();
         if head.len != 40 { return fail("make a commit first"); }
@@ -885,7 +885,7 @@ int do_branch(String[] a) {
 }
 
 // the work folder takes the files of a commit; refuses when files were changed and not saved
-int do_switch(String[] a) {
+i64 do_switch(String[] a) {
     if a.len < 3 { return fail("usage: jgit switch BRANCH"); }
     String target = ref_hash("refs/heads/" + a[2]);
     if target.len != 40 { return fail("no branch " + a[2] + " (jgit branch NAME makes one)"); }
@@ -903,9 +903,9 @@ int do_switch(String[] a) {
         b.append(d);
         if sha1_raw(b) != ix_sha[i] { return fail(ix_path[i] + " has changes that are not saved: commit or undo them first"); }
     }
-    String[] op = arr(8); String[] os = arr(8); int[] om = arr(8);
+    String[] op = arr(8); String[] os = arr(8); i64[] om = arr(8);
     if head.len == 40 { tree_files(commit_tree(head), "", op, os, om); }
-    String[] np = arr(8); String[] ns = arr(8); int[] nm = arr(8);
+    String[] np = arr(8); String[] ns = arr(8); i64[] nm = arr(8);
     tree_files(commit_tree(target), "", np, ns, nm);
     // remove the files that are not in the new tree
     for i in 0..op.len {
@@ -930,9 +930,9 @@ int do_switch(String[] a) {
 }
 
 // diff: lines that changed since the last add, as plus and minus
-int do_diff() {
+i64 do_diff() {
     if !ix_load() { return 1; }
-    int shown = 0;
+    i64 shown = 0;
     for i in 0..ix_path.len {
         String full = g_top + "/" + ix_path[i];
         if !Fs::exists(full) { continue; }
@@ -946,26 +946,26 @@ int do_diff() {
         if a.len > 1500 || b.len > 1500 { jout << "diff " << ix_path[i] << ": too long to compare here\n"; continue; }
         jout << "diff " << ix_path[i] << "\n--- a/" << ix_path[i] << "\n+++ b/" << ix_path[i] << "\n";
         // the longest common part of the lines
-        int n = a.len;
-        int m = b.len;
-        int[] tab = arr((n + 1) * (m + 1) + 1);
+        i64 n = a.len;
+        i64 m = b.len;
+        i64[] tab = arr((n + 1) * (m + 1) + 1);
         for z in 0..(n + 1) * (m + 1) { tab.push(0); }
-        int ii = n - 1;
+        i64 ii = n - 1;
         while ii >= 0 {
-            int jj = m - 1;
+            i64 jj = m - 1;
             while jj >= 0 {
                 if a[ii] == b[jj] { tab[ii * (m + 1) + jj] = tab[(ii + 1) * (m + 1) + jj + 1] + 1; }
                 else {
-                    int d1 = tab[(ii + 1) * (m + 1) + jj];
-                    int d2 = tab[ii * (m + 1) + jj + 1];
+                    i64 d1 = tab[(ii + 1) * (m + 1) + jj];
+                    i64 d2 = tab[ii * (m + 1) + jj + 1];
                     if d1 > d2 { tab[ii * (m + 1) + jj] = d1; } else { tab[ii * (m + 1) + jj] = d2; }
                 }
                 jj -= 1;
             }
             ii -= 1;
         }
-        int x = 0;
-        int y = 0;
+        i64 x = 0;
+        i64 y = 0;
         while x < n || y < m {
             if x < n && y < m && a[x] == b[y] { x += 1; y += 1; }
             else if y < m && (x >= n || tab[x * (m + 1) + y + 1] >= tab[(x + 1) * (m + 1) + y]) { jout << "+" << b[y] << "\n"; y += 1; }
@@ -979,7 +979,7 @@ int do_diff() {
 
 #import "jgitnet"
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     g_git = "";
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jgit " << jgit_version() << "\n"; return 0; }

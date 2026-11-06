@@ -4,35 +4,35 @@
 frame Context { x19..x30; sp; }
 
 char kstackA[16384];                   // the stack of the kernel while a program runs
-int ctxK[13];                          // the kernel (the console) and the program: their registers when the other one runs
-int ctxU[13];
-int p_tbl;                             // the tables of the program (physical address)
-int p_ntab;                            // 4 KB tables for 2 MB each that were used after the 4 first ones
-int next_frame;
-int p_brk;
-int p_mmap;
-int p_code;                            // the exit code of the program
-int p_entry;
-int p_running;
-int p_sp;                              // the stack pointer of the program at its start: argc, argv, envp, auxv are above it
+i64 ctxK[13];                          // the kernel (the console) and the program: their registers when the other one runs
+i64 ctxU[13];
+i64 p_tbl;                             // the tables of the program (physical address)
+i64 p_ntab;                            // 4 KB tables for 2 MB each that were used after the 4 first ones
+i64 next_frame;
+i64 p_brk;
+i64 p_mmap;
+i64 p_code;                            // the exit code of the program
+i64 p_entry;
+i64 p_running;
+i64 p_sp;                              // the stack pointer of the program at its start: argc, argv, envp, auxv are above it
 
-int rd32k(char^ p) {
+i64 rd32k(char^ p) {
     return (p[0] & 255) | ((p[1] & 255) << 8) | ((p[2] & 255) << 16) | ((p[3] & 255) << 24);
 }
 
-void zero_page(int pa) {
-    int^ p = (int^)pa;
+void zero_page(i64 pa) {
+    i64^ p = (i64^)pa;
     for i in 0..512 { p[i] = 0; }
 }
 
-int ps_sc;                             // how the last picture of the program was put on the screen (for the touch): the scale and the left and top edge
-int ps_dx;
-int ps_dy;
-int p_oom;                             // 1 when the memory is used up: the calls that ask for more say so
+i64 ps_sc;                             // how the last picture of the program was put on the screen (for the touch): the scale and the left and top edge
+i64 ps_dx;
+i64 ps_dy;
+i64 p_oom;                             // 1 when the memory is used up: the calls that ask for more say so
 
-int alloc_frame() {
+i64 alloc_frame() {
     if next_frame + 8192 > ram_top - 1048576 { p_oom = 1; return 0x43000000; }          // the memory is used up: one frame is given again and again, the call that wants more fails
-    int f = next_frame;
+    i64 f = next_frame;
     zero_page(f);
     next_frame += 4096;
     return f;
@@ -170,11 +170,11 @@ naked void svc_return() {
 }
 
 // ---- page tables: 0 .. 1 GB (the machine) and 1 .. 2 GB (the memory) are mapped at the same addresses for the kernel; the pages of the program are added
-void build_tables(int base) {
-    int^ l0 = (int^)base;
-    int^ l1 = (int^)(base + 0x1000);
-    int^ l2a = (int^)(base + 0x2000);
-    int^ l2b = (int^)(base + 0x3000);
+void build_tables(i64 base) {
+    i64^ l0 = (i64^)base;
+    i64^ l1 = (i64^)(base + 0x1000);
+    i64^ l2a = (i64^)(base + 0x2000);
+    i64^ l2b = (i64^)(base + 0x3000);
     for i in 0..512 { l0[i] = 0; l1[i] = 0; l2a[i] = 0; l2b[i] = 0; }
     l0[0] = (base + 0x1000) | 3;
     l1[0] = (base + 0x2000) | 3;
@@ -187,14 +187,14 @@ void build_tables(int base) {
     p_ntab = 0;
 }
 
-void map_user(int va, int pa) {
-    int tb = p_tbl;
-    int top = va >> 30;
-    int^ l2 = (int^)(tb + 0x2000);
-    if top == 1 { l2 = (int^)(tb + 0x3000); }
-    int i2 = (va >> 21) & 511;
-    int d = l2[i2];
-    int l3a = 0;
+void map_user(i64 va, i64 pa) {
+    i64 tb = p_tbl;
+    i64 top = va >> 30;
+    i64^ l2 = (i64^)(tb + 0x2000);
+    if top == 1 { l2 = (i64^)(tb + 0x3000); }
+    i64 i2 = (va >> 21) & 511;
+    i64 d = l2[i2];
+    i64 l3a = 0;
     if (d & 3) == 3 { l3a = d & 0xFFFFFFFFF000; }
     else {
         l3a = tb + 0x4000 + p_ntab * 0x1000;
@@ -202,13 +202,13 @@ void map_user(int va, int pa) {
         zero_page(l3a);
         l2[i2] = l3a | 3;
     }
-    int^ l3 = (int^)l3a;
+    i64^ l3 = (i64^)l3a;
     l3[(va >> 12) & 511] = pa | 0x443;
 }
 
-void map_range(int va, int len) {
-    int last = (va + len + 4095) & ~4095;
-    int a = va & ~4095;
+void map_range(i64 va, i64 len) {
+    i64 last = (va + len + 4095) & ~4095;
+    i64 a = va & ~4095;
     while a < last {
         map_user(a, alloc_frame());
         a += 4096;
@@ -216,28 +216,28 @@ void map_range(int va, int len) {
 }
 
 // the segments of an ELF file that is in memory at elf; returns the entry, 0 when it is no ELF of ARM64
-int elf_load(int elf) {
+i64 elf_load(i64 elf) {
     char^ f = (char^)elf;
     if f[0] != 127 || f[1] != 'E' || f[2] != 'L' || f[3] != 'F' { return 0; }
     if (f[18] & 255) != 183 { return 0; }
-    int entry = rd64(@f[24]);
-    int phoff = rd64(@f[32]);
-    int phnum = (f[56] & 255) | ((f[57] & 255) << 8);
-    int phent = (f[54] & 255) | ((f[55] & 255) << 8);
+    i64 entry = rd64(@f[24]);
+    i64 phoff = rd64(@f[32]);
+    i64 phnum = (f[56] & 255) | ((f[57] & 255) << 8);
+    i64 phent = (f[54] & 255) | ((f[55] & 255) << 8);
     for p in 0..phnum {
         char^ ph = @f[phoff + p * phent];
         if rd32k(@ph[0]) != 1 { continue; }
-        int off = rd64(@ph[8]);
-        int vaddr = rd64(@ph[16]);
-        int filesz = rd64(@ph[32]);
-        int memsz = rd64(@ph[40]);
-        int va = vaddr & ~4095;
-        int last = (vaddr + memsz + 4095) & ~4095;
+        i64 off = rd64(@ph[8]);
+        i64 vaddr = rd64(@ph[16]);
+        i64 filesz = rd64(@ph[32]);
+        i64 memsz = rd64(@ph[40]);
+        i64 va = vaddr & ~4095;
+        i64 last = (vaddr + memsz + 4095) & ~4095;
         while va < last {
-            int fr = alloc_frame();
+            i64 fr = alloc_frame();
             char^ dst = (char^)fr;
             for b in 0..4096 {
-                int rel = va + b - vaddr;
+                i64 rel = va + b - vaddr;
                 if rel >= 0 && rel < filesz { dst[b] = f[off + rel]; }
             }
             map_user(va, fr);
@@ -248,14 +248,14 @@ int elf_load(int elf) {
 }
 
 // the file of that name: read to the memory at addr (at most 1 MB); its size, or 0
-int load_prog(char^ nm, int addr) {
+i64 load_prog(char^ nm, i64 addr) {
     for i in 0..nfiles {
         char^ e = @sbuf[512 + i * 64];
-        int k = 0;
+        i64 k = 0;
         while nm[k] != 0 && e[k] == nm[k] { k += 1; }
         if nm[k] == 0 && e[k] == 0 {
-            int start = rd64(@e[48]);
-            int size = rd64(@e[56]);
+            i64 start = rd64(@e[48]);
+            i64 size = rd64(@e[56]);
             if size > 1048576 || size < 64 { return 0; }
             if !disk_io(1, start, addr, (size + 511) / 512) { return 0; }
             return size;
@@ -264,7 +264,7 @@ int load_prog(char^ nm, int addr) {
     return 0;
 }
 
-naked void ctx_switch(int^ from, int^ to) {
+naked void ctx_switch(i64^ from, i64^ to) {
     Context::save(x0);
     Context::restore(x1);
     ret;
@@ -278,7 +278,7 @@ void proc_first() {                                    // the first thing the pr
 }
 
 // leaves the program: the console goes on where it was
-void prog_leave(int code) {
+void prog_leave(i64 code) {
     p_code = code;
     p_running = 0;
     Sys::ttbr0_el1 = 0x40800000;
@@ -288,19 +288,19 @@ void prog_leave(int code) {
 }
 
 // a picture of the program (blue, green, red, any; w x h dots) goes to the screen of the system
-void prog_present(char^ pix, int w, int h) {
+void prog_present(char^ pix, i64 w, i64 h) {
     ps_sc = 1;
     ps_dx = 0;
     ps_dy = 0;
-    int sc = 1;
+    i64 sc = 1;
     while (sc + 1) * w <= scrW && (sc + 1) * h <= scrH { sc += 1; }
     if gpu_on == 1 && sc >= 2 && w * h <= 400000 {
         // a small picture (a game of 180 x 100 dots): copied to the memory of the system, then made bigger by the accelerator and put in the middle
         u32^ up = (u32^)pix;
         u32^ stg = (u32^)0x42800000;
-        int n = w * h;
+        i64 n = w * h;
         for i in 0..n { stg[i] = up[i]; }
-        int^ g = (int^)0x0E000000;
+        i64^ g = (i64^)0x0E000000;
         g[1] = sfb; g[2] = scrW; g[3] = (scrW - w * sc) / 2; g[4] = (scrH - h * sc) / 2;
         g[5] = 0x42800000; g[6] = w; g[7] = w; g[8] = h; g[9] = sc; g[10] = scrW; g[11] = scrH;
         g[0] = 5;
@@ -312,14 +312,14 @@ void prog_present(char^ pix, int w, int h) {
         return;
     }
     char^ fb = (char^)sfb;
-    int ww = w;
+    i64 ww = w;
     if ww > scrW { ww = scrW; }
-    int hh = h;
+    i64 hh = h;
     if hh > scrH { hh = scrH; }
     for y in 0..hh {
         for x in 0..ww {
-            int s = (y * w + x) * 4;
-            int o = (y * scrW + x) * 4;
+            i64 s = (y * w + x) * 4;
+            i64 o = (y * scrW + x) * 4;
             fb[o] = pix[s];
             fb[o + 1] = pix[s + 1];
             fb[o + 2] = pix[s + 2];
@@ -329,30 +329,30 @@ void prog_present(char^ pix, int w, int h) {
     present();
 }
 
-void svc_dispatch(int^ f) {
-    int esr_v = Sys::esr_el1;
-    int cls = (esr_v >> 26) & 63;
+void svc_dispatch(i64^ f) {
+    i64 esr_v = Sys::esr_el1;
+    i64 cls = (esr_v >> 26) & 63;
     if cls != 0x15 {
         say(0x20746c756166); putnum(Sys::far_el1); putc(10);          // fault
         prog_leave(139);
         return;
     }
-    int^ uig = (int^)0x0C000000;
+    i64^ uig = (i64^)0x0C000000;
     if uig[6] != 0 { prog_leave(0); return; }                         // the swipe up from the bottom edge: the program is closed, the home screen comes
-    int nr = f[8];
-    int a0 = f[0];
-    int a1 = f[1];
-    int a2 = f[2];
+    i64 nr = f[8];
+    i64 a0 = f[0];
+    i64 a1 = f[1];
+    i64 a2 = f[2];
     if nr == 64 {                                                      // write: the console
         char^ p = (char^)a1;
         if a0 == 1 || a0 == 2 { for i in 0..a2 { putc(p[i]); } }
         f[0] = a2;
     } else if nr == 63 {                                               // read: the keys of the console
         char^ p = (char^)a1;
-        int n = 0;
+        i64 n = 0;
         if a0 == 0 {
             while n < a2 {
-                int c = getc();
+                i64 c = getc();
                 if c == 4 { break; }
                 if c == 13 { c = 10; }
                 p[n] = (char)c;
@@ -363,7 +363,7 @@ void svc_dispatch(int^ f) {
         }
         f[0] = n;
     } else if nr == 222 {                                              // mmap
-        int len = (a1 + 4095) & ~4095;
+        i64 len = (a1 + 4095) & ~4095;
         map_range(p_mmap, len);
         f[0] = p_mmap;
         if p_oom == 1 { f[0] = 0 - 12; }                                  // ENOMEM
@@ -378,26 +378,26 @@ void svc_dispatch(int^ f) {
         }
     } else if nr == 172 || nr == 173 || nr == 174 || nr == 175 || nr == 176 || nr == 177 { f[0] = 1;
     } else if nr == 113 {                                              // clock_gettime
-        int^ ts = (int^)a1;
-        int c = Sys::s3_3_c14_c0_2;
+        i64^ ts = (i64^)a1;
+        i64 c = Sys::s3_3_c14_c0_2;
         ts[0] = c / 1000000;
         ts[1] = (c % 1000000) * 1000;
         f[0] = 0;
     } else if nr == 29 { f[0] = 0 - 25;                                // ioctl: not a terminal
     } else if nr == 132 || nr == 134 || nr == 135 { f[0] = 0;
     } else if nr == 101 {                                              // nanosleep: the machine rests (the host sleeps), so that waiting for the next frame costs no battery
-        int^ tsn = (int^)a0;
-        int ms = tsn[0] * 1000 + tsn[1] / 1000000;
+        i64^ tsn = (i64^)a0;
+        i64 ms = tsn[0] * 1000 + tsn[1] / 1000000;
         if ms > 100 { ms = 100; }
-        if ms > 0 { int^ uis = (int^)0x0C000000; uis[8] = ms; }
+        if ms > 0 { i64^ uis = (i64^)0x0C000000; uis[8] = ms; }
         f[0] = 0;
     } else if nr == 124 { f[0] = 0;
     } else if nr == 93 || nr == 94 { prog_leave(a0);                   // exit
-    } else if nr == 400 { int pl = uig[5]; prog_present((char^)a0, a1, a2); f[0] = 0;   // a picture for the screen
+    } else if nr == 400 { i64 pl = uig[5]; prog_present((char^)a0, a1, a2); f[0] = 0;   // a picture for the screen
     } else if nr == 401 {                                              // the touch: seq, x, y, state, id of the last event
-        int^ ui = (int^)0x0C000000;
-        int^ o = (int^)a0;
-        int polled = ui[5];                                            // the machine looks at the input first (the register 0x28)
+        i64^ ui = (i64^)0x0C000000;
+        i64^ o = (i64^)a0;
+        i64 polled = ui[5];                                            // the machine looks at the input first (the register 0x28)
         o[0] = ui[0];
         o[1] = ui[1];
         o[2] = ui[2];
@@ -414,10 +414,10 @@ void svc_dispatch(int^ f) {
 }
 
 // runs the program of that name from the disk and waits until it has ended; returns its exit code, or -1 when it cannot start
-int run_program(char^ nm) {
-    int size = load_prog(nm, 0x40900000);
+i64 run_program(char^ nm) {
+    i64 size = load_prog(nm, 0x40900000);
     if size == 0 { return 0 - 1; }
-    Sys::vbar_el1 = (int)vectors;
+    Sys::vbar_el1 = (i64)vectors;
     next_frame = 0x43100000;
     p_oom = 0;
     build_tables(0x40800000);                                          // the tables of the kernel
@@ -430,10 +430,10 @@ int run_program(char^ nm) {
     Sys::ttbr0_el1 = 0x40820000;
     Sys::sctlr_el1 = 1;
     char^ st = (char^)0x7fffc800;                                     // the name of the program as argv[0]
-    int nl = 0;
+    i64 nl = 0;
     while nm[nl] != 0 && nl < 60 { st[nl] = nm[nl]; nl += 1; }
     st[nl] = 0;
-    int^ v = (int^)0x7fffc000;
+    i64^ v = (i64^)0x7fffc000;
     v[0] = 1;
     v[1] = 0x7fffc800;
     v[2] = 0;
@@ -445,10 +445,10 @@ int run_program(char^ nm) {
     p_sp = 0x7fffc000;
     for i in 0..13 { ctxU[i] = 0; }
     ctxU[9] = 0x40100000;
-    ctxU[11] = (int)proc_first;
-    ctxU[12] = (int)@kstackA + 16384;
-    int^ uic = (int^)0x0C000000;
-    int stale = uic[6];                                                 // a swipe or a back key from before is forgotten
+    ctxU[11] = (i64)proc_first;
+    ctxU[12] = (i64)@kstackA + 16384;
+    i64^ uic = (i64^)0x0C000000;
+    i64 stale = uic[6];                                                 // a swipe or a back key from before is forgotten
     p_running = 1;
     Sys::ttbr0_el1 = 0x40820000;
     Sys::sctlr_el1 = 1;

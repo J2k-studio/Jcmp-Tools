@@ -13,7 +13,7 @@
 
 String jstore_version() { return "0.2.0"; }
 
-int fail(String msg) {
+i64 fail(String msg) {
     jerr << "jstore: " << msg << "\n";
     return 1;
 }
@@ -39,7 +39,7 @@ String fetch(String where, String name) {
     }
     String[] args = arr(6);
     args.push("-q"); args.push(where); args.push("-o"); args.push(dest);
-    Result<int, Error> p = Proc::run("jget", args);
+    Result<i64, Error> p = Proc::run("jget", args);
     if !p.is_ok() { fail("cannot start jget (jget tool jget)"); return ""; }
     if p.take() != 0 || !Fs::exists(dest) { return ""; }
     return dest;
@@ -57,7 +57,7 @@ bool load_index() {
     g_id = arr(16); g_ver = arr(16); g_url = arr(16); g_sum = arr(16); g_perm = arr(16); g_name = arr(16);
     String where = env_or("JSTORE_INDEX", "https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/store/index.txt");
     String[] places = where.split(" ");
-    int got = 0;
+    i64 got = 0;
     for p in 0..places.len {
         if places[p].len == 0 { continue; }
         String f = fetch(places[p], "index" + str(p));
@@ -80,8 +80,8 @@ bool load_index() {
     return got > 0;
 }
 
-int find_id(String id) {
-    int best = 0 - 1;
+i64 find_id(String id) {
+    i64 best = 0 - 1;
     for i in 0..g_id.len { if g_id[i] == id { if best < 0 || ver_newer(g_ver[i], g_ver[best]) { best = i; } } }
     return best;
 }
@@ -90,11 +90,11 @@ int find_id(String id) {
 bool ver_newer(String a, String b) {
     String[] x = a.split(".");
     String[] y = b.split(".");
-    int n = x.len;
+    i64 n = x.len;
     if y.len > n { n = y.len; }
     for i in 0..n {
-        int p = 0;
-        int q = 0;
+        i64 p = 0;
+        i64 q = 0;
         if i < x.len { p = x[i].to_int(); }
         if i < y.len { q = y[i].to_int(); }
         if p > q { return true; }
@@ -124,12 +124,12 @@ String have_version(String id) {
     return "";
 }
 
-int do_list(String[] a) {
+i64 do_list(String[] a) {
     if !load_index() { return fail("no index could be read (JSTORE_INDEX)"); }
     load_installed();
     String word = "";
     if a.len > 2 { word = a[2].lower(); }
-    int n = 0;
+    i64 n = 0;
     for i in 0..g_id.len {
         String line = (g_id[i] + " " + g_name[i]).lower();
         bool hit = line.contains(word);
@@ -146,15 +146,15 @@ int do_list(String[] a) {
     return 0;
 }
 
-int do_info(String id) {
+i64 do_info(String id) {
     if !load_index() { return fail("no index could be read"); }
-    int i = find_id(id);
+    i64 i = find_id(id);
     if i < 0 { return fail("no program '" + id + "' in the store (jstore list)"); }
     jout << g_name[i] << " (" << g_id[i] << ") " << g_ver[i] << "\n  permissions: " << g_perm[i] << "\n  from: " << g_url[i] << "\n  sha256: " << g_sum[i] << "\n";
     return 0;
 }
 
-int install_one(int i, bool yes) {
+i64 install_one(i64 i, bool yes) {
     String pkg = fetch(g_url[i], g_id[i] + ".jc");
     if pkg.len == 0 { return fail("cannot download " + g_url[i]); }
     String have = "";
@@ -169,24 +169,24 @@ int install_one(int i, bool yes) {
     String[] args = arr(4);
     args.push("install"); args.push(pkg);
     if yes { args.push("-y"); }
-    Result<int, Error> r = Proc::run("jc", args);
+    Result<i64, Error> r = Proc::run("jc", args);
     Fs::remove(pkg);
     if !r.is_ok() { return fail("cannot start jc (jget tool jc)"); }
     return r.take();
 }
 
 // jstore lines: one line for each program, for other programs to read: ID, VERSION, NAME, separated by a tab
-int do_lines() {
+i64 do_lines() {
     if !load_index() { return fail("no index could be read (JSTORE_INDEX)"); }
     for i in 0..g_id.len { jout << g_id[i] << "\t" << g_ver[i] << "\t" << g_name[i] << "\n"; }
     return 0;
 }
 
 // jstore get ID FOLDER: download the package, check its SHA-256, and put it in FOLDER as ID.jc (jc is not used: for a system that keeps its packages in a folder of its own)
-int do_get(String[] a) {
+i64 do_get(String[] a) {
     if a.len < 4 { return fail("usage: jstore get ID FOLDER"); }
     if !load_index() { return fail("no index could be read"); }
-    int i = find_id(a[2]);
+    i64 i = find_id(a[2]);
     if i < 0 { return fail("no program '" + a[2] + "' in the store (jstore list)"); }
     String pkg = fetch(g_url[i], g_id[i] + ".jc");
     if pkg.len == 0 { return fail("cannot download " + g_url[i]); }
@@ -202,7 +202,7 @@ int do_get(String[] a) {
     String dest = a[3] + "/" + g_id[i] + ".jc";
     switch Fs::read_bytes(pkg) {
         Result::Ok(b): {
-            Result<int, Error> w = Fs::write_bytes(dest, b);
+            Result<i64, Error> w = Fs::write_bytes(dest, b);
             Fs::remove(pkg);
             if !w.is_ok() { return fail("cannot write " + dest); }
         }
@@ -212,25 +212,25 @@ int do_get(String[] a) {
     return 0;
 }
 
-int do_install(String[] a) {
+i64 do_install(String[] a) {
     if a.len < 3 { return fail("usage: jstore install ID [-y]"); }
     bool yes = false;
     for i in 3..a.len { if a[i] == "-y" { yes = true; } }
     if !load_index() { return fail("no index could be read"); }
-    int i = find_id(a[2]);
+    i64 i = find_id(a[2]);
     if i < 0 { return fail("no program '" + a[2] + "' in the store (jstore list)"); }
     return install_one(i, yes);
 }
 
-int do_update(String[] a) {
+i64 do_update(String[] a) {
     bool yes = false;
     for i in 2..a.len { if a[i] == "-y" { yes = true; } }
     if !load_index() { return fail("no index could be read"); }
     load_installed();
-    int n = 0;
-    int rc = 0;
+    i64 n = 0;
+    i64 rc = 0;
     for k in 0..g_have_id.len {
-        int i = find_id(g_have_id[k]);
+        i64 i = find_id(g_have_id[k]);
         if i < 0 || !ver_newer(g_ver[i], g_have_ver[k]) { continue; }
         n += 1;
         jout << g_id[i] << ": " << g_have_ver[k] << " -> " << g_ver[i] << "\n";
@@ -241,15 +241,15 @@ int do_update(String[] a) {
     return rc;
 }
 
-int do_remove(String id) {
+i64 do_remove(String id) {
     String[] args = arr(2);
     args.push("remove"); args.push(id);
-    Result<int, Error> r = Proc::run("jc", args);
+    Result<i64, Error> r = Proc::run("jc", args);
     if !r.is_ok() { return fail("cannot start jc"); }
     return r.take();
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jstore " << jstore_version() << "\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {

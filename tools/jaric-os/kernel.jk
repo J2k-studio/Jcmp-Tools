@@ -6,15 +6,15 @@ char sbuf[4608];
 char fbuf[4096];
 char line[128];
 char name[48];
-int nfiles;
-int llen;
+i64 nfiles;
+i64 llen;
 
 naked void start() {
     x28 = 0x4010_0000;
     call kmain;
 }
 
-void uputc(int c) {
+void uputc(i64 c) {
     char^ uart = (char^)0x09000000;
     uart[0] = (char)c;
 }

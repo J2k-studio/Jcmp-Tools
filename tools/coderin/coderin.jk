@@ -8,22 +8,22 @@
 #import <stdlib>
 
 String[] lines;
-int cy;                       // the cursor: the line, and the byte in the line (always at the start of a character)
-int cx;
-int top;                      // the first line shown
-int left;                     // the first column shown
-int ay;                       // the other end of the selection (when sel is true)
-int ax;
+i64 cy;                       // the cursor: the line, and the byte in the line (always at the start of a character)
+i64 cx;
+i64 top;                      // the first line shown
+i64 left;                     // the first column shown
+i64 ay;                       // the other end of the selection (when sel is true)
+i64 ax;
 bool sel;
 String clip;
 bool dirty;
 String path;
 String msg;
-int rows;
-int cols;
-int quit_asked;
+i64 rows;
+i64 cols;
+i64 quit_asked;
 String key_text;              // the characters of the last K_TEXT key
-int tabsize = 4;              // settings (the file ~/.config/coderin/settings, or the command  set NAME VALUE )
+i64 tabsize = 4;              // settings (the file ~/.config/coderin/settings, or the command  set NAME VALUE )
 bool use_spaces = true;       // Tab gives spaces
 bool ruler = true;            // the numbers of the lines
 bool mouse_on = true;
@@ -32,58 +32,58 @@ bool autopair = true;         // ( ) [ ] { } " " ' ' are closed when the first i
 String scheme;                // the name of the colour scheme (dark when empty)
 String[] bind_keys;           // the key bindings: "Ctrl-s" -> "save"
 String[] bind_acts;
-int m_btn;                    // the last mouse event: the button, the place (1-based) and press / release
-int m_x;
-int m_y;
+i64 m_btn;                    // the last mouse event: the button, the place (1-based) and press / release
+i64 m_x;
+i64 m_y;
 bool m_press;
-int click_time;               // for the double click
-int click_y;
-int click_x;
-int c_bg = 0x0D1117;
-int c_kw;                     // the colours of the scheme: 0xRRGGBB
-int c_str;
-int c_num;
-int c_com;
-int c_typ;
-int c_txt;
-int c_gut;
-int c_sel;
-int K_MOUSE = 1020;
+i64 click_time;               // for the double click
+i64 click_y;
+i64 click_x;
+i64 c_bg = 0x0D1117;
+i64 c_kw;                     // the colours of the scheme: 0xRRGGBB
+i64 c_str;
+i64 c_num;
+i64 c_com;
+i64 c_typ;
+i64 c_txt;
+i64 c_gut;
+i64 c_sel;
+i64 K_MOUSE = 1020;
 bool menubar;                 // the menu bar of the old programs on the first row (F10), and the keys F5 F9 F11 (set menubar on; the scheme devcpp has it)
 bool helpbar = true;          // a line with the keys under the text, as nano shows it (set helpbar off)
 bool ext_undo = true;         // the extensions that are on (the setting  extensions = undo j2k ): undo and redo; help for writing J2K
 bool ext_j2k = true;
 String[] pop_c;
-int pop_i;
+i64 pop_i;
 bool pop_on;
-int pop_st;            // the list of words under the cursor
+i64 pop_st;            // the list of words under the cursor
 String[] undo_text;           // the states before the changes (the whole text joined by new lines) and where the cursor was
-int[] undo_cy;
-int[] undo_cx;
+i64[] undo_cy;
+i64[] undo_cx;
 String[] redo_text;
-int[] redo_cy;
-int[] redo_cx;
-int last_kind;                // what the last change was: 1 typing, 2 deleting characters, 0 anything else (it always starts a new step)
-int last_edit_ms;
+i64[] redo_cy;
+i64[] redo_cx;
+i64 last_kind;                // what the last change was: 1 typing, 2 deleting characters, 0 anything else (it always starts a new step)
+i64 last_edit_ms;
 bool free_scroll;             // the wheel moved the view: it does not follow the cursor until a key comes
 
-int K_TEXT = 1000;
-int K_UP = 1001;
-int K_DOWN = 1002;
-int K_RIGHT = 1003;
-int K_LEFT = 1004;
-int K_HOME = 1005;
-int K_END = 1006;
-int K_PGUP = 1007;
-int K_PGDN = 1008;
-int K_DEL = 1009;
-int K_ENTER = 1010;
-int K_BS = 1011;
-int K_TAB = 1012;
-int K_ESC = 1013;
-int K_F = 1500;               // + n : the function key Fn (F1 .. F12)
-int K_SHIFT = 100;            // + K_UP .. K_END : the arrow with Shift
-int K_CTRL = 200;             // + K_UP .. K_END : the arrow with Ctrl
+i64 K_TEXT = 1000;
+i64 K_UP = 1001;
+i64 K_DOWN = 1002;
+i64 K_RIGHT = 1003;
+i64 K_LEFT = 1004;
+i64 K_HOME = 1005;
+i64 K_END = 1006;
+i64 K_PGUP = 1007;
+i64 K_PGDN = 1008;
+i64 K_DEL = 1009;
+i64 K_ENTER = 1010;
+i64 K_BS = 1011;
+i64 K_TAB = 1012;
+i64 K_ESC = 1013;
+i64 K_F = 1500;               // + n : the function key Fn (F1 .. F12)
+i64 K_SHIFT = 100;            // + K_UP .. K_END : the arrow with Shift
+i64 K_CTRL = 200;             // + K_UP .. K_END : the arrow with Ctrl
 
 String esc() {
     String e = "";
@@ -94,7 +94,7 @@ String esc() {
 // ---------------------------------------------------------------- the terminal
 void raw_mode(bool on) {
     char t[64];
-    Sys::call(29, 0, 21505, (int)@t, 0, 0, 0);                    // TCGETS
+    Sys::call(29, 0, 21505, (i64)@t, 0, 0, 0);                    // TCGETS
     if on {
         t[0] = t[0] & 0xFA;                                       // iflag: no ICRNL (0x100 is in byte 1), no IXON (0x400 in byte 1)
         t[1] = t[1] & 0xFA;                                       // 0x100 and 0x400 -> bits 0 and 2 of byte 1
@@ -105,47 +105,47 @@ void raw_mode(bool on) {
         t[1] = t[1] | 5;
         t[12] = t[12] | 11;
     }
-    Sys::call(29, 0, 21506, (int)@t, 0, 0, 0);                    // TCSETS
+    Sys::call(29, 0, 21506, (i64)@t, 0, 0, 0);                    // TCSETS
 }
 
 void read_size() {
     char w[8];
     for i in 0..8 { w[i] = 0; }
-    Sys::call(29, 1, 21523, (int)@w, 0, 0, 0);                    // TIOCGWINSZ
+    Sys::call(29, 1, 21523, (i64)@w, 0, 0, 0);                    // TIOCGWINSZ
     rows = (w[0] & 255) | ((w[1] & 255) << 8);
     cols = (w[2] & 255) | ((w[3] & 255) << 8);
     if rows < 5 { rows = 24; }
     if cols < 20 { cols = 80; }
 }
 
-int rd() {
+i64 rd() {
     char b[4];
-    int n = Sys::read(0, @b, 1);
+    i64 n = Sys::read(0, @b, 1);
     if n <= 0 { return 0 - 1; }
     return b[0] & 255;
 }
 
 // one key: a code from the list above, a control letter (1 .. 26), or K_TEXT with the characters in key_text; -2 when nothing came in ms
-int read_key(int ms) {
+i64 read_key(i64 ms) {
     if !Input::ready(ms) { return 0 - 2; }
-    int c = rd();
+    i64 c = rd();
     if c < 0 { return 0 - 1; }
     if c == 27 {
         if !Input::ready(30) { return K_ESC; }
-        int c2 = rd();
+        i64 c2 = rd();
         if c2 == 79 {                                             // ESC O H / F
-            int c3 = rd();
+            i64 c3 = rd();
             if c3 == 72 { return K_HOME; }
             if c3 == 70 { return K_END; }
             if c3 >= 80 && c3 <= 83 { return K_F + 1 + (c3 - 80); }                // ESC O P Q R S : F1 .. F4
             return K_ESC;
         }
         if c2 != 91 { return K_ESC; }
-        int p1 = 0;
-        int p2 = 0;
-        int p3 = 0;
-        int field = 1;
-        int last = rd();
+        i64 p1 = 0;
+        i64 p2 = 0;
+        i64 p3 = 0;
+        i64 field = 1;
+        i64 last = rd();
         bool sgr = false;
         while (last >= 48 && last <= 59) || last == 63 || last == 60 {
             if last == 60 { sgr = true; }
@@ -162,7 +162,7 @@ int read_key(int ms) {
             m_press = last == 77;
             return K_MOUSE;
         }
-        int mod = 0;
+        i64 mod = 0;
         if p2 == 2 { mod = K_SHIFT; }
         else if p2 == 5 { mod = K_CTRL; }
         if last == 65 { return K_UP + mod; }
@@ -197,11 +197,11 @@ int read_key(int ms) {
     key_text = "";
     key_text.push((char)c);
     if c >= 192 {                                                 // the bytes that follow in a character of UTF-8
-        int more = 1;
+        i64 more = 1;
         if c >= 224 { more = 2; }
         if c >= 240 { more = 3; }
         for i in 0..more {
-            int cb = rd();
+            i64 cb = rd();
             if cb >= 0 { key_text.push((char)cb); }
         }
     }
@@ -209,36 +209,36 @@ int read_key(int ms) {
 }
 
 // ---------------------------------------------------------------- characters and columns
-bool is_cont(String s, int i) { return i >= 0 && i < s.len && (s[i] & 192) == 128; }
-int prev_char(String s, int at) {
+bool is_cont(String s, i64 i) { return i >= 0 && i < s.len && (s[i] & 192) == 128; }
+i64 prev_char(String s, i64 at) {
     if at <= 0 { return 0; }
     at -= 1;
     while at > 0 && is_cont(s, at) { at -= 1; }
     return at;
 }
-int next_char(String s, int at) {
+i64 next_char(String s, i64 at) {
     if at >= s.len { return s.len; }
     at += 1;
     while at < s.len && is_cont(s, at) { at += 1; }
     return at;
 }
 // a Thai vowel above or below a letter, or a tone mark, takes no column of its own
-bool zero_width(String s, int i) {
+bool zero_width(String s, i64 i) {
     if i + 2 >= s.len + 0 { if i + 2 > s.len - 1 { return false; } }
-    int b0 = s[i] & 255;
-    int b1 = s[i + 1] & 255;
-    int b2 = s[i + 2] & 255;
+    i64 b0 = s[i] & 255;
+    i64 b1 = s[i + 1] & 255;
+    i64 b2 = s[i + 2] & 255;
     if b0 != 224 { return false; }
     if b1 == 184 { return b2 == 177 || (b2 >= 180 && b2 <= 186); }
     if b1 == 185 { return b2 >= 135 && b2 <= 142; }
     return false;
 }
 // the column on the screen of the byte at upto (a tab goes to the next multiple of 4)
-int col_of(String s, int upto) {
-    int col = 0;
-    int i = 0;
+i64 col_of(String s, i64 upto) {
+    i64 col = 0;
+    i64 i = 0;
     while i < upto && i < s.len {
-        int c = s[i] & 255;
+        i64 c = s[i] & 255;
         if c == 9 { col = (col / tabsize + 1) * tabsize; }
         else if !is_cont(s, i) && !zero_width(s, i) { col += 1; }
         i += 1;
@@ -246,10 +246,10 @@ int col_of(String s, int upto) {
     return col;
 }
 // the byte of the line that is at the column (the nearest character start)
-int byte_at_col(String s, int want) {
-    int i = 0;
+i64 byte_at_col(String s, i64 want) {
+    i64 i = 0;
     while i < s.len {
-        int n = next_char(s, i);
+        i64 n = next_char(s, i);
         if col_of(s, n) > want { return i; }
         i = n;
     }
@@ -257,7 +257,7 @@ int byte_at_col(String s, int want) {
 }
 
 // ---------------------------------------------------------------- the text
-void insert_line(int at, String s) {
+void insert_line(i64 at, String s) {
     String[] n = arr(lines.len + 16);
     for i in 0..lines.len {
         if i == at { n.push(s); }
@@ -266,7 +266,7 @@ void insert_line(int at, String s) {
     if at >= lines.len { n.push(s); }
     lines = n;
 }
-void remove_line(int at) {
+void remove_line(i64 at) {
     String[] n = arr(lines.len + 16);
     for i in 0..lines.len { if i != at { n.push(lines[i]); } }
     if n.len == 0 { n.push(""); }
@@ -281,7 +281,7 @@ void load(String p) {
     else { msg = "new file " + p; }
     if text.len > 0 {
         String[] parts = text.split("\n");
-        int n = parts.len;
+        i64 n = parts.len;
         if n > 0 && parts[n - 1].len == 0 { n -= 1; }
         for i in 0..n {
             String l = parts[i];
@@ -293,10 +293,10 @@ void load(String p) {
 }
 
 // ---------------------------------------------------------------- the extension j2k: the errors of the compiler (jcmp on the PATH)
-int[] err_line;
+i64[] err_line;
 String[] err_msg;
-int err_i;
-bool has_err(int y) {
+i64 err_i;
+bool has_err(i64 y) {
     for i in 0..err_line.len { if err_line[i] == y { return true; } }
     return false;
 }
@@ -316,13 +316,13 @@ void check_code() {
     String[] ls = r.take().split("\n");
     for i in 0..ls.len {
         String l = ls[i];
-        int at = 0;
+        i64 at = 0;
         bool found = false;
         while at + 9 <= l.len && !found { if l.slice(at, at + 9) == ": error: " { found = true; } else { at += 1; } }
         if !found { continue; }
         String[] parts = l.slice(0, at).split(":");
         if parts.len < 3 { continue; }
-        int ln = parts[parts.len - 2].to_int();
+        i64 ln = parts[parts.len - 2].to_int();
         if ln < 1 { continue; }
         err_line.push(ln - 1);
         err_msg.push(l.slice(at + 9, l.len) + "");
@@ -332,7 +332,7 @@ void check_code() {
 }
 void show_error() {
     if err_line.len == 0 { msg = "no errors (save to check)"; return; }
-    int y = err_line[err_i];
+    i64 y = err_line[err_i];
     if y >= lines.len { y = lines.len - 1; }
     move_to(y, 0, false);
     msg = "error " + str(err_i + 1) + "/" + str(err_line.len) + " line " + str(y + 1) + ": " + err_msg[err_i];
@@ -341,20 +341,20 @@ void show_error() {
 void save() {
     String text = "";
     for i in 0..lines.len { text = text + lines[i] + "\n"; }
-    Result<int, Error> r = Fs::write_text(path, text);
+    Result<i64, Error> r = Fs::write_text(path, text);
     if r.is_ok() { dirty = false; msg = "saved " + path + " (" + str(lines.len) + " lines)"; if ext_j2k { check_code(); } }
     else { msg = "cannot save " + path; }
 }
 
 // ---------------------------------------------------------------- selection and clipboard
-void order_sel(int^ y1, int^ x1, int^ y2, int^ x2) {
+void order_sel(i64^ y1, i64^ x1, i64^ y2, i64^ x2) {
     bool swap = ay < cy || (ay == cy && ax < cx);
     if swap { y1[0] = ay; x1[0] = ax; y2[0] = cy; x2[0] = cx; }
     else { y1[0] = cy; x1[0] = cx; y2[0] = ay; x2[0] = ax; }
 }
-bool selected(int y, int x) {
+bool selected(i64 y, i64 x) {
     if !sel { return false; }
-    int y1 = 0; int x1 = 0; int y2 = 0; int x2 = 0;
+    i64 y1 = 0; i64 x1 = 0; i64 y2 = 0; i64 x2 = 0;
     order_sel(@y1, @x1, @y2, @x2);
     if y < y1 || y > y2 { return false; }
     if y == y1 && x < x1 { return false; }
@@ -362,7 +362,7 @@ bool selected(int y, int x) {
     return true;
 }
 String selected_text() {
-    int y1 = 0; int x1 = 0; int y2 = 0; int x2 = 0;
+    i64 y1 = 0; i64 x1 = 0; i64 y2 = 0; i64 x2 = 0;
     order_sel(@y1, @x1, @y2, @x2);
     if y1 == y2 { return lines[y1].slice(x1, x2); }
     String t = lines[y1].slice(x1, lines[y1].len);
@@ -371,7 +371,7 @@ String selected_text() {
     return t;
 }
 void delete_selection() {
-    int y1 = 0; int x1 = 0; int y2 = 0; int x2 = 0;
+    i64 y1 = 0; i64 x1 = 0; i64 y2 = 0; i64 x2 = 0;
     order_sel(@y1, @x1, @y2, @x2);
     String head = lines[y1].slice(0, x1);
     String tail = lines[y2].slice(x2, lines[y2].len);
@@ -403,17 +403,17 @@ void set_from_text(String t) {
     if lines.len == 0 { lines.push(""); }
 }
 // called before a change: the state is kept so that Ctrl-Z can come back to it (typing in one go, or deleting in one go, is one step)
-void begin_edit(int kind) {
+void begin_edit(i64 kind) {
     if !ext_undo { return; }
-    int now = Time::now_ms();
+    i64 now = Time::now_ms();
     if kind != 0 && kind == last_kind && now - last_edit_ms < 900 { last_edit_ms = now; return; }
     undo_text.push(join_lines());
     undo_cy.push(cy);
     undo_cx.push(cx);
     if undo_text.len > 200 {                                      // only the last 200 steps
         String[] t2 = arr(256);
-        int[] y2 = arr(256);
-        int[] x2 = arr(256);
+        i64[] y2 = arr(256);
+        i64[] x2 = arr(256);
         for i in 1..undo_text.len { t2.push(undo_text[i]); y2.push(undo_cy[i]); x2.push(undo_cx[i]); }
         undo_text = t2; undo_cy = y2; undo_cx = x2;
     }
@@ -428,7 +428,7 @@ void undo_step(bool redo) {
     if redo {
         if redo_text.len == 0 { msg = "nothing to redo"; return; }
         undo_text.push(join_lines()); undo_cy.push(cy); undo_cx.push(cx);
-        int n = redo_text.len - 1;
+        i64 n = redo_text.len - 1;
         set_from_text(redo_text[n]);
         cy = redo_cy[n]; cx = redo_cx[n];
         redo_text.pop(); redo_cy.pop(); redo_cx.pop();
@@ -436,7 +436,7 @@ void undo_step(bool redo) {
     } else {
         if undo_text.len == 0 { msg = "nothing to undo"; return; }
         redo_text.push(join_lines()); redo_cy.push(cy); redo_cx.push(cx);
-        int n = undo_text.len - 1;
+        i64 n = undo_text.len - 1;
         set_from_text(undo_text[n]);
         cy = undo_cy[n]; cx = undo_cx[n];
         undo_text.pop(); undo_cy.pop(); undo_cx.pop();
@@ -483,7 +483,7 @@ void load_ext_root(String root) {
             String[] ls = a.take().split("\n");
             for i in 0..ls.len {
                 String l = ls[i].trim();
-                int eq = 0;
+                i64 eq = 0;
                 while eq < l.len && l[eq] != '=' { eq += 1; }
                 if l.len == 0 || l[0] == '#' || eq >= l.len { continue; }
                 xs_pre.push(l.slice(0, eq).trim());
@@ -500,7 +500,7 @@ void load_ext_root(String root) {
             String[] ls = c.take().split("\n");
             for i in 0..ls.len {
                 String l = ls[i].trim();
-                int eq = 0;
+                i64 eq = 0;
                 while eq < l.len && l[eq] != '=' { eq += 1; }
                 if l.len == 0 || l[0] == '#' || eq >= l.len { continue; }
                 xc_name.push(l.slice(0, eq).trim());
@@ -553,10 +553,10 @@ String[] word_cands(String w) {
     for i in 0..xs_words.len { if xs_words[i].starts_with(w) && xs_words[i].len > w.len { add_cand(cands, xs_words[i]); } }
     for y in 0..lines.len {
         String t = lines[y];
-        int i = 0;
+        i64 i = 0;
         while i < t.len {
             if is_word(t[i] & 255) {
-                int j = i;
+                i64 j = i;
                 while j < t.len && is_word(t[j] & 255) { j += 1; }
                 String x = t.slice(i, j);
                 if x.starts_with(w) && x.len > w.len { add_cand(cands, x); }
@@ -569,7 +569,7 @@ String[] word_cands(String w) {
 bool tab_help() {
     if !ext_j2k && xs_loaded.len == 0 { return false; }
     String l = lines[cy];
-    int st = cx;
+    i64 st = cx;
     while st > 0 && is_word(l[st - 1] & 255) { st -= 1; }
     if st == cx { return false; }
     String w = l.slice(st, cx);
@@ -577,17 +577,17 @@ bool tab_help() {
     String lead = l.slice(0, st).trim();
     if snip.len > 0 && lead.len == 0 {                                        // a snippet is for the start of a line
         begin_edit(0);
-        int base = 0;
+        i64 base = 0;
         while base < l.len && l[base] == ' ' { base += 1; }
         String text = snip.replace("\n", "\n" + " ".repeat(base));
-        int m = 0;
+        i64 m = 0;
         while m < text.len && text[m] != '|' { m += 1; }
         String before = text.slice(0, m);
         String after = "";
         if m < text.len { after = text.slice(m + 1, text.len); } else { before = text; }
         lines[cy] = l.slice(0, st) + l.slice(cx, l.len);
         cx = st;
-        int y0 = cy;
+        i64 y0 = cy;
         insert_text(before + after);
         String[] bl = before.split("\n");
         cy = y0 + bl.len - 1;
@@ -600,7 +600,7 @@ bool tab_help() {
     if cands.len == 0 { return false; }
     String common = cands[0];
     for i in 1..cands.len {
-        int n = 0;
+        i64 n = 0;
         while n < common.len && n < cands[i].len && common[n] == cands[i][n] { n += 1; }
         common = common.slice(0, n);
     }
@@ -636,7 +636,7 @@ void insert_text(String t) {
     } else {
         lines[cy] = head + parts[0];
         for i in 1..parts.len - 1 { insert_line(cy + i, parts[i]); }
-        int last = cy + parts.len - 1;
+        i64 last = cy + parts.len - 1;
         insert_line(last, parts[parts.len - 1] + tail);
         cy = last;
         cx = parts[parts.len - 1].len;
@@ -645,25 +645,25 @@ void insert_text(String t) {
 }
 
 // ---------------------------------------------------------------- the colours of J2K
-bool is_word(int c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'; }
+bool is_word(i64 c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'; }
 bool in_list(String list, String w) {
     String[] ws = list.split(" ");
     for i in 0..ws.len { if ws[i] == w { return true; } }
     return false;
 }
 // kinds: 0 text, 1 keyword, 2 text in quotes, 3 number, 4 comment, 5 type
-int[] kinds_of(String s) {
-    int[] k = arr(s.len + 1);
+i64[] kinds_of(String s) {
+    i64[] k = arr(s.len + 1);
     for i in 0..s.len { k.push(0); }
-    int i = 0;
+    i64 i = 0;
     while i < s.len {
-        int c = s[i] & 255;
+        i64 c = s[i] & 255;
         if c == '/' && i + 1 < s.len && s[i + 1] == '/' {
             for j in i..s.len { k[j] = 4; }
             return k;
         }
         if c == '"' || c == 39 {
-            int j = i + 1;
+            i64 j = i + 1;
             while j < s.len && (s[j] & 255) != c {
                 if s[j] == '\\' { j += 1; }
                 j += 1;
@@ -672,14 +672,14 @@ int[] kinds_of(String s) {
             for q in i..j + 1 { k[q] = 2; }
             i = j + 1;
         } else if c >= '0' && c <= '9' {
-            int j = i;
+            i64 j = i;
             while j < s.len && (is_word(s[j] & 255) || s[j] == '.') { k[j] = 3; j += 1; }
             i = j;
         } else if is_word(c) {
-            int j = i;
+            i64 j = i;
             while j < s.len && is_word(s[j] & 255) { j += 1; }
             String w = s.slice(i, j);
-            int kind = 0;
+            i64 kind = 0;
             if in_list("if else while for in return break continue switch case default struct enum using module import defer try catch throw new delete true false null sizeof asm reg export operator naked loop", w) { kind = 1; }
             else if in_list("int uint double float bool char void String u8 u16 u32 u64 i8 i16 i32 i64 Result Option Error", w) { kind = 5; }
             if kind != 0 { for q in i..j { k[q] = kind; } }
@@ -690,11 +690,11 @@ int[] kinds_of(String s) {
     }
     return k;
 }
-String rgb(int c) {
+String rgb(i64 c) {
     return esc() + "[38;2;" + str((c >> 16) & 255) + ";" + str((c >> 8) & 255) + ";" + str(c & 255) + "m";
 }
 String bgs() { return esc() + "[48;2;" + str((c_bg >> 16) & 255) + ";" + str((c_bg >> 8) & 255) + ";" + str(c_bg & 255) + "m"; }
-String color_of(int kind) {
+String color_of(i64 kind) {
     if kind == 1 { return rgb(c_kw); }
     if kind == 2 { return rgb(c_str); }
     if kind == 3 { return rgb(c_num); }
@@ -720,18 +720,18 @@ void apply_scheme(String name) {
             String key = kv[0].trim();
             String val = kv[1].trim();
             if val.len != 7 || val[0] != '#' { continue; }
-            int v = hex_value(val.slice(1, 7));
+            i64 v = hex_value(val.slice(1, 7));
             if key == "keyword" { c_kw = v; } else if key == "string" { c_str = v; } else if key == "number" { c_num = v; }
             else if key == "comment" { c_com = v; } else if key == "type" { c_typ = v; } else if key == "text" { c_txt = v; }
             else if key == "background" { c_bg = v; } else if key == "gutter" { c_gut = v; } else if key == "selection" { c_sel = v; }
         }
     }
 }
-int hex_value(String h) {
-    int v = 0;
+i64 hex_value(String h) {
+    i64 v = 0;
     for i in 0..h.len {
-        int c = h[i] & 255;
-        int d = 0;
+        i64 c = h[i] & 255;
+        i64 d = 0;
         if c >= '0' && c <= '9' { d = c - '0'; }
         else if c >= 'a' && c <= 'f' { d = c - 'a' + 10; }
         else if c >= 'A' && c <= 'F' { d = c - 'A' + 10; }
@@ -747,7 +747,7 @@ String config_dir() {
 }
 
 // ---------------------------------------------------------------- drawing
-int gutter() {
+i64 gutter() {
     if !ruler { return 0; }
     String nstr = str(lines.len);
     return nstr.len + 2;
@@ -756,16 +756,16 @@ int gutter() {
 String[] pane;                // the log of the compiler / the output of the program, under the text (Esc closes it)
 String pane_title;
 bool pane_on;
-int pane_rows() {
+i64 pane_rows() {
     if !pane_on { return 0; }
-    int n = pane.len;
+    i64 n = pane.len;
     if n > 8 { n = 8; }
     return n + 1;
 }
-int row_off() { if menubar { return 1; } return 0; }
+i64 row_off() { if menubar { return 1; } return 0; }
 
-int text_rows_count() {
-    int t = rows - 1 - row_off() - pane_rows();
+i64 text_rows_count() {
+    i64 t = rows - 1 - row_off() - pane_rows();
     if helpbar { t -= 1; }
     if t < 3 { t = 3; }
     return t;
@@ -773,37 +773,37 @@ int text_rows_count() {
 
 void scroll_to_cursor() {
     if free_scroll { return; }
-    int g = gutter();
-    int text_rows = text_rows_count();
+    i64 g = gutter();
+    i64 text_rows = text_rows_count();
     if cy < top { top = cy; }
     if cy >= top + text_rows { top = cy - text_rows + 1; }
-    int cc = col_of(lines[cy], cx);
-    int text_cols = cols - g;
+    i64 cc = col_of(lines[cy], cx);
+    i64 text_cols = cols - g;
     if cc < left { left = cc; }
     if cc >= left + text_cols { left = cc - text_cols + 1; }
 }
 
-String draw_line(int y) {
+String draw_line(i64 y) {
     String s = lines[y];
-    int[] k = kinds_of(s);
+    i64[] k = kinds_of(s);
     String e = esc();
     String out = bgs();
-    int g = gutter();
+    i64 g = gutter();
     if ruler {
         String num = str(y + 1);
         String pad = " ".repeat(g - 1 - num.len);
         if has_err(y) { out = out + rgb(0xFF5F5F) + pad + num + "!" + e + "[0m" + bgs(); }
         else { out = out + rgb(c_gut) + pad + num + " " + e + "[0m" + bgs(); }
     }
-    int col = 0;
-    int i = 0;
-    int last = 0 - 1;
+    i64 col = 0;
+    i64 i = 0;
+    i64 last = 0 - 1;
     bool rev = false;
-    int text_cols = cols - g;
+    i64 text_cols = cols - g;
     while i < s.len {
-        int n = next_char(s, i);
-        int c = s[i] & 255;
-        int w = 1;
+        i64 n = next_char(s, i);
+        i64 c = s[i] & 255;
+        i64 w = 1;
         if c == 9 { w = (col / tabsize + 1) * tabsize - col; }
         else if zero_width(s, i) { w = 0; }
         bool s_on = selected(y, i);
@@ -831,7 +831,7 @@ String ask(String prompt) {
     while true {
         String line = prompt + text;
         jout << e << "[" << str(rows) << ";1H" << e << "[7m" << line << " ".repeat(cols - line.len) << e << "[0m" << e << "[" << str(rows) << ";" << str(line.len + 1) << "H";
-        int k = read_key(0 - 1);
+        i64 k = read_key(0 - 1);
         if k == K_ENTER { return text; }
         if k == K_ESC { return ""; }
         if k == K_BS { if text.len > 0 { text = text.slice(0, prev_char(text, text.len)); } }
@@ -841,12 +841,12 @@ String ask(String prompt) {
 }
 
 // ---------------------------------------------------------------- the menu bar of the old programs (F10): File Edit Search Run Help
-int menu_on;                          // the open menu, -1 none (set at the start)
-int room(int n) { if n < 0 { return 0; } return n; }
-int menu_item;
+i64 menu_on;                          // the open menu, -1 none (set at the start)
+i64 room(i64 n) { if n < 0 { return 0; } return n; }
+i64 menu_item;
 String[] menu_names() { String[] n = arr(5); n.push("File"); n.push("Edit"); n.push("Search"); n.push("Run"); n.push("Help"); return n; }
 // "label|action" of the items of a menu
-String[] menu_list(int m) {
+String[] menu_list(i64 m) {
     String[] r = arr(8);
     if m == 0 { r.push("Save|save"); r.push("Examples...|examples"); r.push("Quit|quit"); }
     else if m == 1 { r.push("Undo|undo"); r.push("Redo|redo"); r.push("Cut|cut"); r.push("Copy|copy"); r.push("Paste|paste"); r.push("Select all|selectall"); r.push("Delete line|deleteline"); }
@@ -855,11 +855,11 @@ String[] menu_list(int m) {
     else { r.push("Keys  F1|keys"); r.push("About|about"); }
     return r;
 }
-String menu_label(String item) { int bar = 0 - 1; for i in 0..item.len { if item[i] == '|' { bar = i; } } return item.slice(0, bar); }
-String menu_action(String item) { int bar = 0 - 1; for i in 0..item.len { if item[i] == '|' { bar = i; } } return item.slice(bar + 1, item.len); }
-int menu_x(int m) {                    // the column (1-based) where the name of menu m starts
+String menu_label(String item) { i64 bar = 0 - 1; for i in 0..item.len { if item[i] == '|' { bar = i; } } return item.slice(0, bar); }
+String menu_action(String item) { i64 bar = 0 - 1; for i in 0..item.len { if item[i] == '|' { bar = i; } } return item.slice(bar + 1, item.len); }
+i64 menu_x(i64 m) {                    // the column (1-based) where the name of menu m starts
     String[] n = menu_names();
-    int x = 2;
+    i64 x = 2;
     for i in 0..m { x += n[i].len + 3; }
     return x;
 }
@@ -873,10 +873,10 @@ String draw_menubar() {
     f = f + line + " ".repeat(room(cols - line.len)) + e + "[0m";
     if menu_on >= 0 {
         String[] items = menu_list(menu_on);
-        int w = 0;
+        i64 w = 0;
         for i in 0..items.len { String lb = menu_label(items[i]); if lb.len > w { w = lb.len; } }
         w += 2;
-        int x = menu_x(menu_on) - 1;
+        i64 x = menu_x(menu_on) - 1;
         if x + w > cols { x = cols - w; }
         if x < 1 { x = 1; }
         // the open name is lit
@@ -892,12 +892,12 @@ String draw_menubar() {
 }
 
 // the log under the text: a title bar, then the last lines (a line with an error is red)
-String draw_pane(int row) {
+String draw_pane(i64 row) {
     String e = esc();
-    int n = pane.len;
-    int show = n;
+    i64 n = pane.len;
+    i64 show = n;
     if show > 8 { show = 8; }
-    int first = n - show;
+    i64 first = n - show;
     String t = " " + pane_title + "     Esc closes";
     String f = e + "[" + str(row) + ";1H" + e + "[48;2;0;0;128m" + e + "[38;2;255;255;255m" + t + " ".repeat(room(cols - t.len)) + e + "[0m";
     for i in 0..show {
@@ -917,13 +917,13 @@ void parse_errors(String[] ls) {
     err_i = 0;
     for i in 0..ls.len {
         String l = ls[i];
-        int at = 0;
+        i64 at = 0;
         bool found = false;
         while at + 9 <= l.len && !found { if l.slice(at, at + 9) == ": error: " { found = true; } else { at += 1; } }
         if !found { continue; }
         String[] parts = l.slice(0, at).split(":");
         if parts.len < 3 { continue; }
-        int ln = parts[parts.len - 2].to_int();
+        i64 ln = parts[parts.len - 2].to_int();
         if ln < 1 { continue; }
         err_line.push(ln - 1);
         err_msg.push(l.slice(at + 9, l.len) + "");
@@ -932,9 +932,9 @@ void parse_errors(String[] ls) {
 
 String[] text_lines(String text) {
     String[] ls = text.replace("\r", "").split("\n");
-    int last = ls.len;
+    i64 last = ls.len;
     while last > 0 && ls[last - 1].len == 0 { last -= 1; }          // the empty lines at the end go
-    int from = 0;
+    i64 from = 0;
     if last > 200 { from = last - 200; }
     String[] r = arr(16);
     for i in from..last { r.push(ls[i] + ""); }
@@ -956,7 +956,7 @@ void build_run(bool run) {
     String[] ls = text_lines(text);
     parse_errors(ls);
     pane_title = "Compile Log";
-    int nlines = ls.len;
+    i64 nlines = ls.len;
     pane = arr(4);
     for i in 0..nlines { pane.push(ls[i] + ""); }
     if err_line.len > 0 {
@@ -976,14 +976,14 @@ void build_run(bool run) {
     String out = "";
     if o.is_ok() { out = o.take(); }
     String[] outl = text_lines(out);
-    int nout = outl.len;
+    i64 nout = outl.len;
     pane = arr(4);
     for i in 0..nout { pane.push(outl[i] + ""); }
     pane_title = "Output of " + exe;
     msg = "ran " + exe;
 }
 
-String example_text(int n) {
+String example_text(i64 n) {
     String t = "#import <stdlib>\n\n";
     if n == 1 { t = t + "void main() {\n    jout << \"Hello from J2K!\\n\";\n}\n"; }
     else if n == 2 { t = t + "void main() {\n    int sum = 0;\n    for i in 1..11 { sum += i; }\n    jout << \"sum of 1 to 10 = \" << sum << \"\\n\";\n    int n = 0;\n    while n < 3 {\n        jout << \"n = \" << n << \"\\n\";\n        n += 1;\n    }\n}\n"; }
@@ -995,7 +995,7 @@ String example_text(int n) {
 
 void examples_menu() {
     String c = ask("example: 1 hello  2 loops  3 struct  4 read a file  5 arguments  > ").trim();
-    int n = c.to_int();
+    i64 n = c.to_int();
     if n < 1 || n > 5 { msg = "no such example"; return; }
     if dirty { msg = "save first (Ctrl-S): an example replaces the text"; return; }
     set_from_text(example_text(n));
@@ -1007,7 +1007,7 @@ void examples_menu() {
 void pane_text(String title, String body) {
     pane_title = title;
     String[] bl = text_lines(body);
-    int nb = bl.len;
+    i64 nb = bl.len;
     pane = arr(4);
     for i in 0..nb { pane.push(bl[i] + ""); }
     pane_on = true;
@@ -1026,7 +1026,7 @@ void menu_do(String act) {
         if a1.len == 0 { return; }
         String a2 = ask("with: ");
         begin_edit(0);
-        int n = 0;
+        i64 n = 0;
         for y in 0..lines.len {
             String l = lines[y];
             String nl = l.replace(a1, a2);
@@ -1041,7 +1041,7 @@ void menu_do(String act) {
 }
 
 // the keys while a menu is open
-void menu_key(int k) {
+void menu_key(i64 k) {
     if k == K_ESC || k == K_F + 10 { menu_on = 0 - 1; return; }
     if k == K_LEFT { menu_on = (menu_on + 4) % 5; menu_item = 0; return; }
     if k == K_RIGHT { menu_on = (menu_on + 1) % 5; menu_item = 0; return; }
@@ -1068,7 +1068,7 @@ void menu_click() {
     }
     if menu_on >= 0 {
         String[] items = menu_list(menu_on);
-        int i = m_y - 2;
+        i64 i = m_y - 2;
         if i >= 0 && i < items.len {
             String act = menu_action(items[i]);
             menu_on = 0 - 1;
@@ -1079,7 +1079,7 @@ void menu_click() {
     menu_on = 0 - 1;
 }
 
-void fkey(int n) {
+void fkey(i64 n) {
     if n == 5 { build_run(true); }
     else if n == 9 { build_run(false); }
     else if n == 11 { build_run(true); }
@@ -1092,9 +1092,9 @@ void draw() {
     scroll_to_cursor();
     String e = esc();
     String f = e + "[?25l";
-    int off = row_off();
+    i64 off = row_off();
     for r in 0..text_rows_count() {
-        int y = top + r;
+        i64 y = top + r;
         f = f + e + "[" + str(r + 1 + off) + ";1H";
         if y < lines.len { f = f + draw_line(y); }
         else { f = f + bgs() + rgb(c_gut) + "~" + e + "[0m" + bgs() + e + "[K"; }
@@ -1116,13 +1116,13 @@ void draw() {
     if dirty { name = name + " *"; }
     String right = "  " + str(cy + 1) + ":" + str(col_of(lines[cy], cx) + 1) + " ";
     String left_text = " " + name + "  " + msg;
-    int room = cols - right.len;
+    i64 room = cols - right.len;
     if left_text.len > room { left_text = left_text.slice(0, room); }
     String bar = left_text + " ".repeat(room - left_text.len) + right;
     f = f + e + "[" + str(rows) + ";1H" + e + "[7m" + bar + e + "[0m";
-    int g = gutter();
-    int sr = cy - top + 1 + off;
-    int sc = col_of(lines[cy], cx) - left + g + 1;
+    i64 g = gutter();
+    i64 sr = cy - top + 1 + off;
+    i64 sc = col_of(lines[cy], cx) - left + g + 1;
     if pop_on { f = f + draw_popup(sr, sc); }
     if menubar { f = f + draw_menubar(); }
     f = f + e + "[" + str(sr) + ";" + str(sc) + "H" + e + "[?25h";
@@ -1130,7 +1130,7 @@ void draw() {
 }
 
 // ---------------------------------------------------------------- the commands
-void move_to(int y, int x, bool extend) {
+void move_to(i64 y, i64 x, bool extend) {
     if extend { if !sel { sel = true; ay = cy; ax = cx; } }
     else { sel = false; }
     cy = y;
@@ -1138,11 +1138,11 @@ void move_to(int y, int x, bool extend) {
 }
 
 
-void find_next(String what, int from_y, int from_x) {
+void find_next(String what, i64 from_y, i64 from_x) {
     if what.len == 0 { return; }
     for step in 0..lines.len + 1 {
-        int y = (from_y + step) % lines.len;
-        int start = 0;
+        i64 y = (from_y + step) % lines.len;
+        i64 start = 0;
         if step == 0 { start = from_x; }
         String l = lines[y];
         for x in start..l.len + 1 {
@@ -1165,7 +1165,7 @@ void find_next(String what, int from_y, int from_x) {
 void newline() {
     if sel { delete_selection(); }
     String l = lines[cy];
-    int ind = 0;
+    i64 ind = 0;
     while ind < l.len && l[ind] == ' ' && ind < cx { ind += 1; }
     String head = l.slice(0, cx);
     String tail = l.slice(cx, l.len);
@@ -1175,7 +1175,7 @@ void newline() {
     if autoindent && head_trim.len > 0 && head[head.len - 1] == '{' { ind += tabsize; }
     lines[cy] = head;
     if between {                                                  // {|} : the closing brace goes to a line of its own, the cursor to an indented empty line
-        int base = ind - tabsize;
+        i64 base = ind - tabsize;
         if base < 0 { base = 0; }
         insert_line(cy + 1, " ".repeat(base) + tail);
         insert_line(cy + 1, " ".repeat(ind));
@@ -1191,7 +1191,7 @@ void newline() {
 }
 
 // ---------------------------------------------------------------- settings, key bindings, the command bar
-String letter_of(int k) {
+String letter_of(i64 k) {
     String l = "";
     l.push((char)(k + 96));
     return l;
@@ -1210,7 +1210,7 @@ void bind_default() {
 }
 // the key of an action, as ^S (the last binding of the action)
 String binding_key_of(String act) {
-    int i = bind_keys.len - 1;
+    i64 i = bind_keys.len - 1;
     while i >= 0 {
         if bind_acts[i] == act && bind_keys[i].starts_with("Ctrl-") && bind_keys[i].len == 6 {
             String k = "^";
@@ -1223,7 +1223,7 @@ String binding_key_of(String act) {
 }
 // the action of a key; the last binding of a key counts (the file of the user comes after the defaults)
 String binding(String key) {
-    int i = bind_keys.len - 1;
+    i64 i = bind_keys.len - 1;
     while i >= 0 {
         if bind_keys[i] == key { return bind_acts[i] + ""; }              // a copy (jcmp 1.0.0.0 gives away the String of the array itself: fixed after it)
         i -= 1;
@@ -1233,7 +1233,7 @@ String binding(String key) {
 bool on_off(String v) { return v == "on" || v == "true" || v == "yes" || v == "1"; }
 
 void set_option(String name, String val) {
-    if name == "tabsize" { int n = val.to_int(); if n >= 1 && n <= 16 { tabsize = n; } }
+    if name == "tabsize" { i64 n = val.to_int(); if n >= 1 && n <= 16 { tabsize = n; } }
     else if name == "tabstospaces" { use_spaces = on_off(val); }
     else if name == "ruler" { ruler = on_off(val); }
     else if name == "autoindent" { autoindent = on_off(val); }
@@ -1333,11 +1333,11 @@ void command_bar() {
     if cmd == "save" { save(); }
     else if cmd == "quit" { if dirty { msg = "unsaved changes: use Ctrl-Q twice, or  q!"; } else { quit_asked = 2; } }
     else if cmd == "q!" { quit_asked = 2; }
-    else if cmd == "goto" && w.len > 1 { int n = w[1].to_int(); if n < 1 { n = 1; } if n > lines.len { n = lines.len; } move_to(n - 1, 0, false); }
+    else if cmd == "goto" && w.len > 1 { i64 n = w[1].to_int(); if n < 1 { n = 1; } if n > lines.len { n = lines.len; } move_to(n - 1, 0, false); }
     else if cmd == "find" && w.len > 1 { find_next(c.slice(5, c.len), cy, cx + 1); }
     else if cmd == "replace" && w.len == 3 {
         begin_edit(0);
-        int n = 0;
+        i64 n = 0;
         for y in 0..lines.len {
             String l = lines[y];
             String nl = l.replace(w[1], w[2]);
@@ -1356,11 +1356,11 @@ void command_bar() {
 }
 
 // ---------------------------------------------------------------- the mouse
-void mouse_pos(int^ yy, int^ xx) {
-    int y = top + m_y - 1 - row_off();
+void mouse_pos(i64^ yy, i64^ xx) {
+    i64 y = top + m_y - 1 - row_off();
     if y >= lines.len { y = lines.len - 1; }
     if y < 0 { y = 0; }
-    int col = m_x - 1 - gutter() + left;
+    i64 col = m_x - 1 - gutter() + left;
     if col < 0 { col = 0; }
     yy[0] = y;
     xx[0] = byte_at_col(lines[y], col);
@@ -1376,15 +1376,15 @@ void on_mouse() {
         return;
     }
     if m_y > text_rows_count() + row_off() || m_y <= row_off() { return; }      // the bar, the log, the lines of keys and of status
-    int y = 0;
-    int x = 0;
+    i64 y = 0;
+    i64 x = 0;
     mouse_pos(@y, @x);
     if m_btn == 0 && m_press {
-        int now = Time::now_ms();
+        i64 now = Time::now_ms();
         if now - click_time < 400 && y == click_y && x == click_x {   // a double click takes the word
             String l = lines[y];
-            int a = x;
-            int b = x;
+            i64 a = x;
+            i64 b = x;
             while a > 0 && is_word(l[a - 1] & 255) { a -= 1; }
             while b < l.len && is_word(l[b] & 255) { b += 1; }
             if b > a { sel = true; ay = y; ax = a; cy = y; cx = b; }
@@ -1403,11 +1403,11 @@ void on_mouse() {
 
 // ( ) [ ] { } " ' : typing the first one closes it; typing the closing one when it is the next character only steps over it.
 // Returns true when the key was taken here.
-bool type_pair(int c) {
+bool type_pair(i64 c) {
     String line = lines[cy];
-    int next = 0;
+    i64 next = 0;
     if cx < line.len { next = line[cx] & 255; }
-    int prev = 0;
+    i64 prev = 0;
     if cx > 0 { prev = line[cx - 1] & 255; }
     if !sel && (c == ')' || c == ']' || c == '}' || c == '"' || c == 39) && next == c {
         cx += 1;
@@ -1435,7 +1435,7 @@ void update_popup() {
     pop_on = false;
     if !ext_j2k && xs_loaded.len == 0 { return; }
     String l = lines[cy];
-    int st = cx;
+    i64 st = cx;
     while st > 0 && is_word(l[st - 1] & 255) { st -= 1; }
     if cx - st < 2 || sel { return; }
     if cx < l.len && is_word(l[cx] & 255) { return; }
@@ -1457,17 +1457,17 @@ void accept_popup() {
     dirty = true;
     pop_on = false;
 }
-String draw_popup(int sr, int sc) {
+String draw_popup(i64 sr, i64 sc) {
     String e = esc();
     String f = "";
-    int n = pop_c.len;
-    int w = 0;
+    i64 n = pop_c.len;
+    i64 w = 0;
     for i in 0..n { if pop_c[i].len > w { w = pop_c[i].len; } }
     w += 2;
-    int col = sc - (cx - pop_st);
+    i64 col = sc - (cx - pop_st);
     if col + w > cols { col = cols - w; }
     if col < 1 { col = 1; }
-    int row = sr + 1;
+    i64 row = sr + 1;
     if row + n > text_rows_count() { row = sr - n; }
     if row < 1 { return ""; }
     for i in 0..n {
@@ -1478,7 +1478,7 @@ String draw_popup(int sr, int sc) {
     return f;
 }
 
-void handle_key(int k) {
+void handle_key(i64 k) {
     if k == K_ESC {                                                  // Esc leaves, like Ctrl-Q (an open menu or prompt took it before)
         if dirty && quit_asked == 0 { msg = "unsaved changes: Esc again leaves without saving (Ctrl-S saves)"; quit_asked = 1; return; }
         quit_asked = 2;
@@ -1507,8 +1507,8 @@ void handle_key(int k) {
         begin_edit(2);
         if sel { delete_selection(); return; }
         if autopair && cx > 0 && cx < lines[cy].len {
-            int pc = lines[cy][cx - 1] & 255;
-            int nc = lines[cy][cx] & 255;
+            i64 pc = lines[cy][cx - 1] & 255;
+            i64 nc = lines[cy][cx] & 255;
             bool pair = (pc == '(' && nc == ')') || (pc == '[' && nc == ']') || (pc == '{' && nc == '}') || (pc == '"' && nc == '"') || (pc == 39 && nc == 39);
             if pair {                                              // delete the pair
                 lines[cy] = lines[cy].slice(0, cx - 1) + lines[cy].slice(cx + 1, lines[cy].len);
@@ -1518,12 +1518,12 @@ void handle_key(int k) {
             }
         }
         if cx > 0 {
-            int p = prev_char(lines[cy], cx);
+            i64 p = prev_char(lines[cy], cx);
             lines[cy] = lines[cy].slice(0, p) + lines[cy].slice(cx, lines[cy].len);
             cx = p;
             dirty = true;
         } else if cy > 0 {
-            int len = lines[cy - 1].len;
+            i64 len = lines[cy - 1].len;
             lines[cy - 1] = lines[cy - 1] + lines[cy];
             remove_line(cy);
             cy -= 1;
@@ -1547,12 +1547,12 @@ void handle_key(int k) {
     }
     bool shift = k >= K_UP + K_SHIFT && k <= K_END + K_SHIFT;
     bool ctrl = k >= K_UP + K_CTRL && k <= K_END + K_CTRL;
-    int base = k;
+    i64 base = k;
     if shift { base = k - K_SHIFT; }
     if ctrl { base = k - K_CTRL; }
     if base == K_LEFT {
         if ctrl {
-            int x = cx;
+            i64 x = cx;
             while x > 0 && lines[cy][x - 1] == ' ' { x -= 1; }
             while x > 0 && lines[cy][x - 1] != ' ' { x -= 1; }
             move_to(cy, x, shift);
@@ -1563,7 +1563,7 @@ void handle_key(int k) {
     }
     if base == K_RIGHT {
         if ctrl {
-            int x = cx;
+            i64 x = cx;
             while x < lines[cy].len && lines[cy][x] != ' ' { x += 1; }
             while x < lines[cy].len && lines[cy][x] == ' ' { x += 1; }
             move_to(cy, x, shift);
@@ -1573,19 +1573,19 @@ void handle_key(int k) {
         return;
     }
     if base == K_UP || base == K_DOWN || k == K_PGUP || k == K_PGDN {
-        int step = 1;
+        i64 step = 1;
         if k == K_PGUP || k == K_PGDN { step = rows - 2; }
-        int ny = cy + step;
+        i64 ny = cy + step;
         if base == K_UP || k == K_PGUP { ny = cy - step; }
         if ny < 0 { ny = 0; }
         if ny >= lines.len { ny = lines.len - 1; }
-        int want = col_of(lines[cy], cx);
+        i64 want = col_of(lines[cy], cx);
         move_to(ny, byte_at_col(lines[ny], want), shift);
         return;
     }
     if base == K_HOME {
         if ctrl { move_to(0, 0, shift); return; }
-        int ind = 0;
+        i64 ind = 0;
         while ind < lines[cy].len && lines[cy][ind] == ' ' { ind += 1; }
         if cx == ind { ind = 0; }
         move_to(cy, ind, shift);
@@ -1648,7 +1648,7 @@ void handle_key(int k) {
     if act == "goto" {                                              // Ctrl-G: go to a line
         String g = ask("line: ");
         if g.len > 0 {
-            int n = g.to_int();
+            i64 n = g.to_int();
             if n < 1 { n = 1; }
             if n > lines.len { n = lines.len; }
             move_to(n - 1, 0, false);
@@ -1657,7 +1657,7 @@ void handle_key(int k) {
     }
 }
 
-void handle(int k) {
+void handle(i64 k) {
     if menu_on >= 0 { menu_key(k); return; }
     if k == K_MOUSE && menubar && m_y == 1 && m_press { menu_click(); return; }
     if k == K_ESC && pane_on { pane_on = false; return; }
@@ -1675,7 +1675,7 @@ void handle(int k) {
 
 // ---------------------------------------------------------------- coderin -ex : extensions from the repository of the tools (downloaded with jget)
 String ex_base() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/extensions"; }
-int jget_to(String url, String file) {
+i64 jget_to(String url, String file) {
     String[] ja = arr(4);
     ja.push("-q"); ja.push(url); ja.push("-o"); ja.push(file);
     switch Proc::run("jget", ja) {
@@ -1684,7 +1684,7 @@ int jget_to(String url, String file) {
     }
     return 127;
 }
-int ex_mode(String[] a) {
+i64 ex_mode(String[] a) {
     if a.len < 3 {                                                   // coderin -ex : the list
         String idx = config_dir() + "/.index";
         Dir::make_all(config_dir());
@@ -1710,7 +1710,7 @@ int ex_mode(String[] a) {
     }
     Dir::make_all(dir);
     String[] fs = "snippets words commands".split(" ");
-    int got = 0;
+    i64 got = 0;
     for i in 0..fs.len {
         if jget_to(ex_base() + "/" + name + "/" + fs[i], dir + "/" + fs[i]) == 0 { got += 1; } else { Fs::remove(dir + "/" + fs[i]); }
     }
@@ -1719,7 +1719,7 @@ int ex_mode(String[] a) {
     return 0;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "coderin 0.5.1\n"; return 0; }
     if a.len > 1 && (a[1] == "--help" || a[1] == "-h") {
@@ -1756,10 +1756,10 @@ int main() {
     if mouse_on { jout << e << "[?1000h" << e << "[?1002h" << e << "[?1006h"; }
     while quit_asked != 2 {
         draw();
-        int k = read_key(200);
+        i64 k = read_key(200);
         if k == 0 - 2 {
-            int orows = rows;
-            int ocols = cols;
+            i64 orows = rows;
+            i64 ocols = cols;
             read_size();
             if orows != rows || ocols != cols { jout << bgs() << e << "[2J"; }
             continue;

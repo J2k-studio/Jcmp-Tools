@@ -6,28 +6,28 @@
 String calc_version() { return "0.1.1"; }
 
 // ---- the result of the last parse: an integer or a double
-int r_i;
+i64 r_i;
 double r_d;
 bool r_f;                               // true: the value is r_d
 
 String src;                             // the line being read
-int pos;
+i64 pos;
 String err;                             // the message of the first error ("" = none)
 String[] var_name;
-int[] var_i;
+i64[] var_i;
 double[] var_d;
 bool[] var_f;
 bool vars_ready;
-int ans_i;
+i64 ans_i;
 double ans_d;
 bool ans_f;
 
 void fail_at(String msg) { if err.len == 0 { err = msg + ""; } }
 
-void set_int(int v) { r_i = v; r_f = false; }
+void set_int(i64 v) { r_i = v; r_f = false; }
 void set_dbl(double v) { r_d = v; r_f = true; }
 double as_d() { if r_f { return r_d; } return (double)r_i; }
-int as_i() { if r_f { return (int)r_d; } return r_i; }
+i64 as_i() { if r_f { return (i64)r_d; } return r_i; }
 
 void skip_ws() { while pos < src.len && (src[pos] == ' ' || src[pos] == 9) { pos += 1; } }
 
@@ -50,7 +50,7 @@ bool op_is(String o) {                  // the operator o is next
     return true;
 }
 
-int digit_val(char c) {
+i64 digit_val(char c) {
     if c >= '0' && c <= '9' { return c - '0'; }
     if c >= 'a' && c <= 'z' { return c - 'a' + 10; }
     if c >= 'A' && c <= 'Z' { return c - 'A' + 10; }
@@ -62,14 +62,14 @@ bool is_name_char(char c) { return is_name_start(c) || (c >= '0' && c <= '9'); }
 
 // ---- numbers
 void parse_number() {
-    int start = pos;
-    int base = 10;
+    i64 start = pos;
+    i64 base = 10;
     if pos + 1 < src.len && src[pos] == '0' && (src[pos + 1] == 'x' || src[pos + 1] == 'X') { base = 16; pos += 2; }
     else if pos + 1 < src.len && src[pos] == '0' && (src[pos + 1] == 'b' || src[pos + 1] == 'B') { base = 2; pos += 2; }
     else if pos + 1 < src.len && src[pos] == '0' && (src[pos + 1] == 'o' || src[pos + 1] == 'O') { base = 8; pos += 2; }
     if base != 10 {
-        int v = 0;
-        int n = 0;
+        i64 v = 0;
+        i64 n = 0;
         while pos < src.len && (digit_val(src[pos]) < base || src[pos] == '_') {
             if src[pos] != '_' { v = v * base + digit_val(src[pos]); n += 1; }
             pos += 1;
@@ -79,7 +79,7 @@ void parse_number() {
         return;
     }
     // decimal digits; 16#ff names the base first
-    int v = 0;
+    i64 v = 0;
     bool dot = false;
     bool expo = false;
     while pos < src.len {
@@ -93,10 +93,10 @@ void parse_number() {
         else { break; }
     }
     if pos < src.len && src[pos] == '#' && !dot && v >= 2 && v <= 36 {
-        int b = v;
+        i64 b = v;
         pos += 1;
-        int w = 0;
-        int n = 0;
+        i64 w = 0;
+        i64 n = 0;
         while pos < src.len && (digit_val(src[pos]) < b || src[pos] == '_') {
             if src[pos] != '_' { w = w * b + digit_val(src[pos]); n += 1; }
             pos += 1;
@@ -111,28 +111,28 @@ void parse_number() {
 }
 
 // ---- names: constants, variables, functions
-int find_var(String n) {
+i64 find_var(String n) {
     for i in 0..var_name.len { if var_name[i] == n { return i; } }
     return 0 - 1;
 }
 
-void set_var(String n, bool f, int i, double d) {
-    int k = find_var(n);
+void set_var(String n, bool f, i64 i, double d) {
+    i64 k = find_var(n);
     if k < 0 { var_name.push(n + ""); var_i.push(i); var_d.push(d); var_f.push(f); return; }
     var_i[k] = i; var_d[k] = d; var_f[k] = f;
 }
 
-int gcd_i(int a, int b) {
+i64 gcd_i(i64 a, i64 b) {
     if a < 0 { a = 0 - a; }
     if b < 0 { b = 0 - b; }
-    while b != 0 { int t = a % b; a = b; b = t; }
+    while b != 0 { i64 t = a % b; a = b; b = t; }
     return a;
 }
 
 void call_function(String n) {
     // arguments: expr, expr ...
-    double a0 = 0.0; double a1 = 0.0; int i0 = 0; int i1 = 0; bool f0 = false; bool f1 = false;
-    int argc = 0;
+    double a0 = 0.0; double a1 = 0.0; i64 i0 = 0; i64 i1 = 0; bool f0 = false; bool f1 = false;
+    i64 argc = 0;
     skip_ws();
     if pos < src.len && src[pos] == ')' { pos += 1; }
     else {
@@ -166,10 +166,10 @@ void call_function(String n) {
     else if n == "log" || n == "log10" { if a0 <= 0.0 { fail_at("log needs a positive number"); return; } set_dbl(Math::log10(a0)); }
     else if n == "log2" { if a0 <= 0.0 { fail_at("log2 needs a positive number"); return; } set_dbl(Math::log2(a0)); }
     else if n == "abs" { if f0 { set_dbl(Math::abs(a0)); } else { if i0 < 0 { set_int(0 - i0); } else { set_int(i0); } } }
-    else if n == "floor" { set_int((int)Math::floor(a0)); }
-    else if n == "ceil" { set_int((int)Math::ceil(a0)); }
-    else if n == "round" { set_int((int)Math::round(a0)); }
-    else if n == "trunc" { set_int((int)Math::trunc(a0)); }
+    else if n == "floor" { set_int((i64)Math::floor(a0)); }
+    else if n == "ceil" { set_int((i64)Math::ceil(a0)); }
+    else if n == "round" { set_int((i64)Math::round(a0)); }
+    else if n == "trunc" { set_int((i64)Math::trunc(a0)); }
     else if n == "deg" { set_dbl(Math::degrees(a0)); }
     else if n == "rad" { set_dbl(Math::radians(a0)); }
     else if n == "pow" { set_dbl(Math::pow(a0, a1)); }
@@ -177,15 +177,15 @@ void call_function(String n) {
     else if n == "min" { if a0 < a1 { if f0 { set_dbl(a0); } else { set_int(i0); } } else { if f1 { set_dbl(a1); } else { set_int(i1); } } }
     else if n == "max" { if a0 > a1 { if f0 { set_dbl(a0); } else { set_int(i0); } } else { if f1 { set_dbl(a1); } else { set_int(i1); } } }
     else if n == "gcd" { set_int(gcd_i(i0, i1)); }
-    else if n == "lcm" { int g = gcd_i(i0, i1); if g == 0 { set_int(0); } else { int l = i0 / g * i1; if l < 0 { l = 0 - l; } set_int(l); } }
+    else if n == "lcm" { i64 g = gcd_i(i0, i1); if g == 0 { set_int(0); } else { i64 l = i0 / g * i1; if l < 0 { l = 0 - l; } set_int(l); } }
     else if n == "fact" {
         if i0 < 0 || i0 > 20 { fail_at("fact is for 0 .. 20 (bigger does not fit in 64 bits)"); return; }
-        int p = 1;
+        i64 p = 1;
         for k in 2..i0 + 1 { p = p * k; }
         set_int(p);
     }
-    else if n == "popcount" { int c = 0; int x = i0; for k in 0..64 { c += (x >> k) & 1; } set_int(c); }
-    else if n == "bswap" { int x = i0; int y = 0; for k in 0..8 { y = (y << 8) | ((x >> (k * 8)) & 255); } set_int(y); }
+    else if n == "popcount" { i64 c = 0; i64 x = i0; for k in 0..64 { c += (x >> k) & 1; } set_int(c); }
+    else if n == "bswap" { i64 x = i0; i64 y = 0; for k in 0..8 { y = (y << 8) | ((x >> (k * 8)) & 255); } set_int(y); }
     else { fail_at("no function " + n); }
 }
 
@@ -206,7 +206,7 @@ void parse_primary() {
         return;
     }
     if is_name_start(c) {
-        int start = pos;
+        i64 start = pos;
         while pos < src.len && is_name_char(src[pos]) { pos += 1; }
         String n = src.slice(start, pos);
         skip_ws();
@@ -217,7 +217,7 @@ void parse_primary() {
         if n == "true" { set_int(1); return; }
         if n == "false" { set_int(0); return; }
         if n == "ans" { if ans_f { set_dbl(ans_d); } else { set_int(ans_i); } return; }
-        int k = find_var(n);
+        i64 k = find_var(n);
         if k < 0 { fail_at("no name " + n + " (x = 5 makes a variable)"); return; }
         if var_f[k] { set_dbl(var_d[k]); } else { set_int(var_i[k]); }
         return;
@@ -239,11 +239,11 @@ void parse_power() {                    // ** binds tighter than the signs on it
     if err.len > 0 { return; }
     if op_is("**") {
         pos += 2;
-        bool lf = r_f; double ld = r_d; int li = r_i;
+        bool lf = r_f; double ld = r_d; i64 li = r_i;
         parse_unary();
         if err.len > 0 { return; }
         if !lf && !r_f && r_i >= 0 {
-            int p = 1;
+            i64 p = 1;
             for k in 0..r_i { p = p * li; }
             set_int(p);
         } else {
@@ -259,7 +259,7 @@ void parse_mul() {
     while err.len == 0 {
         skip_ws();
         if pos >= src.len { return; }
-        bool lf = r_f; double ld = r_d; int li = r_i;
+        bool lf = r_f; double ld = r_d; i64 li = r_i;
         bool is_pow = op_is("**");
         bool is_fd = op_is("//");
         bool is_mul = op_is("*");
@@ -269,8 +269,8 @@ void parse_mul() {
         if is_pow { return; }
         if is_fd {
             pos += 2; parse_unary(); if err.len > 0 { return; }
-            if !lf && !r_f { if r_i == 0 { fail_at("division by zero"); return; } int q = li / r_i; if (li % r_i != 0) && ((li < 0) != (r_i < 0)) { q -= 1; } set_int(q); }
-            else { double dv = as_d(); if dv == 0.0 { fail_at("division by zero"); return; } double base = (double)li; if lf { base = ld; } set_int((int)Math::floor(base / dv)); }
+            if !lf && !r_f { if r_i == 0 { fail_at("division by zero"); return; } i64 q = li / r_i; if (li % r_i != 0) && ((li < 0) != (r_i < 0)) { q -= 1; } set_int(q); }
+            else { double dv = as_d(); if dv == 0.0 { fail_at("division by zero"); return; } double base = (double)li; if lf { base = ld; } set_int((i64)Math::floor(base / dv)); }
         } else if is_mul {
             pos += 1; parse_unary(); if err.len > 0 { return; }
             if !lf && !r_f { set_int(li * r_i); } else { double base = (double)li; if lf { base = ld; } set_dbl(base * as_d()); }
@@ -298,7 +298,7 @@ void parse_add() {
     while err.len == 0 {
         skip_ws();
         if pos >= src.len { return; }
-        bool lf = r_f; double ld = r_d; int li = r_i;
+        bool lf = r_f; double ld = r_d; i64 li = r_i;
         bool plus = op_is("+");
         bool minus = op_is("-");
         if !plus && !minus { return; }
@@ -313,7 +313,7 @@ void parse_add() {
 void parse_shift() {
     parse_add();
     while err.len == 0 {
-        int li = as_i();
+        i64 li = as_i();
         if op_is("<<") { pos += 2; parse_add(); if err.len > 0 { return; } set_int(li << as_i()); }
         else if op_is(">>") { pos += 2; parse_add(); if err.len > 0 { return; } set_int(li >> as_i()); }
         else { return; }
@@ -332,7 +332,7 @@ void parse_cmp() {
         bool shr = op_is(">>");
         bool eq = op_is("==");
         bool ne = op_is("!=");
-        int kind = 0;
+        i64 kind = 0;
         if le { kind = 1; } else if ge { kind = 2; } else if lt && !shl { kind = 3; } else if gt && !shr { kind = 4; } else if eq { kind = 5; } else if ne { kind = 6; }
         if kind == 0 { return; }
         if kind <= 2 || kind >= 5 { pos += 2; } else { pos += 1; }
@@ -348,7 +348,7 @@ void parse_cmp() {
 void parse_and() {
     parse_cmp();
     while err.len == 0 {
-        int li = as_i();
+        i64 li = as_i();
         bool w_and = word_is("and");
         bool amp = op_is("&");
         bool amp2 = op_is("&&");
@@ -364,7 +364,7 @@ void parse_and() {
 void parse_xor() {
     parse_and();
     while err.len == 0 {
-        int li = as_i();
+        i64 li = as_i();
         if word_is("xor") { pos += 3; parse_and(); if err.len > 0 { return; } set_int(li xor as_i()); }
         else { return; }
     }
@@ -373,7 +373,7 @@ void parse_xor() {
 void parse_or() {
     parse_xor();
     while err.len == 0 {
-        int li = as_i();
+        i64 li = as_i();
         bool w_or = word_is("or");
         bool bar = op_is("|");
         bool bar2 = op_is("||");
@@ -387,17 +387,17 @@ void parse_or() {
 }
 
 // ---- output
-String to_base(int v, int base, int bits) {              // v as an unsigned number of 64 bits in this base
+String to_base(i64 v, i64 base, i64 bits) {              // v as an unsigned number of 64 bits in this base
     if v == 0 { return "0"; }
     String digits = "0123456789abcdef";
     String out = "";
-    int shift = 4;
+    i64 shift = 4;
     if base == 2 { shift = 1; }
     if base == 8 { shift = 3; }
-    int x = v;
-    int count = 0;
+    i64 x = v;
+    i64 count = 0;
     while count < 64 && x != 0 {
-        int d = x & (base - 1);
+        i64 d = x & (base - 1);
         out = digits.slice(d, d + 1) + out;
         x = (x >> shift) & ((1 << (64 - shift)) - 1);   // a shift that does not copy the sign
         count += shift;
@@ -409,7 +409,7 @@ String group4(String bin) {                              // 11111111 -> 1111_111
     String padded = bin + "";
     while padded.len % 4 != 0 { padded = "0" + padded; }
     String out = "";
-    int n = padded.len;
+    i64 n = padded.len;
     for i in 0..n {
         if i > 0 && (n - i) % 4 == 0 { out.push('_'); }
         out.push(padded[i]);
@@ -425,18 +425,18 @@ String fmt_double(double d) {
     String sign = "";
     if d < 0.0 { sign = "-"; d = 0.0 - d; }
     if d == 0.0 { return "0"; }
-    int e10 = 0;
+    i64 e10 = 0;
     if d >= 1e15 || d < 1e-5 {
         while d >= 10.0 { d = d / 10.0; e10 += 1; }
         while d < 1.0 { d = d * 10.0; e10 -= 1; }
     }
     d = d + 0.0000000000005;
-    int ip = (int)Math::floor(d);
+    i64 ip = (i64)Math::floor(d);
     double frac = d - (double)ip;
     String f = "";
     for k in 0..12 {
         frac = frac * 10.0;
-        int dg = (int)frac;
+        i64 dg = (i64)frac;
         f.push((char)('0' + dg));
         frac = frac - (double)dg;
     }
@@ -460,18 +460,18 @@ void show_result(bool quiet) {
 }
 
 // one line: "x = expr" makes a variable, anything else is shown
-int eval_line(String line, bool quiet) {
+i64 eval_line(String line, bool quiet) {
     src = line + "";
     pos = 0;
     err = "";
     skip_ws();
     if src.len == 0 { return 0; }
     // NAME = expr
-    int p = pos;
+    i64 p = pos;
     if is_name_start(src[p]) {
-        int q = p;
+        i64 q = p;
         while q < src.len && is_name_char(src[q]) { q += 1; }
-        int w = q;
+        i64 w = q;
         while w < src.len && (src[w] == ' ' || src[w] == 9) { w += 1; }
         if w < src.len && src[w] == '=' && !(w + 1 < src.len && src[w + 1] == '=') {
             String name = src.slice(p, q);
@@ -499,7 +499,7 @@ String read_line(bool^ eof) {
     String out = "";
     char one[2];
     while true {
-        int n = Sys::read(0, @one, 1);
+        i64 n = Sys::read(0, @one, 1);
         if n <= 0 { eof[0] = true; return out; }
         if one[0] == 10 { return out; }
         if one[0] != 13 { out.push(one[0]); }
@@ -515,7 +515,7 @@ void help() {
     jout << "  a whole number is shown in decimal, hex, binary and octal.   -q  only the value\n";
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     var_name = arr(8); var_i = arr(8); var_d = arr(8); var_f = arr(8);
     bool quiet = false;
@@ -530,7 +530,7 @@ int main() {
     if expr.len > 0 { return eval_line(expr, quiet); }
     bool tty = Sys::isatty(0) == 0;
     if tty { jout << "calc " << calc_version() << "  (calc --help; exit, quit or Ctrl-D leaves)\n"; }
-    int rc = 0;
+    i64 rc = 0;
     while true {
         if tty { jout << "calc> "; }
         bool eof = false;

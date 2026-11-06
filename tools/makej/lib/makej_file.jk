@@ -1,7 +1,7 @@
 #import <stdlib>
 #import <makej>
 
-int main() {
+i64 main() {
     Build b = Build::from_file("makej");
     return b.run();
 }

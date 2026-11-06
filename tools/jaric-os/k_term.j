@@ -3,11 +3,11 @@
 void term_redraw() {
     wallpaper();
     draw_bar(0x6c616e696d726554, 0);
-    int bgc = rgb(8, 10, 20);
+    i64 bgc = rgb(8, 10, 20);
     fill(0, 76, scrW, scrH - 76, bgc);
     for r in 0..vrows {
         for c in 0..cols {
-            int ch = gcells[r * cols + c] & 255;
+            i64 ch = gcells[r * cols + c] & 255;
             if ch > 32 && ch < 127 { draw_cell(c, r, ch, 0, gcol[r * cols + c]); }
         }
     }
@@ -48,25 +48,25 @@ void phone() {
         keyboard(0);
         draw_home();
         at_home = 1;
-        int r = wait_event();
+        i64 r = wait_event();
         at_home = 0;
         if r != 1 {
             if ev_key == 4 { power_off(); }                  // the end of the input (Ctrl-D): the machine is turned off
             continue;
         }
-        int app = 0 - 1;
+        i64 app = 0 - 1;
         if tap_y < 44 && tap_x > 300 { control_panel(); continue; }              // a tap on the status line: the control panel
         if tap_y >= scrH - 230 && tap_y < scrH - 70 && tap_x >= 50 {
-            int d = (tap_x - 50) / 118;
+            i64 d = (tap_x - 50) / 118;
             if d >= 0 && d < 4 && (tap_x - 50) % 118 < 88 { app = d; }
         } else if tap_y >= 390 && tap_y < scrH - 240 {
-            int row = (tap_y - 390) / 160;
-            int col = tap_x / 135;
-            int a = 4 + row * 4 + col;
+            i64 row = (tap_y - 390) / 160;
+            i64 col = tap_x / 135;
+            i64 a = 4 + row * 4 + col;
             if a < napps { app = a; }
         }
         if app < 0 { continue; }
-        int kd = akind[app];
+        i64 kd = akind[app];
         if kd == 0 { app_terminal(); }
         else if kd == 1 { app_files(); }
         else if kd == 2 { app_clock(); }

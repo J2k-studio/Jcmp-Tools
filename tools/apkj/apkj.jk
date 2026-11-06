@@ -14,14 +14,14 @@
 
 String apkj_version() { return "0.2.0"; }
 
-int do_zip(String[] a) {
+i64 do_zip(String[] a) {
     if a.len < 4 { jerr << "usage: apkj zip OUT.zip [-z] NAME=FILE...\n"; return 2; }
     bool deflate = false;
     zw_start();
-    int count = 0;
+    i64 count = 0;
     for i in 3..a.len {
         if a[i] == "-z" { deflate = true; continue; }
-        int eq = a[i].find("=");
+        i64 eq = a[i].find("=");
         if eq <= 0 { jerr << "apkj: '" << a[i] << "' is not NAME=FILE\n"; return 2; }
         String name = a[i].slice(0, eq) + "";
         String file = a[i].slice(eq + 1, a[i].len) + "";
@@ -46,13 +46,13 @@ String toml_value(String text, String key) {
     for i in 0..lines.len {
         String ln = lines[i].trim();
         if ln.len == 0 || ln[0] == '#' { continue; }
-        int eq = ln.find("=");
+        i64 eq = ln.find("=");
         if eq <= 0 { continue; }
         if ln.slice(0, eq).trim() != key { continue; }
         String v = ln.slice(eq + 1, ln.len).trim();
-        int hash = v.find(" #");
+        i64 hash = v.find(" #");
         if hash > 0 && v[0] != '"' { v = v.slice(0, hash).trim(); }
-        if v.len >= 2 && v[0] == '"' { int close = v.slice(1, v.len).find("\""); if close >= 0 { return v.slice(1, 1 + close) + ""; } }
+        if v.len >= 2 && v[0] == '"' { i64 close = v.slice(1, v.len).find("\""); if close >= 0 { return v.slice(1, 1 + close) + ""; } }
         return v + "";
     }
     return "";
@@ -69,12 +69,12 @@ String build_manifest(String toml) {
     if name.len == 0 || id.len == 0 || ver.len == 0 { jerr << "apkj: manifest.toml needs name, id and version\n"; return ""; }
     if id.find(".") < 0 { jerr << "apkj: the id in manifest.toml needs a dot (for example com.you.myapp), got: " << id << "\n"; return ""; }
     String[] parts = ver.split(".");
-    int code = 0;
+    i64 code = 0;
     if parts.len > 0 { code = parts[0].to_int() * 10000; }
     if parts.len > 1 { code += parts[1].to_int() * 100; }
     if parts.len > 2 { code += parts[2].to_int(); }
     if code < 1 { code = 1; }
-    int orientation = 0;                                   // 0 landscape
+    i64 orientation = 0;                                   // 0 landscape
     if orient == "portrait" { orientation = 1; }
     String act = "com.j2k.gamerun.GameActivity";
     if render == "gl" { act = "com.j2k.gamerun.GlGameActivity"; }
@@ -126,7 +126,7 @@ String build_manifest(String toml) {
     return axml_end();
 }
 
-int do_manifest(String[] a) {
+i64 do_manifest(String[] a) {
     if a.len < 4 { jerr << "usage: apkj manifest manifest.toml OUT.xml\n"; return 2; }
     String toml = "";
     switch Fs::read_text(a[2] + "") {
@@ -178,7 +178,7 @@ String default_key_path() {
 String empty_arsc() { return d_hex("02000c00280000000000000001001c001c0000000000000000000000000100001c00000000000000"); }
 
 // apkj build manifest.toml OUT.apk [-k KEY] NAME=FILE...   (classes.dex and resources.arsc are added when not given; the files: lib/arm64-v8a/libgame.so, assets/...)
-int do_build(String[] a) {
+i64 do_build(String[] a) {
     if a.len < 4 { jerr << "usage: apkj build manifest.toml OUT.apk [-k KEYFILE] NAME=FILE...\n"; return 2; }
     String keyfile = default_key_path();
     String toml = "";
@@ -195,7 +195,7 @@ int do_build(String[] a) {
     bool have_dex = false;
     for i in 4..a.len {
         if a[i] == "-k" && i + 1 < a.len { keyfile = a[i + 1] + ""; i += 1; continue; }
-        int eq = a[i].find("=");
+        i64 eq = a[i].find("=");
         if eq <= 0 { jerr << "apkj: '" << a[i] << "' is not NAME=FILE\n"; return 2; }
         String name = a[i].slice(0, eq) + "";
         String file = a[i].slice(eq + 1, a[i].len) + "";
@@ -243,7 +243,7 @@ int do_build(String[] a) {
 }
 
 // apkj key [FILE]: makes the signing key when it is not there, and tells where it is and its fingerprint
-int do_key(String[] a) {
+i64 do_key(String[] a) {
     String path = default_key_path();
     if a.len > 2 { path = a[2] + ""; }
     P256 c;
@@ -255,7 +255,7 @@ int do_key(String[] a) {
     return 0;
 }
 
-int do_selftest() {
+i64 do_selftest() {
     P256 c;
     p256_init(@c);
     char d[32];
@@ -266,7 +266,7 @@ int do_selftest() {
     char s[32];
     p256_new_key(@c, (char^)@d);
     if !p256_public(@c, (char^)@d, (char^)@qx, (char^)@qy) { jerr << "apkj: public key failed\n"; return 1; }
-    int bad = 0;
+    i64 bad = 0;
     for m in 0..5 {
         char msg[8];
         msg[0] = (char)(65 + m);
@@ -280,7 +280,7 @@ int do_selftest() {
     return bad;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "apkj " << apkj_version() << "\n"; return 0; }
     if a.len > 1 && a[1] == "selftest" { return do_selftest(); }

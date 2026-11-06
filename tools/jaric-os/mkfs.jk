@@ -4,11 +4,11 @@
 // (name 48 bytes with zeros at the end, first sector 8 bytes, size in bytes 8 bytes, little endian); 9 .. = the data, each file starts at a sector.
 #import <stdlib>
 
-void put64(String img, int at, int v) {
+void put64(String img, i64 at, i64 v) {
     for k in 0..8 { img[at + k] = (char)((v >> (k * 8)) & 255); }
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     if a.len < 3 { jerr << "usage: jfs_mkfs IMAGE FOLDER [SECTORS [FILE...]]\n"; return 2; }
     Result<String[], Error> lr = Dir::list(a[2]);
@@ -19,7 +19,7 @@ int main() {
     String[] alln = arr(70);
     for i in 0..names.len { allp.push(a[2] + "/" + names[i]); alln.push(names[i]); }
     for e in 4..a.len {                                          // more files (full paths): they are put in the disk under their own names
-        int sl = 0;
+        i64 sl = 0;
         for k in 0..a[e].len { if a[e][k] == '/' { sl = k + 1; } }
         String nm = "";
         for k in sl..a[e].len { nm.push(a[e][k]); }
@@ -28,23 +28,23 @@ int main() {
     }
     String img = "";
     for i in 0..9 * 512 { img.push((char)0); }                  // super block and directory
-    int next = 9;                                                // the next free sector
-    int count = 0;
+    i64 next = 9;                                                // the next free sector
+    i64 count = 0;
     String data = "";
     for i in 0..alln.len {
         String p = allp[i];
-        int nl = alln[i].len;
+        i64 nl = alln[i].len;
         bool is_pkg = nl > 3 && alln[i][nl - 3] == '.' && alln[i][nl - 2] == 'j' && alln[i][nl - 1] == 'c';      // the packages are opened by the host: only what is in them goes on the disk
         if Dir::exists(p) || nl == 0 || nl > 47 || count >= 64 || is_pkg { continue; }
         Result<String, Error> fr = Fs::read_bytes(p);
         if !fr.is_ok() { continue; }
         String body = fr.take();
-        int at = 512 + count * 64;
+        i64 at = 512 + count * 64;
         for k in 0..alln[i].len { img[at + k] = alln[i][k]; }
         put64(img, at + 48, next);
         put64(img, at + 56, body.len);
         data = data + body;
-        int pad = (512 - body.len % 512) % 512;
+        i64 pad = (512 - body.len % 512) % 512;
         for k in 0..pad { data.push((char)0); }
         next += (body.len + 511) / 512;
         count += 1;
@@ -54,10 +54,10 @@ int main() {
     put64(img, 8, count);
     put64(img, 16, 9);
     img = img + data;
-    int sectors = img.len / 512;
+    i64 sectors = img.len / 512;
     if a.len >= 4 && a[3].to_int() > sectors { sectors = a[3].to_int(); }
     while img.len < sectors * 512 { img.push((char)0); }
-    Result<int, Error> w = Fs::write_bytes(a[1], img);
+    Result<i64, Error> w = Fs::write_bytes(a[1], img);
     if !w.is_ok() { jerr << "jfs_mkfs: cannot write " << a[1] << "\n"; return 1; }
     jout << a[1] << ": " << count << " files, " << sectors << " sectors\n";
     return 0;

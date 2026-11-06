@@ -13,19 +13,19 @@ void osc(String body) { jout << "\e]7777;island;" << body << "\a"; }
 // the name this program was started under (timer and alarm are links to island): the last part of argv[0]
 String program_name(String[] a) {
     String path = a[0] + "";
-    int cut = -1;
+    i64 cut = -1;
     for i in 0..path.len { if path[i] == '/' { cut = i; } }
     return path.slice(cut + 1, path.len) + "";
 }
 
 // "5m", "90s", "1h30m", "2h", "45" (seconds) in seconds; -1 when it is not a duration
-int duration(String t) {
-    int total = 0;
-    int cur = 0;
+i64 duration(String t) {
+    i64 total = 0;
+    i64 cur = 0;
     bool any = false;
     bool pending = false;
     for i in 0..t.len {
-        int c = t[i];
+        i64 c = t[i];
         if c >= '0' && c <= '9' { cur = cur * 10 + (c - '0'); pending = true; any = true; }
         else if c == 'h' { total += cur * 3600; cur = 0; pending = false; }
         else if c == 'm' { total += cur * 60; cur = 0; pending = false; }
@@ -37,30 +37,30 @@ int duration(String t) {
     return total;
 }
 
-String words(String[] a, int from, int to) {
+String words(String[] a, i64 from, i64 to) {
     String s = "";
     for i in from..to { if s.len > 0 { s.push(' '); } s.append(a[i]); }
     return s;
 }
 
-int do_list(String kind) {
+i64 do_list(String kind) {
     String home = "";
     switch Env::get("HOME") { Option::Some(h): { home = h + ""; } Option::None: { } }
     Result<String, Error> r = Fs::read_text(home + "/.config/jaric/island.txt");
     if !r.is_ok() { jout << "nothing set (or this is not the Jaric app)\n"; return 0; }
     String[] ls = r.take().split("\n");
-    int shown = 0;
-    int now = Time::now_ms() / 1000;
+    i64 shown = 0;
+    i64 now = Time::now_ms() / 1000;
     for i in 0..ls.len {
         if ls[i].len == 0 { continue; }
         String[] w = ls[i].split(" ");
         if w.len < 3 { continue; }
         if kind.len > 0 && w[1] != kind { continue; }
         if w[1] == "timer" {
-            int left = w[2].to_int() - now;
+            i64 left = w[2].to_int() - now;
             if left < 0 { left = 0; }
-            int m = left / 60;
-            int h = m / 60;
+            i64 m = left / 60;
+            i64 h = m / 60;
             String lab = "";
             for k in 3..w.len { if lab.len > 0 { lab.push(' '); } lab.append(w[k]); }
             jout << w[0] << "  timer  " << h << "h " << m % 60 << "m " << left % 60 << "s left  " << lab << "\n";
@@ -71,7 +71,7 @@ int do_list(String kind) {
     return 0;
 }
 
-int do_timer(String[] a, int from) {
+i64 do_timer(String[] a, i64 from) {
     if a.len <= from { jerr << "usage: timer 5m [label] | timer list | timer cancel ID|all\n"; return 1; }
     if a[from] == "list" { return do_list("timer"); }
     if a[from] == "cancel" {
@@ -79,13 +79,13 @@ int do_timer(String[] a, int from) {
         if a[from + 1] == "all" { osc("cancelall;timer"); } else { osc("cancel;" + a[from + 1]); }
         return 0;
     }
-    int secs = duration(a[from]);
+    i64 secs = duration(a[from]);
     if secs <= 0 { jerr << "timer: a time like 5m, 90s, 1h30m or 45 (seconds)\n"; return 1; }
     osc("timer;" + str(secs) + ";" + words(a, from + 1, a.len));
     return 0;
 }
 
-int do_alarm(String[] a, int from) {
+i64 do_alarm(String[] a, i64 from) {
     if a.len <= from { jerr << "usage: alarm 07:30 [label] [daily] | alarm list | alarm cancel ID|all\n"; return 1; }
     if a[from] == "list" { return do_list("alarm"); }
     if a[from] == "cancel" {
@@ -96,11 +96,11 @@ int do_alarm(String[] a, int from) {
     String t = a[from] + "";
     if t.find(":") < 0 { t = t + ":00"; }
     String[] hm = t.split(":");
-    int hh = hm[0].to_int();
-    int mm = hm[1].to_int();
+    i64 hh = hm[0].to_int();
+    i64 mm = hm[1].to_int();
     if hh < 0 || hh > 23 || mm < 0 || mm > 59 { jerr << "alarm: a time like 07:30\n"; return 1; }
     bool daily = false;
-    int last = a.len;
+    i64 last = a.len;
     if last > from + 1 && a[last - 1] == "daily" { daily = true; last -= 1; }
     String label = words(a, from + 1, last);
     String tail = "";
@@ -110,7 +110,7 @@ int do_alarm(String[] a, int from) {
 }
 
 // next to this program: the links timer and alarm
-int install_links(String dir) {
+i64 install_links(String dir) {
     String me = dir + "/island";
     String[] names = arr(2);
     names.push("timer");
@@ -118,13 +118,13 @@ int install_links(String dir) {
     for i in 0..names.len {
         String to = dir + "/" + names[i];
         Sys::unlink(to.c());
-        int r = Sys::call(36, (int)me.c(), -100, (int)to.c(), 0, 0, 0);
+        i64 r = Sys::call(36, (i64)me.c(), -100, (i64)to.c(), 0, 0, 0);
         if r < 0 { jerr << "island: cannot make the link " << to << "\n"; }
     }
     return 0;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     String me = program_name(a);
     if me == "timer" { return do_timer(a, 1); }

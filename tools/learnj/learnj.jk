@@ -12,10 +12,10 @@ bool en = false;        // English only (to practise English): the levels file a
 String u(String th, String e) { if en { return e; } return th; }
 
 String[] lv;            // 16 fields for every level
-int nl = 0;
-int lo = 1;             // the first and the last level of the chosen track (a track is a zone)
-int hi = 1;
-int xp = 0;
+i64 nl = 0;
+i64 lo = 1;             // the first and the last level of the chosen track (a track is a zone)
+i64 hi = 1;
+i64 xp = 0;
 
 String nl_text(String t) {                      // ~ becomes a new line
     String r = "";
@@ -25,15 +25,15 @@ String nl_text(String t) {                      // ~ becomes a new line
 
 
 // ---- the look of an old game console: colours (ANSI), frames and letters that appear one by one
-String col(int n) { return str((char)27) + "[" + str(n) + "m"; }
+String col(i64 n) { return str((char)27) + "[" + str(n) + "m"; }
 String plain() { return col(0); }
 
 void tw(String t) {                                       // letters appear one by one (a whole UTF-8 letter at a time)
-    int i = 0;
+    i64 i = 0;
     while i < t.len {
-        int b = (int)t[i];
+        i64 b = (i64)t[i];
         if b < 0 { b = b + 256; }
-        int n = 1;
+        i64 n = 1;
         if b >= 240 { n = 4; } else if b >= 224 { n = 3; } else if b >= 192 { n = 2; }
         String chunk = "";
         for k in 0..n { if i + k < t.len { chunk = chunk + str(t[i + k]); } }
@@ -43,7 +43,7 @@ void tw(String t) {                                       // letters appear one 
     }
 }
 
-String bar(int v, int mx) {                                // [#####-----]
+String bar(i64 v, i64 mx) {                                // [#####-----]
     String r = "[";
     for i in 0..mx { if i < v { r = r + "#"; } else { r = r + "-"; } }
     return r + "]";
@@ -56,26 +56,26 @@ void frame(String t) {
     jout << col(33) << line << "\n| " << t << "\n" << line << plain() << "\n";
 }
 
-String f(int d, int k) { return lv[(d - 1) * 16 + k]; }
-String day_title(int d) { return f(d, 1); }
-String day_zone(int d) { return f(d, 0); }
-String day_text(int d) { return nl_text(f(d, 2)); }
-String q_text(int d, int q) { return f(d, 3 + 6 * q); }
-String q_opts(int d, int q) {
-    int b = 4 + 6 * q;
+String f(i64 d, i64 k) { return lv[(d - 1) * 16 + k]; }
+String day_title(i64 d) { return f(d, 1); }
+String day_zone(i64 d) { return f(d, 0); }
+String day_text(i64 d) { return nl_text(f(d, 2)); }
+String q_text(i64 d, i64 q) { return f(d, 3 + 6 * q); }
+String q_opts(i64 d, i64 q) {
+    i64 b = 4 + 6 * q;
     return "a) " + f(d, b) + "\nb) " + f(d, b + 1) + "\nc) " + f(d, b + 2) + "\n";
 }
-int q_ans(int d, int q) { return f(d, 7 + 6 * q).to_int(); }
-String q_why(int d, int q) { return f(d, 8 + 6 * q); }
+i64 q_ans(i64 d, i64 q) { return f(d, 7 + 6 * q).to_int(); }
+String q_why(i64 d, i64 q) { return f(d, 8 + 6 * q); }
 
-bool has_task(int d) { return f(d, 15).len > 0; }
-String task_text(int d) {
+bool has_task(i64 d) { return f(d, 15).len > 0; }
+String task_text(i64 d) {
     String t = f(d, 15);
     String r = "";
     for i in 0..t.len { if t[i] == '#' { break; } r = r + str(t[i]); }
     return r;
 }
-String task_expect(int d) {
+String task_expect(i64 d) {
     String t = f(d, 15);
     String r = "";
     bool after = false;
@@ -85,7 +85,7 @@ String task_expect(int d) {
     }
     return r;
 }
-String task_start(int d) {
+String task_start(i64 d) {
     return "#import <stdlib>\nusing stdlib;\n\n// " + task_text(d) + "\nvoid main() {\n    " + u("// เขียนโค้ดตรงนี้", "// write your code here") + "\n}\n";
 }
 
@@ -103,9 +103,9 @@ bool has_sub(String hay, String kw) {
 
 String read_line() {
     char line[300];
-    int n = File::read_line(0, line);
+    i64 n = File::read_line(0, line);
     String t = "";
-    int i = 0;
+    i64 i = 0;
     while i < n && line[i] != 0 { t = t + str(line[i]); i += 1; }
     return t;
 }
@@ -138,11 +138,11 @@ void load_levels() {
     }
 }
 
-int load_day() {
+i64 load_day() {
     switch Fs::read_text(progress_file()) {
         Result::Ok(t): {
             String[] w = t.trim().split(" ");
-            int v = w[0].to_int();
+            i64 v = w[0].to_int();
             if w.len > 1 { xp = w[1].to_int(); }
             if v >= 1 && v <= nl { return v; }
         }
@@ -166,7 +166,7 @@ bool load_lang() {
     return false;
 }
 
-void save_day(int d) { Fs::write_text(progress_file(), str(d) + " " + str(xp) + "\n"); }
+void save_day(i64 d) { Fs::write_text(progress_file(), str(d) + " " + str(xp) + "\n"); }
 
 String rank() {
     if xp < 10 { return u("มือใหม่", "Newcomer"); }
@@ -176,10 +176,10 @@ String rank() {
     return u("ปรมาจารย์", "Master");
 }
 
-void note_missed(int d, int q) { Fs::append_text(dp("learnj_missed.txt"), str(d) + " " + str(q) + "\n"); }
+void note_missed(i64 d, i64 q) { Fs::append_text(dp("learnj_missed.txt"), str(d) + " " + str(q) + "\n"); }
 
 // one question: true when the answer is right. Type ? to buy a hint for 3 XP (it shows the reason).
-bool ask_q(int d, int q, bool record) {
+bool ask_q(i64 d, i64 q, bool record) {
     jout << u("\nคำถาม: ", "\nQuestion: ") << q_text(d, q) << "\n" << q_opts(d, q) << u("ตอบ (a/b/c, ? = คำใบ้ราคา 3 XP): ", "Answer (a/b/c, ? = hint for 3 XP): ");
     String a = read_line();
     if a.len > 0 && a[0] == '?' {
@@ -187,7 +187,7 @@ bool ask_q(int d, int q, bool record) {
         jout << u("ตอบ (a/b/c): ", "Answer (a/b/c): ");
         a = read_line();
     }
-    int pick = 0 - 1;
+    i64 pick = 0 - 1;
     if a.len > 0 {
         if a[0] == 'a' { pick = 0; } else if a[0] == 'b' { pick = 1; } else if a[0] == 'c' { pick = 2; }
     }
@@ -197,8 +197,8 @@ bool ask_q(int d, int q, bool record) {
     return ok;
 }
 
-void quiz(int d) {
-    int right = 0;
+void quiz(i64 d) {
+    i64 right = 0;
     for q in 0..2 { if ask_q(d, q, true) { right += 1; } }
     jout << u("\nได้ ", "\nScore ") << right << u(" จาก 2\n", " of 2\n");
     if right < 2 { jout << u("แนะนำ: อ่านหัวข้ออีกรอบ (เมนู 1) แล้วลองตอบใหม่\n", "Tip: read the topic again (menu 1) and try again\n"); }
@@ -212,8 +212,8 @@ void review() {
             for i in 0..ls.len {
                 String[] w = ls[i].trim().split(" ");
                 if w.len < 2 { continue; }
-                int d = w[0].to_int();
-                int q = w[1].to_int();
+                i64 d = w[0].to_int();
+                i64 q = w[1].to_int();
                 if d < 1 || d > nl { continue; }
                 if !ask_q(d, q, false) { keep = keep + ls[i] + "\n"; }
             }
@@ -224,7 +224,7 @@ void review() {
     }
 }
 
-void summary(int d) {
+void summary(i64 d) {
     jout << u("\nเขียนสรุปด้วยภาษาของคุณเอง 5 บรรทัด (พิมพ์ทีละบรรทัด กด Enter):\n", "\nWrite a summary in your own words, 5 lines (type one line, press Enter):\n");
     String all = "== " + u("ระดับ ", "Level ") + str(d) + ": " + day_title(d) + " ==\n";
     for i in 0..5 {
@@ -235,7 +235,7 @@ void summary(int d) {
     jout << u("บันทึกลง learnj_summaries.txt แล้ว\n", "Saved in learnj_summaries.txt\n");
 }
 
-bool code_task(int d) {
+bool code_task(i64 d) {
     if !has_task(d) {
         jout << u("\nระดับนี้ไม่มีโจทย์โค้ด\n", "\nThis level has no code task\n");
         return false;
@@ -264,24 +264,24 @@ bool code_task(int d) {
 }
 
 // ---- the game: a monster for every level; a boss at every fifth level asks from the four levels before it.
-String monster_name(int d) {
+String monster_name(i64 d) {
     if d % 5 == 0 { return u("บอสเขต ", "Zone boss ") + day_zone(d) + " (Boss)"; }
-    int k = d % 5;
+    i64 k = d % 5;
     if k == 1 { return u("บั๊กจิ๋ว (Bug)", "Tiny Bug"); }
     if k == 2 { return u("ผีบิต (Bit Ghost)", "Bit Ghost"); }
     if k == 3 { return u("งูที่อยู่ (Address Snake)", "Address Snake"); }
     return u("มังกรแรมช้า (Slow RAM Dragon)", "Slow RAM Dragon");
 }
-bool is_boss(int d) { return d % 5 == 0 && d > 1; }
-int hits_needed(int d) {
+bool is_boss(i64 d) { return d % 5 == 0 && d > 1; }
+i64 hits_needed(i64 d) {
     if is_boss(d) { return 4; }
     if has_task(d) { return 3; }
     return 2;
 }
 
-String dragon_name(int d) {
+String dragon_name(i64 d) {
     if is_boss(d) { return u("มังกรราชา (Dragon King)", "the Dragon King"); }
-    int k = d % 4;
+    i64 k = d % 4;
     if k == 0 { return u("มังกรเขียว (Green Dragon)", "Green Dragon"); }
     if k == 1 { return u("มังกรแดง (Red Dragon)", "Red Dragon"); }
     if k == 2 { return u("มังกรน้ำเงิน (Blue Dragon)", "Blue Dragon"); }
@@ -289,25 +289,25 @@ String dragon_name(int d) {
 }
 
 // the questions of the fight come from this level and the levels of the track before it (round after round)
-int pool_level(int d, int k) {                              // k-th question of the pool: levels d, d-1, ... down to the start of the track, two each
-    int lvl = d - k / 2;
+i64 pool_level(i64 d, i64 k) {                              // k-th question of the pool: levels d, d-1, ... down to the start of the track, two each
+    i64 lvl = d - k / 2;
     if is_boss(d) { lvl = d - 1 - k / 2; }
     while lvl < lo { lvl = lvl + (d - lo + 1); if lvl > d { lvl = d; } }
     return lvl;
 }
 
-bool battle(int d) {
-    int enemy = 3;
+bool battle(i64 d) {
+    i64 enemy = 3;
     if is_boss(d) { enemy = 5; }
-    int me = 6;
-    int qi = 2;                                             // inner force: a right answer gives one; "set the power" spends it
-    int round = 0;
-    int k = 0;
+    i64 me = 6;
+    i64 qi = 2;                                             // inner force: a right answer gives one; "set the power" spends it
+    i64 round = 0;
+    i64 k = 0;
     jout << "\n" << col(31);
     tw(u("*** ", "*** ") + dragon_name(d) + u(" ปรากฏตัว! ***", " appears! ***"));
     jout << plain() << "\n";
     while enemy > 0 && me > 0 {
-        int dmg = 1 + round % 2;
+        i64 dmg = 1 + round % 2;
         round += 1;
         jout << "\n" << col(31) << dragon_name(d) << " " << bar(enemy, 5) << plain() << "   " << col(36) << u("ศิษย์ดาบ ", "Swordsman ") << bar(me, 6)
              << " " << u("พลัง ", "Qi ") << qi << plain() << "\n";
@@ -319,8 +319,8 @@ bool battle(int d) {
         jout << "\n> ";
         String c = read_line();
         bool blocked = false;
-        int lvl = pool_level(d, k);
-        int qq = k % 2;
+        i64 lvl = pool_level(d, k);
+        i64 qq = k % 2;
         if c.len > 0 && c[0] == '2' {
             k += 1;
             if ask_q(lvl, qq, !is_boss(d)) { blocked = true; jout << col(36) << u("ค่ายกลตั้งมั่น! กันการโจมตีได้\n", "The formation holds! The strike is blocked\n") << plain(); }
@@ -329,7 +329,7 @@ bool battle(int d) {
             else {
                 jout << u("ใช้พลังเท่าไร (1 ถึง ", "How much Qi (1 to ") << qi << "): ";
                 String pw = read_line();
-                int n = pw.to_int();
+                i64 n = pw.to_int();
                 if n < 1 { n = 1; }
                 if n > qi { n = qi; }
                 qi -= n;
@@ -351,7 +351,7 @@ bool battle(int d) {
         }
     }
     if enemy <= 0 {
-        int gain = 10;
+        i64 gain = 10;
         if is_boss(d) { gain = 25; }
         xp += gain;
         jout << "\n" << col(32);
@@ -366,12 +366,12 @@ bool battle(int d) {
 }
 
 // the exam: six questions from the levels of the track so far; five right to pass (and 15 XP)
-void exam(int d) {
+void exam(i64 d) {
     jout << "\n";
     frame(u("สอบ: 6 ข้อ ผ่านเมื่อถูก 5 ข้อ", "Exam: 6 questions, 5 right to pass"));
-    int right = 0;
+    i64 right = 0;
     for k in 0..6 {
-        int lvl = lo + (k * 2 + d) % (d - lo + 1);
+        i64 lvl = lo + (k * 2 + d) % (d - lo + 1);
         if ask_q(lvl, k % 2, false) { right += 1; }
     }
     jout << "\n" << u("ผลสอบ ", "Result ") << right << "/6  ";
@@ -383,7 +383,7 @@ void exam(int d) {
 void ask() {
     jout << u("\nพิมพ์คำที่อยากค้นในบทเรียน (เช่น cache, ไบต์, ijk): ", "\nType a word to look for in the lessons (for example cache, byte, ijk): ");
     String kw = read_line();
-    int found = 0;
+    i64 found = 0;
     for d in 1..nl + 1 {
         String[] lines = day_text(d).split("\n");
         for i in 0..lines.len {
@@ -396,8 +396,8 @@ void ask() {
 // ---- tracks: a track is a zone of the levels file; you choose what you want to learn
 String track_file() { return dp("learnj_tracks.txt"); }
 
-int zone_first(String z) { for d in 1..nl + 1 { if day_zone(d) == z { return d; } } return 0; }
-int zone_last(String z) { int r = 0; for d in 1..nl + 1 { if day_zone(d) == z { r = d; } } return r; }
+i64 zone_first(String z) { for d in 1..nl + 1 { if day_zone(d) == z { return d; } } return 0; }
+i64 zone_last(String z) { i64 r = 0; for d in 1..nl + 1 { if day_zone(d) == z { r = d; } } return r; }
 
 String[] zone_names() {
     String[] z = arr(8);
@@ -409,13 +409,13 @@ String[] zone_names() {
     return z;
 }
 
-int saved_pos(String z) {                               // where you stopped in this track (its first level when new)
-    int first = zone_first(z);
+i64 saved_pos(String z) {                               // where you stopped in this track (its first level when new)
+    i64 first = zone_first(z);
     switch Fs::read_lines(track_file()) {
         Result::Ok(ls): {
             for i in 0..ls.len {
                 String[] w = ls[i].split("\t");
-                if w.len >= 2 && w[0] == z { int p = w[1].to_int(); if p >= first && p <= zone_last(z) { return p; } }
+                if w.len >= 2 && w[0] == z { i64 p = w[1].to_int(); if p >= first && p <= zone_last(z) { return p; } }
             }
         }
         Result::Err(e): { }
@@ -423,7 +423,7 @@ int saved_pos(String z) {                               // where you stopped in 
     return first;
 }
 
-void save_pos(String z, int d) {
+void save_pos(String z, i64 d) {
     String out = "";
     bool done = false;
     switch Fs::read_lines(track_file()) {
@@ -441,19 +441,19 @@ void save_pos(String z, int d) {
 }
 
 // returns the level where the chosen track continues
-int choose_track(int current) {
+i64 choose_track(i64 current) {
     String[] z = zone_names();
     jout << "\n" << u("เลือกสิ่งที่อยากเรียน:", "Choose what you want to learn:") << "\n";
     for i in 0..z.len {
-        int a = zone_first(z[i]);
-        int b = zone_last(z[i]);
-        int p = saved_pos(z[i]);
+        i64 a = zone_first(z[i]);
+        i64 b = zone_last(z[i]);
+        i64 p = saved_pos(z[i]);
         jout << i + 1 << ") " << z[i] << "  (" << u("ระดับ ", "level ") << p - a + 1 << "/" << b - a + 1 << ")\n";
     }
     jout << u("พิมพ์เลข (Enter = ต่อจากเดิม): ", "Type a number (Enter = continue where you were): ");
     String a = read_line();
-    int pick = 0 - 1;
-    if a.len > 0 && a[0] >= '1' && a[0] <= '9' { pick = (int)a[0] - (int)'1'; }
+    i64 pick = 0 - 1;
+    if a.len > 0 && a[0] >= '1' && a[0] <= '9' { pick = (i64)a[0] - (i64)'1'; }
     String zc = day_zone(current);
     if pick >= 0 && pick < z.len { zc = z[pick] + ""; current = saved_pos(zc); }
     lo = zone_first(zc);
@@ -468,7 +468,7 @@ void main() {
     if !load_lang() { choose_language(); }
     load_levels();
     if nl == 0 { jout << u("ไม่พบ levels.txt (ต้องอยู่โฟลเดอร์เดียวกัน)\n", "levels file not found (it must be in the same folder)\n"); return; }
-    int day = load_day();
+    i64 day = load_day();
     day = choose_track(day);
     jout << u("learnj: ", "learnj: ") << nl << u(" ระดับ  เขต: คอมพื้นฐาน, เขียนโปรแกรม, โครงสร้างข้อมูล, เครื่องและความเร็ว, ภาษาอังกฤษ, jcmp\n", " levels. Tracks: computers, programs, data structures, the machine, English, jcmp\n");
     while true {

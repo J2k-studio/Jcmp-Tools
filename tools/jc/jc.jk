@@ -20,7 +20,7 @@
 
 String jc_version() { return "0.5.5"; }
 
-int fail(String msg) {
+i64 fail(String msg) {
     jerr << "jc: " << msg << "\n";
     return 1;
 }
@@ -44,7 +44,7 @@ String manifest_value(String text, String key) {
     String[] ls = text.split("\n");
     for i in 0..ls.len {
         String ln = ls[i].trim();
-        int eq = ln.find("=");
+        i64 eq = ln.find("=");
         if eq <= 0 || ln[0] == '#' || ln[0] == '[' { continue; }
         if ln.slice(0, eq).trim() == key { return ln.slice(eq + 1, ln.len).trim().replace("\"", ""); }
     }
@@ -71,13 +71,13 @@ String read_package(String path, bool^ ok) {
     return z;
 }
 
-int entry_index(String name) {
+i64 entry_index(String name) {
     for i in 0..zn_name.len { if zn_name[i] == name { return i; } }
     return 0 - 1;
 }
 
 String manifest_of(String z) {
-    int mi = entry_index("manifest.toml");
+    i64 mi = entry_index("manifest.toml");
     if mi < 0 { return ""; }
     return zip_extract(z, mi, "");
 }
@@ -98,7 +98,7 @@ bool good_id(String id) {
     return id[0] != '.';
 }
 
-int do_info(String path) {
+i64 do_info(String path) {
     bool ok = false;
     String z = read_package(path, @ok);
     if !ok { return 1; }
@@ -130,7 +130,7 @@ void set_granted(String id, String list) {
     Fs::write_text(app_dir(id) + "/.perms", list + "\n");
 }
 
-int do_install(String path, bool yes) {
+i64 do_install(String path, bool yes) {
     bool ok = false;
     String z = read_package(path, @ok);
     if !ok { return 1; }
@@ -171,7 +171,7 @@ int do_install(String path, bool yes) {
     }
     String dir = app_dir(id);
     Dir::make_all(dir);
-    int written = 0;
+    i64 written = 0;
     for i in 0..zn_name.len {
         String n = zn_name[i];
         if !safe_name(n) { jerr << "jc: skipped " << n << " (an odd name)\n"; continue; }
@@ -179,7 +179,7 @@ int do_install(String path, bool yes) {
         String data = zip_extract(z, i, "");
         if zip_err.len > 0 { return fail(n + ": " + zip_err); }
         String full = dir + "/" + n;
-        int slash = 0 - 1;
+        i64 slash = 0 - 1;
         for k in 0..full.len { if full[k] == '/' { slash = k; } }
         if slash > 0 { Dir::make_all(full.slice(0, slash)); }
         if !Fs::write_bytes(full, data).is_ok() { return fail("cannot write " + full); }
@@ -200,7 +200,7 @@ bool installed(String id) {
     return Dir::exists(dir) && Fs::exists(mf);
 }
 
-int do_run(String[] a) {
+i64 do_run(String[] a) {
     if a.len < 3 { return fail("usage: jc run ID|FILE.jc [arguments]"); }
     String what = a[2];
     String id = what;
@@ -227,19 +227,19 @@ int do_run(String[] a) {
     args.push(dir);
     args.push("-");
     for i in 3..a.len { args.push(a[i]); }
-    Result<int, Error> r = Proc::run("sh", args);
+    Result<i64, Error> r = Proc::run("sh", args);
     if !r.is_ok() { return fail("cannot start " + entry); }
     return r.take();
 }
 
-int do_list() {
+i64 do_list() {
     String root = jc_home() + "/apps";
     if !Dir::exists(root) { jout << "nothing is installed (jc install FILE.jc)\n"; return 0; }
     Result<String[], Error> r = Dir::list(root);
     if !r.is_ok() { return 0; }
     String[] names = r.take();
     names.sort();
-    int n = 0;
+    i64 n = 0;
     for i in 0..names.len {
         if !installed(names[i]) { continue; }
         Result<String, Error> mr = Fs::read_text(app_dir(names[i]) + "/manifest.toml");
@@ -254,7 +254,7 @@ int do_list() {
     return 0;
 }
 
-int do_perm(String[] a) {
+i64 do_perm(String[] a) {
     if a.len < 3 { return fail("usage: jc perm ID [NAME on|off]"); }
     String id = a[2];
     if !installed(id) { return fail("no program '" + id + "' is installed"); }
@@ -277,7 +277,7 @@ int do_perm(String[] a) {
     return 0;
 }
 
-int do_remove(String id) {
+i64 do_remove(String id) {
     if !installed(id) { return fail("no program '" + id + "' is installed"); }
     String dir = app_dir(id);
     Result<String[], Error> r = Dir::list(dir);
@@ -288,10 +288,10 @@ int do_remove(String id) {
 }
 
 
-int run_other(String prog, String[] words) {              // another program of Jaric does the work (jget for tools, jstore for the store)
+i64 run_other(String prog, String[] words) {              // another program of Jaric does the work (jget for tools, jstore for the store)
     String[] args = arr(words.len + 1);
     for i in 0..words.len { args.push(words[i]); }
-    Result<int, Error> r = Proc::run(prog, args);
+    Result<i64, Error> r = Proc::run(prog, args);
     if !r.is_ok() { return fail("cannot start " + prog + " (jc install " + prog + ")"); }
     return r.take();
 }
@@ -301,13 +301,13 @@ bool is_package_name(String what) {                        // FILE.jc or a path:
 }
 
 // the libraries and the tools: what the commands of manage.j print when they are used wrongly
-int usage() {
+i64 usage() {
     jerr << "jc: jc lib list | installed | install NAME | unstall NAME      the libraries of J2K\n";
     jerr << "    jc tools | install NAME | update [-n] | unstall NAME        the tools of Jcmp-Tools\n";
     return 1;
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jc " << jc_version() << "\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
@@ -324,10 +324,10 @@ int main() {
         w.push("jc");
         w.push("update");
         for i in 2..a.len { w.push(a[i] + ""); }
-        int rc = cmd_tool(w, 1);
+        i64 rc = cmd_tool(w, 1);
         String[] sw = arr(2);
         sw.push("update");
-        Result<int, Error> sr = Proc::run("jstore", sw);       // the store is optional: not installed = nothing to do
+        Result<i64, Error> sr = Proc::run("jstore", sw);       // the store is optional: not installed = nothing to do
         if rc == 0 && sr.is_ok() { rc = sr.take(); }
         String[] pw = arr(4);                                  // and the packages of Jcmp-pkg
         pw.push("jc");

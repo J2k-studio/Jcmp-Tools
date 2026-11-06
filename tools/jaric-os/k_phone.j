@@ -4,39 +4,39 @@ u32^ p32;
 char tb[24];
 char mbuf[1100];                       // a manifest that is read from the disk
 char anames[256];                      // 16 apps, 16 letters each
-int akind[16];                         // 0 terminal, 1 files, 2 clock, 3 about, 4 a .jc package (aidx = its place in the directory), 5 power
-int aidx[16];
-int napps;
-int ev;                                // what wait_event found: 0 a key, 1 down, 2 move, 3 up (4, the seen height, is taken care of inside)
-int ev_x;
-int ev_y;
-int ev_key;
-int dn_x;
-int dn_y;
-int tap_x;
-int tap_y;
+i64 akind[16];                         // 0 terminal, 1 files, 2 clock, 3 about, 4 a .jc package (aidx = its place in the directory), 5 power
+i64 aidx[16];
+i64 napps;
+i64 ev;                                // what wait_event found: 0 a key, 1 down, 2 move, 3 up (4, the seen height, is taken care of inside)
+i64 ev_x;
+i64 ev_y;
+i64 ev_key;
+i64 dn_x;
+i64 dn_y;
+i64 tap_x;
+i64 tap_y;
 
-int rgb(int r, int g, int b) { return b | (g << 8) | (r << 16) | (255 << 24); }
+i64 rgb(i64 r, i64 g, i64 b) { return b | (g << 8) | (r << 16) | (255 << 24); }
 
-void fill_sw(int x, int y, int w, int h, int c) {
+void fill_sw(i64 x, i64 y, i64 w, i64 h, i64 c) {
     for yy in y..(y + h) {
         if yy >= 0 && yy < scrH {
-            int base = yy * scrW;
+            i64 base = yy * scrW;
             for xx in x..(x + w) { if xx >= 0 && xx < scrW { p32[base + xx] = (u32)c; } }
         }
     }
 }
 
-void rrect_sw(int x, int y, int w, int h, int r, int c) {
+void rrect_sw(i64 x, i64 y, i64 w, i64 h, i64 r, i64 c) {
     for yy in y..(y + h) {
         if yy >= 0 && yy < scrH {
-            int dy = 0;
+            i64 dy = 0;
             if yy < y + r { dy = y + r - 1 - yy; }
             if yy >= y + h - r { dy = yy - (y + h - r); }
-            int base = yy * scrW;
+            i64 base = yy * scrW;
             for xx in x..(x + w) {
                 if xx >= 0 && xx < scrW {
-                    int dx = 0;
+                    i64 dx = 0;
                     if xx < x + r { dx = x + r - 1 - xx; }
                     if xx >= x + w - r { dx = xx - (x + w - r); }
                     if dx * dx + dy * dy <= r * r { p32[base + xx] = (u32)c; }
@@ -49,22 +49,22 @@ void rrect_sw(int x, int y, int w, int h, int r, int c) {
 // the page behind everything: dark blue that gets lighter downwards
 void wallpaper_sw() {
     for y in 0..scrH {
-        int c = rgb(8 + y / 90, 10 + y / 50, 24 + y / 14);
-        int base = y * scrW;
+        i64 c = rgb(8 + y / 90, 10 + y / 50, 24 + y / 14);
+        i64 base = y * scrW;
         for x in 0..scrW { p32[base + x] = (u32)c; }
     }
 }
 
 
 // the 2D accelerator (at 0x0E000000): one write per rectangle instead of a loop of the machine
-void gpu_go(int op, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8, int a9, int a10) {
-    int^ g = (int^)0x0E000000;
+void gpu_go(i64 op, i64 a1, i64 a2, i64 a3, i64 a4, i64 a5, i64 a6, i64 a7, i64 a8, i64 a9, i64 a10) {
+    i64^ g = (i64^)0x0E000000;
     g[1] = a1; g[2] = a2; g[3] = a3; g[4] = a4; g[5] = a5; g[6] = a6; g[7] = a7; g[8] = a8; g[9] = a9; g[10] = a10;
     g[0] = op;
     g[16] = 1;
 }
 
-void fill(int x, int y, int w, int h, int c) {
+void fill(i64 x, i64 y, i64 w, i64 h, i64 c) {
     if gpu_on == 0 { fill_sw(x, y, w, h, c); return; }
     gpu_go(1, sfb, scrW, x, y, w, h, c, scrW, scrH, 0);
 }
@@ -75,44 +75,44 @@ void wallpaper() {
 }
 
 // a rounded rectangle: the middle is one rectangle, each row of the two round ends is one rectangle (the width comes from the circle)
-void rrect(int x, int y, int w, int h, int r, int c) {
+void rrect(i64 x, i64 y, i64 w, i64 h, i64 r, i64 c) {
     if gpu_on == 0 { rrect_sw(x, y, w, h, r, c); return; }
-    int rr = r;
+    i64 rr = r;
     if rr * 2 > h { rr = h >> 1; }
     if rr * 2 > w { rr = w >> 1; }
     fill(x, y + rr, w, h - 2 * rr, c);
     for i in 0..rr {
-        int dy = rr - 1 - i;
-        int m = 0;
+        i64 dy = rr - 1 - i;
+        i64 m = 0;
         while (m + 1) * (m + 1) + dy * dy <= rr * rr { m += 1; }
         if m > rr - 1 { m = rr - 1; }
-        int inset = rr - 1 - m;
+        i64 inset = rr - 1 - m;
         fill(x + inset, y + i, w - 2 * inset, 1, c);
         fill(x + inset, y + h - 1 - i, w - 2 * inset, 1, c);
     }
 }
 
-void blend(int x, int y, int c, int a) {
+void blend(i64 x, i64 y, i64 c, i64 a) {
     if x < 0 || x >= scrW || y < 0 || y >= scrH { return; }
-    int o = (int)p32[y * scrW + x];
-    int ob = o & 255;
-    int og = (o >> 8) & 255;
-    int orr = (o >> 16) & 255;
-    int cb = c & 255;
-    int cg = (c >> 8) & 255;
-    int cr = (c >> 16) & 255;
-    int nb = ob + ((cb - ob) * a) / 255;
-    int ng = og + ((cg - og) * a) / 255;
-    int nr = orr + ((cr - orr) * a) / 255;
+    i64 o = (i64)p32[y * scrW + x];
+    i64 ob = o & 255;
+    i64 og = (o >> 8) & 255;
+    i64 orr = (o >> 16) & 255;
+    i64 cb = c & 255;
+    i64 cg = (c >> 8) & 255;
+    i64 cr = (c >> 16) & 255;
+    i64 nb = ob + ((cb - ob) * a) / 255;
+    i64 ng = og + ((cg - og) * a) / 255;
+    i64 nr = orr + ((cr - orr) * a) / 255;
     p32[y * scrW + x] = (u32)(nb | (ng << 8) | (nr << 16) | (255 << 24));
 }
 
-void glyph(int x, int y, int ch, int sc, int c) {
+void glyph(i64 x, i64 y, i64 ch, i64 sc, i64 c) {
     if ch < 32 || ch > 126 { return; }
-    int g = 4 + (ch - 32) * 200;
+    i64 g = 4 + (ch - 32) * 200;
     for gy in 0..20 {
         for gx in 0..10 {
-            int a = fnt[g + gy * 10 + gx] & 255;
+            i64 a = fnt[g + gy * 10 + gx] & 255;
             if a > 6 {
                 if sc == 1 { blend(x + gx, y + gy, c, a); }
                 else {
@@ -123,47 +123,47 @@ void glyph(int x, int y, int ch, int sc, int c) {
     }
 }
 
-void text(int x, int y, char^ s, int sc, int c) {
-    int i = 0;
+void text(i64 x, i64 y, char^ s, i64 sc, i64 c) {
+    i64 i = 0;
     while s[i] != 0 { glyph(x + i * 10 * sc, y, s[i] & 255, sc, c); i += 1; }
 }
 
 // up to eight letters that are in a number (the first one in the lowest byte)
-void t8(int x, int y, int w, int sc, int c) {
+void t8(i64 x, i64 y, i64 w, i64 sc, i64 c) {
     for k in 0..8 {
-        int ch = (w >> (k * 8)) & 255;
+        i64 ch = (w >> (k * 8)) & 255;
         if ch == 0 { return; }
         glyph(x + k * 10 * sc, y, ch, sc, c);
     }
 }
 
-void num(int x, int y, int v, int sc, int c) {
-    int n = 0;
+void num(i64 x, i64 y, i64 v, i64 sc, i64 c) {
+    i64 n = 0;
     char d[20];
     if v == 0 { d[0] = '0'; n = 1; }
     while v > 0 { d[n] = (char)(48 + v % 10); v = v / 10; n += 1; }
     for k in 0..n { glyph(x + k * 10 * sc, y, d[n - 1 - k] & 255, sc, c); }
 }
 
-int digits(int v) {
-    int n = 1;
+i64 digits(i64 v) {
+    i64 n = 1;
     while v >= 10 { v = v / 10; n += 1; }
     return n;
 }
 
 void present() {
     if desk_ctx == 1 { composite(); return; }         // in a window: the surface goes into the picture of the desktop first
-    int^ fb = (int^)0x0B000000;
+    i64^ fb = (i64^)0x0B000000;
     fb[3] = 1;
 }
 
-void keyboard(int on) {
-    int^ fb = (int^)0x0B000000;
+void keyboard(i64 on) {
+    i64^ fb = (i64^)0x0B000000;
     fb[4] = on;                                    // the register KEYBOARD (0x20): the app shows or hides the keyboard
 }
 
-int icon_color(int i) {
-    int k = i % 6;
+i64 icon_color(i64 i) {
+    i64 k = i % 6;
     if k == 0 { return rgb(70, 150, 255); }
     if k == 1 { return rgb(90, 200, 140); }
     if k == 2 { return rgb(255, 160, 80); }
@@ -172,13 +172,13 @@ int icon_color(int i) {
     return rgb(80, 200, 220);
 }
 
-void setname(int i, int w0, int w1) {
+void setname(i64 i, i64 w0, i64 w1) {
     for k in 0..8 { anames[i * 16 + k] = (char)((w0 >> (k * 8)) & 255); }
     for k in 0..8 { anames[i * 16 + 8 + k] = (char)((w1 >> (k * 8)) & 255); }
     anames[i * 16 + 15] = 0;
 }
 
-void addapp(int kind, int w0, int w1, int idx) {
+void addapp(i64 kind, i64 w0, i64 w1, i64 idx) {
     if napps >= 16 { return; }
     setname(napps, w0, w1);
     akind[napps] = kind;
@@ -198,21 +198,21 @@ void build_apps() {
     // the apps that came in packages: for each ID.mf (the manifest) on the disk an app with the name of the manifest; ID.run is its program
     for i in 0..nfiles {
         char^ e = @sbuf[512 + i * 64];
-        int l = 0;
+        i64 l = 0;
         while e[l] != 0 { l += 1; }
         if l > 3 && l < 34 && e[l - 3] == '.' && e[l - 2] == 'm' && e[l - 1] == 'f' && napps < 16 {
-            int start = rd64(@e[48]);
-            int size = rd64(@e[56]);
+            i64 start = rd64(@e[48]);
+            i64 size = rd64(@e[56]);
             if size > 1000 { size = 1000; }
-            disk_io(1, start, (int)@mbuf, 2);
+            disk_io(1, start, (i64)@mbuf, 2);
             mbuf[size] = 0;
-            int n = 0;
-            int p = 0;
+            i64 n = 0;
+            i64 p = 0;
             while p < size && n == 0 {                              // the line  name = "..."
-                int q = p;
+                i64 q = p;
                 while q < size && mbuf[q] != 10 { q += 1; }
                 if mbuf[p] == 'n' && mbuf[p + 1] == 'a' && mbuf[p + 2] == 'm' && mbuf[p + 3] == 'e' {
-                    int r = p + 4;
+                    i64 r = p + 4;
                     while r < q && mbuf[r] != 34 { r += 1; }
                     r += 1;
                     while r < q && mbuf[r] != 34 && n < 13 { anames[napps * 16 + n] = mbuf[r]; n += 1; r += 1; }
@@ -232,9 +232,9 @@ void build_apps() {
 
 // turning off asks first: a card with Cancel and Turn off (a tap on the icon must not end the machine)
 bool power_ask() {
-    int cw = 440;
-    int cxp = (scrW - cw) / 2;
-    int cyp = scrH / 2 - 110;
+    i64 cw = 440;
+    i64 cxp = (scrW - cw) / 2;
+    i64 cyp = scrH / 2 - 110;
     rrect(cxp - 4, cyp - 4, cw + 8, 228, 34, rgb(60, 78, 130));
     rrect(cxp, cyp, cw, 220, 32, rgb(26, 36, 66));
     t8(cxp + 40 + 0, cyp + 34, 0x66666f206e727554, 2, rgb(255, 255, 255)); t8(cxp + 40 + 160, cyp + 34, 0x3f, 2, rgb(255, 255, 255));
@@ -245,7 +245,7 @@ bool power_ask() {
     t8(cxp + cw - 210 + 38 + 0, cyp + 158, 0x66666f206e727554, 1, rgb(255, 255, 255));
     present();
     while true {
-        int r = wait_event();
+        i64 r = wait_event();
         if r != 1 { continue; }
         if tap_y >= cyp + 140 && tap_y < cyp + 196 {
             if tap_x >= cxp + 30 && tap_x < cxp + 210 { return false; }
@@ -256,33 +256,33 @@ bool power_ask() {
     return false;
 }
 
-void draw_icon(int x, int y, int app, int size) {
-    int c = icon_color(app);
+void draw_icon(i64 x, i64 y, i64 app, i64 size) {
+    i64 c = icon_color(app);
     if akind[app] == 5 { c = rgb(220, 70, 70); }
     rrect(x, y, size, size, size / 4, c);
-    int ch = anames[app * 16] & 255;
+    i64 ch = anames[app * 16] & 255;
     if ch >= 97 && ch <= 122 { ch = ch - 32; }
     if size < 60 { glyph(x + (size - 10) / 2, y + (size - 20) / 2, ch, 1, rgb(255, 255, 255)); }
     else { glyph(x + (size - 30) / 2, y + (size - 60) / 2, ch, 3, rgb(255, 255, 255)); }
 }
 
-void label(int mx, int y, int app) {
-    int l = 0;
+void label(i64 mx, i64 y, i64 app) {
+    i64 l = 0;
     while anames[app * 16 + l] != 0 && l < 13 { tb[l] = anames[app * 16 + l]; l += 1; }
     tb[l] = 0;
     text(mx - l * 5, y, @tb, 1, rgb(225, 235, 250));
 }
 
-int dock_app(int i) { return i; }
+i64 dock_app(i64 i) { return i; }
 
 void draw_home() {
     wallpaper();
     // the bar at the top: the name on the left, how long it is on on the right
     t8(16 + 0, 12, 0x534f20636972614a, 1, rgb(190, 205, 230));
 
-    int up = Sys::s3_3_c14_c0_2 / 1000000;
-    int mm = up / 60;
-    int ss = up % 60;
+    i64 up = Sys::s3_3_c14_c0_2 / 1000000;
+    i64 mm = up / 60;
+    i64 ss = up % 60;
     t8(400 + 0, 12, 0x7075, 1, rgb(190, 205, 230));
 
     num(430, 12, mm, 1, rgb(190, 205, 230));
@@ -304,10 +304,10 @@ void draw_home() {
     t8(44 + digits(nfiles) * 10 + 10 + 0, 320, 0x6e6f2073656c6966, 1, rgb(235, 242, 255)); t8(44 + digits(nfiles) * 10 + 10 + 80, 320, 0x7369642065687420, 1, rgb(235, 242, 255)); t8(44 + digits(nfiles) * 10 + 10 + 160, 320, 0x6b, 1, rgb(235, 242, 255));
     // the power icon and the apps that are packages (.jc)
     for a in 4..napps {
-        int k = a - 4;
-        int col = k % 4;
-        int row = k / 4;
-        int cell_x = col * 135;
+        i64 k = a - 4;
+        i64 col = k % 4;
+        i64 row = k / 4;
+        i64 cell_x = col * 135;
         draw_icon(cell_x + 23, 390 + row * 160, a, 88);
         label(cell_x + 67, 390 + row * 160 + 98, a);
     }
@@ -322,7 +322,7 @@ void draw_home() {
 }
 
 // the bar of an app: a back button and the title
-void draw_bar(int w0, int w1) {
+void draw_bar(i64 w0, i64 w1) {
     fill(0, 0, scrW, 76, rgb(24, 32, 58));
     t8(16 + 0, 28, 0x656d6f48203c, 1, rgb(120, 190, 255));
 
@@ -332,26 +332,26 @@ void draw_bar(int w0, int w1) {
 
 // waits for something: a key, or a touch (a tap is a down and an up near each other: tap_x and tap_y); the seen height of the picture is taken care of here
 // returns 0 a key (ev_key), 1 a tap (tap_x, tap_y)
-int wait_event() {
-    int^ uart = (int^)0x09000000;
-    int^ ui = (int^)0x0C000000;
+i64 wait_event() {
+    i64^ uart = (i64^)0x09000000;
+    i64^ ui = (i64^)0x0C000000;
     while true {
-        int fr = uart[3];
+        i64 fr = uart[3];
         if (fr & 16) == 0 { ev_key = uart[0] & 255; return 0; }
-        int sq = ui[0];
+        i64 sq = ui[0];
         if sq != seen {
             seen = sq;
-            int st = ui[3];
+            i64 st = ui[3];
             if st == 4 { view_set(ui[2]); gdirty = 1; }
             else if st == 6 {                                              // the back key of the phone
-                int^ ui2 = (int^)ui;
-                if at_home == 1 { int^ scrr = (int^)0x0B000000; scrr[5] = 1; }        // at the home screen: the app goes to the background
+                i64^ ui2 = (i64^)ui;
+                if at_home == 1 { i64^ scrr = (i64^)0x0B000000; scrr[5] = 1; }        // at the home screen: the app goes to the background
                 else { tap_x = 0; tap_y = 0; return 1; }                  // in an app, a card ...: the same as its back button
             }
             else if st == 1 { dn_x = ui[1]; dn_y = ui[2]; }
             else if st == 3 {
-                int dx = ui[1] - dn_x;
-                int dy = ui[2] - dn_y;
+                i64 dx = ui[1] - dn_x;
+                i64 dy = ui[2] - dn_y;
                 if dx < 0 { dx = 0 - dx; }
                 if dy < 0 { dy = 0 - dy; }
                 if dn_y < 50 && ui[2] - dn_y > 100 && desk_ctx == 0 && dx < 120 { control_panel(); gdirty = 1; continue; }          // the swipe down from the top edge: the control panel
@@ -370,7 +370,7 @@ bool is_home_tap() { return tap_y < 76 && tap_x < 170 || tap_y > scrH - 70; }
 
 void app_wait_home() {
     while true {
-        int r = wait_event();
+        i64 r = wait_event();
         if r == 1 && is_home_tap() { return; }
     }
 }
@@ -378,18 +378,18 @@ void app_wait_home() {
 void app_files() {
     wallpaper();
     draw_bar(0x73656c6946, 0);
-    int row = 0;
+    i64 row = 0;
     for i in 0..nfiles {
         char^ e = @sbuf[512 + i * 64];
         if e[0] == 'j' && e[1] == 'a' && e[2] == 'r' && e[3] == 'i' && e[4] == 'c' && e[5] == '-' { continue; }
-        int fl = 0;
+        i64 fl = 0;
         while e[fl] != 0 { fl += 1; }
         if fl > 3 && e[fl - 3] == '.' && e[fl - 2] == 'm' && e[fl - 1] == 'f' { continue; }              // the files of the apps are the business of the system
         if fl > 4 && e[fl - 4] == '.' && e[fl - 3] == 'r' && e[fl - 2] == 'u' && e[fl - 1] == 'n' { continue; }
-        int y = 96 + row * 58;
+        i64 y = 96 + row * 58;
         rrect(16, y, 508, 50, 14, rgb(26, 36, 66));
         text(32, y + 15, e, 1, rgb(235, 242, 255));
-        int size = rd64(@e[56]);
+        i64 size = rd64(@e[56]);
         num(430 - (digits(size) - 1) * 10, y + 15, size, 1, rgb(150, 175, 215));
         t8(470 + 0, y + 15, 0x7365747962, 1, rgb(150, 175, 215));
 
@@ -405,10 +405,10 @@ void app_clock() {
     while true {
         wallpaper();
         draw_bar(0x6b636f6c43, 0);
-        int up = Sys::s3_3_c14_c0_2 / 1000000;
-        int mm = up / 60;
-        int ss = up % 60;
-        int x = 270 - ((digits(mm) + 3) * 60) / 2;
+        i64 up = Sys::s3_3_c14_c0_2 / 1000000;
+        i64 mm = up / 60;
+        i64 ss = up % 60;
+        i64 x = 270 - ((digits(mm) + 3) * 60) / 2;
         num(x, 300, mm, 6, rgb(255, 255, 255));
         glyph(x + digits(mm) * 60, 300, 58, 6, rgb(120, 190, 255));
         glyph(x + digits(mm) * 60 + 60, 300, 48 + ss / 10, 6, rgb(255, 255, 255));
@@ -418,12 +418,12 @@ void app_clock() {
         t8(150 + 0, 500, 0x77796e6120706174, 1, rgb(150, 175, 215)); t8(150 + 80, 500, 0x206f742065726568, 1, rgb(150, 175, 215)); t8(150 + 160, 500, 0x616761206b6f6f6c, 1, rgb(150, 175, 215)); t8(150 + 240, 500, 0x6e69, 1, rgb(150, 175, 215));
 
         present();
-        int r = wait_event();
+        i64 r = wait_event();
         if r == 1 && is_home_tap() { return; }
     }
 }
 
-void line_kv(int y, int w0, int w1, int v, int w2) {
+void line_kv(i64 y, i64 w0, i64 w1, i64 v, i64 w2) {
     rrect(16, y, 508, 50, 14, rgb(26, 36, 66));
     t8(32, y + 15, w0, 1, rgb(150, 175, 215));
     t8(112, y + 15, w1, 1, rgb(150, 175, 215));
@@ -451,24 +451,24 @@ void app_about() {
 }
 
 // an app of a package: the splash (its icon and name), then its program runs; the swipe up from the bottom edge closes it
-void app_launch(int app) {
+void app_launch(i64 app) {
     wallpaper();
     draw_icon(180, 400, app, 180);
-    int l = 0;
+    i64 l = 0;
     while anames[app * 16 + l] != 0 && l < 13 { tb[l] = anames[app * 16 + l]; l += 1; }
     tb[l] = 0;
     text(270 - l * 10, 620, @tb, 2, rgb(255, 255, 255));
     present();
     fill(0, 0, scrW, scrH, rgb(0, 0, 0));                              // the app has the whole screen (the splash stays on the picture that the host has until the first picture of the app)
     char^ e = @sbuf[512 + aidx[app] * 64];
-    int el = 0;
+    i64 el = 0;
     while e[el] != 0 { el += 1; }
     for k in 0..(el - 2) { name[k] = e[k]; }                          // ID.mf -> ID.run
     name[el - 2] = 'r';
     name[el - 1] = 'u';
     name[el] = 'n';
     name[el + 1] = 0;
-    int rc = run_program(@name);
+    i64 rc = run_program(@name);
     if rc < 0 {
         wallpaper();
         draw_icon(180, 400, app, 180);

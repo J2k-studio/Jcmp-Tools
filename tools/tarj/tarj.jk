@@ -4,7 +4,7 @@
 #import <stdlib>
 #import <deflate>
 
-int fail(String who, String msg) {
+i64 fail(String who, String msg) {
     jerr << who << ": " << msg << "\n";
     return 1;
 }
@@ -12,11 +12,11 @@ int fail(String who, String msg) {
 // the bytes of a file (Fs::read_text stops at a zero byte)
 String read_bin(String path, bool^ ok) {
     ok[0] = false;
-    int fd = Sys::open_read(path.c());
+    i64 fd = Sys::open_read(path.c());
     if fd < 0 { return ""; }
     String r = "";
     char buf[8192];
-    int n = Sys::read(fd, @buf, 8192);
+    i64 n = Sys::read(fd, @buf, 8192);
     while n > 0 {
         for i in 0..n { r.push(buf[i]); }
         n = Sys::read(fd, @buf, 8192);
@@ -29,7 +29,7 @@ String read_bin(String path, bool^ ok) {
 String stdin_bytes() {
     String r = "";
     char buf[8192];
-    int n = Sys::read(0, @buf, 8192);
+    i64 n = Sys::read(0, @buf, 8192);
     while n > 0 {
         for i in 0..n { r.push(buf[i]); }
         n = Sys::read(0, @buf, 8192);
@@ -50,38 +50,38 @@ bool safe_name(String name) {
 }
 
 // the mode (low 12 bits) and the modification time of a file
-int file_mode(String path) {
+i64 file_mode(String path) {
     char st[128];
     if Sys::stat(path.c(), @st) != 0 { return 420; }
-    int m = (st[16] & 255) | ((st[17] & 255) << 8);
+    i64 m = (st[16] & 255) | ((st[17] & 255) << 8);
     return m & 4095;
 }
-int file_mtime(String path) {
+i64 file_mtime(String path) {
     char st[128];
     if Sys::stat(path.c(), @st) != 0 { return 0; }
-    int t = 0;
+    i64 t = 0;
     for i in 0..8 { t = t | ((st[88 + i] & 255) << (8 * i)); }
     return t;
 }
 
 // ---------------------------------------------------------------- tar
-String octal(int v, int width) {                       // width - 1 digits and a zero byte
+String octal(i64 v, i64 width) {                       // width - 1 digits and a zero byte
     String r = "";
     for i in 0..width - 1 { r.push((char)(48 + ((v >> (3 * (width - 2 - i))) & 7))); }
     r.push((char)0);
     return r;
 }
-void put_field(String h, String s, int width) {         // text padded with zero bytes
+void put_field(String h, String s, i64 width) {         // text padded with zero bytes
     for i in 0..width { if i < s.len { h.push(s[i]); } else { h.push((char)0); } }
 }
 
 String tar_out;
 
-void tar_add(String name, String data, bool isdir, int mode, int mtime) {
+void tar_add(String name, String data, bool isdir, i64 mode, i64 mtime) {
     String nm = name;
     String prefix = "";
     if nm.len > 100 {                                     // ustar: the part before a / goes to the prefix field
-        int cut = -1;
+        i64 cut = -1;
         for i in 0..nm.len { if nm[i] == '/' && nm.len - i - 1 <= 100 && i <= 155 && nm.len - i - 1 > 0 { cut = i; break; } }
         if cut < 0 { jerr << "tarj: name too long, skipped: " << name << "\n"; return; }
         prefix = nm.slice(0, cut);
@@ -92,7 +92,7 @@ void tar_add(String name, String data, bool isdir, int mode, int mtime) {
     h.append(octal(mode, 8));
     h.append(octal(0, 8));
     h.append(octal(0, 8));
-    int dl = data.len;
+    i64 dl = data.len;
     if isdir { dl = 0; }
     h.append(octal(dl, 12));
     h.append(octal(mtime, 12));
@@ -107,7 +107,7 @@ void tar_add(String name, String data, bool isdir, int mode, int mtime) {
     put_field(h, "", 8);
     put_field(h, prefix, 155);
     put_field(h, "", 12);
-    int sum = 0;
+    i64 sum = 0;
     for i in 0..512 { sum += h[i] & 255; }
     String c = octal(sum, 7);
     for i in 0..7 { h[148 + i] = c[i]; }
@@ -115,7 +115,7 @@ void tar_add(String name, String data, bool isdir, int mode, int mtime) {
     tar_out.append(h);
     if !isdir {
         tar_out.append(data);
-        int pad = (512 - data.len % 512) % 512;
+        i64 pad = (512 - data.len % 512) % 512;
         for i in 0..pad { tar_out.push((char)0); }
     }
 }
@@ -141,15 +141,15 @@ void add_path(String path, String name, bool quiet) {
     if !quiet { jout << "  adding " << name << "\n"; }
 }
 
-int parse_octal(String s, int from, int n) {
-    int v = 0;
+i64 parse_octal(String s, i64 from, i64 n) {
+    i64 v = 0;
     for i in from..from + n {
-        int c = s[i] & 255;
+        i64 c = s[i] & 255;
         if c >= 48 && c <= 55 { v = v * 8 + (c - 48); } else if v > 0 || c == 0 { if c == 0 || c == 32 { if v > 0 { break; } } }
     }
     return v;
 }
-String field_text(String s, int from, int n) {
+String field_text(String s, i64 from, i64 n) {
     String r = "";
     for i in from..from + n { if s[i] == 0 { break; } r.push(s[i]); }
     return r;
@@ -163,13 +163,13 @@ String tar_data(String raw, bool^ ok) {
 }
 
 // walks the archive: list = only names, otherwise extract into dest
-int tar_walk(String raw, String dest, bool list, bool quiet) {
+i64 tar_walk(String raw, String dest, bool list, bool quiet) {
     bool ok = false;
     String t = tar_data(raw, @ok);
     if !ok { return fail("tarj", "the gzip data is damaged"); }
-    int p = 0;
+    i64 p = 0;
     String longname = "";
-    int count = 0;
+    i64 count = 0;
     while p + 512 <= t.len {
         bool zero = true;
         for i in 0..512 { if t[p + i] != 0 { zero = false; break; } }
@@ -177,11 +177,11 @@ int tar_walk(String raw, String dest, bool list, bool quiet) {
         String name = field_text(t, p, 100);
         String pre = field_text(t, p + 345, 155);
         if pre.len > 0 { name = pre + "/" + name; }
-        int mode = parse_octal(t, p + 100, 8);
-        int size = parse_octal(t, p + 124, 12);
-        int type = t[p + 156] & 255;
-        int sum = parse_octal(t, p + 148, 8);
-        int calc = 0;
+        i64 mode = parse_octal(t, p + 100, 8);
+        i64 size = parse_octal(t, p + 124, 12);
+        i64 type = t[p + 156] & 255;
+        i64 sum = parse_octal(t, p + 148, 8);
+        i64 calc = 0;
         for i in 0..512 { if i >= 148 && i < 156 { calc += 32; } else { calc += t[p + i] & 255; } }
         if calc != sum { return fail("tarj", "the header checksum is wrong (this is not a tar file, or it is damaged)"); }
         if p + 512 + size > t.len { return fail("tarj", "the archive ends too early"); }
@@ -189,11 +189,11 @@ int tar_walk(String raw, String dest, bool list, bool quiet) {
         p += 512 + ((size + 511) / 512) * 512;
         if type == 76 { longname = field_text(data, 0, data.len); continue; }          // GNU: a long name comes first
         if type == 120 {                                                                // pax: path=... records
-            int q = 0;
+            i64 q = 0;
             while q < data.len {
-                int sp = q;
+                i64 sp = q;
                 while sp < data.len && data[sp] != ' ' { sp += 1; }
-                int rl = 0;
+                i64 rl = 0;
                 for k in q..sp { rl = rl * 10 + ((data[k] & 255) - 48); }
                 if rl <= 0 { break; }
                 String rec = data.slice(sp + 1, q + rl - 1);
@@ -214,7 +214,7 @@ int tar_walk(String raw, String dest, bool list, bool quiet) {
         if isdir { Dir::make_all(target); }
         else {
             make_parents(target);
-            Result<int, Error> w = Fs::write_text(target, data);
+            Result<i64, Error> w = Fs::write_text(target, data);
             if !w.is_ok() { jerr << "tarj: cannot write " << target << "\n"; continue; }
             Sys::chmod(target.c(), mode & 511);
         }
@@ -224,7 +224,7 @@ int tar_walk(String raw, String dest, bool list, bool quiet) {
     return 0;
 }
 
-int do_tarj(String[] a) {
+i64 do_tarj(String[] a) {
     if a.len < 3 {
         jerr << "tarj c OUT.tar[.gz] files...    make an archive (.gz or .tgz in the name: also gzip)\n";
         jerr << "tarj x FILE [-o DIR] [-q]       extract (a .gz inside is found by itself)\n";
@@ -235,7 +235,7 @@ int do_tarj(String[] a) {
     bool quiet = false;
     String outdir = "";
     String[] files = arr(8);
-    int i = 2;
+    i64 i = 2;
     while i < a.len {
         if a[i] == "-q" { quiet = true; i += 1; }
         else if a[i] == "-o" && i + 1 < a.len { outdir = a[i + 1] + ""; i += 2; }
@@ -254,7 +254,7 @@ int do_tarj(String[] a) {
         String out = files[0];
         String data = tar_out;
         if out.ends_with(".gz") || out.ends_with(".tgz") { data = Gzip::pack(tar_out); }
-        Result<int, Error> w = Fs::write_text(out, data);
+        Result<i64, Error> w = Fs::write_text(out, data);
         if !w.is_ok() { return fail("tarj", "cannot write " + out); }
         return 0;
     }
@@ -270,7 +270,7 @@ int do_tarj(String[] a) {
 }
 
 // ---------------------------------------------------------------- gzj
-int do_gzj(String[] a) {
+i64 do_gzj(String[] a) {
     bool dec = false;
     bool keep = false;
     bool tostd = false;
@@ -301,9 +301,9 @@ int do_gzj(String[] a) {
         if !ok2 { return fail("gzj", "not a gzip file, or it is damaged"); }
     } else { res = Gzip::pack(data); }
     if tostd {
-        int off = 0;
+        i64 off = 0;
         while off < res.len {
-            int n = res.len - off;
+            i64 n = res.len - off;
             if n > 8192 { n = 8192; }
             char buf[8192];
             for k in 0..n { buf[k] = res[off + k]; }
@@ -318,13 +318,13 @@ int do_gzj(String[] a) {
         target = file.slice(0, file.len - 3);
     } else { target = file + ".gz"; }
     if Fs::exists(target) { return fail("gzj", target + " exists already"); }
-    Result<int, Error> w = Fs::write_text(target, res);
+    Result<i64, Error> w = Fs::write_text(target, res);
     if !w.is_ok() { return fail("gzj", "cannot write " + target); }
     if !keep { Fs::remove(file); }
     return 0;
 }
 
-int main() {
+i64 main() {
     String[] args = Env::args();
     if args.len > 1 && args[1] == "--version" { jout << "tarj 0.1.1\n"; return 0; }
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") {
@@ -340,7 +340,7 @@ int main() {
         String dir = Path::parent(self);
         if dir.len == 0 { dir = "."; }
         String link = Path::join(dir, "gzj");
-        if !Fs::exists(link) { Sys::call(36, (int)"tarj".c(), 0 - 100, (int)link.c(), 0, 0, 0); }
+        if !Fs::exists(link) { Sys::call(36, (i64)"tarj".c(), 0 - 100, (i64)link.c(), 0, 0, 0); }
         jout << "tarj: gzj linked in " << dir << "\n";
         return 0;
     }

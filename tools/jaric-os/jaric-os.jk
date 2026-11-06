@@ -5,72 +5,72 @@
 #import "zipcore"
 
 // ---------------------------------------------------------------- the guest memory: a few regions of host memory
-int[] reg_start;
-int[] reg_size;
-int[] reg_host;
-int last_reg;
-int next_map;                                   // where the next mmap goes in the guest address space
-int brk_base;
-int brk_now;
-int brk_end;
+i64[] reg_start;
+i64[] reg_size;
+i64[] reg_host;
+i64 last_reg;
+i64 next_map;                                   // where the next mmap goes in the guest address space
+i64 brk_base;
+i64 brk_now;
+i64 brk_end;
 
-int pc;
-int next_pc;
-int^ X;                                         // x0 .. x30
-int sp;
-int fn;                                         // the flags N Z C V
-int fz;
-int fc;
-int fv;
-int done;
-int exit_code;
-int icount;
-int tpidr;                                      // the thread register (msr / mrs)
-int^ VL;                                        // v0 .. v31: the low and the high 64 bits
-int^ VH;
-int excl_addr;                                  // ldxr / stxr
+i64 pc;
+i64 next_pc;
+i64^ X;                                         // x0 .. x30
+i64 sp;
+i64 fn;                                         // the flags N Z C V
+i64 fz;
+i64 fc;
+i64 fv;
+i64 done;
+i64 exit_code;
+i64 icount;
+i64 tpidr;                                      // the thread register (msr / mrs)
+i64^ VL;                                        // v0 .. v31: the low and the high 64 bits
+i64^ VH;
+i64 excl_addr;                                  // ldxr / stxr
 // ---- system mode (jemu --system KERNEL.elf): the kernel starts at EL1, the user programs run at EL0; svc, exception vectors, eret, system registers, a UART
 bool sysmode;
-int el;                                         // the exception level now: 0 user, 1 kernel
-int sp_el0;                                     // the stack pointers: sp is the one of the level that runs
-int sp_el1;
-int vbar;                                       // VBAR_EL1: the table of the exception vectors
-int elr;                                        // ELR_EL1: where eret goes
-int spsr;                                       // SPSR_EL1: the state saved at the exception
-int esr;                                        // ESR_EL1: what happened
-int far;                                        // FAR_EL1: the address of a fault
-int sctlr;
-int tpidr_el1;
-int daif;                                       // the mask bits D A I F (bits 9 8 7 6)
-int timer_ctl;                                  // CNTV_CTL_EL0: bit 0 enable, bit 1 mask
-int timer_cmp;                                  // the compare value, in instructions
-int ttbr0;                                      // the page tables (MMU): TTBR0_EL1 for the addresses that start with 16 zero bits, TTBR1_EL1 for 16 one bits
-int ttbr1;
-int tcr;
-int mair;
+i64 el;                                         // the exception level now: 0 user, 1 kernel
+i64 sp_el0;                                     // the stack pointers: sp is the one of the level that runs
+i64 sp_el1;
+i64 vbar;                                       // VBAR_EL1: the table of the exception vectors
+i64 elr;                                        // ELR_EL1: where eret goes
+i64 spsr;                                       // SPSR_EL1: the state saved at the exception
+i64 esr;                                        // ESR_EL1: what happened
+i64 far;                                        // FAR_EL1: the address of a fault
+i64 sctlr;
+i64 tpidr_el1;
+i64 daif;                                       // the mask bits D A I F (bits 9 8 7 6)
+i64 timer_ctl;                                  // CNTV_CTL_EL0: bit 0 enable, bit 1 mask
+i64 timer_cmp;                                  // the compare value, in instructions
+i64 ttbr0;                                      // the page tables (MMU): TTBR0_EL1 for the addresses that start with 16 zero bits, TTBR1_EL1 for 16 one bits
+i64 ttbr1;
+i64 tcr;
+i64 mair;
 bool aborted;                                   // a memory access raised an exception: step() goes on at the vector
-int^ tlb;                                       // 64 entries of 3: the page (| 1), the physical page, the attributes
-int rx_byte;                                    // the UART: the next byte from the standard input (0x04 at the end of it)
+i64^ tlb;                                       // 64 entries of 3: the page (| 1), the physical page, the attributes
+i64 rx_byte;                                    // the UART: the next byte from the standard input (0x04 at the end of it)
 bool rx_have;
-int rx_pending;                                  // a byte that was read after an ESC that was not a message of the app
+i64 rx_pending;                                  // a byte that was read after an ESC that was not a message of the app
 bool rx_has_pending;
 bool trace_calls;                               // JEMU_TRACE=1: every Linux call of the program is written on the error output
-int fb_addr;                                    // the screen (jemu --system KERNEL --screen FILE.ppm): a frame buffer at 0x0B00_0000, 32 bits per pixel (blue, green, red, 0 in memory)
-int fb_w;                                       // registers: ADDR 0x00, WIDTH 0x08, HEIGHT 0x10, FLUSH 0x18 (a write saves the picture as a PPM file)
-int fb_h;
-int fb_flushes;
+i64 fb_addr;                                    // the screen (jemu --system KERNEL --screen FILE.ppm): a frame buffer at 0x0B00_0000, 32 bits per pixel (blue, green, red, 0 in memory)
+i64 fb_w;                                       // registers: ADDR 0x00, WIDTH 0x08, HEIGHT 0x10, FLUSH 0x18 (a write saves the picture as a PPM file)
+i64 fb_h;
+i64 fb_flushes;
 char^ screen_path;
 char^ gfx_path;                                 // --gfx FILE: show the screen live in the Jaric app (the file holds the pixels; the app is told by OSC 7777;gfx;open / present) at about 25 pictures a second
-int gfx_fd;
+i64 gfx_fd;
 bool gfx_opened;
-int disk_fd;                                    // the disk image (jemu --system KERNEL --disk FILE): a block device at 0x0A00_0000
-int disk_sectors;
-int disk_sector;                                // the registers of the device
-int disk_addr;
-int disk_count;
-int disk_status;
-int kshift;                                     // --shift N: the kernel image is loaded N bytes higher than its ELF says (its code does not depend on the place)
-int max_steps;                                  // a kernel that runs away is stopped
+i64 disk_fd;                                    // the disk image (jemu --system KERNEL --disk FILE): a block device at 0x0A00_0000
+i64 disk_sectors;
+i64 disk_sector;                                // the registers of the device
+i64 disk_addr;
+i64 disk_count;
+i64 disk_status;
+i64 kshift;                                     // --shift N: the kernel image is loaded N bytes higher than its ELF says (its code does not depend on the place)
+i64 max_steps;                                  // a kernel that runs away is stopped
 
 // jemu --system on a terminal: the keys go to the machine one by one and the terminal does not echo them (the console of the kernel echoes)
 char tty_saved[64];
@@ -79,42 +79,42 @@ bool tty_changed;
 void tty_raw_on() {
     if Sys::isatty(0) != 0 { return; }
     char t[64];
-    Sys::call(29, 0, 21505, (int)@t, 0, 0, 0);                // TCGETS
+    Sys::call(29, 0, 21505, (i64)@t, 0, 0, 0);                // TCGETS
     for i in 0..64 { tty_saved[i] = t[i]; }
     t[12] = t[12] & 244;                                      // lflag: ECHO (8) and ICANON (2) off, ISIG stays (Ctrl-C ends jemu)
-    Sys::call(29, 0, 21506, (int)@t, 0, 0, 0);                // TCSETS
+    Sys::call(29, 0, 21506, (i64)@t, 0, 0, 0);                // TCSETS
     tty_changed = true;
 }
 
 void tty_restore() {
     if !tty_changed { return; }
     tty_changed = false;
-    Sys::call(29, 0, 21506, (int)@tty_saved, 0, 0, 0);
+    Sys::call(29, 0, 21506, (i64)@tty_saved, 0, 0, 0);
 }
 
 String jemu_version() { return "0.14.0"; }
 
-void die(String msg, int code) {
+void die(String msg, i64 code) {
     tty_restore();
     jerr << "jemu: " << msg << "\n";
     Sys::exit(code);
 }
 
-String hex(int v) {
+String hex(i64 v) {
     String digits = "0123456789abcdef";
     String r = "";
     for i in 0..16 {
-        int d = (v >> (60 - i * 4)) & 15;
+        i64 d = (v >> (60 - i * 4)) & 15;
         r.push(digits[d]);
     }
     return r;
 }
 
-int ram_mb;                                      // the memory of the machine: as much as Android gives (JARIC_RAM_MB, set by the app from what is free), 64 MB at least
+i64 ram_mb;                                      // the memory of the machine: as much as Android gives (JARIC_RAM_MB, set by the app from what is free), 64 MB at least
 
 // the memory of the machine: mapped, not touched: Android gives the pages when the system uses them
-void add_ram(int start, int size) {
-    int h = Sys::call(222, 0, size, 3, 0x4022, 0 - 1, 0);                       // mmap(PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE)
+void add_ram(i64 start, i64 size) {
+    i64 h = Sys::call(222, 0, size, 3, 0x4022, 0 - 1, 0);                       // mmap(PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE)
     if h < 0 && size > 67108864 {
         ram_mb = 64;
         size = 67108864;
@@ -125,8 +125,8 @@ void add_ram(int start, int size) {
     reg_host.push(h);
 }
 
-void add_region(int start, int size) {
-    int h = (int)Mem::alloc(size);
+void add_region(i64 start, i64 size) {
+    i64 h = (i64)Mem::alloc(size);
     Mem::set((char^)h, 0, size);
     reg_start.push(start);
     reg_size.push(size);
@@ -134,9 +134,9 @@ void add_region(int start, int size) {
 }
 
 // the host address of guest memory [addr, addr+len), or 0
-int host_of(int addr, int len) {
-    int k = last_reg;
-    int off = addr - reg_start[k];
+i64 host_of(i64 addr, i64 len) {
+    i64 k = last_reg;
+    i64 off = addr - reg_start[k];
     if off >= 0 && off + len <= reg_size[k] { return reg_host[k] + off; }
     for i in 0..reg_start.len {
         off = addr - reg_start[i];
@@ -145,7 +145,7 @@ int host_of(int addr, int len) {
     return 0;
 }
 
-void fault(int addr, String what) {
+void fault(i64 addr, String what) {
     tty_restore();
     jerr << "jemu: segmentation fault (" << what << " at 0x" << hex(addr) << ", pc=0x" << hex(pc) << ")\n";
     Sys::exit(139);
@@ -154,23 +154,23 @@ void fault(int addr, String what) {
 // ---- the text screen: with --text the letters that the kernel writes to the UART are drawn on the screen of the app (a grid of cells; the font is a file, see mkfont.py)
 bool text_mode;
 char^ font_data;
-int font_cw;
-int font_ch;
+i64 font_cw;
+i64 font_ch;
 char^ tg_cells;
 char^ tg_pix;
-int tg_cols;
-int tg_rows;
-int tg_x;
-int tg_y;
+i64 tg_cols;
+i64 tg_rows;
+i64 tg_x;
+i64 tg_y;
 bool tg_dirty;
-int tg_w;
-int tg_h;
+i64 tg_w;
+i64 tg_h;
 
 void text_start(char^ font_path) {
-    int fd = Sys::call(56, 0 - 100, (int)font_path, 0, 0, 0, 0);
+    i64 fd = Sys::call(56, 0 - 100, (i64)font_path, 0, 0, 0, 0);
     if fd < 0 { return; }
     font_data = (char^)Mem::alloc(30000);
-    int n = Sys::read(fd, font_data, 30000);
+    i64 n = Sys::read(fd, font_data, 30000);
     Sys::close(fd);
     if n < 4 { return; }
     font_cw = font_data[0] & 255;
@@ -199,7 +199,7 @@ void tg_newline() {
 }
 
 // one letter of the kernel: a new line, a return, a backspace, or a printable one
-void tg_put(int c) {
+void tg_put(i64 c) {
     tg_dirty = true;
     if c == 10 { tg_newline(); return; }
     if c == 13 { tg_x = 0; return; }
@@ -211,9 +211,9 @@ void tg_put(int c) {
 }
 
 void text_render() {
-    int bgr = 20;
-    int bgg = 10;
-    int bgb = 8;                                         // memory order: blue, green, red
+    i64 bgr = 20;
+    i64 bgg = 10;
+    i64 bgb = 8;                                         // memory order: blue, green, red
     for p in 0..(tg_w * tg_h) {
         tg_pix[p * 4] = (char)20;
         tg_pix[p * 4 + 1] = (char)10;
@@ -222,17 +222,17 @@ void text_render() {
     }
     for row in 0..tg_rows {
         for col in 0..tg_cols {
-            int c = tg_cells[row * tg_cols + col] & 255;
+            i64 c = tg_cells[row * tg_cols + col] & 255;
             bool cur = row == tg_y && col == tg_x;
             if (c <= 32 || c > 126) && !cur { continue; }
             if c < 32 || c > 126 { c = 32; }
-            int g = 4 + (c - 32) * font_cw * font_ch;
+            i64 g = 4 + (c - 32) * font_cw * font_ch;
             for gy in 0..font_ch {
                 for gx in 0..font_cw {
-                    int a = font_data[g + gy * font_cw + gx] & 255;
+                    i64 a = font_data[g + gy * font_cw + gx] & 255;
                     if cur { a = 255 - a; if a < 90 { a = 90; } }
                     if a == 0 { continue; }
-                    int o = ((row * font_ch + gy) * tg_w + col * font_cw + gx) * 4;
+                    i64 o = ((row * font_ch + gy) * tg_w + col * font_cw + gx) * 4;
                     tg_pix[o] = (char)(20 + ((255 - 20) * a) / 255);          // blue
                     tg_pix[o + 1] = (char)(10 + ((228 - 10) * a) / 255);      // green
                     tg_pix[o + 2] = (char)(8 + ((200 - 8) * a) / 255);        // red
@@ -245,15 +245,15 @@ void text_render() {
 }
 
 void fb_live() {
-    int n = fb_w * fb_h;
-    int h = host_of(fb_addr, n * 4);
+    i64 n = fb_w * fb_h;
+    i64 h = host_of(fb_addr, n * 4);
     if h == 0 { return; }
     gfx_present((char^)h, fb_w, fb_h, true);
 }
 
 // shows a picture (blue, green, red, any; w x h) on the screen of the app; slow: wait 40 ms (an animation at about 25 pictures a second)
-void gfx_present(char^ src, int w, int h, bool slow) {
-    int n = w * h;
+void gfx_present(char^ src, i64 w, i64 h, bool slow) {
+    i64 n = w * h;
     char^ buf = (char^)Mem::alloc(n * 4 + 16);
     for i in 0..n {
         buf[i * 4] = src[i * 4];
@@ -262,7 +262,7 @@ void gfx_present(char^ src, int w, int h, bool slow) {
         buf[i * 4 + 3] = (char)255;
     }
     if !gfx_opened {
-        gfx_fd = Sys::call(56, 0 - 100, (int)gfx_path, 66, 420, 0, 0);                 // openat(O_RDWR | O_CREAT)
+        gfx_fd = Sys::call(56, 0 - 100, (i64)gfx_path, 66, 420, 0, 0);                 // openat(O_RDWR | O_CREAT)
         String open = "\x1b]7777;gfx;open;" + str(w) + ";" + str(h) + ";";
         open.append(gfx_path);
         open.append(";fill");
@@ -270,15 +270,15 @@ void gfx_present(char^ src, int w, int h, bool slow) {
         Sys::write(1, open.c(), open.len);
         gfx_opened = true;
     }
-    if gfx_fd >= 0 { Sys::call(68, gfx_fd, (int)buf, n * 4, 0, 0, 0); }                 // pwrite64
+    if gfx_fd >= 0 { Sys::call(68, gfx_fd, (i64)buf, n * 4, 0, 0, 0); }                 // pwrite64
     String pres = "\x1b]7777;gfx;present\x07";
     Sys::write(1, pres.c(), pres.len);
     Mem::free(buf);
     if slow {
-        int^ ts = (int^)Mem::alloc(16);
+        i64^ ts = (i64^)Mem::alloc(16);
         ts[0] = 0;
         ts[1] = 40000000;
-        Sys::call(101, (int)ts, 0, 0, 0, 0, 0);                                        // nanosleep 40 ms
+        Sys::call(101, (i64)ts, 0, 0, 0, 0, 0);                                        // nanosleep 40 ms
         Mem::free(ts);
     }
 }
@@ -287,10 +287,10 @@ void gfx_present(char^ src, int w, int h, bool slow) {
 void gfx_end() {
     if !gfx_opened { return; }
     if text_mode && tg_dirty { text_render(); }
-    int^ ts = (int^)Mem::alloc(16);
+    i64^ ts = (i64^)Mem::alloc(16);
     ts[0] = 2;
     ts[1] = 0;
-    Sys::call(101, (int)ts, 0, 0, 0, 0, 0);
+    Sys::call(101, (i64)ts, 0, 0, 0, 0, 0);
     String cl = "\x1b]7777;gfx;close\x07";
     Sys::write(1, cl.c(), cl.len);
 }
@@ -298,23 +298,23 @@ void gfx_end() {
 void fb_flush() {
     if gfx_path != null && fb_w > 0 && fb_h > 0 && fb_w * fb_h <= 4000000 { fb_live(); }
     if screen_path == null || fb_w < 1 || fb_h < 1 || fb_w * fb_h > 4000000 { return; }
-    int n = fb_w * fb_h;
-    int h = host_of(fb_addr, n * 4);
+    i64 n = fb_w * fb_h;
+    i64 h = host_of(fb_addr, n * 4);
     if h == 0 { return; }
     char^ out = (char^)Mem::alloc(n * 3 + 32);
     char^ hd = (char^)Mem::alloc(64);
     String head = "P6\n" + str(fb_w) + " " + str(fb_h) + "\n255\n";
-    int hl = head.len;
+    i64 hl = head.len;
     char^ src = (char^)h;
     for i in 0..n {
         out[i * 3] = src[i * 4 + 2];
         out[i * 3 + 1] = src[i * 4 + 1];
         out[i * 3 + 2] = src[i * 4];
     }
-    int fd = Sys::call(56, 0 - 100, (int)screen_path, 577, 420, 0, 0);          // openat(O_WRONLY, O_CREAT, O_TRUNC)
+    i64 fd = Sys::call(56, 0 - 100, (i64)screen_path, 577, 420, 0, 0);          // openat(O_WRONLY, O_CREAT, O_TRUNC)
     if fd >= 0 {
-        Sys::call(64, fd, (int)head.c(), hl, 0, 0, 0);
-        Sys::call(64, fd, (int)out, n * 3, 0, 0, 0);
+        Sys::call(64, fd, (i64)head.c(), hl, 0, 0, 0);
+        Sys::call(64, fd, (i64)out, n * 3, 0, 0, 0);
         Sys::call(57, fd, 0, 0, 0, 0, 0);
     }
     Mem::free(out);
@@ -322,13 +322,13 @@ void fb_flush() {
     fb_flushes += 1;
 }
 
-int disk_do(int cmd) {                          // 1 read, 2 write: count sectors of 512 bytes between the disk and the guest memory at disk_addr
+i64 disk_do(i64 cmd) {                          // 1 read, 2 write: count sectors of 512 bytes between the disk and the guest memory at disk_addr
     disk_status = 1;
     if disk_fd < 0 || disk_count < 1 || disk_sector < 0 || disk_sector + disk_count > disk_sectors { return 0; }
-    int len = disk_count * 512;
-    int h = host_of(disk_addr, len);
+    i64 len = disk_count * 512;
+    i64 h = host_of(disk_addr, len);
     if h == 0 { return 0; }
-    int r = 0 - 1;
+    i64 r = 0 - 1;
     if cmd == 1 { r = Sys::call(67, disk_fd, h, len, disk_sector * 512, 0, 0); }          // pread64
     if cmd == 2 { r = Sys::call(68, disk_fd, h, len, disk_sector * 512, 0, 0); }          // pwrite64
     if r == len { disk_status = 0; }
@@ -337,87 +337,87 @@ int disk_do(int cmd) {                          // 1 read, 2 write: count sector
 
 // ---- the 2D accelerator at 0x0E000000: the system writes the arguments (registers 0x08 ...) and the operation (0x00), a write to 0x80 does it. The host does it at the speed of the phone (the system draws pixel by pixel in the machine: a whole screen took a second).
 // Operations: 1 fill (base, stride, x, y, w, h, colour, clip w, clip h), 2 wallpaper (base, stride, w, h), 3 copy (dst, dst stride, dx, dy, src, src stride, sx, sy, w, h).
-int gp[16];
+i64 gp[16];
 
 void gpu_exec() {
-    int op = gp[0];
+    i64 op = gp[0];
     if op == 1 {
-        int base = gp[1];
-        int stride = gp[2];
-        int x = gp[3];
-        int y = gp[4];
-        int w = gp[5];
-        int h = gp[6];
-        int c = gp[7];
-        int cw = gp[8];
-        int ch = gp[9];
-        int x0 = x;
-        int y0 = y;
+        i64 base = gp[1];
+        i64 stride = gp[2];
+        i64 x = gp[3];
+        i64 y = gp[4];
+        i64 w = gp[5];
+        i64 h = gp[6];
+        i64 c = gp[7];
+        i64 cw = gp[8];
+        i64 ch = gp[9];
+        i64 x0 = x;
+        i64 y0 = y;
         if x0 < 0 { x0 = 0; }
         if y0 < 0 { y0 = 0; }
-        int x1 = x + w;
-        int y1 = y + h;
+        i64 x1 = x + w;
+        i64 y1 = y + h;
         if x1 > cw { x1 = cw; }
         if y1 > ch { y1 = ch; }
         if x1 <= x0 || y1 <= y0 { return; }
-        int hp = host_of(base + (y0 * stride + x0) * 4, ((y1 - y0 - 1) * stride + (x1 - x0)) * 4);
+        i64 hp = host_of(base + (y0 * stride + x0) * 4, ((y1 - y0 - 1) * stride + (x1 - x0)) * 4);
         if hp == 0 { return; }
         u32^ p = (u32^)hp;
         u32 cv = (u32)c;
         for yy in 0..(y1 - y0) {
-            int row = yy * stride;
+            i64 row = yy * stride;
             for xx in 0..(x1 - x0) { p[row + xx] = cv; }
         }
     } else if op == 2 {
-        int base = gp[1];
-        int stride = gp[2];
-        int w = gp[3];
-        int h = gp[4];
-        int hp = host_of(base, ((h - 1) * stride + w) * 4);
+        i64 base = gp[1];
+        i64 stride = gp[2];
+        i64 w = gp[3];
+        i64 h = gp[4];
+        i64 hp = host_of(base, ((h - 1) * stride + w) * 4);
         if hp == 0 { return; }
         u32^ p = (u32^)hp;
         for yy in 0..h {
-            int c = (24 + yy / 14) | ((10 + yy / 50) << 8) | ((8 + yy / 90) << 16) | (255 << 24);
+            i64 c = (24 + yy / 14) | ((10 + yy / 50) << 8) | ((8 + yy / 90) << 16) | (255 << 24);
             u32 cv = (u32)c;
-            int row = yy * stride;
+            i64 row = yy * stride;
             for xx in 0..w { p[row + xx] = cv; }
         }
     } else if op == 3 {
-        int dst = gp[1];
-        int ds = gp[2];
-        int dx = gp[3];
-        int dy = gp[4];
-        int src = gp[5];
-        int ss = gp[6];
-        int sx = gp[7];
-        int sy = gp[8];
-        int w = gp[9];
-        int h = gp[10];
-        int dp = host_of(dst + (dy * ds + dx) * 4, ((h - 1) * ds + w) * 4);
-        int sph = host_of(src + (sy * ss + sx) * 4, ((h - 1) * ss + w) * 4);
+        i64 dst = gp[1];
+        i64 ds = gp[2];
+        i64 dx = gp[3];
+        i64 dy = gp[4];
+        i64 src = gp[5];
+        i64 ss = gp[6];
+        i64 sx = gp[7];
+        i64 sy = gp[8];
+        i64 w = gp[9];
+        i64 h = gp[10];
+        i64 dp = host_of(dst + (dy * ds + dx) * 4, ((h - 1) * ds + w) * 4);
+        i64 sph = host_of(src + (sy * ss + sx) * 4, ((h - 1) * ss + w) * 4);
         if dp == 0 || sph == 0 { return; }
         u32^ d = (u32^)dp;
         u32^ s = (u32^)sph;
         for yy in 0..h {
-            int drow = yy * ds;
-            int srow = yy * ss;
+            i64 drow = yy * ds;
+            i64 srow = yy * ss;
             for xx in 0..w { d[drow + xx] = s[srow + xx]; }
         }
     } else if op == 5 {                                    // a picture made bigger by a whole number: dst, dst stride, dx, dy, src, src stride, w, h, scale, clip w, clip h
-        int dst = gp[1];
-        int ds = gp[2];
-        int dx = gp[3];
-        int dy = gp[4];
-        int src = gp[5];
-        int ss = gp[6];
-        int w = gp[7];
-        int h = gp[8];
-        int sc = gp[9];
-        int cw = gp[10];
-        int chh = gp[11];
+        i64 dst = gp[1];
+        i64 ds = gp[2];
+        i64 dx = gp[3];
+        i64 dy = gp[4];
+        i64 src = gp[5];
+        i64 ss = gp[6];
+        i64 w = gp[7];
+        i64 h = gp[8];
+        i64 sc = gp[9];
+        i64 cw = gp[10];
+        i64 chh = gp[11];
         if sc < 1 || w < 1 || h < 1 { return; }
-        int sph = host_of(src, ((h - 1) * ss + w) * 4);
-        int dph = host_of(dst, (chh * ds) * 4);
+        i64 sph = host_of(src, ((h - 1) * ss + w) * 4);
+        i64 dph = host_of(dst, (chh * ds) * 4);
         if sph == 0 || dph == 0 { return; }
         u32^ s = (u32^)sph;
         u32^ d = (u32^)dph;
@@ -425,10 +425,10 @@ void gpu_exec() {
             for xx in 0..w {
                 u32 cv = s[yy * ss + xx] | (u32)4278190080;
                 for v in 0..sc {
-                    int py = dy + yy * sc + v;
+                    i64 py = dy + yy * sc + v;
                     if py < 0 || py >= chh { continue; }
                     for u in 0..sc {
-                        int px2 = dx + xx * sc + u;
+                        i64 px2 = dx + xx * sc + u;
                         if px2 >= 0 && px2 < cw { d[py * ds + px2] = cv; }
                     }
                 }
@@ -444,25 +444,25 @@ String hc_folder;
 String hc_img;
 String hc_mkfs;
 String hc_font;
-int hc_cmd;
-int hc_out;
-int hc_status;
+i64 hc_cmd;
+i64 hc_out;
+i64 hc_status;
 
 // ---- the packages (.jc, zip files: manifest.toml and the program) of the folder are opened here: for each one the disk gets ID.mf (the manifest) and ID.run (the program); the packages themselves are not put on the disk
 String manifest_value(String mf, String key) {
-    int i = 0;
+    i64 i = 0;
     while i < mf.len {
-        int ls = i;
+        i64 ls = i;
         while i < mf.len && mf[i] != 10 { i += 1; }
         String line = "";
         for k in ls..i { line.push(mf[k]); }
         i += 1;
-        int p = 0;
+        i64 p = 0;
         while p < line.len && (line[p] == 32 || line[p] == 9) { p += 1; }
-        int q = 0;
+        i64 q = 0;
         while q < key.len && p + q < line.len && line[p + q] == key[q] { q += 1; }
         if q == key.len {
-            int r = p + q;
+            i64 r = p + q;
             while r < line.len && (line[r] == 32 || line[r] == 9) { r += 1; }
             if r < line.len && line[r] == '=' {
                 r += 1;
@@ -479,7 +479,7 @@ String manifest_value(String mf, String key) {
 String safe_id(String id) {
     String r = "";
     for k in 0..id.len {
-        int ch = id[k] & 255;
+        i64 ch = id[k] & 255;
         bool okc = (ch >= 48 && ch <= 57) || (ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122) || ch == 46 || ch == 45 || ch == 95;
         if okc && r.len < 30 { r.push((char)ch); }
     }
@@ -503,13 +503,13 @@ String[] stage_packages(String folder, String stage) {
         if !rr.is_ok() { continue; }
         String z = rr.take();
         if !zip_list(z) { continue; }
-        int mi = entry_index("manifest.toml");
+        i64 mi = entry_index("manifest.toml");
         if mi < 0 { continue; }
         String mf = zip_extract(z, mi, "");
         String entry = manifest_value(mf, "entry");
         String id = safe_id(manifest_value(mf, "id"));
         if id.len == 0 || entry.len == 0 { continue; }
-        int ei = entry_index(entry);
+        i64 ei = entry_index(entry);
         if ei < 0 { continue; }
         String prog = zip_extract(z, ei, "");
         String mpath = stage + "/" + id + ".mf";
@@ -522,7 +522,7 @@ String[] stage_packages(String folder, String stage) {
     return made;
 }
 
-int entry_index(String name) {
+i64 entry_index(String name) {
     for i in 0..zn_name.len { if zn_name[i] == name { return i; } }
     return 0 - 1;
 }
@@ -547,21 +547,21 @@ void hc_reimage() {
     String tmpimg = hc_img + ".new";
     if !make_disk(hc_mkfs, tmpimg, hc_folder, hc_font) { hc_status = 1; return; }
     // the new image is read with the calls of the system (a pattern variable that holds 2 MB of text crashed the runtime) and written over the disk
-    Result<int, Error> szr = Fs::size(tmpimg);
+    Result<i64, Error> szr = Fs::size(tmpimg);
     if !szr.is_ok() { hc_status = 1; Fs::remove(tmpimg); return; }
-    int n = szr.take();
-    int ifd = Sys::call(56, 0 - 100, (int)tmpimg.c(), 0, 0, 0, 0);                      // openat(O_RDONLY)
+    i64 n = szr.take();
+    i64 ifd = Sys::call(56, 0 - 100, (i64)tmpimg.c(), 0, 0, 0, 0);                      // openat(O_RDONLY)
     if ifd < 0 || n <= 0 || disk_fd < 0 { hc_status = 1; Fs::remove(tmpimg); return; }
     char^ big = (char^)Mem::alloc(n + 16);
-    int got = 0;
+    i64 got = 0;
     while got < n {
-        int r = Sys::call(63, ifd, (int)big + got, n - got, 0, 0, 0);                    // read
+        i64 r = Sys::call(63, ifd, (i64)big + got, n - got, 0, 0, 0);                    // read
         if r <= 0 { break; }
         got += r;
     }
     Sys::call(57, ifd, 0, 0, 0, 0, 0);
     if got == n {
-        Sys::call(68, disk_fd, (int)big, n, 0, 0, 0);                                    // pwrite64: the image file of the disk gets the new files
+        Sys::call(68, disk_fd, (i64)big, n, 0, 0, 0);                                    // pwrite64: the image file of the disk gets the new files
         disk_sectors = n / 512;
     } else { hc_status = 1; }
     Mem::free(big);
@@ -569,12 +569,12 @@ void hc_reimage() {
 }
 
 void hostcall() {
-    int h = host_of(hc_cmd, 96);
+    i64 h = host_of(hc_cmd, 96);
     hc_status = 0;
     if h == 0 { hc_status = 2; return; }
     char^ p = (char^)h;
     String c = "";
-    int i = 0;
+    i64 i = 0;
     while i < 95 && p[i] != 0 { c.push(p[i]); i += 1; }
     String text = "";
     if c == "list" {
@@ -585,7 +585,7 @@ void hostcall() {
         String id = "";
         bool clean = true;
         for k in 4..c.len {
-            int ch = c[k] & 255;
+            i64 ch = c[k] & 255;
             bool okc = (ch >= 48 && ch <= 57) || (ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122) || ch == 46 || ch == 45 || ch == 95;
             if !okc { clean = false; }
             id.push((char)ch);
@@ -601,7 +601,7 @@ void hostcall() {
         String rid = "";
         bool rclean = true;
         for k in 7..c.len {
-            int ch = c[k] & 255;
+            i64 ch = c[k] & 255;
             bool okc = (ch >= 48 && ch <= 57) || (ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122) || ch == 46 || ch == 45 || ch == 95;
             if !okc { rclean = false; }
             rid.push((char)ch);
@@ -614,10 +614,10 @@ void hostcall() {
     } else {
         hc_status = 3;
     }
-    int oh = host_of(hc_out, 4096);
+    i64 oh = host_of(hc_out, 4096);
     if oh != 0 {
         char^ q = (char^)oh;
-        int n = text.len;
+        i64 n = text.len;
         if n > 4000 { n = 4000; }
         for k in 0..n { q[k] = text[k]; }
         q[n] = 0;
@@ -625,21 +625,21 @@ void hostcall() {
 }
 
 // ---- the touch device at 0x0C000000: SEQ 0x00 (counts the events), X 0x08, Y 0x10 (dots of the screen), STATE 0x18 (1 down, 2 move, 3 up), ID 0x20 (the finger)
-int touch_seq;
-int home_flag;                                  // the swipe up from the bottom edge (the gesture for home): the register 0x30 tells it once
-int g_start;
-int touch_x;
-int touch_y;
-int touch_state;
-int touch_id;
+i64 touch_seq;
+i64 home_flag;                                  // the swipe up from the bottom edge (the gesture for home): the register 0x30 tells it once
+i64 g_start;
+i64 touch_x;
+i64 touch_y;
+i64 touch_state;
+i64 touch_id;
 
 // the message of the app  7777;touch;D|M|U;x;y;id
 void touch_message(char^ m) {
     char^ vw = "7777;gfx-view;";                                     // the app says how many dots of the picture are seen (the keyboard hides a part): state 4, Y = the height
-    int j = 0;
+    i64 j = 0;
     while vw[j] != 0 && m[j] == vw[j] { j += 1; }
     if vw[j] == 0 {
-        int hv = 0;
+        i64 hv = 0;
         while (m[j] & 255) >= 48 && (m[j] & 255) <= 57 { hv = hv * 10 + (m[j] & 255) - 48; j += 1; }
         touch_y = hv;
         touch_state = 4;
@@ -647,26 +647,26 @@ void touch_message(char^ m) {
         return;
     }
     char^ gb = "7777;gfx-back";                                      // the back key of the phone: an event (state 6) and the same as the swipe up for a program that runs
-    int b = 0;
+    i64 b = 0;
     while gb[b] != 0 && m[b] == gb[b] { b += 1; }
     if gb[b] == 0 { touch_state = 6; touch_seq += 1; home_flag = 1; return; }
     char^ gc = "7777;gfx-closed";                                    // the back key of the app closed the screen: the machine is turned off
-    int q = 0;
+    i64 q = 0;
     while gc[q] != 0 && m[q] == gc[q] { q += 1; }
     if gc[q] == 0 { done = 1; exit_code = 0; return; }
     char^ pre = "7777;touch;";
-    int i = 0;
+    i64 i = 0;
     while pre[i] != 0 { if m[i] != pre[i] { return; } i += 1; }
-    int st = 0;
+    i64 st = 0;
     if m[i] == 'D' { st = 1; } else if m[i] == 'M' { st = 2; } else if m[i] == 'U' { st = 3; } else { return; }
     i += 2;
-    int f = 0;
-    int v = 0;
-    int xs = 0;
-    int ys = 0;
-    int ids = 0;
+    i64 f = 0;
+    i64 v = 0;
+    i64 xs = 0;
+    i64 ys = 0;
+    i64 ids = 0;
     while true {
-        int c = m[i] & 255;
+        i64 c = m[i] & 255;
         if c >= 48 && c <= 57 { v = v * 10 + c - 48; }
         else {
             if f == 0 { xs = v; } else if f == 1 { ys = v; } else { ids = v; }
@@ -687,29 +687,29 @@ void touch_message(char^ m) {
 }
 
 char kq[256];                                                   // keys that host_poll found: the kernel gets them first
-int kq_head;
-int kq_tail;
+i64 kq_head;
+i64 kq_tail;
 
 // looks at the input without waiting (a program that asks for the touch does not block): the messages of the app go to the touch device, a key waits in rx_byte
 void host_poll() {
-    int pfd[1];
-    int ts[2];
+    i64 pfd[1];
+    i64 ts[2];
     for round in 0..64 {
         pfd[0] = 1 << 32;                                      // fd 0, POLLIN
         ts[0] = 0;
         ts[1] = 0;
-        int r = Sys::call(73, (int)@pfd, 1, (int)@ts, 0, 0, 0);          // ppoll with no wait
+        i64 r = Sys::call(73, (i64)@pfd, 1, (i64)@ts, 0, 0, 0);          // ppoll with no wait
         if r <= 0 || ((pfd[0] >> 48) & 1) == 0 { return; }
         char one[2];
-        int n = Sys::read(0, @one, 1);
+        i64 n = Sys::read(0, @one, 1);
         if n <= 0 { return; }
-        int c = one[0] & 255;
+        i64 c = one[0] & 255;
         if c == 27 {
-            int n2 = Sys::read(0, @one, 1);
+            i64 n2 = Sys::read(0, @one, 1);
             if n2 > 0 && (one[0] & 255) == 93 {
                 char msg[64];
-                int ml = 0;
-                int m = Sys::read(0, @one, 1);
+                i64 ml = 0;
+                i64 m = Sys::read(0, @one, 1);
                 while m > 0 && (one[0] & 255) != 7 { if ml < 63 { msg[ml] = one[0]; ml += 1; } m = Sys::read(0, @one, 1); }
                 msg[ml] = 0;
                 touch_message(@msg);
@@ -721,18 +721,18 @@ void host_poll() {
     }
 }
 
-int uart_ld(int addr) {
+i64 uart_ld(i64 addr) {
     if addr >= 0x0E000000 { return 1; }                           // the accelerator is there (the register 0 reads 1)
     if addr >= 0x0D000000 {
-        int hoff = addr - 0x0D000000;
+        i64 hoff = addr - 0x0D000000;
         if hoff == 0x18 { return hc_status; }
         return 0;
     }
     if addr >= 0x0C000000 {
-        int toff = addr - 0x0C000000;
+        i64 toff = addr - 0x0C000000;
         if toff == 0x00 { return touch_seq; }
         if toff == 0x38 { return ram_mb; }                                    // the memory of the machine in MB
-        if toff == 0x30 { int hv = home_flag; home_flag = 0; return hv; }
+        if toff == 0x30 { i64 hv = home_flag; home_flag = 0; return hv; }
         if toff == 0x28 { host_poll(); return touch_seq; }                    // a program that asks for the touch: the input is looked at (without waiting) first
         if toff == 0x08 { return touch_x; }
         if toff == 0x10 { return touch_y; }
@@ -741,32 +741,32 @@ int uart_ld(int addr) {
         return 0;
     }
     if addr >= 0x0B000000 && addr < 0x0C000000 {                     // the screen: the registers can be read back
-        int foff = addr - 0x0B000000;
+        i64 foff = addr - 0x0B000000;
         if foff == 0x00 { return fb_addr; }
         if foff == 0x08 { return fb_w; }
         if foff == 0x10 { return fb_h; }
         return 0;
     }
     if addr >= 0x0A000000 && addr < 0x0B000000 {                     // the disk: STATUS (0x20), SIZE in sectors (0x28)
-        int doff = addr - 0x0A000000;
+        i64 doff = addr - 0x0A000000;
         if doff == 0x20 { return disk_status; }
         if doff == 0x28 { return disk_sectors; }
         return 0;
     }
-    int off = addr - 0x09000000;
+    i64 off = addr - 0x09000000;
     if off == 0x18 {                            // UARTFR: bit 4 = nothing to read, bit 7 = the transmitter is empty. A read of this register waits for a key (the machine has nothing else to do)
         if !rx_have && kq_head < kq_tail { rx_byte = kq[kq_head % 256] & 255; kq_head += 1; rx_have = true; }
         if !rx_have && rx_has_pending { rx_byte = rx_pending; rx_has_pending = false; rx_have = true; }
         if !rx_have {
             if text_mode && tg_dirty { text_render(); }
             char one[2];
-            int n = Sys::read(0, @one, 1);
+            i64 n = Sys::read(0, @one, 1);
             if n > 0 && (one[0] & 255) == 27 {                       // a message of the app (ESC ] ... BEL, a touch) is no key: it is read to its end and dropped
-                int n2 = Sys::read(0, @one, 1);
+                i64 n2 = Sys::read(0, @one, 1);
                 if n2 > 0 && (one[0] & 255) == 93 {
                     char msg[64];
-                    int ml = 0;
-                    int m = Sys::read(0, @one, 1);
+                    i64 ml = 0;
+                    i64 m = Sys::read(0, @one, 1);
                     while m > 0 && (one[0] & 255) != 7 { if ml < 63 { msg[ml] = one[0]; ml += 1; } m = Sys::read(0, @one, 1); }
                     msg[ml] = 0;
                     touch_message(@msg);
@@ -780,22 +780,22 @@ int uart_ld(int addr) {
         return 0x80;
     }
     if off == 0 {                               // UARTDR: the byte
-        int b = rx_byte;
+        i64 b = rx_byte;
         rx_have = false;
         return b;
     }
     return 0;
 }
 
-void mmio_st(int addr, int v) {
+void mmio_st(i64 addr, i64 v) {
     if addr >= 0x0E000000 {
-        int goff = addr - 0x0E000000;
+        i64 goff = addr - 0x0E000000;
         if goff == 0x80 { gpu_exec(); }
         else if goff < 0x80 { gp[goff / 8] = v; }
         return;
     }
     if addr >= 0x0D000000 {
-        int hoff = addr - 0x0D000000;
+        i64 hoff = addr - 0x0D000000;
         if hoff == 0x00 { hc_cmd = v; }
         else if hoff == 0x08 { hc_out = v; }
         else if hoff == 0x10 { hostcall(); }
@@ -803,16 +803,16 @@ void mmio_st(int addr, int v) {
     }
     if addr >= 0x0C000000 {
         if addr - 0x0C000000 == 0x40 {                              // SLEEP: the machine rests for that many milliseconds (a program that waits for the next frame does not burn the phone)
-            int^ ts = (int^)Mem::alloc(16);
+            i64^ ts = (i64^)Mem::alloc(16);
             ts[0] = v / 1000;
             ts[1] = (v % 1000) * 1000000;
-            Sys::call(101, (int)ts, 0, 0, 0, 0, 0);
+            Sys::call(101, (i64)ts, 0, 0, 0, 0, 0);
             Mem::free(ts);
         }
         return;
     }
     if addr >= 0x0B000000 {                     // the screen: ADDR 0x00, WIDTH 0x08, HEIGHT 0x10, FLUSH 0x18
-        int foff = addr - 0x0B000000;
+        i64 foff = addr - 0x0B000000;
         if foff == 0x00 { fb_addr = v; }
         else if foff == 0x08 { fb_w = v; }
         else if foff == 0x10 { fb_h = v; }
@@ -830,7 +830,7 @@ void mmio_st(int addr, int v) {
         return;
     }
     if addr >= 0x0A000000 && addr < 0x0B000000 {                     // the disk: SECTOR 0x08, ADDR 0x10, COUNT 0x18, CMD 0x00 (1 read, 2 write: done at once)
-        int doff = addr - 0x0A000000;
+        i64 doff = addr - 0x0A000000;
         if doff == 0x08 { disk_sector = v; }
         else if doff == 0x10 { disk_addr = v; }
         else if doff == 0x18 { disk_count = v; }
@@ -848,24 +848,24 @@ void mmio_st(int addr, int v) {
     }
 }
 
-int ld(int addr, int size) {
+i64 ld(i64 addr, i64 size) {
     if mmu_on() { addr = xlate(addr, 0); if addr < 0 { return 0; } }
     if sysmode && addr >= 0x09000000 && addr < 0x0E001000 { return uart_ld(addr); }
-    int h = host_of(addr, size);
+    i64 h = host_of(addr, size);
     if h == 0 { fault(addr, "read"); }
-    if size == 8 { int^ p = (int^)h; return p[0]; }
-    if size == 4 { u32^ p = (u32^)h; return (int)p[0]; }
+    if size == 8 { i64^ p = (i64^)h; return p[0]; }
+    if size == 4 { u32^ p = (u32^)h; return (i64)p[0]; }
     char^ c = (char^)h;
     if size == 2 { return (c[0] & 255) | ((c[1] & 255) << 8); }
     return c[0] & 255;
 }
 
-void st(int addr, int size, int v) {
+void st(i64 addr, i64 size, i64 v) {
     if mmu_on() { addr = xlate(addr, 1); if addr < 0 { return; } }
     if sysmode && addr >= 0x09000000 && addr < 0x0E001000 { mmio_st(addr, v); return; }
-    int h = host_of(addr, size);
+    i64 h = host_of(addr, size);
     if h == 0 { fault(addr, "write"); }
-    if size == 8 { int^ p = (int^)h; p[0] = v; return; }
+    if size == 8 { i64^ p = (i64^)h; p[0] = v; return; }
     if size == 4 { u32^ p = (u32^)h; p[0] = (u32)(v & 4294967295); return; }
     char^ c = (char^)h;
     c[0] = (char)(v & 255);
@@ -873,13 +873,13 @@ void st(int addr, int size, int v) {
 }
 
 // ---------------------------------------------------------------- small helpers
-int mask32(int v) { return v & 4294967295; }
-int sx(int v, int bits) { return (v << (64 - bits)) >> (64 - bits); }
-int lsr(int v, int n) {
+i64 mask32(i64 v) { return v & 4294967295; }
+i64 sx(i64 v, i64 bits) { return (v << (64 - bits)) >> (64 - bits); }
+i64 lsr(i64 v, i64 n) {
     if n == 0 { return v; }
     return (v >> n) & ((1 << (64 - n)) - 1);
 }
-int ror(int v, int n, int bits) {
+i64 ror(i64 v, i64 n, i64 bits) {
     n = n % bits;
     if n == 0 { return v; }
     if bits == 32 {
@@ -888,30 +888,30 @@ int ror(int v, int n, int bits) {
     }
     return lsr(v, n) | (v << (64 - n));
 }
-bool ult(int a, int b) { return (a xor (1 << 63)) < (b xor (1 << 63)); }
+bool ult(i64 a, i64 b) { return (a xor (1 << 63)) < (b xor (1 << 63)); }
 
-int getx(int r, int sf) {                      // register r (31 = zero)
+i64 getx(i64 r, i64 sf) {                      // register r (31 = zero)
     if r == 31 { return 0; }
     if sf == 0 { return mask32(X[r]); }
     return X[r];
 }
-int getsp(int r, int sf) {                     // register r (31 = sp)
+i64 getsp(i64 r, i64 sf) {                     // register r (31 = sp)
     if r == 31 { if sf == 0 { return mask32(sp); } return sp; }
     return getx(r, sf);
 }
-void setx(int r, int v, int sf) {
+void setx(i64 r, i64 v, i64 sf) {
     if r == 31 { return; }
     if sf == 0 { v = mask32(v); }
     X[r] = v;
 }
-void setsp(int r, int v, int sf) {
+void setsp(i64 r, i64 v, i64 sf) {
     if r == 31 { if sf == 0 { v = mask32(v); } sp = v; return; }
     setx(r, v, sf);
 }
 
-bool cond_ok(int c) {
+bool cond_ok(i64 c) {
     bool r = false;
-    int k = c >> 1;
+    i64 k = c >> 1;
     if k == 0 { r = fz == 1; }
     else if k == 1 { r = fc == 1; }
     else if k == 2 { r = fn == 1; }
@@ -925,16 +925,16 @@ bool cond_ok(int c) {
 }
 
 // a + b + carry, with the flags when setf (sf = 1: 64 bits)
-int addc(int a, int b, int carry_in, int sf, bool setf) {
-    int r = 0;
+i64 addc(i64 a, i64 b, i64 carry_in, i64 sf, bool setf) {
+    i64 r = 0;
     if sf == 1 {
         r = a + b + carry_in;
         if setf {
             fn = (r >> 63) & 1;
             fz = 0; if r == 0 { fz = 1; }
-            int s1 = a + b;
-            int c1 = 0; if ult(s1, a) { c1 = 1; }
-            int c2 = 0; if ult(r, s1) { c2 = 1; }
+            i64 s1 = a + b;
+            i64 c1 = 0; if ult(s1, a) { c1 = 1; }
+            i64 c2 = 0; if ult(r, s1) { c2 = 1; }
             fc = c1 | c2;
             fv = 0;
             if ((a xor r) & (b xor r)) < 0 { fv = 1; }
@@ -942,7 +942,7 @@ int addc(int a, int b, int carry_in, int sf, bool setf) {
     } else {
         a = mask32(a);
         b = mask32(b);
-        int full = a + b + carry_in;
+        i64 full = a + b + carry_in;
         r = mask32(full);
         if setf {
             fn = (r >> 31) & 1;
@@ -955,31 +955,31 @@ int addc(int a, int b, int carry_in, int sf, bool setf) {
     return r;
 }
 
-int g_wmask;
-int g_tmask;
+i64 g_wmask;
+i64 g_tmask;
 // DecodeBitMasks of the architecture: g_wmask and g_tmask (for a logical immediate only wmask is used)
-void bit_masks(int n, int imms, int immr, int datasize) {
-    int len = 0;
-    int t = (n << 6) | ((imms xor 63) & 63);
+void bit_masks(i64 n, i64 imms, i64 immr, i64 datasize) {
+    i64 len = 0;
+    i64 t = (n << 6) | ((imms xor 63) & 63);
     for i in 0..7 { if ((t >> (6 - i)) & 1) == 1 { len = 6 - i; break; } }
-    int esize = 1 << len;
-    int levels = esize - 1;
-    int s = imms & levels;
-    int r = immr & levels;
-    int diff = (s - r) & levels;
-    int welem = (1 << (s + 1)) - 1;
+    i64 esize = 1 << len;
+    i64 levels = esize - 1;
+    i64 s = imms & levels;
+    i64 r = immr & levels;
+    i64 diff = (s - r) & levels;
+    i64 welem = (1 << (s + 1)) - 1;
     if s + 1 == 64 { welem = 0 - 1; }
-    int telem = (1 << (diff + 1)) - 1;
+    i64 telem = (1 << (diff + 1)) - 1;
     if diff + 1 == 64 { telem = 0 - 1; }
-    int w = welem;
+    i64 w = welem;
     if esize < 64 {
         if r != 0 { w = ((welem >> r) | (welem << (esize - r))) & ((1 << esize) - 1); }
     } else {
         w = ror(welem, r, 64);
     }
-    int wm = 0;
-    int tm = 0;
-    int k = 0;
+    i64 wm = 0;
+    i64 tm = 0;
+    i64 k = 0;
     while k < 64 { wm = wm | (w << k); tm = tm | (telem << k); k += esize; }
     if datasize == 32 { wm = mask32(wm); tm = mask32(tm); }
     g_wmask = wm;
@@ -987,8 +987,8 @@ void bit_masks(int n, int imms, int immr, int datasize) {
 }
 
 // the second operand of a shifted register: type 0 lsl, 1 lsr, 2 asr, 3 ror
-int shifted(int rm, int type, int amt, int sf) {
-    int v = getx(rm, sf);
+i64 shifted(i64 rm, i64 type, i64 amt, i64 sf) {
+    i64 v = getx(rm, sf);
     if amt == 0 { return v; }
     if sf == 0 {
         if type == 0 { return mask32(v << amt); }
@@ -1003,9 +1003,9 @@ int shifted(int rm, int type, int amt, int sf) {
 }
 
 // the second operand of an extended register
-int extended(int rm, int option, int shift, int sf) {
-    int v = getx(rm, 1);
-    int e = v;
+i64 extended(i64 rm, i64 option, i64 shift, i64 sf) {
+    i64 v = getx(rm, 1);
+    i64 e = v;
     if option == 0 { e = v & 255; }
     else if option == 1 { e = v & 65535; }
     else if option == 2 { e = mask32(v); }
@@ -1017,27 +1017,27 @@ int extended(int rm, int option, int shift, int sf) {
     return e;
 }
 
-int umulh(int a, int b) {
-    int a0 = a & 4294967295;
-    int a1 = lsr(a, 32);
-    int b0 = b & 4294967295;
-    int b1 = lsr(b, 32);
-    int p00 = a0 * b0;
-    int p01 = a0 * b1;
-    int p10 = a1 * b0;
-    int p11 = a1 * b1;
-    int mid = lsr(p00, 32) + (p01 & 4294967295) + (p10 & 4294967295);
+i64 umulh(i64 a, i64 b) {
+    i64 a0 = a & 4294967295;
+    i64 a1 = lsr(a, 32);
+    i64 b0 = b & 4294967295;
+    i64 b1 = lsr(b, 32);
+    i64 p00 = a0 * b0;
+    i64 p01 = a0 * b1;
+    i64 p10 = a1 * b0;
+    i64 p11 = a1 * b1;
+    i64 mid = lsr(p00, 32) + (p01 & 4294967295) + (p10 & 4294967295);
     return p11 + lsr(p01, 32) + lsr(p10, 32) + lsr(mid, 32);
 }
 
-int udiv64(int a, int b) { return (int)((u64)a / (u64)b); }
+i64 udiv64(i64 a, i64 b) { return (i64)((u64)a / (u64)b); }
 
 // ---------------------------------------------------------------- floating point (scalar): single = 0, double = 1
-double s_to_d(int sb) {
-    int sign = (sb >> 31) & 1;
-    int e = (sb >> 23) & 255;
-    int m = sb & 0x7FFFFF;
-    int bits = 0;
+double s_to_d(i64 sb) {
+    i64 sign = (sb >> 31) & 1;
+    i64 e = (sb >> 23) & 255;
+    i64 m = sb & 0x7FFFFF;
+    i64 bits = 0;
     if e == 255 { bits = (sign << 63) | (0x7FF << 52) | (m << 29); }
     else if e == 0 {
         if m == 0 { bits = sign << 63; }
@@ -1049,32 +1049,32 @@ double s_to_d(int sb) {
     } else { bits = (sign << 63) | ((e - 127 + 1023) << 52) | (m << 29); }
     return Math::from_bits(bits);
 }
-int d_to_s(double d) {
+i64 d_to_s(double d) {
     float f = (float)d;
     double back = (double)f;
-    int db = Math::to_bits(back);
-    int sign = (db >> 63) & 1;
-    int e = (db >> 52) & 0x7FF;
-    int m = db & 0xFFFFFFFFFFFFF;
+    i64 db = Math::to_bits(back);
+    i64 sign = (db >> 63) & 1;
+    i64 e = (db >> 52) & 0x7FF;
+    i64 m = db & 0xFFFFFFFFFFFFF;
     if e == 0x7FF {
         if m == 0 { return (sign << 31) | (255 << 23); }
         return (sign << 31) | (255 << 23) | (1 << 22) | (m >> 29);
     }
     if e == 0 { return sign << 31; }
-    int ex = e - 1023 + 127;
+    i64 ex = e - 1023 + 127;
     if ex >= 255 { return (sign << 31) | (255 << 23); }
     if ex <= 0 {
-        int shift = 926 - e;
+        i64 shift = 926 - e;
         if shift > 63 { return sign << 31; }
         return (sign << 31) | ((((1 << 52) | m) >> shift) & 0x7FFFFF);
     }
     return (sign << 31) | (ex << 23) | (m >> 29);
 }
-double fget(int r, int type) {
+double fget(i64 r, i64 type) {
     if type == 1 { return Math::from_bits(VL[r]); }
     return s_to_d(VL[r] & 4294967295);
 }
-void fset(int r, double v, int type) {
+void fset(i64 r, double v, i64 type) {
     VH[r] = 0;
     if type == 1 { VL[r] = Math::to_bits(v); } else { VL[r] = d_to_s(v); }
 }
@@ -1083,7 +1083,7 @@ bool fnan(double a) { return a != a; }
 double ftrunc(double d) {
     if fnan(d) { return d; }
     if d >= 4503599627370496.0 || d <= 0.0 - 4503599627370496.0 { return d; }
-    double t = (double)((int)d);
+    double t = (double)((i64)d);
     if t == 0.0 && d < 0.0 { return 0.0 - 0.0; }
     return t;
 }
@@ -1111,31 +1111,31 @@ double fround_away(double d) {
     return 0.0 - ffloor(0.0 - d + 0.5);
 }
 
-int f_to_int(double d, int sf, bool unsigned_) {      // fcvtz[su]: toward zero, saturating
+i64 f_to_int(double d, i64 sf, bool unsigned_) {      // fcvtz[su]: toward zero, saturating
     if fnan(d) { return 0; }
     if unsigned_ {
         if d <= 0.0 { return 0; }
-        if sf == 0 { if d >= 4294967296.0 { return 4294967295; } return (int)d; }
+        if sf == 0 { if d >= 4294967296.0 { return 4294967295; } return (i64)d; }
         if d >= 18446744073709551616.0 { return 0 - 1; }
-        if d >= 9223372036854775808.0 { return ((int)(d - 9223372036854775808.0)) + (1 << 63); }
-        return (int)d;
+        if d >= 9223372036854775808.0 { return ((i64)(d - 9223372036854775808.0)) + (1 << 63); }
+        return (i64)d;
     }
     if sf == 0 {
         if d >= 2147483648.0 { return 2147483647; }
         if d <= 0.0 - 2147483648.0 { return mask32(0 - 2147483648); }
-        return mask32((int)d);
+        return mask32((i64)d);
     }
     if d >= 9223372036854775808.0 { return (1 << 63) - 1; }
     if d <= 0.0 - 9223372036854775808.0 { return 1 << 63; }
-    return (int)d;
+    return (i64)d;
 }
 
 // the scalar floating-point loads and stores use the same addressing as the integer ones: size and opc say the width
-void fp_loadstore(int w, int addr) {
-    int size = (w >> 30) & 3;
-    int opc = (w >> 22) & 3;
-    int rt = w & 31;
-    int bytes = 1 << size;
+void fp_loadstore(i64 w, i64 addr) {
+    i64 size = (w >> 30) & 3;
+    i64 opc = (w >> 22) & 3;
+    i64 rt = w & 31;
+    i64 bytes = 1 << size;
     if opc >= 2 { bytes = 16; }
     bool load = (opc & 1) == 1;
     if load {
@@ -1155,20 +1155,20 @@ void fcompare(double a, double b) {
     else { fn = 0; fz = 0; fc = 1; fv = 0; }
 }
 
-void do_fp(int w) {
-    int type = (w >> 22) & 3;                         // 0 single, 1 double
-    int rn = (w >> 5) & 31;
-    int rd = w & 31;
-    int rm = (w >> 16) & 31;
-    int t1 = type & 1;
+void do_fp(i64 w) {
+    i64 type = (w >> 22) & 3;                         // 0 single, 1 double
+    i64 rn = (w >> 5) & 31;
+    i64 rd = w & 31;
+    i64 rm = (w >> 16) & 31;
+    i64 t1 = type & 1;
     if ((w >> 21) & 1) == 0 && ((w >> 24) & 1) == 0 {
         bad(w, "fixed-point conversion");
         return;
     }
     if ((w >> 24) & 1) == 1 {                         // fmadd, fmsub, fnmadd, fnmsub
-        int ra = (w >> 10) & 31;
-        int o1 = (w >> 21) & 1;
-        int o0 = (w >> 15) & 1;
+        i64 ra = (w >> 10) & 31;
+        i64 o1 = (w >> 21) & 1;
+        i64 o0 = (w >> 15) & 1;
         double n = fget(rn, t1);
         double m = fget(rm, t1);
         double a = fget(ra, t1);
@@ -1180,9 +1180,9 @@ void do_fp(int w) {
         fset(rd, r, t1);
         return;
     }
-    int low = (w >> 10) & 0x3FF;                      // bits 15:10
+    i64 low = (w >> 10) & 0x3FF;                      // bits 15:10
     if (w & 0x7C00) == 0x4000 {                       // one source: bits 14:10 = 10000
-        int opcode = (w >> 15) & 63;
+        i64 opcode = (w >> 15) & 63;
         double v = fget(rn, t1);
         if opcode == 0 { VL[rd] = VL[rn]; VH[rd] = 0; if t1 == 0 { VL[rd] = VL[rn] & 4294967295; } return; }       // fmov
         if opcode == 1 {                                                                                             // fabs
@@ -1208,11 +1208,11 @@ void do_fp(int w) {
         return;
     }
     if (w & 0xFC00) == 0x0000 {                       // conversions between integer and floating point: bits 15:10 = 000000
-        int sf = (w >> 31) & 1;
-        int rmode = (w >> 19) & 3;
-        int opcode = (w >> 16) & 7;
+        i64 sf = (w >> 31) & 1;
+        i64 rmode = (w >> 19) & 3;
+        i64 opcode = (w >> 16) & 7;
         if opcode == 2 || opcode == 3 {               // scvtf, ucvtf
-            int x = getx(rn, sf);
+            i64 x = getx(rn, sf);
             double d = 0.0;
             if opcode == 2 { if sf == 0 { d = (double)sx(x, 32); } else { d = (double)x; } }
             else {
@@ -1253,25 +1253,25 @@ void do_fp(int w) {
     }
     if (w & 0xE00) == 0x200 && (w & 0x100) == 0 && false { return; }
     if (w & 0x1C00) == 0x1000 {                       // fmov immediate (bits 12:10 = 100): the 8 bits are in 20:13
-        int imm8 = (w >> 13) & 255;
-        int a = (imm8 >> 7) & 1;
-        int b = (imm8 >> 6) & 1;
+        i64 imm8 = (w >> 13) & 255;
+        i64 a = (imm8 >> 7) & 1;
+        i64 b = (imm8 >> 6) & 1;
         if t1 == 1 {
-            int rep8 = 0;
+            i64 rep8 = 0;
             if b == 1 { rep8 = 255 << 2; }
-            int e = ((1 - b) << 10) | rep8 | ((imm8 >> 4) & 3);
+            i64 e = ((1 - b) << 10) | rep8 | ((imm8 >> 4) & 3);
             VL[rd] = (a << 63) | (e << 52) | ((imm8 & 15) << 48);
         } else {
-            int rep5 = 0;
+            i64 rep5 = 0;
             if b == 1 { rep5 = 31 << 2; }
-            int e = ((1 - b) << 7) | rep5 | ((imm8 >> 4) & 3);
+            i64 e = ((1 - b) << 7) | rep5 | ((imm8 >> 4) & 3);
             VL[rd] = (a << 31) | (e << 23) | ((imm8 & 15) << 19);
         }
         VH[rd] = 0;
         return;
     }
     if (w & 0xC00) == 0x800 {                         // two sources (bits 11:10 = 10)
-        int opcode = (w >> 12) & 15;
+        i64 opcode = (w >> 12) & 15;
         double a = fget(rn, t1);
         double b = fget(rm, t1);
         double r = 0.0;
@@ -1286,18 +1286,18 @@ void do_fp(int w) {
         return;
     }
     if (w & 0xC00) == 0xC00 {                         // fcsel
-        int cond = (w >> 12) & 15;
-        int src = rm;
+        i64 cond = (w >> 12) & 15;
+        i64 src = rm;
         if cond_ok(cond) { src = rn; }
         VL[rd] = VL[src];
         VH[rd] = 0;
         return;
     }
     if (w & 0xC00) == 0x400 {                         // fccmp, fccmpe
-        int cond = (w >> 12) & 15;
+        i64 cond = (w >> 12) & 15;
         if cond_ok(cond) { fcompare(fget(rn, t1), fget(rm, t1)); }
         else {
-            int nzcv = w & 15;
+            i64 nzcv = w & 15;
             fn = (nzcv >> 3) & 1; fz = (nzcv >> 2) & 1; fc = (nzcv >> 1) & 1; fv = nzcv & 1;
         }
         return;
@@ -1306,17 +1306,17 @@ void do_fp(int w) {
 }
 
 // ---------------------------------------------------------------- system mode: exceptions and system registers
-int sr_key(int op0, int op1, int crn, int crm, int op2) { return (op0 << 14) | (op1 << 11) | (crn << 7) | (crm << 3) | op2; }
+i64 sr_key(i64 op0, i64 op1, i64 crn, i64 crm, i64 op2) { return (op0 << 14) | (op1 << 11) | (crn << 7) | (crm << 3) | op2; }
 
-int pstate_now() { return (el << 2) | 1 | (fn << 31) | (fz << 30) | (fc << 29) | (fv << 28) | (daif & 0x3C0); }
+i64 pstate_now() { return (el << 2) | 1 | (fn << 31) | (fz << 30) | (fc << 29) | (fv << 28) | (daif & 0x3C0); }
 
 // an exception to EL1: kind 0 = synchronous. The vector: 0x200 from EL1 (with SP_EL1), 0x400 from EL0 (AArch64).
-void take_exception(int kind, int ec, int iss, int ret_pc, int fault_addr) {
+void take_exception(i64 kind, i64 ec, i64 iss, i64 ret_pc, i64 fault_addr) {
     esr = (ec << 26) | (1 << 25) | (iss & 0x1FFFFFF);
     far = fault_addr;
     spsr = pstate_now();
     elr = ret_pc;
-    int offset = 0x200;
+    i64 offset = 0x200;
     if el == 0 { offset = 0x400; sp_el0 = sp; sp = sp_el1; }
     el = 1;
     daif = 0x3C0;                               // an exception masks the others until the handler lets them in
@@ -1335,7 +1335,7 @@ bool check_irq() {
 }
 
 void do_eret() {
-    int target = (spsr >> 2) & 3;
+    i64 target = (spsr >> 2) & 3;
     fn = (spsr >> 31) & 1; fz = (spsr >> 30) & 1; fc = (spsr >> 29) & 1; fv = (spsr >> 28) & 1;
     daif = spsr & 0x3C0;
     if target == 0 && el == 1 { sp_el1 = sp; sp = sp_el0; }
@@ -1344,7 +1344,7 @@ void do_eret() {
     next_pc = elr;
 }
 
-int sysreg_read(int key) {
+i64 sysreg_read(i64 key) {
     if key == sr_key(3, 0, 12, 0, 0) { return vbar; }
     if key == sr_key(3, 0, 4, 0, 1) { return elr; }
     if key == sr_key(3, 0, 4, 0, 0) { return spsr; }
@@ -1362,14 +1362,14 @@ int sysreg_read(int key) {
     if key == sr_key(3, 0, 13, 0, 4) { return tpidr_el1; }
     if key == sr_key(3, 3, 14, 0, 2) { return icount; }                        // CNTVCT_EL0: a counter, the number of instructions
     if key == sr_key(3, 3, 14, 0, 0) { return 1000000; }                       // CNTFRQ_EL0
-    if key == sr_key(3, 3, 14, 3, 1) { int c = timer_ctl & 3; if timer_met() { c = c | 4; } return c; }     // CNTV_CTL_EL0 (bit 2: the timer has come)
+    if key == sr_key(3, 3, 14, 3, 1) { i64 c = timer_ctl & 3; if timer_met() { c = c | 4; } return c; }     // CNTV_CTL_EL0 (bit 2: the timer has come)
     if key == sr_key(3, 3, 14, 3, 0) { return timer_cmp - icount; }            // CNTV_TVAL_EL0
     if key == sr_key(3, 3, 14, 3, 2) { return timer_cmp; }                     // CNTV_CVAL_EL0
     if key == sr_key(3, 0, 0, 0, 5) { return 0; }                              // MPIDR_EL1: the first CPU
     return 0;
 }
 
-void sysreg_write(int key, int v) {
+void sysreg_write(i64 key, i64 v) {
     if key == sr_key(3, 0, 12, 0, 0) { vbar = v; }
     else if key == sr_key(3, 0, 4, 0, 1) { elr = v; }
     else if key == sr_key(3, 0, 4, 0, 0) { spsr = v; }
@@ -1394,44 +1394,44 @@ bool mmu_on() { return sysmode && (sctlr & 1) != 0; }
 void tlb_flush() { for i in 0..192 { tlb[i] = 0; } }
 
 // the exception of a failed translation. kind: 0 read, 1 write, 2 fetch. code: the fault status (4 + level translation, 8 + level access flag, 12 + level permission)
-int mmu_fault(int va, int kind, int code) {
-    int ec = 0x25;
+i64 mmu_fault(i64 va, i64 kind, i64 code) {
+    i64 ec = 0x25;
     if kind == 2 { ec = 0x21; if el == 0 { ec = 0x20; } }
     else if el == 0 { ec = 0x24; }
-    int iss = code;
+    i64 iss = code;
     if kind == 1 { iss = iss | 64; }
     take_exception(0, ec, iss, pc, va);
     aborted = true;
     return 0 - 1;
 }
 
-int phys64(int pa) {
-    int h = host_of(pa, 8);
+i64 phys64(i64 pa) {
+    i64 h = host_of(pa, 8);
     if h == 0 { return 0; }
-    int^ p = (int^)h;
+    i64^ p = (i64^)h;
     return p[0];
 }
 
 // the physical address of va for an access of this kind, or -1 after the exception was raised
-int xlate(int va, int kind) {
-    int page = va & ~4095;
-    int slot = (va >> 12) & 63;
-    int pa_page = 0;
-    int at = 0;
+i64 xlate(i64 va, i64 kind) {
+    i64 page = va & ~4095;
+    i64 slot = (va >> 12) & 63;
+    i64 pa_page = 0;
+    i64 at = 0;
     if tlb[slot * 3] == (page | 1) {
         pa_page = tlb[slot * 3 + 1];
         at = tlb[slot * 3 + 2];
     } else {
-        int top = va >> 48;
+        i64 top = va >> 48;
         if top != 0 && top != 0 - 1 { return mmu_fault(va, kind, 4); }
-        int base = ttbr0;
+        i64 base = ttbr0;
         if top != 0 { base = ttbr1; }
         base = base & 0xFFFFFFFFF000;
-        int level = 0;
-        int leaf = 0;
+        i64 level = 0;
+        i64 leaf = 0;
         while level < 4 {
-            int idx = (va >> (39 - 9 * level)) & 511;
-            int desc = phys64(base + idx * 8);
+            i64 idx = (va >> (39 - 9 * level)) & 511;
+            i64 desc = phys64(base + idx * 8);
             if (desc & 1) == 0 { return mmu_fault(va, kind, 4 + level); }
             if level < 3 && (desc & 3) == 3 { base = desc & 0xFFFFFFFFF000; level += 1; continue; }
             if level == 3 && (desc & 3) != 3 { return mmu_fault(va, kind, 4 + level); }
@@ -1440,17 +1440,17 @@ int xlate(int va, int kind) {
             break;
         }
         if (leaf & 1024) == 0 { return mmu_fault(va, kind, 8 + level); }          // the access flag
-        int bsize = 4096;
+        i64 bsize = 4096;
         if level == 1 { bsize = 1073741824; } else if level == 2 { bsize = 2097152; }
-        int full = (leaf & 0xFFFFFFFFF000 & ~(bsize - 1)) | (va & (bsize - 1));
+        i64 full = (leaf & 0xFFFFFFFFF000 & ~(bsize - 1)) | (va & (bsize - 1));
         pa_page = full & ~4095;
         at = ((leaf >> 6) & 3) | (((leaf >> 53) & 1) << 2) | (((leaf >> 54) & 1) << 3) | (level << 4);
         tlb[slot * 3] = page | 1;
         tlb[slot * 3 + 1] = pa_page;
         tlb[slot * 3 + 2] = at;
     }
-    int ap = at & 3;
-    int lvl = (at >> 4) & 3;
+    i64 ap = at & 3;
+    i64 lvl = (at >> 4) & 3;
     bool bad = false;
     if kind == 2 {
         if el == 0 { bad = ((at >> 3) & 1) == 1 || ap == 0 || ap == 2; } else { bad = ((at >> 2) & 1) == 1; }
@@ -1465,21 +1465,21 @@ int xlate(int va, int kind) {
 
 // ---------------------------------------------------------------- the system calls (Linux ARM64)
 void syscall_guest() {
-    int nr = X[8];
+    i64 nr = X[8];
     if trace_calls { jerr << "[call " << nr << "]\n"; }
-    int a0 = X[0];
-    int a1 = X[1];
-    int a2 = X[2];
-    int a3 = X[3];
-    int ret = 0 - 38;                                   // ENOSYS
+    i64 a0 = X[0];
+    i64 a1 = X[1];
+    i64 a2 = X[2];
+    i64 a3 = X[3];
+    i64 ret = 0 - 38;                                   // ENOSYS
     if nr == 93 || nr == 94 { done = 1; exit_code = a0 & 255; return; }
     if nr == 64 || nr == 63 {                           // write, read: the buffer is guest memory
-        int len1 = a2;
+        i64 len1 = a2;
         if len1 < 1 { len1 = 1; }
-        int h = host_of(a1, len1);
+        i64 h = host_of(a1, len1);
         if h == 0 && a2 > 0 { ret = 0 - 14; } else { ret = Sys::call(nr, a0, h, a2, 0, 0, 0); }
     } else if nr == 56 {                                // openat(dirfd, path, flags, mode)
-        int h = host_of(a1, 1);
+        i64 h = host_of(a1, 1);
         if h == 0 { ret = 0 - 14; } else { ret = Sys::call(56, a0, h, a2, a3, 0, 0); }
     } else if nr == 57 { ret = Sys::call(57, a0, 0, 0, 0, 0, 0); }
     else if nr == 62 { ret = Sys::call(62, a0, a1, a2, 0, 0, 0); }
@@ -1495,8 +1495,8 @@ void syscall_guest() {
         if a0 >= brk_base && a0 <= brk_end { brk_now = a0; }
         ret = brk_now;
     } else if nr == 222 {                               // mmap(addr, length, prot, flags, fd, offset): anonymous memory only
-        int len = (a1 + 4095) & ~4095;
-        int at = next_map;
+        i64 len = (a1 + 4095) & ~4095;
+        i64 at = next_map;
         next_map = next_map + len + 4096;
         add_region(at, len);
         ret = at;
@@ -1510,49 +1510,49 @@ void syscall_guest() {
 }
 
 // ---------------------------------------------------------------- one instruction
-void bad(int w, String what) {
+void bad(i64 w, String what) {
     jerr << "jemu: instruction 0x" << hex(w) << " at 0x" << hex(pc) << " is not supported yet (" << what << ")\n";
     Sys::exit(132);
 }
 
-void do_pcrel(int w) {
-    int rd = w & 31;
-    int immlo = (w >> 29) & 3;
-    int immhi = (w >> 5) & 0x7FFFF;
-    int imm = sx((immhi << 2) | immlo, 21);
+void do_pcrel(i64 w) {
+    i64 rd = w & 31;
+    i64 immlo = (w >> 29) & 3;
+    i64 immhi = (w >> 5) & 0x7FFFF;
+    i64 imm = sx((immhi << 2) | immlo, 21);
     if ((w >> 31) & 1) == 0 { setx(rd, pc + imm, 1); }
     else { setx(rd, (pc & ~4095) + (imm << 12), 1); }
 }
 
-void do_addsub_imm(int w) {
-    int sf = (w >> 31) & 1;
-    int sub = (w >> 30) & 1;
-    int s = (w >> 29) & 1;
-    int imm = (w >> 10) & 4095;
+void do_addsub_imm(i64 w) {
+    i64 sf = (w >> 31) & 1;
+    i64 sub = (w >> 30) & 1;
+    i64 s = (w >> 29) & 1;
+    i64 imm = (w >> 10) & 4095;
     if ((w >> 22) & 1) == 1 { imm = imm << 12; }
-    int rn = (w >> 5) & 31;
-    int rd = w & 31;
-    int a = getsp(rn, sf);
-    int b = imm;
-    int carry_in = 0;
+    i64 rn = (w >> 5) & 31;
+    i64 rd = w & 31;
+    i64 a = getsp(rn, sf);
+    i64 b = imm;
+    i64 carry_in = 0;
     if sub == 1 { b = ~imm; carry_in = 1; if sf == 0 { b = mask32(b); } }
-    int r = addc(a, b, carry_in, sf, s == 1);
+    i64 r = addc(a, b, carry_in, sf, s == 1);
     if s == 1 { setx(rd, r, sf); } else { setsp(rd, r, sf); }
 }
 
-void do_logic_imm(int w) {
-    int sf = (w >> 31) & 1;
-    int opc = (w >> 29) & 3;
-    int n = (w >> 22) & 1;
-    int immr = (w >> 16) & 63;
-    int imms = (w >> 10) & 63;
-    int rn = (w >> 5) & 31;
-    int rd = w & 31;
-    int ds = 32;
+void do_logic_imm(i64 w) {
+    i64 sf = (w >> 31) & 1;
+    i64 opc = (w >> 29) & 3;
+    i64 n = (w >> 22) & 1;
+    i64 immr = (w >> 16) & 63;
+    i64 imms = (w >> 10) & 63;
+    i64 rn = (w >> 5) & 31;
+    i64 rd = w & 31;
+    i64 ds = 32;
     if sf == 1 { ds = 64; }
     bit_masks(n, imms, immr, ds);
-    int a = getx(rn, sf);
-    int r = 0;
+    i64 a = getx(rn, sf);
+    i64 r = 0;
     if opc == 0 || opc == 3 { r = a & g_wmask; }
     else if opc == 1 { r = a | g_wmask; }
     else { r = a xor g_wmask; }
@@ -1565,71 +1565,71 @@ void do_logic_imm(int w) {
     } else { setsp(rd, r, sf); }
 }
 
-void do_movewide(int w) {
-    int sf = (w >> 31) & 1;
-    int opc = (w >> 29) & 3;
-    int hw = (w >> 21) & 3;
-    int imm = (w >> 5) & 65535;
-    int rd = w & 31;
-    int sh = hw * 16;
+void do_movewide(i64 w) {
+    i64 sf = (w >> 31) & 1;
+    i64 opc = (w >> 29) & 3;
+    i64 hw = (w >> 21) & 3;
+    i64 imm = (w >> 5) & 65535;
+    i64 rd = w & 31;
+    i64 sh = hw * 16;
     if opc == 0 { setx(rd, ~(imm << sh), sf); }
     else if opc == 2 { setx(rd, imm << sh, sf); }
     else if opc == 3 {
-        int old = getx(rd, sf);
+        i64 old = getx(rd, sf);
         setx(rd, (old & ~(65535 << sh)) | (imm << sh), sf);
     } else { bad(w, "move wide"); }
 }
 
-void do_bitfield(int w) {
-    int sf = (w >> 31) & 1;
-    int opc = (w >> 29) & 3;
-    int n = (w >> 22) & 1;
-    int immr = (w >> 16) & 63;
-    int imms = (w >> 10) & 63;
-    int rn = (w >> 5) & 31;
-    int rd = w & 31;
-    int ds = 32;
+void do_bitfield(i64 w) {
+    i64 sf = (w >> 31) & 1;
+    i64 opc = (w >> 29) & 3;
+    i64 n = (w >> 22) & 1;
+    i64 immr = (w >> 16) & 63;
+    i64 imms = (w >> 10) & 63;
+    i64 rn = (w >> 5) & 31;
+    i64 rd = w & 31;
+    i64 ds = 32;
     if sf == 1 { ds = 64; }
     bit_masks(n, imms, immr, ds);
-    int src = getx(rn, sf);
-    int bot = ror(src, immr, ds) & g_wmask;
-    int dst = getx(rd, sf);
-    int r = 0;
+    i64 src = getx(rn, sf);
+    i64 bot = ror(src, immr, ds) & g_wmask;
+    i64 dst = getx(rd, sf);
+    i64 r = 0;
     if opc == 0 {                                       // sbfm
-        int signbit = (src >> imms) & 1;
-        int top = 0;
+        i64 signbit = (src >> imms) & 1;
+        i64 top = 0;
         if signbit == 1 { if ds == 64 { top = 0 - 1; } else { top = 4294967295; } }
         r = (top & ~g_tmask) | (bot & g_tmask);
     } else if opc == 2 {                                // ubfm
         r = bot & g_tmask;
     } else {                                            // bfm
-        int merged = (dst & ~g_wmask) | (bot & g_wmask);
+        i64 merged = (dst & ~g_wmask) | (bot & g_wmask);
         r = (dst & ~g_tmask) | (merged & g_tmask);
     }
     setx(rd, r, sf);
 }
 
-void do_extract(int w) {
-    int sf = (w >> 31) & 1;
-    int rm = (w >> 16) & 31;
-    int lsb = (w >> 10) & 63;
-    int rn = (w >> 5) & 31;
-    int rd = w & 31;
-    int hi = getx(rn, sf);
-    int lo = getx(rm, sf);
-    int r = 0;
+void do_extract(i64 w) {
+    i64 sf = (w >> 31) & 1;
+    i64 rm = (w >> 16) & 31;
+    i64 lsb = (w >> 10) & 63;
+    i64 rn = (w >> 5) & 31;
+    i64 rd = w & 31;
+    i64 hi = getx(rn, sf);
+    i64 lo = getx(rm, sf);
+    i64 r = 0;
     if sf == 1 {
         if lsb == 0 { r = lo; } else { r = lsr(lo, lsb) | (hi << (64 - lsb)); }
     } else {
-        int both = (hi << 32) | lo;
+        i64 both = (hi << 32) | lo;
         r = mask32(lsr(both, lsb));
     }
     setx(rd, r, sf);
 }
 
-void do_branch_misc(int w) {
+void do_branch_misc(i64 w) {
     if (w & 0x7C000000) == 0x14000000 {                 // b, bl
-        int imm = sx(w & 0x3FFFFFF, 26) * 4;
+        i64 imm = sx(w & 0x3FFFFFF, 26) * 4;
         if ((w >> 31) & 1) == 1 { X[30] = pc + 4; }
         next_pc = pc + imm;
         return;
@@ -1639,16 +1639,16 @@ void do_branch_misc(int w) {
         return;
     }
     if (w & 0x7E000000) == 0x34000000 {                 // cbz, cbnz
-        int sf = (w >> 31) & 1;
-        int v = getx(w & 31, sf);
+        i64 sf = (w >> 31) & 1;
+        i64 v = getx(w & 31, sf);
         bool zero = v == 0;
         if ((w >> 24) & 1) == 1 { zero = !zero; }
         if zero { next_pc = pc + sx((w >> 5) & 0x7FFFF, 19) * 4; }
         return;
     }
     if (w & 0x7E000000) == 0x36000000 {                 // tbz, tbnz
-        int bit = (((w >> 31) & 1) << 5) | ((w >> 19) & 31);
-        int v = 0;
+        i64 bit = (((w >> 31) & 1) << 5) | ((w >> 19) & 31);
+        i64 v = 0;
         if (w & 31) != 31 { v = X[w & 31]; }
         bool set = ((v >> bit) & 1) == 1;
         if ((w >> 24) & 1) == 1 { set = !set; }
@@ -1660,7 +1660,7 @@ void do_branch_misc(int w) {
         return;
     }
     if (w & 0xFFFFFC1F) == 0xD63F0000 {                 // blr
-        int target = X[(w >> 5) & 31];
+        i64 target = X[(w >> 5) & 31];
         X[30] = pc + 4;
         next_pc = target;
         return;
@@ -1677,7 +1677,7 @@ void do_branch_misc(int w) {
     if w == 0xD69F03E0 && sysmode { do_eret(); return; }                    // eret
     if (w & 0xFFE0001F) == 0xD4400000 && sysmode { done = 1; exit_code = (w >> 5) & 255; return; }    // hlt #n: the machine stops (exit code n)
     if (w & 0xFFFFF0DF) == 0xD50340DF && sysmode {      // msr daifset, #n / msr daifclr, #n
-        int bits = ((w >> 8) & 15) << 6;
+        i64 bits = ((w >> 8) & 15) << 6;
         if (w & 0x20) != 0 { daif = daif & ~bits; } else { daif = daif | bits; }
         return;
     }
@@ -1692,8 +1692,8 @@ void do_branch_misc(int w) {
     if (w & 0xFFF00000) == 0xD5300000 && sysmode { setx(w & 31, sysreg_read((w >> 5) & 0xFFFF), 1); return; }
     if (w & 0xFFF00000) == 0xD5100000 { tpidr = getx(w & 31, 1); return; }      // msr: the thread register is kept, the others are ignored
     if (w & 0xFFF00000) == 0xD5300000 {                 // mrs: the thread register, a counter (the number of instructions), the others 0
-        int crn = (w >> 12) & 15;
-        int v = 0;
+        i64 crn = (w >> 12) & 15;
+        i64 v = 0;
         if crn == 13 { v = tpidr; } else if crn == 14 { v = icount; }
         setx(w & 31, v, 1);
         return;
@@ -1701,21 +1701,21 @@ void do_branch_misc(int w) {
     bad(w, "branch or system");
 }
 
-void do_loadstore(int w) {
-    int vbit = (w >> 26) & 1;
+void do_loadstore(i64 w) {
+    i64 vbit = (w >> 26) & 1;
     // exclusive and acquire / release (ldxr, stxr, ldaxr, stlxr, ldar, stlr): one thread, so the monitor always succeeds
     if (w & 0x3F000000) == 0x08000000 && vbit == 0 {
-        int size = (w >> 30) & 3;
-        int o2 = (w >> 23) & 1;
-        int load = (w >> 22) & 1;
-        int o1 = (w >> 21) & 1;
-        int rs = (w >> 16) & 31;
-        int rn = (w >> 5) & 31;
-        int rt = w & 31;
+        i64 size = (w >> 30) & 3;
+        i64 o2 = (w >> 23) & 1;
+        i64 load = (w >> 22) & 1;
+        i64 o1 = (w >> 21) & 1;
+        i64 rs = (w >> 16) & 31;
+        i64 rn = (w >> 5) & 31;
+        i64 rt = w & 31;
         if o1 == 1 { bad(w, "pair exclusive"); }
-        int addr = getsp(rn, 1);
-        int bytes = 1 << size;
-        int sfx = 0;
+        i64 addr = getsp(rn, 1);
+        i64 bytes = 1 << size;
+        i64 sfx = 0;
         if size == 3 { sfx = 1; }
         if load == 1 { setx(rt, ld(addr, bytes), sfx); }
         else {
@@ -1726,18 +1726,18 @@ void do_loadstore(int w) {
     }
     // load register (literal)
     if (w & 0x3B000000) == 0x18000000 && vbit == 1 {
-        int opc = (w >> 30) & 3;
-        int rt = w & 31;
-        int addr = pc + sx((w >> 5) & 0x7FFFF, 19) * 4;
+        i64 opc = (w >> 30) & 3;
+        i64 rt = w & 31;
+        i64 addr = pc + sx((w >> 5) & 0x7FFFF, 19) * 4;
         if opc == 0 { VL[rt] = ld(addr, 4); VH[rt] = 0; }
         else if opc == 1 { VL[rt] = ld(addr, 8); VH[rt] = 0; }
         else { VL[rt] = ld(addr, 8); VH[rt] = ld(addr + 8, 8); }
         return;
     }
     if (w & 0x3B000000) == 0x18000000 {
-        int opc = (w >> 30) & 3;
-        int rt = w & 31;
-        int addr = pc + sx((w >> 5) & 0x7FFFF, 19) * 4;
+        i64 opc = (w >> 30) & 3;
+        i64 rt = w & 31;
+        i64 addr = pc + sx((w >> 5) & 0x7FFFF, 19) * 4;
         if opc == 0 { setx(rt, ld(addr, 4), 0); }
         else if opc == 1 { setx(rt, ld(addr, 8), 1); }
         else if opc == 2 { setx(rt, sx(ld(addr, 4), 32), 1); }
@@ -1746,20 +1746,20 @@ void do_loadstore(int w) {
     }
     // load / store pair
     if (w & 0x3A000000) == 0x28000000 {
-        int opc = (w >> 30) & 3;
-        int idx = (w >> 23) & 3;
-        int load = (w >> 22) & 1;
-        int rt2 = (w >> 10) & 31;
-        int rn = (w >> 5) & 31;
-        int rt = w & 31;
-        int size = 4;
+        i64 opc = (w >> 30) & 3;
+        i64 idx = (w >> 23) & 3;
+        i64 load = (w >> 22) & 1;
+        i64 rt2 = (w >> 10) & 31;
+        i64 rn = (w >> 5) & 31;
+        i64 rt = w & 31;
+        i64 size = 4;
         if opc == 2 { size = 8; }
         if vbit == 1 { size = 4 << opc; }                // s, d or q
-        int imm = sx((w >> 15) & 127, 7) * size;
-        int base = getsp(rn, 1);
-        int addr = base;
+        i64 imm = sx((w >> 15) & 127, 7) * size;
+        i64 base = getsp(rn, 1);
+        i64 addr = base;
         if idx != 1 { addr = base + imm; }
-        int sfp = 0;
+        i64 sfp = 0;
         if size == 8 { sfp = 1; }
         if vbit == 1 {
             if load == 1 {
@@ -1790,27 +1790,27 @@ void do_loadstore(int w) {
         return;
     }
     // load / store register
-    int size = (w >> 30) & 3;
-    int opc = (w >> 22) & 3;
-    int rn = (w >> 5) & 31;
-    int rt = w & 31;
-    int base = getsp(rn, 1);
-    int addr = base;
-    int wb = 0;
-    int newbase = 0;
-    int scale = size;
+    i64 size = (w >> 30) & 3;
+    i64 opc = (w >> 22) & 3;
+    i64 rn = (w >> 5) & 31;
+    i64 rt = w & 31;
+    i64 base = getsp(rn, 1);
+    i64 addr = base;
+    i64 wb = 0;
+    i64 newbase = 0;
+    i64 scale = size;
     if vbit == 1 && opc >= 2 { scale = 4; }
     if (w & 0x3B000000) == 0x39000000 {                 // unsigned offset
         addr = base + (((w >> 10) & 4095) << scale);
     } else if (w & 0x3B000000) == 0x38000000 {          // the other forms
         if ((w >> 21) & 1) == 1 {                       // register offset
-            int option = (w >> 13) & 7;
-            int shift = 0;
+            i64 option = (w >> 13) & 7;
+            i64 shift = 0;
             if ((w >> 12) & 1) == 1 { shift = scale; }
             addr = base + extended((w >> 16) & 31, option, shift, 1);
         } else {
-            int imm9 = sx((w >> 12) & 511, 9);
-            int kind = (w >> 10) & 3;
+            i64 imm9 = sx((w >> 12) & 511, 9);
+            i64 kind = (w >> 10) & 3;
             if kind == 0 { addr = base + imm9; }
             else if kind == 1 { addr = base; wb = 1; newbase = base + imm9; }
             else if kind == 3 { addr = base + imm9; wb = 2; newbase = addr; }
@@ -1822,42 +1822,42 @@ void do_loadstore(int w) {
         if wb != 0 { setsp(rn, newbase, 1); }
         return;
     }
-    int bytes = 1 << size;
+    i64 bytes = 1 << size;
     if opc == 0 {
-        int sfs = 0;
+        i64 sfs = 0;
         if size == 3 { sfs = 1; }
         st(addr, bytes, getx(rt, sfs));
     } else if opc == 1 {
-        int sfl = 0;
+        i64 sfl = 0;
         if size == 3 { sfl = 1; }
         setx(rt, ld(addr, bytes), sfl);
     } else {
         if size == 3 { return; }                        // prfm: nothing to do
-        int v = sx(ld(addr, bytes), 8 << size);
-        int sfr = 0;
+        i64 v = sx(ld(addr, bytes), 8 << size);
+        i64 sfr = 0;
         if opc == 2 { sfr = 1; }
         setx(rt, v, sfr);
     }
     if wb != 0 { setsp(rn, newbase, 1); }
 }
 
-void do_dp_register(int w) {
-    int sf = (w >> 31) & 1;
-    int rm = (w >> 16) & 31;
-    int rn = (w >> 5) & 31;
-    int rd = w & 31;
-    int ds = 32;
+void do_dp_register(i64 w) {
+    i64 sf = (w >> 31) & 1;
+    i64 rm = (w >> 16) & 31;
+    i64 rn = (w >> 5) & 31;
+    i64 rd = w & 31;
+    i64 ds = 32;
     if sf == 1 { ds = 64; }
     // logical (shifted register)
     if (w & 0x1F000000) == 0x0A000000 {
-        int opc = (w >> 29) & 3;
-        int type = (w >> 22) & 3;
-        int inv = (w >> 21) & 1;
-        int amt = (w >> 10) & 63;
-        int b = shifted(rm, type, amt, sf);
+        i64 opc = (w >> 29) & 3;
+        i64 type = (w >> 22) & 3;
+        i64 inv = (w >> 21) & 1;
+        i64 amt = (w >> 10) & 63;
+        i64 b = shifted(rm, type, amt, sf);
         if inv == 1 { b = ~b; if sf == 0 { b = mask32(b); } }
-        int a = getx(rn, sf);
-        int r = 0;
+        i64 a = getx(rn, sf);
+        i64 r = 0;
         if opc == 0 || opc == 3 { r = a & b; } else if opc == 1 { r = a | b; } else { r = a xor b; }
         if opc == 3 {
             fn = (r >> (ds - 1)) & 1;
@@ -1870,11 +1870,11 @@ void do_dp_register(int w) {
     }
     // add / subtract (shifted or extended register)
     if (w & 0x1F000000) == 0x0B000000 {
-        int sub = (w >> 30) & 1;
-        int s = (w >> 29) & 1;
-        int ext = (w >> 21) & 1;
-        int b = 0;
-        int a = 0;
+        i64 sub = (w >> 30) & 1;
+        i64 s = (w >> 29) & 1;
+        i64 ext = (w >> 21) & 1;
+        i64 b = 0;
+        i64 a = 0;
         if ext == 0 {
             b = shifted(rm, (w >> 22) & 3, (w >> 10) & 63, sf);
             a = getx(rn, sf);
@@ -1882,34 +1882,34 @@ void do_dp_register(int w) {
             b = extended(rm, (w >> 13) & 7, (w >> 10) & 7, sf);
             a = getsp(rn, sf);
         }
-        int carry_in = 0;
+        i64 carry_in = 0;
         if sub == 1 { b = ~b; carry_in = 1; if sf == 0 { b = mask32(b); } }
-        int r = addc(a, b, carry_in, sf, s == 1);
+        i64 r = addc(a, b, carry_in, sf, s == 1);
         if s == 0 && ext == 1 { setsp(rd, r, sf); } else { setx(rd, r, sf); }
         return;
     }
     // add / subtract with carry
     if (w & 0x1FE00000) == 0x1A000000 {
-        int sub = (w >> 30) & 1;
-        int s = (w >> 29) & 1;
-        int b = getx(rm, sf);
+        i64 sub = (w >> 30) & 1;
+        i64 s = (w >> 29) & 1;
+        i64 b = getx(rm, sf);
         if sub == 1 { b = ~b; if sf == 0 { b = mask32(b); } }
         setx(rd, addc(getx(rn, sf), b, fc, sf, s == 1), sf);
         return;
     }
     // conditional compare
     if (w & 0x1FE00000) == 0x1A400000 {
-        int sub = (w >> 30) & 1;
-        int cond = (w >> 12) & 15;
-        int b = 0;
+        i64 sub = (w >> 30) & 1;
+        i64 cond = (w >> 12) & 15;
+        i64 b = 0;
         if ((w >> 11) & 1) == 1 { b = rm; } else { b = getx(rm, sf); }
-        int a = getx(rn, sf);
+        i64 a = getx(rn, sf);
         if cond_ok(cond) {
-            int carry_in = 0;
+            i64 carry_in = 0;
             if sub == 1 { b = ~b; carry_in = 1; if sf == 0 { b = mask32(b); } }
             addc(a, b, carry_in, sf, true);
         } else {
-            int nzcv = w & 15;
+            i64 nzcv = w & 15;
             fn = (nzcv >> 3) & 1;
             fz = (nzcv >> 2) & 1;
             fc = (nzcv >> 1) & 1;
@@ -1919,13 +1919,13 @@ void do_dp_register(int w) {
     }
     // conditional select
     if (w & 0x1FE00000) == 0x1A800000 {
-        int op = (w >> 30) & 1;
-        int o2 = (w >> 10) & 1;
-        int cond = (w >> 12) & 15;
-        int r = 0;
+        i64 op = (w >> 30) & 1;
+        i64 o2 = (w >> 10) & 1;
+        i64 cond = (w >> 12) & 15;
+        i64 r = 0;
         if cond_ok(cond) { r = getx(rn, sf); }
         else {
-            int m = getx(rm, sf);
+            i64 m = getx(rm, sf);
             if op == 0 && o2 == 0 { r = m; }
             else if op == 0 && o2 == 1 { r = m + 1; }
             else if op == 1 && o2 == 0 { r = ~m; }
@@ -1936,26 +1936,26 @@ void do_dp_register(int w) {
     }
     // data processing, 3 sources
     if (w & 0x1F000000) == 0x1B000000 {
-        int op31 = (w >> 21) & 7;
-        int o0 = (w >> 15) & 1;
-        int ra = (w >> 10) & 31;
-        int a = getx(rn, sf);
-        int b = getx(rm, sf);
-        int c = getx(ra, sf);
+        i64 op31 = (w >> 21) & 7;
+        i64 o0 = (w >> 15) & 1;
+        i64 ra = (w >> 10) & 31;
+        i64 a = getx(rn, sf);
+        i64 b = getx(rm, sf);
+        i64 c = getx(ra, sf);
         if op31 == 0 {                                  // madd, msub
             if o0 == 0 { setx(rd, c + a * b, sf); } else { setx(rd, c - a * b, sf); }
         } else if op31 == 1 {                           // smaddl, smsubl
-            int p = sx(mask32(a), 32) * sx(mask32(b), 32);
+            i64 p = sx(mask32(a), 32) * sx(mask32(b), 32);
             if o0 == 0 { setx(rd, getx(ra, 1) + p, 1); } else { setx(rd, getx(ra, 1) - p, 1); }
         } else if op31 == 5 {                           // umaddl, umsubl
-            int p = mask32(a) * mask32(b);
+            i64 p = mask32(a) * mask32(b);
             if o0 == 0 { setx(rd, getx(ra, 1) + p, 1); } else { setx(rd, getx(ra, 1) - p, 1); }
         } else if op31 == 6 {                           // umulh
             setx(rd, umulh(getx(rn, 1), getx(rm, 1)), 1);
         } else if op31 == 2 {                           // smulh
-            int x = getx(rn, 1);
-            int y = getx(rm, 1);
-            int hi = umulh(x, y);
+            i64 x = getx(rn, 1);
+            i64 y = getx(rm, 1);
+            i64 hi = umulh(x, y);
             if x < 0 { hi = hi - y; }
             if y < 0 { hi = hi - x; }
             setx(rd, hi, 1);
@@ -1964,10 +1964,10 @@ void do_dp_register(int w) {
     }
     // data processing, 1 and 2 sources (bits 28:21 = 11010110)
     if ((w >> 21) & 255) == 214 {
-        int bit30 = (w >> 30) & 1;
-        int opcode = (w >> 10) & 63;
-        int a = getx(rn, sf);
-        int b = getx(rm, sf);
+        i64 bit30 = (w >> 30) & 1;
+        i64 opcode = (w >> 10) & 63;
+        i64 a = getx(rn, sf);
+        i64 b = getx(rm, sf);
         if bit30 == 0 {
             if opcode == 2 {                            // udiv
                 if b == 0 { setx(rd, 0, sf); }
@@ -1979,26 +1979,26 @@ void do_dp_register(int w) {
                     if a == (1 << 63) && b == 0 - 1 { setx(rd, a, 1); } else { setx(rd, a / b, 1); }
                 } else { setx(rd, sx(a, 32) / sx(b, 32), 0); }
             } else if opcode >= 8 && opcode <= 11 {     // lslv, lsrv, asrv, rorv
-                int amt = b % ds;
+                i64 amt = b % ds;
                 setx(rd, shifted(rn, opcode - 8, amt, sf), sf);
             } else { bad(w, "two-source"); }
         } else {
             if opcode == 0 {                            // rbit
-                int r = 0;
+                i64 r = 0;
                 for i in 0..ds { if ((a >> i) & 1) == 1 { r = r | (1 << (ds - 1 - i)); } }
                 setx(rd, r, sf);
             } else if (opcode == 2 && sf == 0) || (opcode == 3 && sf == 1) {     // rev
-                int r = 0;
-                int nb = ds / 8;
+                i64 r = 0;
+                i64 nb = ds / 8;
                 for i in 0..nb { r = r | (((a >> (8 * i)) & 255) << (8 * (nb - 1 - i))); }
                 setx(rd, r, sf);
             } else if opcode == 5 {                     // cls
-                int n = 0;
-                int sign = (a >> (ds - 1)) & 1;
+                i64 n = 0;
+                i64 sign = (a >> (ds - 1)) & 1;
                 for i in 1..ds { if ((a >> (ds - 1 - i)) & 1) == sign { n += 1; } else { break; } }
                 setx(rd, n, sf);
             } else if opcode == 4 {                     // clz
-                int n = 0;
+                i64 n = 0;
                 for i in 0..ds { if ((a >> (ds - 1 - i)) & 1) == 0 { n += 1; } else { break; } }
                 setx(rd, n, sf);
             } else { bad(w, "one-source"); }
@@ -2008,30 +2008,30 @@ void do_dp_register(int w) {
     bad(w, "data processing, register");
 }
 
-int fetch(int at) {
+i64 fetch(i64 at) {
     if mmu_on() {
-        int pa = xlate(at, 2);
+        i64 pa = xlate(at, 2);
         if pa < 0 { return 0; }
         at = pa;
     }
-    int h = host_of(at, 4);
+    i64 h = host_of(at, 4);
     if h == 0 { fault(at, "fetch"); }
     u32^ p = (u32^)h;
-    return (int)p[0];
+    return (i64)p[0];
 }
 
 void step() {
     if sysmode { if check_irq() { pc = next_pc; } }
-    int w = 0;
+    i64 w = 0;
     if sysmode {
         w = fetch(pc);
         if aborted { aborted = false; pc = next_pc; return; }
     } else { w = ld(pc, 4); }
     next_pc = pc + 4;
     icount += 1;
-    int op0 = (w >> 25) & 15;
+    i64 op0 = (w >> 25) & 15;
     if (op0 >> 1) == 4 {                                // 100x: data processing, immediate
-        int opi = (w >> 23) & 7;
+        i64 opi = (w >> 23) & 7;
         if opi <= 1 { do_pcrel(w); }
         else if opi == 2 { do_addsub_imm(w); }
         else if opi == 4 { do_logic_imm(w); }
@@ -2050,12 +2050,12 @@ void step() {
 }
 
 // ---------------------------------------------------------------- the ELF program
-int rd32(char^ b, int at) { return (b[at] & 255) | ((b[at + 1] & 255) << 8) | ((b[at + 2] & 255) << 16) | ((b[at + 3] & 255) << 24); }
-int rd64(char^ b, int at) { return rd32(b, at) | (rd32(b, at + 4) << 32); }
+i64 rd32(char^ b, i64 at) { return (b[at] & 255) | ((b[at + 1] & 255) << 8) | ((b[at + 2] & 255) << 16) | ((b[at + 3] & 255) << 24); }
+i64 rd64(char^ b, i64 at) { return rd32(b, at) | (rd32(b, at + 4) << 32); }
 
-int main() {
+i64 main() {
     String[] args = Env::args();
-    int ram_arg = 0;                                           // jaric-os --ram MB [FOLDER]: the memory of the machine (the Jaric OS manager of the app sets it)
+    i64 ram_arg = 0;                                           // jaric-os --ram MB [FOLDER]: the memory of the machine (the Jaric OS manager of the app sets it)
     if args.len > 2 && args[1] == "--ram" {
         for q in 0..args[2].len { ram_arg = ram_arg * 10 + (args[2][q] - '0'); }
         args.remove(1);
@@ -2077,7 +2077,7 @@ int main() {
     if !dev && args.len > 1 && (args[1] == "--system" || args[1].len > 1 && args[1][0] == '-') { die("jaric-os runs Jaric OS only (jaric-os --help)", 2); }
     if args.len == 1 || args[1] == "os" || !dev {   // jaric-os [FOLDER]: the kernel and mkfs come next to this program (jaric-os-kernel, jaric-os-mkfs)
         char sbuf[512];
-        int sn = Sys::readlink("/proc/self/exe".c(), @sbuf, 511);
+        i64 sn = Sys::readlink("/proc/self/exe".c(), @sbuf, 511);
         if sn <= 0 { die("cannot find where jaric-os is", 1); }
         sbuf[sn] = 0;
         String self = (char^)@sbuf;
@@ -2126,7 +2126,7 @@ int main() {
         sysmode = true;
         max_steps = 200000000;
         disk_fd = 0 - 1;
-        int ai = 3;
+        i64 ai = 3;
         while ai + 1 < args.len {
             if args[ai] == "--steps" { max_steps = args[ai + 1].to_int(); }
             if args[ai] == "--shift" { kshift = args[ai + 1].to_int(); }
@@ -2136,12 +2136,12 @@ int main() {
                 fb_h = 960;
                 switch Env::get("JARIC_SCREEN") {                         // the app says how big the picture is that fills its screen: WIDTHxHEIGHT
                     Option::Some(v): {
-                        int xp = 0;
+                        i64 xp = 0;
                         for q in 0..v.len { if v[q] == 'x' { xp = q + 1; } }
                         if xp > 1 {
-                            int wv = 0;
+                            i64 wv = 0;
                             for q in 0..(xp - 1) { wv = wv * 10 + (v[q] - '0'); }
-                            int hv = 0;
+                            i64 hv = 0;
                             for q in xp..v.len { hv = hv * 10 + (v[q] - '0'); }
                             if wv >= 480 && wv <= 1280 && hv >= 480 && hv <= 1400 { fb_w = wv; fb_h = hv; }
                         }
@@ -2153,9 +2153,9 @@ int main() {
             if args[ai] == "--screen" { screen_path = args[ai + 1].c(); }
             if args[ai] == "--disk" {
                 char^ dp = args[ai + 1].c();
-                disk_fd = Sys::call(56, 0 - 100, (int)dp, 2, 0, 0, 0);                  // openat(AT_FDCWD, path, O_RDWR)
+                disk_fd = Sys::call(56, 0 - 100, (i64)dp, 2, 0, 0, 0);                  // openat(AT_FDCWD, path, O_RDWR)
                 if disk_fd < 0 { die("cannot open the disk " + args[ai + 1], 1); }
-                Result<int, Error> dsz = Fs::size(args[ai + 1]);
+                Result<i64, Error> dsz = Fs::size(args[ai + 1]);
                 if dsz.is_ok() { disk_sectors = dsz.take() / 512; }
             }
             ai += 2;
@@ -2165,36 +2165,36 @@ int main() {
     reg_start = arr(16);
     reg_size = arr(16);
     reg_host = arr(16);
-    X = (int^)Mem::alloc(8 * 32);
-    VL = (int^)Mem::alloc(8 * 32);
-    VH = (int^)Mem::alloc(8 * 32);
+    X = (i64^)Mem::alloc(8 * 32);
+    VL = (i64^)Mem::alloc(8 * 32);
+    VH = (i64^)Mem::alloc(8 * 32);
     for i in 0..32 { X[i] = 0; VL[i] = 0; VH[i] = 0; }
     // the file
     String path = args[1];
-    Result<int, Error> sz = Fs::size(path);
+    Result<i64, Error> sz = Fs::size(path);
     if !sz.is_ok() { die("cannot read " + path, 1); }
-    int fsize = sz.take();
+    i64 fsize = sz.take();
     char^ file = (char^)Mem::alloc(fsize + 16);
-    int fd = Sys::open_read(path.c());
-    int got = 0;
-    while got < fsize { int n = Sys::read(fd, file + got, fsize - got); if n <= 0 { break; } got += n; }
+    i64 fd = Sys::open_read(path.c());
+    i64 got = 0;
+    while got < fsize { i64 n = Sys::read(fd, file + got, fsize - got); if n <= 0 { break; } got += n; }
     Sys::close(fd);
     if got < 64 || file[0] != 127 || file[1] != 'E' || file[2] != 'L' || file[3] != 'F' { die(path + " is not an ELF program", 1); }
     if (file[18] & 255) != 183 { die("it is not an ARM64 program", 1); }
-    int entry = rd64(file, 24) + kshift;
-    int phoff = rd64(file, 32);
-    int phentsize = (file[54] & 255) | ((file[55] & 255) << 8);
-    int phnum = (file[56] & 255) | ((file[57] & 255) << 8);
-    int top = 0;
+    i64 entry = rd64(file, 24) + kshift;
+    i64 phoff = rd64(file, 32);
+    i64 phentsize = (file[54] & 255) | ((file[55] & 255) << 8);
+    i64 phnum = (file[56] & 255) | ((file[57] & 255) << 8);
+    i64 top = 0;
     for i in 0..phnum {
-        int ph = phoff + i * phentsize;
+        i64 ph = phoff + i * phentsize;
         if rd32(file, ph) != 1 { continue; }                       // PT_LOAD
-        int off = rd64(file, ph + 8);
-        int vaddr = rd64(file, ph + 16) + kshift;
-        int filesz = rd64(file, ph + 32);
-        int memsz = rd64(file, ph + 40);
-        int start = vaddr & ~4095;
-        int end = (vaddr + memsz + 4095) & ~4095;
+        i64 off = rd64(file, ph + 8);
+        i64 vaddr = rd64(file, ph + 16) + kshift;
+        i64 filesz = rd64(file, ph + 32);
+        i64 memsz = rd64(file, ph + 40);
+        i64 start = vaddr & ~4095;
+        i64 end = (vaddr + memsz + 4095) & ~4095;
         add_region(start, end - start);
         if filesz > 0 { Mem::copy((char^)host_of(vaddr, filesz), file + off, filesz); }
         if end > top { top = end; }
@@ -2206,27 +2206,27 @@ int main() {
     brk_end = brk_base + 4194304;
     add_region(brk_base, 4194304);
     next_map = 1073741824;
-    int stack_top = 2147352576;
-    int stack_size = 8388608;
+    i64 stack_top = 2147352576;
+    i64 stack_size = 8388608;
     add_region(stack_top - stack_size, stack_size);
     if sysmode {                                         // a kernel: it starts at EL1 with a stack of RAM; no argv
         tty_raw_on();
-        tlb = (int^)Mem::alloc(8 * 192);
+        tlb = (i64^)Mem::alloc(8 * 192);
         tlb_flush();
         ram_mb = 64;
         bool ram_set = false;
         if ram_arg >= 64 && ram_arg <= 1024 { ram_mb = ram_arg; ram_set = true; }
-        switch Env::get("JARIC_RAM_MB") { Option::Some(v): { int rv = 0; for q in 0..v.len { rv = rv * 10 + (v[q] - '0'); } if rv >= 64 && rv <= 1024 { ram_mb = rv; ram_set = true; } } Option::None: { } }
+        switch Env::get("JARIC_RAM_MB") { Option::Some(v): { i64 rv = 0; for q in 0..v.len { rv = rv * 10 + (v[q] - '0'); } if rv >= 64 && rv <= 1024 { ram_mb = rv; ram_set = true; } } Option::None: { } }
         if !ram_set {                                           // as much as Android can give now: half of what is free (MemAvailable), 64 MB at least, 1 GB at most
             Result<String, Error> mr = Fs::read_text("/proc/meminfo");
             if mr.is_ok() {
                 String mt = mr.take();
-                int mp = 0;
+                i64 mp = 0;
                 while mp + 12 < mt.len && !(mt[mp] == 'A' && mt[mp + 1] == 'v' && mt[mp + 2] == 'a' && mt[mp + 3] == 'i' && mt[mp + 4] == 'l' && mt[mp + 5] == 'a' && mt[mp + 6] == 'b') { mp += 1; }
                 while mp < mt.len && (mt[mp] < '0' || mt[mp] > '9') { mp += 1; }
-                int kb = 0;
+                i64 kb = 0;
                 while mp < mt.len && mt[mp] >= '0' && mt[mp] <= '9' { kb = kb * 10 + (mt[mp] - '0'); mp += 1; }
-                int mb = kb / 2048;
+                i64 mb = kb / 2048;
                 if mb < 64 { mb = 64; }
                 if mb > 1024 { mb = 1024; }
                 ram_mb = mb;
@@ -2246,16 +2246,16 @@ int main() {
         return exit_code;
     }
     // argc, argv, envp on the stack
-    int na = args.len - 1;
-    int strs = stack_top - 65536;
-    int n_env = 0;
+    i64 na = args.len - 1;
+    i64 strs = stack_top - 65536;
+    i64 n_env = 0;
     while Sys::arg(Sys::argc() + 1 + n_env) != null { n_env += 1; }
-    int words = 1 + na + 1 + n_env + 1;
-    int sp0 = (strs - words * 8 - 4096) & ~15;
-    int at = sp0;
+    i64 words = 1 + na + 1 + n_env + 1;
+    i64 sp0 = (strs - words * 8 - 4096) & ~15;
+    i64 at = sp0;
     st(at, 8, na);
     at += 8;
-    int sp_str = strs;
+    i64 sp_str = strs;
     for i in 0..na {
         String a = args[i + 1];
         st(at, 8, sp_str);
@@ -2267,7 +2267,7 @@ int main() {
     at += 8;
     for i in 0..n_env {
         char^ e = Sys::arg(Sys::argc() + 1 + i);
-        int len = 0;
+        i64 len = 0;
         while e[len] != 0 { len += 1; }
         st(at, 8, sp_str);
         at += 8;

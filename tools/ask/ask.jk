@@ -10,7 +10,7 @@ String ask_version() { return "0.1.0"; }
 
 Retrieve ask_r;
 
-void ask_read_dir(String dir, int depth) {
+void ask_read_dir(String dir, i64 depth) {
     switch Dir::list(dir) {
         Result::Ok(names): {
             for i in 0..names.len {
@@ -30,12 +30,12 @@ void ask_read_dir(String dir, int depth) {
     }
 }
 
-int main() {
+i64 main() {
     String[] a = Env::args();
-    int n = 3;
+    i64 n = 3;
     String[] dirs = arr(4);
     String q = "";
-    int i = 1;
+    i64 i = 1;
     while i < a.len {
         if a[i] == "--version" || a[i] == "-V" { jout << "ask " << ask_version() << "\n"; return 0; }
         if a[i] == "-n" && i + 1 < a.len { n = a[i + 1].to_int(); i += 2; continue; }

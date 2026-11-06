@@ -1,23 +1,23 @@
 // ---- the desktop (the phone on its side): a wallpaper with the icons of the apps, a taskbar at the bottom (the start button, the apps that are pinned, the time since start), and a window
 // for the app that runs: a title bar with the name and a close button, the app inside on a surface of its own (the apps are the same as on the phone: the surface is 540 dots wide).
 // A part of kernel.jk: put together with #import after the phone.
-int rootW;                             // the picture of the desktop
-int rootH;
-int win_x;
-int win_y;
-int win_w;
-int win_h;
-int win_app;                           // the app in the window, -1 when there is none
-int surf_h;                            // the height of the surface of the window
+i64 rootW;                             // the picture of the desktop
+i64 rootH;
+i64 win_x;
+i64 win_y;
+i64 win_w;
+i64 win_h;
+i64 win_app;                           // the app in the window, -1 when there is none
+i64 surf_h;                            // the height of the surface of the window
 
 // the surface of the window goes into the picture of the desktop
-void gpu_copy_win(int sh) {
+void gpu_copy_win(i64 sh) {
     if gpu_on == 1 { gpu_go(3, 0x41000000, rootW, win_x, win_y + 36, 0x41400000, 540, 0, 0, 540, sh); return; }
     u32^ root = (u32^)0x41000000;
     u32^ s32 = (u32^)0x41400000;
     for y in 0..sh {
-        int ro = (win_y + 36 + y) * rootW + win_x;
-        int so = y * 540;
+        i64 ro = (win_y + 36 + y) * rootW + win_x;
+        i64 so = y * 540;
         for x in 0..540 { root[ro + x] = s32[so + x]; }
     }
 }
@@ -39,8 +39,8 @@ void to_win() {
 // the place of a tap in the window (when an app runs in one); false when the tap is not for the app
 bool tap_map() {
     if desk_ctx == 0 { return true; }
-    int ax = tap_x;
-    int ay = tap_y;
+    i64 ax = tap_x;
+    i64 ay = tap_y;
     if ay >= win_y && ay < win_y + 36 {                                  // the title bar: the close button is the back button of the app
         if ax >= win_x + win_w - 48 && ax < win_x + win_w { tap_x = 0; tap_y = 0; return true; }
         return false;
@@ -55,25 +55,25 @@ bool tap_map() {
 
 // the frame of the window and the surface of the app inside it are put in the picture of the desktop, and the picture is shown
 void composite() {
-    int^ surf = (int^)0x41400000;
+    i64^ surf = (i64^)0x41400000;
     u32^ root = (u32^)0x41000000;
     u32^ s32 = (u32^)0x41400000;
-    int sh = surf_h;
+    i64 sh = surf_h;
     gpu_copy_win(sh);
-    int keep_w = scrW;
-    int keep_h = scrH;
-    int keep_s = sfb;
+    i64 keep_w = scrW;
+    i64 keep_h = scrH;
+    i64 keep_s = sfb;
     sfb = 0x41000000;
     p32 = (u32^)sfb;
     scrW = rootW;
     scrH = rootH;
     rrect(win_x - 3, win_y - 3, win_w + 6, win_h + 6, 16, rgb(48, 62, 104));
-    int^ keepme = surf;
+    i64^ keepme = surf;
     // the title bar
     rrect(win_x, win_y, win_w, 40, 14, rgb(30, 42, 78));
     fill(win_x, win_y + 24, win_w, 12, rgb(30, 42, 78));
     char^ nm = @anames[win_app * 16];
-    int l = 0;
+    i64 l = 0;
     while nm[l] != 0 && l < 15 { tb[l] = nm[l]; l += 1; }
     tb[l] = 0;
     text(win_x + 16, win_y + 8, @tb, 1, rgb(235, 242, 255));
@@ -86,7 +86,7 @@ void composite() {
     scrH = keep_h;
     sfb = keep_s;
     p32 = (u32^)sfb;
-    int^ fb = (int^)0x0B000000;
+    i64^ fb = (i64^)0x0B000000;
     fb[3] = 1;
 }
 
@@ -95,9 +95,9 @@ void taskbar() {
     rrect(14, rootH - 54, 44, 44, 14, rgb(70, 150, 255));
     glyph(14 + 17, rootH - 54 + 12, 74, 1, rgb(255, 255, 255));
     for d in 0..4 { draw_icon(76 + d * 60, rootH - 54, d, 44); }
-    int up = Sys::s3_3_c14_c0_2 / 1000000;
-    int mm = up / 60;
-    int ss = up % 60;
+    i64 up = Sys::s3_3_c14_c0_2 / 1000000;
+    i64 mm = up / 60;
+    i64 ss = up % 60;
     t8(rootW - 150, rootH - 44, 0x7075, 1, rgb(190, 205, 230));
     num(rootW - 120, rootH - 44, mm, 1, rgb(190, 205, 230));
     glyph(rootW - 120 + digits(mm) * 10, rootH - 44, 58, 1, rgb(190, 205, 230));
@@ -109,10 +109,10 @@ void desk_draw() {
     to_root();
     wallpaper();
     for a in 0..napps {
-        int col = a / 4;
-        int row = a % 4;
-        int x = 24 + col * 110;
-        int y = 20 + row * 120;
+        i64 col = a / 4;
+        i64 row = a % 4;
+        i64 x = 24 + col * 110;
+        i64 y = 20 + row * 120;
         draw_icon(x + 10, y, a, 76);
         label(x + 48, y + 84, a);
     }
@@ -122,7 +122,7 @@ void desk_draw() {
 }
 
 // opens the app in the window and runs it until it is closed (its back button, or the close button of the window)
-void open_window(int app) {
+void open_window(i64 app) {
     win_app = app;
     win_w = 540;
     win_h = rootH - 64 - 24;
@@ -138,7 +138,7 @@ void open_window(int app) {
     cx = 0;
     cy = 0;
     shown = 0;
-    int kd = akind[app];
+    i64 kd = akind[app];
     if kd == 0 { app_terminal(); }
     else if kd == 1 { app_files(); }
     else if kd == 2 { app_clock(); }
@@ -161,20 +161,20 @@ void desktop() {
         keyboard(0);
         desk_draw();
         at_home = 1;
-        int r = wait_event();
+        i64 r = wait_event();
         at_home = 0;
         if r != 1 {
             if ev_key == 4 { power_off(); }
             continue;
         }
-        int app = 0 - 1;
+        i64 app = 0 - 1;
         if tap_y >= rootH - 64 {                                           // the taskbar
             if tap_x < 66 { app = 3; }                                      // the start button: About
             else if tap_x >= 76 && tap_x < 76 + 4 * 60 { app = (tap_x - 76) / 60; }
         } else if tap_x >= 24 && tap_y >= 20 {                              // the icons on the desktop
-            int col = (tap_x - 24) / 110;
-            int row = (tap_y - 20) / 120;
-            int a = col * 4 + row;
+            i64 col = (tap_x - 24) / 110;
+            i64 row = (tap_y - 20) / 120;
+            i64 a = col * 4 + row;
             if row < 4 && a < napps { app = a; }
         }
         if app < 0 { continue; }

@@ -1,23 +1,23 @@
 // the start: the checks of the machine written one line each on the terminal (a part of kernel.jk: the files are put together with #import in this order, the globals come before they are used)
 // ---- the start: the system looks at what the machine has and writes what it finds, one line for each check, on the terminal: [ seconds ] [ OK ] what: the result
-void putnum(int v) {
+void putnum(i64 v) {
     if v >= 10 { putnum(v / 10); }
     putc(48 + v % 10);
 }
 
-void pad3(int v) {
+void pad3(i64 v) {
     if v < 100 { putc(48); }
     if v < 10 { putc(48); }
     putnum(v);
 }
 
-int tfreq;
+i64 tfreq;
 
 void stamp() {
-    int ms = Sys::s3_3_c14_c0_2 / 1000;                  // the counter runs at 1 MHz
+    i64 ms = Sys::s3_3_c14_c0_2 / 1000;                  // the counter runs at 1 MHz
     setcol(2);
     putc(91);
-    int sec = ms / 1000;
+    i64 sec = ms / 1000;
     if sec < 100 { putc(32); }
     if sec < 10 { putc(32); }
     putnum(sec);
@@ -43,33 +43,33 @@ void boot_log() {
     if tfreq < 1000 { tfreq = 1000000; }
     setcol(4); say(0x534f20636972614a); say(0x332e3020); setcol(2); say(0x7265776f70202020); say(0x614a207962206465); say(0x636972); setcol(0);
     logline();
-    int el = Sys::s3_0_c4_c2_2 >> 2;
-    int core = Sys::s3_0_c0_c0_5 & 255;
+    i64 el = Sys::s3_0_c4_c2_2 >> 2;
+    i64 core = Sys::s3_0_c0_c0_5 & 255;
     g_el = el;
     g_core = core;
     stamp(); tag(el == 1); say(0x2020202020555043); say(0x202c34364d524120); say(0x6f69747065637865); say(0x206c6576656c206e); putnum(el); say(0x2065726f63202c); putnum(core);
     logline();
-    int c0 = Sys::s3_3_c14_c0_2;
-    int spin = 0;
+    i64 c0 = Sys::s3_3_c14_c0_2;
+    i64 spin = 0;
     while spin < 100 { spin += 1; }
-    int c1 = Sys::s3_3_c14_c0_2;
+    i64 c1 = Sys::s3_3_c14_c0_2;
     stamp(); tag(c1 > c0); say(0x207265746e756f43); say(0x20); putnum(tfreq / 1000); say(0x6f63202c7a486b20); say(0x676e69746e75);
     logline();
     Sys::s3_3_c14_c3_0 = 2000;
     Sys::s3_3_c14_c3_1 = 3;
-    int waits = 0;
+    i64 waits = 0;
     while (Sys::s3_3_c14_c3_1 & 4) == 0 && waits < 100000 { waits += 1; }
     bool fired = (Sys::s3_3_c14_c3_1 & 4) != 0;
     Sys::s3_3_c14_c3_1 = 0;
     stamp(); tag(fired); say(0x20202072656d6954); say(0x206b636974206120); say(0x73656d6f63);
     logline();
-    int^ rg = (int^)0x0C000000;
+    i64^ rg = (i64^)0x0C000000;
     g_ram = rg[7];                                      // the register 0x38: the memory of the machine in MB
     if g_ram < 64 { g_ram = 64; }
     ram_top = 0x40000000 + (g_ram << 20);
-    int^ m1 = (int^)0x42000000;
-    int^ m2 = (int^)(0x40000000 + ((g_ram >> 1) << 20) + 64);
-    int^ m3 = (int^)(ram_top - 16);
+    i64^ m1 = (i64^)0x42000000;
+    i64^ m2 = (i64^)(0x40000000 + ((g_ram >> 1) << 20) + 64);
+    i64^ m3 = (i64^)(ram_top - 16);
     m1[0] = 0x5a5a5a5a5a5a5a5a;
     m2[0] = 0x3c3c3c3c3c3c3c3c;
     m3[0] = 0x1234567812345678;
@@ -78,23 +78,23 @@ void boot_log() {
     logline();
     stamp(); tag(true); say(0x2020202054524155); say(0x656c6f736e6f6320); say(0x796461657220);
     logline();
-    int^ dev = (int^)0x0A000000;
-    int dsec = dev[5];
+    i64^ dev = (i64^)0x0A000000;
+    i64 dsec = dev[5];
     g_dsec = dsec;
     g_font = fontsize;
     stamp(); tag(dsec > 0); say(0x202020206b736944); say(0x20); putnum(dsec); say(0x73726f7463657320); say(0x202c); putnum(dsec / 2); say(0x424b20);
     logline();
     stamp(); tag(fsok == 1); say(0x20202073656c6946); say(0x202c53464a20); putnum(nfiles); say(0x73656c696620);
     logline();
-    int^ fbr = (int^)0x0B000000;
+    i64^ fbr = (i64^)0x0B000000;
     if fbr[1] != 0 {
         stamp(); tag(sready == 1); say(0x20202020746e6f46); say(0x2c68746f6f6d7320); say(0x20); putnum(fontsize); say(0x736574796220);
         logline();
         stamp(); tag(sready == 1); say(0x20206e6565726353); say(0x20); putnum(fbr[1]); say(0x207820); putnum(fbr[2]); say(0x202c); putnum(cols); say(0x207820); putnum(maxrows); say(0x736c6c656320);
         logline();
     }
-    int^ uid = (int^)0x0C000000;
-    int tq = uid[0];
+    i64^ uid = (i64^)0x0C000000;
+    i64 tq = uid[0];
     stamp(); tag(tq >= 0); say(0x2020206863756f54); say(0x2065636976656420); say(0x7964616572);
     logline();
     stamp(); tag(true); say(0x2020207475706e49); say(0x72616f6279656b20); say(0x79646165722064);

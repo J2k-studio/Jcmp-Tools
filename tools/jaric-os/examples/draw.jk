@@ -1,18 +1,18 @@
 // a program for Jaric OS that uses the screen and the touch (calls 400 and 401 of the system): a gradient, and a square that goes where you touch; a touch near the top ends it.
 #import <stdlib>
 
-int main() {
-    int w = 540;
-    int h = 400;
+i64 main() {
+    i64 w = 540;
+    i64 h = 400;
     char^ pix = (char^)Mem::alloc(864000);             // 540 x 400 dots, 4 bytes each: blue, green, red, alpha
-    int ev[5];
-    int last = 0;
-    int bx = 270;
-    int by = 200;
+    i64 ev[5];
+    i64 last = 0;
+    i64 bx = 270;
+    i64 by = 200;
     while true {
         for y in 0..h {
             for x in 0..w {
-                int o = (y * w + x) * 4;
+                i64 o = (y * w + x) * 4;
                 pix[o] = (char)(40 + y / 3);
                 pix[o + 1] = (char)(20 + x / 4);
                 pix[o + 2] = (char)(60);
@@ -22,15 +22,15 @@ int main() {
         for y in by - 20..by + 20 {
             for x in bx - 20..bx + 20 {
                 if x >= 0 && x < w && y >= 0 && y < h {
-                    int o = (y * w + x) * 4;
+                    i64 o = (y * w + x) * 4;
                     pix[o] = (char)255;
                     pix[o + 1] = (char)255;
                     pix[o + 2] = (char)255;
                 }
             }
         }
-        syscall(400, (int)pix, w, h);
-        int got = 0;
+        syscall(400, (i64)pix, w, h);
+        i64 got = 0;
         while got == 0 {
             syscall(401, @ev);
             if ev[0] != last { last = ev[0]; got = 1; }

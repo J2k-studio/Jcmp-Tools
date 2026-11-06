@@ -7,26 +7,26 @@
 // The attributes of an element are sorted by resource id when it is committed (Android looks them up by binary search).
 
 String[] ax_pool;                 // the strings; the first ones are the names of the android: attributes
-int[] ax_pool_id;                 // the resource id of a name (the entry of the resource map), 0 for the others
-int ax_nres;                      // how many names have a resource id: they come first in the pool
+i64[] ax_pool_id;                 // the resource id of a name (the entry of the resource map), 0 for the others
+i64 ax_nres;                      // how many names have a resource id: they come first in the pool
 String ax_body;                   // the chunks of the namespace and of the elements
-int ax_ns_prefix;                 // the pool index of "android"
-int ax_ns_uri;                    // and of its uri
+i64 ax_ns_prefix;                 // the pool index of "android"
+i64 ax_ns_uri;                    // and of its uri
 // the element that is being built
 String ax_tag;
-int[] ax_t_name;                  // the attributes: pool index of the name, 0 + 1 when it belongs to android:
-int[] ax_t_ns;                    // 1: android:, 0: no namespace
-int[] ax_t_id;                    // resource id (to sort)
-int[] ax_t_type;                  // 3 string, 16 decimal, 17 hex, 18 boolean, 1 reference
-int[] ax_t_data;                  // the value, or the pool index of a string
-int ax_t_n;
+i64[] ax_t_name;                  // the attributes: pool index of the name, 0 + 1 when it belongs to android:
+i64[] ax_t_ns;                    // 1: android:, 0: no namespace
+i64[] ax_t_id;                    // resource id (to sort)
+i64[] ax_t_type;                  // 3 string, 16 decimal, 17 hex, 18 boolean, 1 reference
+i64[] ax_t_data;                  // the value, or the pool index of a string
+i64 ax_t_n;
 
-void ax_put16(String s, int v) {
+void ax_put16(String s, i64 v) {
     s.push((char)(v & 255));
     s.push((char)((v >> 8) & 255));
 }
 
-void ax_put32(String s, int v) {
+void ax_put32(String s, i64 v) {
     s.push((char)(v & 255));
     s.push((char)((v >> 8) & 255));
     s.push((char)((v >> 16) & 255));
@@ -34,19 +34,19 @@ void ax_put32(String s, int v) {
 }
 
 // the pool index of a string that is not a name with an id (made when it is new)
-int ax_str(String t) {
+i64 ax_str(String t) {
     for i in ax_nres..ax_pool.len { if ax_pool[i] == t { return i; } }
     ax_pool.push(t + "");
     ax_pool_id.push(0);
     return ax_pool.len - 1;
 }
 
-int ax_name_idx(String t) {
+i64 ax_name_idx(String t) {
     for i in 0..ax_nres { if ax_pool[i] == t { return i; } }
     return -1;
 }
 
-void ax_res(String name, int id) {
+void ax_res(String name, i64 id) {
     ax_pool.push(name + "");
     ax_pool_id.push(id);
     ax_nres += 1;
@@ -90,9 +90,9 @@ void axml_open(String tag) {
     ax_t_name.clear(); ax_t_ns.clear(); ax_t_id.clear(); ax_t_type.clear(); ax_t_data.clear();
 }
 
-void ax_add(String name, bool android, int type, int data) {
-    int idx = ax_name_idx(name);
-    int id = 0;
+void ax_add(String name, bool android, i64 type, i64 data) {
+    i64 idx = ax_name_idx(name);
+    i64 id = 0;
     if android {
         if idx < 0 { jerr << "axml: the attribute " << name << " has no resource id (add it to axml_begin)\n"; return; }
         id = ax_pool_id[idx];
@@ -108,33 +108,33 @@ void ax_add(String name, bool android, int type, int data) {
 }
 
 void axml_a_str(String name, String value) { ax_add(name, true, 3, ax_str(value)); }
-void axml_a_int(String name, int value) { ax_add(name, true, 16, value); }
-void axml_a_hex(String name, int value) { ax_add(name, true, 17, value); }
+void axml_a_int(String name, i64 value) { ax_add(name, true, 16, value); }
+void axml_a_hex(String name, i64 value) { ax_add(name, true, 17, value); }
 void axml_a_bool(String name, bool value) { if value { ax_add(name, true, 18, -1); } else { ax_add(name, true, 18, 0); } }
-void axml_a_ref(String name, int id) { ax_add(name, true, 1, id); }
+void axml_a_ref(String name, i64 id) { ax_add(name, true, 1, id); }
 void axml_a_plain(String name, String value) { ax_add(name, false, 3, ax_str(value)); }
 
 // write the start of the element, the attributes sorted: those without a namespace first, then by resource id
 void axml_commit() {
-    int n = ax_t_n;
-    int[] order = arr(n + 1);
+    i64 n = ax_t_n;
+    i64[] order = arr(n + 1);
     for i in 0..n { order.push(i); }
     for i in 1..n {                                  // an insertion sort on (namespace, id)
-        int x = order[i];
-        int j = i - 1;
+        i64 x = order[i];
+        i64 j = i - 1;
         while j >= 0 && (ax_t_ns[order[j]] > ax_t_ns[x] || (ax_t_ns[order[j]] == ax_t_ns[x] && ax_t_id[order[j]] > ax_t_id[x])) {
             order[j + 1] = order[j];
             j -= 1;
         }
         order[j + 1] = x;
     }
-    int name = ax_str(ax_tag);
+    i64 name = ax_str(ax_tag);
     ax_put16(ax_body, 258); ax_put16(ax_body, 16); ax_put32(ax_body, 36 + 20 * n); ax_put32(ax_body, 1); ax_put32(ax_body, -1);
     ax_put32(ax_body, -1);                                 // no namespace on the element
     ax_put32(ax_body, name);
     ax_put16(ax_body, 20); ax_put16(ax_body, 20); ax_put16(ax_body, n); ax_put16(ax_body, 0); ax_put16(ax_body, 0); ax_put16(ax_body, 0);
     for k in 0..n {
-        int i = order[k];
+        i64 i = order[k];
         if ax_t_ns[i] == 1 { ax_put32(ax_body, ax_ns_uri); } else { ax_put32(ax_body, -1); }
         ax_put32(ax_body, ax_t_name[i]);
         if ax_t_type[i] == 3 { ax_put32(ax_body, ax_t_data[i]); } else { ax_put32(ax_body, -1); }
@@ -145,20 +145,20 @@ void axml_commit() {
 }
 
 void axml_close(String tag) {
-    int name = ax_str(tag);
+    i64 name = ax_str(tag);
     ax_put16(ax_body, 259); ax_put16(ax_body, 16); ax_put32(ax_body, 24); ax_put32(ax_body, 1); ax_put32(ax_body, -1);
     ax_put32(ax_body, -1);
     ax_put32(ax_body, name);
 }
 
 // one string of the pool in UTF-16 (the text is UTF-8; characters up to 3 bytes)
-int ax_utf16(String t, String out) {
-    int n = 0;
-    int i = 0;
+i64 ax_utf16(String t, String out) {
+    i64 n = 0;
+    i64 i = 0;
     while i < t.len {
-        int c = t[i] & 255;
-        int cp = c;
-        int extra = 0;
+        i64 c = t[i] & 255;
+        i64 cp = c;
+        i64 extra = 0;
         if c >= 224 { cp = c & 15; extra = 2; } else if c >= 192 { cp = c & 31; extra = 1; }
         for q in 0..extra { i += 1; if i < t.len { cp = (cp << 6) | (t[i] & 63); } }
         i += 1;
@@ -174,18 +174,18 @@ String axml_end() {
     ax_put32(ax_body, ax_ns_prefix); ax_put32(ax_body, ax_ns_uri);
     // the string pool (UTF-16)
     String data = "";
-    int[] offs = arr(ax_pool.len + 1);
+    i64[] offs = arr(ax_pool.len + 1);
     for i in 0..ax_pool.len {
         offs.push(data.len);
         String chars = "";
-        int cn = ax_utf16(ax_pool[i], chars);
+        i64 cn = ax_utf16(ax_pool[i], chars);
         ax_put16(data, cn);
         data.append(chars);
         ax_put16(data, 0);
     }
     while data.len % 4 != 0 { data.push((char)0); }
-    int count = ax_pool.len;
-    int strings_start = 28 + 4 * count;
+    i64 count = ax_pool.len;
+    i64 strings_start = 28 + 4 * count;
     String pool = "";
     ax_put16(pool, 1); ax_put16(pool, 28); ax_put32(pool, strings_start + data.len);
     ax_put32(pool, count); ax_put32(pool, 0); ax_put32(pool, 0);           // string count, style count, flags (UTF-16)
@@ -198,7 +198,7 @@ String axml_end() {
     for i in 0..ax_nres { ax_put32(map, ax_pool_id[i]); }
     // the file
     String out = "";
-    int total = 8 + pool.len + map.len + ax_body.len;
+    i64 total = 8 + pool.len + map.len + ax_body.len;
     ax_put16(out, 3); ax_put16(out, 8); ax_put32(out, total);
     out.append(pool);
     out.append(map);

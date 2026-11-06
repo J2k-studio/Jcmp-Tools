@@ -58,11 +58,11 @@ bool has_audio_ext(String n) {
 }
 
 // jget -m URL ...: songs from links go to the music folder (the name from the link; .mp3 is added when it has no sound extension)
-int cmd_music(String[] av, int at) {
+i64 cmd_music(String[] av, i64 at) {
     if av.len <= at { return usage(); }
     String dir = music_folder();
     if !Dir::exists(dir) { Dir::make_all(dir); }
-    int rc = 0;
+    i64 rc = 0;
     for i in at..av.len {
         String n = name_of(av[i]);
         if n == "index.html" { n = "song"; }
@@ -73,7 +73,7 @@ int cmd_music(String[] av, int at) {
     return rc;
 }
 
-int usage() {
+i64 usage() {
     err("usage: jget URL [-o FILE]               download a file (to a pipe or a file when the output goes there: jget URL | sh)\n");
     err("       jget -O URL                      save it with the name in the address (even in a pipe)\n");
     err("       jget -x URL                      and make the file executable\n");
@@ -90,7 +90,7 @@ int usage() {
 }
 
 // the old forms  jget tool ...  and  jget -li ...  are sent to jc (it installs the tools and the libraries since jget 1.0.0)
-int forward_to_jc(String[] av) {
+i64 forward_to_jc(String[] av) {
     String[] a = arr(8);
     String first = av[1];
     if first == "tool" {
@@ -103,7 +103,7 @@ int forward_to_jc(String[] av) {
         a.push("lib");
         for k in 2..av.len { a.push(av[k] + ""); }
     }
-    Result<int, Error> r = Proc::run("jc", a);
+    Result<i64, Error> r = Proc::run("jc", a);
     if !r.is_ok() {
         err("jget: jget only downloads now: tools and libraries are installed by jc, and jc is not here.\n  get it:  curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jc\n");
         return 2;
@@ -117,10 +117,10 @@ bool is_address(String s) {
 
 // does the file start with #! (a script) or with the mark of a program (ELF)?
 bool is_program(String path) {
-    int fd = Sys::open_read(path.c());
+    i64 fd = Sys::open_read(path.c());
     if fd < 0 { return false; }
     char four[8];
-    int n = Sys::read(fd, @four, 4);
+    i64 n = Sys::read(fd, @four, 4);
     Sys::close(fd);
     if n >= 2 && four[0] == '#' && four[1] == '!' { return true; }
     return n == 4 && four[0] == 127 && four[1] == 'E' && four[2] == 'L' && four[3] == 'F';
@@ -130,27 +130,27 @@ bool is_program(String path) {
 // one that already is executable is left alone; -x does it for any file
 void after_download(String to) {
     if to == "-" { return; }
-    int st[18];
+    i64 st[18];
     if Sys::stat(to.c(), @st) != 0 { return; }
-    int mode = st[2] & 0xFFFFFFFF;
+    i64 mode = st[2] & 0xFFFFFFFF;
     if g_exec != 1 {
         if (mode & 73) != 0 { return; }                   // already executable (0111): not touched
         if !is_program(to) { return; }
     }
-    int fresh = (mode & 4095) | ((mode & 292) >> 2);       // x where r is (0444 -> 0111)
+    i64 fresh = (mode & 4095) | ((mode & 292) >> 2);       // x where r is (0444 -> 0111)
     if g_exec == 1 { fresh = (mode & 4095) | 73 | ((mode & 292) >> 2); }
-    int r = Sys::chmod(to.c(), fresh);
+    i64 r = Sys::chmod(to.c(), fresh);
     if r < 0 { err("jget: cannot make " + to + " executable: " + Error::reason(r) + "\n"); }
 }
 
 // jget URL [-o FILE]  (-h before the address is allowed: it only says that an address follows)
 // Where the data goes: -o FILE; else -O (the name in the address); else, when the output of jget goes to another program or a file (jget URL | sh),
 // to the output; else (a terminal) to a file named like the end of the address.
-int cmd_fetch(String[] av, int at) {
+i64 cmd_fetch(String[] av, i64 at) {
     String url = "";
     String to = "";
     bool by_name = false;
-    int i = at;
+    i64 i = at;
     while i < av.len {
         if av[i] == "-h" { i += 1; }
         else if av[i] == "-O" { by_name = true; i += 1; }
@@ -191,7 +191,7 @@ String conf_value(String key) {
     String[] ls = r.take().split("\n");
     for i in 0..ls.len {
         String ln = ls[i].trim();
-        int eq = ln.find("=");
+        i64 eq = ln.find("=");
         if eq <= 0 || ln[0] == '#' { continue; }
         if ln.slice(0, eq).trim() == key { return ln.slice(eq + 1, ln.len).trim().replace("\"", ""); }
     }
@@ -216,7 +216,7 @@ bool run_net_allowed(String tmp, String url) {
 }
 
 // jget -sh URL [args]: download a script, run it with sh (-jsh: with jsh, the shell of Jaric), delete it
-int cmd_run_script(String[] av, int at, String shell) {
+i64 cmd_run_script(String[] av, i64 at, String shell) {
     if av.len <= at { return usage(); }
     String url = av[at];
     String tmp = "/data/local/tmp/.jget_script";
@@ -229,13 +229,13 @@ int cmd_run_script(String[] av, int at, String shell) {
     String[] args = arr(0);
     args.push(tmp);
     for i in at + 1..av.len { args.push(av[i]); }
-    int code = run_prog(shell, args);
+    i64 code = run_prog(shell, args);
     Fs::remove(tmp);
     return code;
 }
 
 // jget --install [DIR]
-int cmd_install_self(String[] av, int at) {
+i64 cmd_install_self(String[] av, i64 at) {
     String dir = default_bin_dir();
     if av.len > at { dir = av[at]; }
     if !make_dir(dir) { return 1; }
@@ -247,7 +247,7 @@ int cmd_install_self(String[] av, int at) {
 }
 
 // jget --update: the latest release replaces this program (checked with its SHA-256)
-int cmd_update_self() {
+i64 cmd_update_self() {
     String me = self_path();
     if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
     // the newest version of jget is the text of tools/jget/LATEST in the repository of the tools (a release of another tool cannot be mistaken for it)
@@ -293,7 +293,7 @@ int cmd_update_self() {
     return 0;
 }
 
-int main() {
+i64 main() {
     String[] all = Env::args();
     String[] av = arr(0);
     for i in 0..all.len {
