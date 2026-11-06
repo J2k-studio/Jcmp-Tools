@@ -1545,13 +1545,8 @@ i64 do_tr(String[] a) {
 }
 
 // diff A B : the lines that differ ("< line" only in A, "> line" only in B), found with the longest common part
-i64 do_diff(String[] a) {
-    String[] ops = operands(a, false);
-    if ops.len != 2 { return fail("diff", "usage: diff FILE1 FILE2"); }
-    i64 rc = 0;
-    String[] x = lines_of(load("diff", ops[0], @rc));
-    String[] y = lines_of(load("diff", ops[1], @rc));
-    if rc != 0 { return 2; }
+// the edit script of two files: ot[k] is 32 (the same line), 45 (only in the first) or 43 (only in the second); ol[k] is the line
+void diff_script(String[] x, String[] y, i64[] ot, String[] ol) {
     i64 n = x.len;
     i64 m = y.len;
     i64[] lcs = arr((n + 1) * (m + 1) + 1);
@@ -1572,14 +1567,213 @@ i64 do_diff(String[] a) {
     }
     i64 p = 0;
     i64 q = 0;
-    i64 diffs = 0;
     while p < n || q < m {
-        if p < n && q < m && x[p] == y[q] { p += 1; q += 1; }
-        else if q >= m || (p < n && lcs[(p + 1) * (m + 1) + q] >= lcs[p * (m + 1) + q + 1]) { jout << "< " << x[p] << "\n"; p += 1; diffs += 1; }
-        else { jout << "> " << y[q] << "\n"; q += 1; diffs += 1; }
+        if p < n && q < m && x[p] == y[q] { ot.push(32); ol.push(x[p] + ""); p += 1; q += 1; }
+        else if q >= m || (p < n && lcs[(p + 1) * (m + 1) + q] >= lcs[p * (m + 1) + q + 1]) { ot.push(45); ol.push(x[p] + ""); p += 1; }
+        else { ot.push(43); ol.push(y[q] + ""); q += 1; }
+    }
+}
+
+// diff -u: the hunks of the changes with 3 lines of the same around them (the form that patch reads)
+i64 diff_unified(String name1, String name2, String[] x, String[] y, i64 ctx) {
+    i64[] ot = arr(x.len + y.len + 2);
+    String[] ol = arr(x.len + y.len + 2);
+    diff_script(x, y, ot, ol);
+    i64 total = ot.len;
+    i64 first = 0 - 1;
+    for k in 0..total { if ot[k] != 32 && first < 0 { first = k; } }
+    if first < 0 { return 0; }
+    jout << "--- " << name1 << "\n+++ " << name2 << "\n";
+    i64 k = first;
+    while k < total {
+        if ot[k] == 32 { k += 1; continue; }
+        // a hunk: from ctx lines before the change to ctx lines after the last change that is close to the next
+        i64 s = k - ctx;
+        if s < 0 { s = 0; }
+        i64 last = k;
+        i64 scan = k;
+        while scan < total {
+            if ot[scan] != 32 { last = scan; }
+            if scan - last > 2 * ctx { break; }
+            scan += 1;
+        }
+        i64 e = last + ctx + 1;
+        if e > total { e = total; }
+        i64 xb = 0;
+        i64 yb = 0;
+        for t in 0..s {
+            if ot[t] != 43 { xb += 1; }
+            if ot[t] != 45 { yb += 1; }
+        }
+        i64 xl = 0;
+        i64 yl = 0;
+        for t in s..e {
+            if ot[t] != 43 { xl += 1; }
+            if ot[t] != 45 { yl += 1; }
+        }
+        i64 xs = xb + 1;
+        i64 ys = yb + 1;
+        if xl == 0 { xs = xb; }
+        if yl == 0 { ys = yb; }
+        jout << "@@ -" << xs << "," << xl << " +" << ys << "," << yl << " @@\n";
+        for t in s..e {
+            String sign = " ";
+            if ot[t] == 45 { sign = "-"; }
+            if ot[t] == 43 { sign = "+"; }
+            jout << sign << ol[t] << "\n";
+        }
+        k = e;
+    }
+    return 1;
+}
+
+i64 do_diff(String[] a) {
+    bool unified = has_flag(a, 'u');
+    String[] ops = operands(a, false);
+    if ops.len != 2 { return fail("diff", "usage: diff [-u] FILE1 FILE2"); }
+    i64 rc = 0;
+    String[] x = lines_of(load("diff", ops[0], @rc));
+    String[] y = lines_of(load("diff", ops[1], @rc));
+    if rc != 0 { return 2; }
+    if unified { return diff_unified(ops[0], ops[1], x, y, 3); }
+    i64[] ot = arr(x.len + y.len + 2);
+    String[] ol = arr(x.len + y.len + 2);
+    diff_script(x, y, ot, ol);
+    i64 diffs = 0;
+    for k in 0..ot.len {
+        if ot[k] == 45 { jout << "< " << ol[k] << "\n"; diffs += 1; }
+        else if ot[k] == 43 { jout << "> " << ol[k] << "\n"; diffs += 1; }
     }
     if diffs > 0 { return 1; }
     return 0;
+}
+
+// ---------------------------------------------------------------- patch: apply the changes of a unified diff (diff -u, git diff)
+// the number that starts at s[at] (at is moved past it)
+i64 patch_num(String s, i64^ at) {
+    i64 n = 0;
+    while at[0] < s.len && s[at[0]] >= 48 && s[at[0]] <= 57 { n = n * 10 + (s[at[0]] - 48); at[0] += 1; }
+    return n;
+}
+
+// the name of a file from a --- / +++ line: the first word, p folders cut off
+String patch_name(String line, i64 strip) {
+    String rest = line.slice(4, line.len);
+    i64 tab = rest.find("\t");
+    if tab >= 0 { rest = rest.slice(0, tab); }
+    String r = rest.trim();
+    i64 cut = 0;
+    while cut < strip {
+        i64 sl = r.find("/");
+        if sl < 0 { break; }
+        r = r.slice(sl + 1, r.len);
+        cut += 1;
+    }
+    return r;
+}
+
+// does the old text of a hunk stand in the lines at pos?
+bool patch_fits(String[] lines, String[] old, i64 pos) {
+    if pos < 0 || pos + old.len > lines.len { return false; }
+    for i in 0..old.len { if lines[pos + i] != old[i] { return false; } }
+    return true;
+}
+
+i64 do_patch(String[] a) {
+    bool reverse = has_flag(a, 'R');
+    i64 strip = 0;
+    String infile = "-";
+    String target = "";
+    i64 ai = 1;
+    while ai < a.len {
+        if a[ai].starts_with("-p") && a[ai].len > 2 { strip = a[ai].slice(2, a[ai].len).to_int(); }
+        else if a[ai] == "-p" && ai + 1 < a.len { strip = a[ai + 1].to_int(); ai += 1; }
+        else if (a[ai] == "-i" || a[ai] == "--input") && ai + 1 < a.len { infile = a[ai + 1]; ai += 1; }
+        else if !is_flag(a[ai]) { target = a[ai] + ""; }
+        ai += 1;
+    }
+    i64 rc = 0;
+    String[] dl = lines_of(load("patch", infile, @rc));
+    if rc != 0 { return 2; }
+    i64 li = 0;
+    i64 bad = 0;
+    i64 files = 0;
+    while li < dl.len {
+        if !(dl[li].starts_with("--- ") && li + 1 < dl.len && dl[li + 1].starts_with("+++ ")) { li += 1; continue; }
+        String oldname = patch_name(dl[li], strip);
+        String newname = patch_name(dl[li + 1], strip);
+        String path = newname;
+        if reverse { path = oldname; }
+        if newname == "/dev/null" || oldname == "/dev/null" { path = newname; if path == "/dev/null" { path = oldname; } }
+        if target.len > 0 { path = target; }
+        li += 2;
+        String[] lines = arr(8);
+        if Fs::exists(path) { lines = lines_of(load("patch", path, @rc)); }
+        if rc != 0 { return 2; }
+        i64 shift = 0;
+        i64 hunk = 0;
+        bool failed = false;
+        while li < dl.len && dl[li].starts_with("@@") {
+            hunk += 1;
+            String h = dl[li];
+            i64 hp = h.find("-");
+            hp += 1;
+            i64 os = patch_num(h, @hp);
+            i64 ol = 1;
+            if hp < h.len && h[hp] == 44 { hp += 1; ol = patch_num(h, @hp); }
+            i64 hq = h.find("+");
+            hq += 1;
+            i64 ns = patch_num(h, @hq);
+            i64 nl = 1;
+            if hq < h.len && h[hq] == 44 { hq += 1; nl = patch_num(h, @hq); }
+            li += 1;
+            String[] old = arr(8);
+            String[] fresh = arr(8);
+            i64 want_old = ol;
+            i64 want_new = nl;
+            if reverse { want_old = nl; want_new = ol; }
+            while li < dl.len && (old.len < want_old || fresh.len < want_new) {
+                String ln = dl[li];
+                if ln.len == 0 { ln = " "; }
+                i64 c = ln[0];
+                String body = ln.slice(1, ln.len) + "";
+                if c == 92 { li += 1; continue; }
+                if c == 32 { old.push(body); fresh.push(body); }
+                else if c == 45 { if reverse { fresh.push(body); } else { old.push(body); } }
+                else if c == 43 { if reverse { old.push(body); } else { fresh.push(body); } }
+                else { break; }
+                li += 1;
+            }
+            while li < dl.len && dl[li].starts_with("\\") { li += 1; }
+            i64 expect = os - 1 + shift;
+            if reverse { expect = ns - 1 + shift; }
+            if old.len == 0 && (os == 0 || (reverse && ns == 0)) { expect = lines.len; }
+            i64 found = 0 - 1;
+            i64 d = 0;
+            while found < 0 && d <= lines.len + 1 {
+                if patch_fits(lines, old, expect + d) { found = expect + d; }
+                else if d > 0 && patch_fits(lines, old, expect - d) { found = expect - d; }
+                d += 1;
+            }
+            if found < 0 { cerr << "patch: " << path << ": hunk " << hunk << " does not fit\n"; failed = true; bad += 1; continue; }
+            String[] merged = arr(lines.len + fresh.len + 2);
+            for i in 0..found { merged.push(lines[i] + ""); }
+            for i in 0..fresh.len { merged.push(fresh[i] + ""); }
+            for i in found + old.len..lines.len { merged.push(lines[i] + ""); }
+            lines = merged;
+            shift += fresh.len - old.len;
+        }
+        if failed { cerr << "patch: " << path << ": not changed\n"; rc = 1; continue; }
+        String out = "";
+        for i in 0..lines.len { out.append(lines[i]); out.push(10); }
+        Result<i64, Error> wr = Fs::write_text(path, out);
+        switch wr {
+            Result::Ok(v): { files += 1; jout << "patching file " << path << "\n"; }
+            Result::Err(e): { rc = fail("patch", path + ": " + e.message); }
+        }
+    }
+    if files == 0 && bad == 0 && rc == 0 { return fail("patch", "no unified diff found (make one with diff -u, or git diff)"); }
+    return rc;
 }
 
 // ---------------------------------------------------------------- date du xargs sed less stat
@@ -2064,7 +2258,7 @@ i64 do_hex(String[] a) {
 }
 
 i64 do_install(String[] args) {
-    String names_text = "dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false df ps hex jq";
+    String names_text = "dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false df ps hex jq patch";
     String[] names = names_text.split(" ");
     String dir = ".";
     if args.len > 2 { dir = args[2]; }
@@ -2095,7 +2289,7 @@ i64 do_install(String[] args) {
 
 i64 main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.13.0\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.14.0\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
@@ -2155,6 +2349,7 @@ i64 main() {
     if app == "grep" { return do_grep(a); }
     if app == "sort" { return do_sort(a); }
     if app == "jq" { return do_jq(a); }
+    if app == "patch" { return do_patch(a); }
     if app == "uniq" { return do_uniq(a); }
     if app == "tee" { return do_tee(a); }
     if app == "seq" { return do_seq(a); }

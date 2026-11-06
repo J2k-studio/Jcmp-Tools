@@ -8,7 +8,7 @@ island 0.1.0
 jamanager 0.3.0
 jaric-os 0.14.0
 jash 0.1.0
-jbox 0.13.0
+jbox 0.14.0
 jc 0.5.5
 jcmp 1.2.10.0
 jearlink 0.1.1

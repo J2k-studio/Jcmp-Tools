@@ -156,6 +156,17 @@ check "$("$J" jq '.items | length' q.json)" "2" jq-length
 check "$("$J" jq -c keys q.json)" '["name","tags","items","nest"]' jq-keys
 check "$("$J" jq .nothing q.json)" "null" jq-null
 check "$(cat q.json | "$J" jq -c '.items[0]')" '{"n":"x","v":1}' jq-stdin
+# diff -u and patch: a patch made here applies, goes back with -R, and a patch that does not fit changes nothing
+seq 1 40 > pa.txt
+{ seq 1 4; echo five; seq 6 12; seq 14 20; echo one; echo two; seq 21 34; echo late; seq 36 40; echo tail; } > pb.txt
+"$J" diff -u pa.txt pb.txt > p.patch; [ $? -eq 1 ] || { echo "jbox test: diff -u must exit 1 when files differ"; exit 1; }
+[ "$(head -2 p.patch | tr '\n' ' ')" = "--- pa.txt +++ pb.txt " ] || { echo "jbox test: diff -u headers"; exit 1; }
+cp pa.txt pc.txt; "$J" patch pc.txt -i p.patch > /dev/null || { echo "jbox test: patch"; exit 1; }
+cmp -s pc.txt pb.txt || { echo "jbox test: patch result"; exit 1; }
+"$J" patch -R pc.txt -i p.patch > /dev/null; cmp -s pc.txt pa.txt || { echo "jbox test: patch -R"; exit 1; }
+cp pb.txt pd.txt; if "$J" patch pd.txt -i p.patch > /dev/null 2>&1; then echo "jbox test: a patch that does not fit must fail"; exit 1; fi
+cmp -s pd.txt pb.txt || { echo "jbox test: a failed patch changed the file"; exit 1; }
+printf 'x\ny\n' > same1.txt; cp same1.txt same2.txt; "$J" diff -u same1.txt same2.txt > /dev/null || { echo "jbox test: diff -u of equal files must exit 0"; exit 1; }
 # --install: a stale link (to another program, or to nothing) is made again; a real file stays
 mkdir "$T/lnk" && cd "$T/lnk" && ln -s /bin/sh cp && ln -s nowhere sort && printf 'mine' > uniq
 "$J" --install . > /dev/null || { echo "jbox test: --install failed"; exit 1; }
