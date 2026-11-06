@@ -159,7 +159,7 @@ check "$(cat q.json | "$J" jq -c '.items[0]')" '{"n":"x","v":1}' jq-stdin
 # diff -u and patch: a patch made here applies, goes back with -R, and a patch that does not fit changes nothing
 seq 1 40 > pa.txt
 { seq 1 4; echo five; seq 6 12; seq 14 20; echo one; echo two; seq 21 34; echo late; seq 36 40; echo tail; } > pb.txt
-"$J" diff -u pa.txt pb.txt > p.patch; [ $? -eq 1 ] || { echo "jbox test: diff -u must exit 1 when files differ"; exit 1; }
+DRC=0; "$J" diff -u pa.txt pb.txt > p.patch || DRC=$?; [ "$DRC" -eq 1 ] || { echo "jbox test: diff -u must exit 1 when files differ"; exit 1; }
 [ "$(head -2 p.patch | tr '\n' ' ')" = "--- pa.txt +++ pb.txt " ] || { echo "jbox test: diff -u headers"; exit 1; }
 cp pa.txt pc.txt; "$J" patch pc.txt -i p.patch > /dev/null || { echo "jbox test: patch"; exit 1; }
 cmp -s pc.txt pb.txt || { echo "jbox test: patch result"; exit 1; }
