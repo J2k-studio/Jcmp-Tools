@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0
+* **Added:** more ways to download. Several addresses at once (`jget URL URL ...`, each saved under its own name and the exit code says when one failed), `-P DIR` (into a folder, made when missing), `-l LIST` (the addresses are in a file, one a line, `#` is a comment), `-r N` (try a failed download again up to N times; `URL1|URL2` is a mirror list, tried in order). Tests for each.
+* **Fixed:** none.
+
 ## 1.1.0 (needs jcmp 1.2.12.0 to build: `Net::http_exchange`)
 * **Added (jget is a curl too):** a request with a method, headers and a body, and the answer on the screen: `-X METHOD`, `-H "Name: value"`, `-d DATA` (`@file` reads a file, `@-` the keyboard; two `-d` are joined with `&`; a body makes it a POST), `-I` (the head only), `-i` (the head, then the body), `-u user:password` (Basic), `-A agent`, `-f` (an HTTP code of 400 or more is an error: exit 22), `-L` (follow redirects: it is on) and `--no-location`, `-s` (quiet), `-w` (the code after the body), `-o FILE`, `-O`. A plain `jget URL` is a download with a progress bar as before.
 * **Added:** 8 tests for the requests (a small server in `echo_server.py`).

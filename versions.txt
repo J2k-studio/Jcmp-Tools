@@ -13,7 +13,7 @@ jc 0.5.5
 jcmp 1.2.10.0
 jearlink 0.1.1
 jfile 0.3.0
-jget 1.1.0
+jget 1.2.0
 jgit 0.4.0
 jpty 0.1.1
 jrawser 0.1.0

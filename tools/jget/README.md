@@ -6,6 +6,11 @@ Download files from the web. A small program written in J2K: URLs, a progress ba
 jget https://example.com/file.tar.gz          save it here, named file.tar.gz
 jget URL -o other.name                        save it with another name   (-o - : write it to the screen)
 jget -q URL                                   no progress bar
+jget URL URL ...                              several files, each under its own name
+jget -P DIR URL ...                           put the files into the folder DIR (made when missing)
+jget -l LIST                                  the addresses are in the file LIST (one a line, # starts a comment)
+jget -r N URL                                 try again up to N times when a download fails
+jget 'URL1|URL2'                              a mirror: the second is tried when the first fails
 jget -x URL                                   make any file executable (scripts and programs already are)
 jget -m URL                                   a song from a link goes to ~/music (mujic plays it)
 jget -sh URL [args]  /  jget -jsh URL         download a script and run it at once (sh / jsh)

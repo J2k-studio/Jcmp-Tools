@@ -38,6 +38,16 @@ printf '# index\ntwice 1.0 http://127.0.0.1:%s/nothing_here.j|http://127.0.0.1:%
 cd "$W/out" || exit 1
 t "version" '[ "$($J --version)" = "jget $(cat $HERE/VERSION)" ]'
 t "download: -O names the file after the address (the default in a terminal)" '$J -q -O http://127.0.0.1:$PORT/big.bin && cmp -s big.bin ../www/big.bin'
+# several addresses, a folder (-P), a list (-i), tries (-r)
+mkdir -p "$W/out/multi" && cd "$W/out/multi"
+t "download: several addresses, each under its own name" '$J -q http://127.0.0.1:$PORT/page.txt http://127.0.0.1:$PORT/twice.j && [ "$(cat page.txt)" = "hello jget" ] && cmp -s twice.j ../../www/twice.j'
+t "download: -P puts the files into a folder (made when missing)" '$J -q -P sub/dir http://127.0.0.1:$PORT/page.txt && [ "$(cat sub/dir/page.txt)" = "hello jget" ]'
+printf '# a list\nhttp://127.0.0.1:%s/hello.sh\n\nhttp://127.0.0.1:%s/prog.bin\n' $PORT $PORT > list.txt
+t "download: -l reads the addresses from a file" '$J -q -P fromlist -l list.txt && [ -f fromlist/hello.sh ] && [ -f fromlist/prog.bin ]'
+t "download: one bad address in several: the others come, the exit code says it" '$J -q http://127.0.0.1:$PORT/nothing_here.xyz http://127.0.0.1:$PORT/page.txt 2>/dev/null; [ $? -ne 0 ] && [ -f page.txt ]'
+t "download: -o with several addresses is refused" '! $J -q -o x http://127.0.0.1:$PORT/page.txt http://127.0.0.1:$PORT/twice.j 2>/dev/null'
+t "download: -r tries a mirror list again and ends with an error when nothing works" '! $J -q -r 2 http://127.0.0.1:$PORT/no1.zz 2>/dev/null'
+cd "$W/out"
 t "download: -o names the file" '$J -q http://127.0.0.1:$PORT/page.txt -o mine.txt && [ "$(cat mine.txt)" = "hello jget" ]'
 t "download: -o - writes to the screen" '[ "$($J http://127.0.0.1:$PORT/page.txt -o - 2>/dev/null)" = "hello jget" ]'
 t "download: -h URL is the same" '$J -q -h http://127.0.0.1:$PORT/page.txt -o h.txt && [ "$(cat h.txt)" = "hello jget" ]'
