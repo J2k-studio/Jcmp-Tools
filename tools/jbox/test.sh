@@ -145,6 +145,17 @@ printf 'new' > s1.txt; "$J" cp -n s1.txt sdest; [ "$(cat sdest/s1.txt)" = "1" ] 
 mkdir sdest2 && "$J" mv s1.txt s2.txt sdest2 || { echo "jbox test: mv of two files"; exit 1; }
 [ -f sdest2/s1.txt ] && [ -f sdest2/s2.txt ] && [ ! -e s1.txt ] || { echo "jbox test: mv of two files: result"; exit 1; }
 if "$J" mv sdest2/s1.txt sdest2/s2.txt nofolder > /dev/null 2>&1; then echo "jbox test: mv of two files into a non-folder must fail"; exit 1; fi
+# jq: paths, [] , select, length, keys, -r, -c
+printf '{"name":"ann","tags":["a","b"],"items":[{"n":"x","v":1},{"n":"y","v":5}],"nest":{"k":[1,{"z":"deep"}]}}' > q.json
+check "$("$J" jq .name q.json)" '"ann"' jq-name
+check "$("$J" jq -r .name q.json)" "ann" jq-raw
+check "$("$J" jq -c .tags q.json)" '["a","b"]' jq-compact
+check "$("$J" jq '.nest.k[1].z' q.json)" '"deep"' jq-path
+check "$("$J" jq -r '.items[] | select(.v > 2) | .n' q.json)" "y" jq-select
+check "$("$J" jq '.items | length' q.json)" "2" jq-length
+check "$("$J" jq -c keys q.json)" '["name","tags","items","nest"]' jq-keys
+check "$("$J" jq .nothing q.json)" "null" jq-null
+check "$(cat q.json | "$J" jq -c '.items[0]')" '{"n":"x","v":1}' jq-stdin
 # --install: a stale link (to another program, or to nothing) is made again; a real file stays
 mkdir "$T/lnk" && cd "$T/lnk" && ln -s /bin/sh cp && ln -s nowhere sort && printf 'mine' > uniq
 "$J" --install . > /dev/null || { echo "jbox test: --install failed"; exit 1; }

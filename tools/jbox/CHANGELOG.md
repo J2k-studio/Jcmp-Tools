@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.0
+* **Added:** `jq [-r] [-c] FILTER [FILE]` picks things out of JSON: paths (`.a.b[0]`, `.[]`, `.["key"]`), stages joined by `|`, `length`, `keys`, `type`, `not`, `select(.v > 2)` (`== != < > <= >=`); `-r` writes strings without quotes, `-c` on one line. It pairs with `jget URL`: `jget URL -o - | jq .name`.
+* **Fixed:** none.
+
 ## 0.12.0
 * **Added:** `cp` and `mv` take several sources and a folder at the end (`cp a.mp3 b.mp3 music/`, `mv *.txt notes/`); `-v` says what is copied or moved, `-n` keeps a file that is already there.
 * **Fixed:** none.

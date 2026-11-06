@@ -950,6 +950,256 @@ i64 do_mv(String[] a) {
     return rc;
 }
 
+// ---------------------------------------------------------------- jq: pick things out of JSON
+// jq [-r] [-c] FILTER [FILE]   FILTER: a path (.a.b[0].c  .[]  .["key"]), stages joined by |, and length keys type not select(PATH == VALUE)
+// Every value travels as JSON text; a step parses it, takes the node and writes it back.
+String jq_pretty(String t, i64 indent_step) {
+    String out = "";
+    i64 depth = 0;
+    bool in_str = false;
+    i64 i = 0;
+    while i < t.len {
+        i64 c = t[i];
+        if in_str {
+            out.push(c);
+            if c == 92 { i += 1; if i < t.len { out.push(t[i]); } }
+            else if c == 34 { in_str = false; }
+        } else if c == 34 {
+            in_str = true;
+            out.push(c);
+        } else if c == 123 || c == 91 {
+            bool empty = i + 1 < t.len && (t[i + 1] == 125 || t[i + 1] == 93);
+            out.push(c);
+            if empty { i += 1; out.push(t[i]); }
+            else { depth += 1; out.push(10); for k in 0..depth * indent_step { out.push(32); } }
+        } else if c == 125 || c == 93 {
+            depth -= 1;
+            out.push(10);
+            for k in 0..depth * indent_step { out.push(32); }
+            out.push(c);
+        } else if c == 44 {
+            out.push(c);
+            out.push(10);
+            for k in 0..depth * indent_step { out.push(32); }
+        } else if c == 58 {
+            out.push(c);
+            out.push(32);
+        } else {
+            out.push(c);
+        }
+        i += 1;
+    }
+    return out;
+}
+
+// one step of a path on a JSON text: the key, or the index, or "[]" for every element; the results are added to out
+void jq_step(String text, String kind, String arg, String[] out) {
+    Result<JsonDoc, Error> pr = Json::parse(text);
+    switch pr {
+        Result::Ok(d): {
+            i64 n = d.root();
+            i64 k = d.kind_of(n);
+            if kind == "key" {
+                if k == 6 { i64 c = d.get(n, arg); if c >= 0 { out.push(d.dump(c)); } else { out.push("null"); } }
+                else if k == 0 { out.push("null"); }
+            } else if kind == "idx" {
+                if k == 5 {
+                    i64 ix = arg.to_int();
+                    i64 len = d.len(n);
+                    if ix < 0 { ix = len + ix; }
+                    if ix >= 0 && ix < len { out.push(d.dump(d.at(n, ix))); } else { out.push("null"); }
+                }
+            } else if kind == "all" {
+                if k == 5 { for i in 0..d.len(n) { out.push(d.dump(d.at(n, i))); } }
+                else if k == 6 {
+                    i64 c = d.first[n];
+                    while c >= 0 { out.push(d.dump(c)); c = d.next[c]; }
+                }
+            }
+        }
+        Result::Err(e): { cerr << "jq: not valid JSON: " << e.message << "\n"; }
+    }
+}
+
+// the path ".a.b[0][]" applied to a JSON text
+String[] jq_path(String path, String input) {
+    String[] cur = arr(4);
+    cur.push(input + "");
+    i64 i = 0;
+    while i < path.len {
+        String kind = "";
+        String arg = "";
+        i64 c = path[i];
+        if c == 46 {
+            i += 1;
+            if i < path.len && path[i] == 34 {
+                i64 j = i + 1;
+                while j < path.len && path[j] != 34 { arg.push(path[j]); j += 1; }
+                i = j + 1;
+                kind = "key";
+            } else if i < path.len && path[i] != 46 && path[i] != 91 {
+                while i < path.len && path[i] != 46 && path[i] != 91 && path[i] != 63 { arg.push(path[i]); i += 1; }
+                kind = "key";
+            } else { continue; }
+        } else if c == 91 {
+            i += 1;
+            if i < path.len && path[i] == 93 { kind = "all"; i += 1; }
+            else if i < path.len && path[i] == 34 {
+                i += 1;
+                while i < path.len && path[i] != 34 { arg.push(path[i]); i += 1; }
+                i += 2;
+                kind = "key";
+            } else {
+                while i < path.len && path[i] != 93 { arg.push(path[i]); i += 1; }
+                i += 1;
+                kind = "idx";
+            }
+        } else if c == 63 { i += 1; continue; }
+        else { cerr << "jq: cannot read the filter at: " << path.slice(i, path.len) << "\n"; String[] none = arr(1); return none; }
+        String[] next = arr(cur.len + 1);
+        for v in 0..cur.len { jq_step(cur[v], kind, arg, next); }
+        cur = next;
+    }
+    return cur;
+}
+
+// a JSON text made the same way (a number 1.0 and 1 are the same)
+String jq_norm(String t) {
+    Result<JsonDoc, Error> pr = Json::parse(t);
+    switch pr {
+        Result::Ok(d): { return d.dump(d.root()); }
+        Result::Err(e): { return t; }
+    }
+    return t;
+}
+
+bool jq_truthy(String t) { return t != "null" && t != "false"; }
+
+// a condition: PATH, or PATH OP VALUE  (== != < > <= >=)
+bool jq_cond(String cond, String input) {
+    String[] ops = "== != <= >= < >".split(" ");
+    for o in 0..6 {
+        String op = ops[o] + "";
+        i64 at = cond.find(op);
+        if at > 0 {
+            String left = cond.slice(0, at).trim();
+            String right = cond.slice(at + op.len, cond.len).trim();
+            String[] lv = jq_path(left, input);
+            if lv.len == 0 { return false; }
+            String a = jq_norm(lv[0]);
+            String b = jq_norm(right);
+            if op == "==" { return a == b; }
+            if op == "!=" { return a != b; }
+            double x = a.to_double();
+            double y = b.to_double();
+            if op == "<" { return x < y; }
+            if op == ">" { return x > y; }
+            if op == "<=" { return x <= y; }
+            return x >= y;
+        }
+    }
+    String[] pv = jq_path(cond.trim(), input);
+    if pv.len == 0 { return false; }
+    return jq_truthy(pv[0]);
+}
+
+String[] jq_stage(String st, String[] inputs) {
+    String[] out = arr(inputs.len + 1);
+    String s = st.trim();
+    for v in 0..inputs.len {
+        String in0 = inputs[v];
+        if s == "." || s.len == 0 { out.push(in0 + ""); }
+        else if s.starts_with(".") { String[] r = jq_path(s, in0); for q in 0..r.len { out.push(r[q] + ""); } }
+        else if s == "length" || s == "keys" || s == "type" || s == "not" {
+            Result<JsonDoc, Error> pr = Json::parse(in0);
+            switch pr {
+                Result::Ok(d): {
+                    i64 n = d.root();
+                    i64 k = d.kind_of(n);
+                    if s == "length" {
+                        if k == 5 || k == 6 { out.push(str(d.len(n))); }
+                        else if k == 4 { out.push(str(d.text(n).len)); }
+                        else if k == 0 { out.push("0"); }
+                        else { out.push(in0 + ""); }
+                    } else if s == "type" {
+                        String tn = "null";
+                        if k == 1 || k == 2 { tn = "boolean"; }
+                        else if k == 3 { tn = "number"; }
+                        else if k == 4 { tn = "string"; }
+                        else if k == 5 { tn = "array"; }
+                        else if k == 6 { tn = "object"; }
+                        out.push("\"" + tn + "\"");
+                    } else if s == "not" {
+                        if jq_truthy(in0) { out.push("false"); } else { out.push("true"); }
+                    } else {
+                        String ks = "[";
+                        i64 c = d.first[n];
+                        bool firstk = true;
+                        while k == 6 && c >= 0 {
+                            if !firstk { ks.push(','); }
+                            ks.append(Json::quote(d.key[c]));
+                            firstk = false;
+                            c = d.next[c];
+                        }
+                        ks.push(']');
+                        out.push(ks);
+                    }
+                }
+                Result::Err(e): { cerr << "jq: not valid JSON\n"; }
+            }
+        } else if s.starts_with("select(") && s.ends_with(")") {
+            if jq_cond(s.slice(7, s.len - 1), in0) { out.push(in0 + ""); }
+        } else { cerr << "jq: unknown filter: " << s << "\n"; }
+    }
+    return out;
+}
+
+// the filter split at the | that is not inside brackets or quotes
+String[] jq_stages(String f) {
+    String[] r = arr(4);
+    String cur = "";
+    i64 depth = 0;
+    bool q = false;
+    for i in 0..f.len {
+        i64 c = f[i];
+        if c == 34 { q = !q; }
+        if !q && (c == 40 || c == 91) { depth += 1; }
+        if !q && (c == 41 || c == 93) { depth -= 1; }
+        if !q && depth == 0 && c == 124 { r.push(cur + ""); cur = ""; }
+        else { cur.push(c); }
+    }
+    r.push(cur + "");
+    return r;
+}
+
+i64 do_jq(String[] a) {
+    bool raw = has_flag(a, 'r');
+    bool compact = has_flag(a, 'c');
+    String[] ops = operands(a, false);
+    if ops.len == 0 { return fail("jq", "usage: jq [-r -c] FILTER [FILE]   (.a.b[0]  .[]  keys  length  select(.k == \"v\")  stages joined by |)"); }
+    String filter = ops[0];
+    i64 rc = 0;
+    String text = "";
+    if ops.len > 1 { text = load("jq", ops[1], @rc); } else { text = stdin_all(); }
+    if rc != 0 { return rc; }
+    String[] cur = arr(2);
+    cur.push(text.trim() + "");
+    String[] st = jq_stages(filter);
+    for i in 0..st.len { cur = jq_stage(st[i], cur); }
+    for v in 0..cur.len {
+        String o = cur[v];
+        if raw && o.len >= 2 && o[0] == 34 {
+            Result<JsonDoc, Error> pr = Json::parse(o);
+            switch pr {
+                Result::Ok(d): { cout << d.text(d.root()) << "\n"; }
+                Result::Err(e): { cout << o << "\n"; }
+            }
+        } else if compact { cout << o << "\n"; }
+        else { cout << jq_pretty(o, 2) << "\n"; }
+    }
+    return rc;
+}
+
 i64 do_grep(String[] a) {
     bool number = has_flag(a, 'n');
     bool invert = has_flag(a, 'v');
@@ -1814,7 +2064,7 @@ i64 do_hex(String[] a) {
 }
 
 i64 do_install(String[] args) {
-    String names_text = "dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false df ps hex";
+    String names_text = "dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false df ps hex jq";
     String[] names = names_text.split(" ");
     String dir = ".";
     if args.len > 2 { dir = args[2]; }
@@ -1845,7 +2095,7 @@ i64 do_install(String[] args) {
 
 i64 main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.12.0\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.13.0\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
@@ -1904,6 +2154,7 @@ i64 main() {
     if app == "mv" { return do_mv(a); }
     if app == "grep" { return do_grep(a); }
     if app == "sort" { return do_sort(a); }
+    if app == "jq" { return do_jq(a); }
     if app == "uniq" { return do_uniq(a); }
     if app == "tee" { return do_tee(a); }
     if app == "seq" { return do_seq(a); }
