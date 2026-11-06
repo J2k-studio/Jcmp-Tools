@@ -1354,8 +1354,9 @@ bool is_digits(String s) {
 }
 
 i64 do_help() {
-    jout << "jbox commands: dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort uniq tee seq basename dirname sleep clear env kill true false\n";
-    jout << "flags: dir -a -l   tree -a -d -s -L N   find -name P -type f|d -maxdepth N   ln -s   cut -d X -f N   tr -d   head/tail -n N   wc -l -w -c   mkdir -p   rm -f   grep -n -v -i   sort -r   tee -a\n";
+    jout << "jbox commands: dir tree find date du stat xargs sed less man ln chmod cut tr diff cat head tail wc nl tac rev yes uname hostname whoami realpath base64 sha256sum cmp paste fold printf uptime free nproc mkdir rmdir rm touch cp mv grep sort jq patch uniq tee seq basename dirname sleep clear env kill true false df ps hex\n";
+    jout << "flags: dir -a -l   tree -a -d -s -L N   find -name P -type f|d -maxdepth N   ln -s   cut -d X -f N   tr -d   head/tail -n N   wc -l -w -c   mkdir -p   rm -f -r   cp -r -v -n   mv -v -n   diff -u   patch -p N -R -i FILE   jq -r -c FILTER   grep -n -v -i   sort -r   tee -a\n";
+    jout << "more: man NAME shows a longer text with examples for cp mv rm diff patch jq\n";
     return 0;
 }
 
@@ -2063,8 +2064,33 @@ String man_cache_dir() {
     return "/tmp/jaric-man";
 }
 
+// the manuals of the commands that jbox itself holds (markdown, shown by man NAME without the network)
+String builtin_man(String name) {
+    if name == "cp" {
+        return "# cp\n\nCopy files and folders.\n\n```\ncp FROM TO\ncp FROM... FOLDER\ncp -r FOLDER TO\n```\n* A file is copied byte for byte (songs, pictures and programs too); a program stays executable.\n* Several sources: the last name must be a folder. `cp a.mp3 b.mp3 music/`\n* `-r` copies a folder and everything in it. Without it a folder is refused.\n* `-v` says what is copied, `-n` keeps a file that is already there.\n* Between drives it works as well: `cp -r Jcmp 0:/Jcmp`.\n";
+    }
+    if name == "mv" {
+        return "# mv\n\nMove or rename files and folders.\n\n```\nmv FROM TO\nmv FROM... FOLDER\n```\n* Several sources: the last name must be a folder. `mv *.txt notes/`\n* To another drive (`mv Jcmp 0:/`) the system cannot rename, so jbox copies and removes the old one only when the copy had no error.\n* `-v` says what is moved, `-n` keeps a file that is already there.\n* A folder cannot be moved into itself.\n";
+    }
+    if name == "rm" {
+        return "# rm\n\nRemove files and folders.\n\n```\nrm FILE...\nrm -r FOLDER\nrm -rf FOLDER\n```\n* `-r` removes a folder and what is in it (a link is removed, not what it points to).\n* `-f` says nothing about names that are not there.\n* `rm /`, `rm .` and `rm ..` are refused.\n";
+    }
+    if name == "diff" {
+        return "# diff\n\nShow what differs between two files.\n\n```\ndiff FILE1 FILE2\ndiff -u FILE1 FILE2 > my.patch\n```\n* Without `-u`: lines only in the first file start with `<`, in the second with `>`.\n* `-u` writes a unified diff: 3 lines of the same around each change, the form that `patch` and `git apply` read.\n* Exit code 0 when the files are the same, 1 when they differ, 2 for an error.\n";
+    }
+    if name == "patch" {
+        return "# patch\n\nApply the changes of a unified diff (from `diff -u` or `git diff`).\n\n```\npatch FILE -i my.patch\ndiff -u a.txt b.txt | patch a.txt\npatch -p1 -i fix.patch\npatch -R FILE -i my.patch\n```\n* The file names come from the `+++` lines; `-p N` cuts N folders off the front (`-p1` for git diffs). A FILE on the line overrides them.\n* The old lines of a hunk are looked for near the place the hunk names, so a file that moved a few lines still takes it.\n* When a hunk does not fit, that file is not changed at all and the exit code is 1.\n* `-R` takes a patch back.\n";
+    }
+    if name == "jq" {
+        return "# jq\n\nPick things out of JSON.\n\n```\njq FILTER [FILE]\njq -r .name data.json\njget URL -o - | jq '.items[] | select(.v > 2) | .n'\n```\n* Paths: `.a.b`, `.a[0]`, `.[]` (every element), `.[\"a-b\"]`. A key that is not there gives `null`.\n* Stages joined by `|`. Functions: `length`, `keys`, `type`, `not`, `select(PATH == VALUE)` (also `!= < > <= >=`).\n* `-r` writes a string without quotes, `-c` writes each result on one line.\n* Not in this jq: `map`, `if`, building new objects.\n";
+    }
+    return "";
+}
+
 String man_find(String name, bool^ from_net) {
     from_net[0] = false;
+    String own = builtin_man(name);
+    if own.len > 0 { return own; }
     String[] places = arr(6);
     switch Env::get("HOME") { Option::Some(h): { places.push(h + "/.jaric/man/" + name + ".md"); } Option::None: { } }
     switch Env::get("PREFIX") { Option::Some(p): { places.push(p + "/share/man/" + name + ".md"); } Option::None: { } }
@@ -2289,7 +2315,7 @@ i64 do_install(String[] args) {
 
 i64 main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.14.0\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.15.0\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }

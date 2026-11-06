@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.0
+* **Added:** `man cp`, `man mv`, `man rm`, `man diff`, `man patch` and `man jq` show a short manual with examples, held in jbox (no network needed). `jbox help` lists `jq`, `patch`, `df`, `ps`, `hex` and the new flags.
+* **Fixed:** `jbox help` did not list the commands added since 0.10.
+
 ## 0.14.0
 * **Added:** `diff -u FILE1 FILE2` writes a unified diff (3 lines around each change, the form of `diff -u` and `git diff`), and `patch [-p N] [-R] [-i PATCH] [FILE]` applies one: it looks for the old lines near the place the hunk names, changes nothing in a file when a hunk does not fit, makes a new file from a diff of an empty one, and `-R` takes a patch back. A patch made by the system `diff -u` is read here, and the system `patch` reads the one made here.
 * **Fixed:** none.

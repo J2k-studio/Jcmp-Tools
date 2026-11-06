@@ -167,6 +167,11 @@ cmp -s pc.txt pb.txt || { echo "jbox test: patch result"; exit 1; }
 cp pb.txt pd.txt; if "$J" patch pd.txt -i p.patch > /dev/null 2>&1; then echo "jbox test: a patch that does not fit must fail"; exit 1; fi
 cmp -s pd.txt pb.txt || { echo "jbox test: a failed patch changed the file"; exit 1; }
 printf 'x\ny\n' > same1.txt; cp same1.txt same2.txt; "$J" diff -u same1.txt same2.txt > /dev/null || { echo "jbox test: diff -u of equal files must exit 0"; exit 1; }
+# man holds a text for cp mv rm diff patch jq (no network needed); help lists the new commands
+for CMD in cp mv rm diff patch jq; do
+  "$J" man $CMD 2>/dev/null | grep -qi "$CMD" || { echo "jbox test: man $CMD"; exit 1; }
+done
+"$J" help | grep -q "jq" && "$J" help | grep -q "patch" || { echo "jbox test: help does not list jq and patch"; exit 1; }
 # --install: a stale link (to another program, or to nothing) is made again; a real file stays
 mkdir "$T/lnk" && cd "$T/lnk" && ln -s /bin/sh cp && ln -s nowhere sort && printf 'mine' > uniq
 "$J" --install . > /dev/null || { echo "jbox test: --install failed"; exit 1; }
