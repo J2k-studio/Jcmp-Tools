@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.0
+* **Added:** `cp -r FOLDER TO` copies a folder and what is in it (files byte for byte, the right to run stays). `mv` between drives (`mv Jcmp 0:/`, from the home to the shared storage): the system cannot rename between drives (error 18), so the file or folder is copied and the old one is removed only after the copy had no error. `mv` and `cp` refuse to put a folder into itself.
+* **Fixed:** `mv FOLDER 0:/` failed with "the system refused (error 18)".
+
 ## 0.10.1
 * **Fixed:** `jbox --install` makes a link again when the link in the folder points somewhere else than `jbox` (or points nowhere). In the Jaric app a stale link made `cp` run another program (it cleared the screen). A real file, and a link that already points to `jbox`, are left alone.
 * **Added:** none.

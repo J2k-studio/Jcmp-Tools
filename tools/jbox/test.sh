@@ -126,6 +126,16 @@ echo "$OUT" | grep -q "See the guide and code and bold" || { echo "jbox test: ma
 echo "$OUT" | grep -q "^    demo run$" || { echo "jbox test: man: code"; exit 1; }
 echo "$OUT" | grep -q "^  - one$" || { echo "jbox test: man: lists"; exit 1; }
 if HOME="$T/home" "$J" man nosuchtopicxyz > /dev/null 2>&1; then echo "jbox test: man of nothing must fail"; exit 1; fi
+# cp -r copies a folder with what is in it (also bytes with zero), mv moves a folder, rm -r removes it; cp without -r refuses a folder
+mkdir -p tree/sub/deep && printf 'a\n' > tree/one.txt && printf 'x\0y' > tree/sub/zero.bin && printf 'z' > tree/sub/deep/z.txt
+"$J" cp -r tree tree2 || { echo "jbox test: cp -r"; exit 1; }
+cmp tree/sub/zero.bin tree2/sub/zero.bin && cmp tree/sub/deep/z.txt tree2/sub/deep/z.txt || { echo "jbox test: cp -r contents"; exit 1; }
+if "$J" cp tree treeX > /dev/null 2>&1; then echo "jbox test: cp of a folder without -r must fail"; exit 1; fi
+mkdir mvdest && "$J" mv tree2 mvdest || { echo "jbox test: mv of a folder"; exit 1; }
+[ -f mvdest/tree2/sub/deep/z.txt ] && [ ! -e tree2 ] || { echo "jbox test: mv of a folder moved nothing"; exit 1; }
+"$J" rm -rf mvdest tree || { echo "jbox test: rm -rf"; exit 1; }
+[ ! -e mvdest ] && [ ! -e tree ] || { echo "jbox test: rm -rf left something"; exit 1; }
+if "$J" cp -r mvdest/x mvdest/x/y > /dev/null 2>&1; then echo "jbox test: cp of nothing must fail"; exit 1; fi
 # --install: a stale link (to another program, or to nothing) is made again; a real file stays
 mkdir "$T/lnk" && cd "$T/lnk" && ln -s /bin/sh cp && ln -s nowhere sort && printf 'mine' > uniq
 "$J" --install . > /dev/null || { echo "jbox test: --install failed"; exit 1; }

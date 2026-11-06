@@ -816,29 +816,22 @@ i64 do_touch(String[] a) {
     return rc;
 }
 
-i64 do_cp(String[] a) {
-    String[] ops = operands(a, false);
-    if ops.len != 2 { return fail("cp", "usage: cp FROM TO   (TO may be a folder; a file is copied byte for byte, also a song or a picture)"); }
-    String from = ops[0];
-    String to = ops[1];
-    if needs_root(to) { return need_root_fail("cp", to); }
-    if Dir::exists(from) { return fail("cp", from + ": is a folder (copy the files in it: cp FOLDER/* TO)"); }
-    if Dir::exists(to) { to = Path::join(to, Path::name(from)); }
+// copies one file byte for byte; an executable stays executable. Returns 0 or 1 (the message is printed)
+i64 copy_file(String app, String from, String to) {
     String data = "";
     if from == "-" { data = stdin_all(); }
     else {
         Result<String, Error> r = Fs::read_bytes(from);
         switch r {
             Result::Ok(v): data = v;
-            Result::Err(e): return fail("cp", from + ": " + e.message);
+            Result::Err(e): return fail(app, from + ": " + e.message);
         }
     }
     Result<i64, Error> w = Fs::write_bytes(to, data);
     switch w {
         Result::Ok(v): data = data;
-        Result::Err(e): return fail("cp", to + ": " + e.message);
+        Result::Err(e): return fail(app, to + ": " + e.message);
     }
-    // an executable stays executable
     char st[128];
     if from != "-" && Sys::stat(from.c(), @st) == 0 {
         i64 mode = (st[16] & 255) | ((st[17] & 255) << 8);
@@ -847,18 +840,81 @@ i64 do_cp(String[] a) {
     return 0;
 }
 
+// copies a folder and everything in it (links are copied as what they point to only when they are files; a link to a folder is skipped, so there is no loop)
+i64 copy_tree(String app, String from, String to, i64 depth) {
+    if depth > 64 { return fail(app, from + ": the folders are nested too deep"); }
+    i64 rc = 0;
+    if !Dir::exists(to) {
+        switch Dir::make(to) {
+            Result::Ok(v): rc = rc;
+            Result::Err(e): return fail(app, to + ": " + e.message);
+        }
+    }
+    switch Dir::list(from) {
+        Result::Ok(names): {
+            for i in 0..names.len {
+                String src = Path::join(from, names[i]);
+                String dst = Path::join(to, names[i]);
+                if Dir::exists(src) {
+                    if is_link(src) { continue; }
+                    if copy_tree(app, src, dst, depth + 1) != 0 { rc = 1; }
+                } else if copy_file(app, src, dst) != 0 { rc = 1; }
+            }
+        }
+        Result::Err(e): return fail(app, from + ": " + e.message);
+    }
+    return rc;
+}
+
+i64 do_cp(String[] a) {
+    bool deep = has_flag(a, 'r') || has_flag(a, 'R');
+    String[] ops = operands(a, false);
+    if ops.len != 2 { return fail("cp", "usage: cp [-r] FROM TO   (TO may be a folder; a file is copied byte for byte, also a song or a picture; -r copies a folder)"); }
+    String from = ops[0];
+    String to = ops[1];
+    if needs_root(to) { return need_root_fail("cp", to); }
+    if Dir::exists(from) {
+        if !deep { return fail("cp", from + ": is a folder (cp -r copies a folder and what is in it)"); }
+        if Dir::exists(to) { to = Path::join(to, Path::name(from)); }
+        String inner = from + "/";
+        if to == from || to.starts_with(inner) { return fail("cp", "cannot copy a folder into itself"); }
+        return copy_tree("cp", from, to, 0);
+    }
+    if Dir::exists(to) { to = Path::join(to, Path::name(from)); }
+    return copy_file("cp", from, to);
+}
+
+// mv: a rename; when the other drive is meant (error 18: the system cannot rename between drives, for example f:/ and 0:/) the folder or file is copied
+// and the old one removed, but only after the copy was made without an error
 i64 do_mv(String[] a) {
     String[] ops = operands(a, false);
     if ops.len != 2 { return fail("mv", "usage: mv FROM TO"); }
+    String from = ops[0];
     String to = ops[1];
     if needs_root(to) { return need_root_fail("mv", to); }
-    if needs_root(ops[0]) { return need_root_fail("mv", ops[0]); }
-    if Dir::exists(to) { to = Path::join(to, Path::name(ops[0])); }
+    if needs_root(from) { return need_root_fail("mv", from); }
+    if Dir::exists(to) { to = Path::join(to, Path::name(from)); }
+    if to == from { return 0; }
+    String inner = from + "/";
+    if Dir::exists(from) && to.starts_with(inner) { return fail("mv", "cannot move a folder into itself"); }
+    String why = "";
+    switch Fs::rename(from, to) {
+        Result::Ok(v): return 0;
+        Result::Err(e): why = e.message;
+    }
+    if !why.contains("error 18") { return fail("mv", from + ": " + why); }
     i64 rc = 0;
-    Result<i64, Error> r = Fs::rename(ops[0], to);
-    switch r {
-        Result::Ok(v): rc = rc;
-        Result::Err(e): rc = fail("mv", ops[0] + ": " + e.message);
+    if Dir::exists(from) {
+        rc = copy_tree("mv", from, to, 0);
+        if rc == 0 && remove_tree(from) != 0 { rc = fail("mv", from + ": copied, but the old folder could not be removed completely"); }
+    } else {
+        rc = copy_file("mv", from, to);
+        if rc == 0 {
+            switch Fs::remove(from) {
+                Result::Ok(v): rc = rc;
+                Result::Err(e): rc = fail("mv", from + ": copied, but the old file could not be removed: " + e.message);
+            }
+        }
     }
     return rc;
 }
@@ -1758,7 +1814,7 @@ i64 do_install(String[] args) {
 
 i64 main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.10.1\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.11.0\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
