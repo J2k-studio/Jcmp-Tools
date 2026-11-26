@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.12.9
+* **Changed:** the start screen says exshell (it said Jaric) and `made in Jex`, the address is github.com/J2k-studio/exshell, and the text is at the left edge (it left 12 empty columns for a picture that only the old Jaric app drew); the user name of a new shell is `exshell`.
+
 ## 0.12.8
 * **Added:** a program that cannot be started says why, in one clear line, and the exit status is 126: `the file is not executable: chmod +x ./NAME`, `permission denied: a program cannot run from this place (shared storage like u:/ does not allow it). Copy it to f:/ and run it there`, `this file is not a program that this phone can run (wrong format ...)`, `no such file`. A name that is not a command but is a file in this folder gets the hint `run it as ./NAME`.
 * **Fixed:** every failure to start a program (not executable, a place that does not allow programs, a wrong format) said `command not found`.

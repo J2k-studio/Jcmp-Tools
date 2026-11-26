@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.8"; }
+String jsh_version() { return "0.12.9"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -3075,13 +3075,12 @@ void cover() {
     i64 day = Time::now_ms() / 86400000;
     String tip = tips[day % tips.len];
     String e = esc();
-    String room = "            ";                                   // 12 columns: the picture of the maker sits here (the Jaric app draws it)
-    jout << "\n" << e << "]7777;cover" << (char)7;
-    jout << room << e << "[1;97mJaric" << e << "[0m\n";
+    String room = "  ";
+    jout << "\n";    jout << room << e << "[1;97mexshell" << e << "[0m\n";
     jout << room << "A terminal and toolbox" << e << "[0m\n";
-    jout << room << "for your phone, made in J2K" << e << "[0m\n";
+    jout << room << "for your phone, made in Jex" << e << "[0m\n";
     jout << room << e << "[2mby J2k-studio" << e << "[0m\n";
-    jout << room << e << "[2mgithub.com/J2k-studio/Jcmp" << e << "[0m\n\n";
+    jout << room << e << "[2mgithub.com/J2k-studio/exshell" << e << "[0m\n\n";
     jout << e << "[2m  shell jsh " << jsh_version() << e << "[0m\n\n";
     jout << e << "[1m  Start here" << e << "[0m\n";
     jout << "  " << e << "[96mjc install X" << e << "[0m   get a tool\n";
@@ -3126,7 +3125,7 @@ i64 main() {
     if Sys::getcwd(@home0, 512) > 0 { cwd0 = (char^)@home0; }
     if findv("PATH") < 0 { setv("PATH", "/bin:/usr/bin"); }
     if findv("HOME") < 0 { setv("HOME", cwd0); }
-    if findv("USER") < 0 { setv("USER", "jaric"); }
+    if findv("USER") < 0 { setv("USER", "exshell"); }
     if findv("TERM") < 0 { setv("TERM", "xterm-256color"); }
     setv("SHELL", "jsh");
     setv("PWD", cwd0);
