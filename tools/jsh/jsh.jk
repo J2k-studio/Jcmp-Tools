@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.12"; }
+String jsh_version() { return "0.12.13"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -845,6 +845,23 @@ String drive_form(String real) {
     String[] parts = rest.split("/");
     if parts.len > 4 { rest = "/../" + parts[parts.len - 2] + "/" + parts[parts.len - 1]; }
     return dr_name[best] + ":" + rest;
+}
+
+// the folder of the drive that holds a real path (the longest one), "" when there is none
+String drive_root_of(String real) {
+    drives_load();
+    i64 best = 0 - 1;
+    i64 bestlen = 0 - 1;
+    for i in 0..dr_name.len {
+        String root = dr_path[i];
+        bool inside = false;
+        if root == "/" { inside = true; }
+        else if real == root { inside = true; }
+        else if real.starts_with(root + "/") { inside = true; }
+        if inside && root.len > bestlen { best = i; bestlen = root.len; }
+    }
+    if best < 0 { return ""; }
+    return dr_path[best];
 }
 
 void drive_list() {
@@ -1813,7 +1830,14 @@ bool builtin(String[] a) {
         String target = "";
         if a.len > 1 { target = a[1]; }
         else {
+            // cd alone steps out: from inside a folder of a drive to the root of that drive (u:/Download -> u:/), and from the root of a drive to home
             target = getv("HOME");
+            char cb0[512];
+            if Sys::getcwd(@cb0, 512) > 0 {
+                String here = (char^)@cb0;
+                String root = drive_root_of(here);
+                if root.len > 0 && root != here && root != "/" { target = root; }
+            }
         }
         if Sys::chdir(target.c()) < 0 {
             jerr << "jsh: cd: " << target << ": cannot enter this folder\n";

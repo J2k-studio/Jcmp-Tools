@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.12.13
+* **Changed:** `cd` alone steps out one level of the drive: from `u:/fomas` to `u:/`, and from `u:/` to home (`f:/`); it went home at once.
+
 ## 0.12.12
 * **Changed:** `clear` clears the whole page, the scrollback too (it sends ESC [ 3 J before the clear), not only what is seen.
 

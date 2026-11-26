@@ -20,7 +20,7 @@ jmaip 0.3.0
 jnote 0.1.0
 jpty 0.1.1
 jrawser 0.1.0
-jsh 0.12.12
+jsh 0.12.13
 jstore 0.2.0
 jurl 0.1.1
 jvp4 0.1.0
