@@ -85,8 +85,8 @@ check "$("$J" realpath /a/./b/../c)" "/a/c" realpath
 check "$("$J" cmp pa.txt pb.txt | cut -c1-7)" "pa.txt " cmp
 # dir: one name on a line into a pipe, sorted without regard to capitals, folders with a /, -a shows the dot names, -l the rights and the size
 mkdir -p dirt/Sub dirt/.hid; : > dirt/b.txt; : > dirt/A.txt; printf 'x' > dirt/c.sh; chmod 755 dirt/c.sh
-check "$("$J" dir dirt | tr '\n' ,)" "A.txt,b.txt,c.sh,Sub/," dir-sorted
-check "$("$J" dir -a dirt | tr '\n' ,)" ".hid/,A.txt,b.txt,c.sh,Sub/," dir-all
+check "$("$J" dir dirt | tr '\n' ,)" "Sub/,A.txt,b.txt,c.sh," dir-sorted
+check "$("$J" dir -a dirt | tr '\n' ,)" ".hid/,Sub/,A.txt,b.txt,c.sh," dir-all
 check "$("$J" dir -l dirt | grep c.sh | cut -c1-10)" "-rwxr-xr-x" dir-rights
 # dir in columns at a terminal (a pseudo terminal of 40 columns): more than one name on a line
 cols=$(python3 - "$J" <<'PY'
