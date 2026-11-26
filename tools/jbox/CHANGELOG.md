@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.15.2
+* **Changed:** `dir` lists the folders first (in order of the letters), then the files (in order of the letters); it sorted all by letters only.
+
 ## 0.15.1
 * **Changed:** `clear` clears the whole page, the scrollback too (it sends ESC [ 3 J before the clear), not only what is seen.
 

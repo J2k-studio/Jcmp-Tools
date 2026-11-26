@@ -151,13 +151,27 @@ i64 do_ls(String[] a) {
         i64 cnt = names.len;
         i64[] order = arr(cnt + 1);
         for i in 0..cnt { order.push(i); }
+        // the folders first (in order of the letters), then the files (in order of the letters)
+        i64[] rank = arr(cnt + 1);
+        for i in 0..cnt {
+            String fullr = names[i];
+            if base.len > 0 { fullr = Path::join(base, names[i]); }
+            char str0[128];
+            i64 rk = 1;
+            if Sys::stat(fullr.c(), @str0) == 0 {
+                i64 md = (str0[16] & 255) | ((str0[17] & 255) << 8) | ((str0[18] & 255) << 16);
+                if (md & 61440) == 16384 { rk = 0; }
+            }
+            rank.push(rk);
+        }
         for i in 1..cnt {
             i64 cur = order[i];
             String key = names[cur].lower();
             i64 k = i - 1;
             while k >= 0 {
                 String before = names[order[k]].lower();
-                if !(before > key) { break; }
+                if rank[order[k]] != rank[cur] { if rank[order[k]] < rank[cur] { break; } }
+                else if !(before > key) { break; }
                 order[k + 1] = order[k];
                 k -= 1;
             }
@@ -2315,7 +2329,7 @@ i64 do_install(String[] args) {
 
 i64 main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.15.1\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.15.2\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }
