@@ -79,7 +79,7 @@ String ask(String msg) {
 String real_file(String name) {
     i64 fd = Sys::open_read(name.c());
     if fd < 0 { return ""; }
-    String link = "/proc/self/fd/" + str(fd);
+    String link = "/proc/self/fd/" + stg(fd);
     char buf[4096];
     i64 n = Sys::readlink(link.c(), (char^)@buf, 4095);
     Sys::close(fd);
@@ -90,13 +90,13 @@ String real_file(String name) {
 }
 
 i64 usage() {
-    jerr << "usage: jearlink -viw URL | -snd TEXT | -sh FILE | -pk [image] | -cll NUMBER | -ap NAME | -aps | -ntf TITLE [TEXT]   (also: view send share pick call app apps notify)\n";
+    jerr << "usage: jearlink -viw URL | -snd TEXT | -sh FILE | -ins FILE.apk | -pk [image] | -cll NUMBER | -ap NAME | -aps | -ntf TITLE [TEXT]   (also: view send share install pick call app apps notify)\n";
     return 2;
 }
 
 i64 main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version") { jout << "jearlink 0.1.1\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version") { jout << "jearlink 0.2.0\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" { usage(); if a.len < 2 { return 2; } return 0; }
     String verb = a[1];
     if verb == "-viw" { verb = "view"; }
@@ -107,6 +107,7 @@ i64 main() {
     else if verb == "-ap" { verb = "app"; }
     else if verb == "-aps" { verb = "apps"; }
     else if verb == "-ntf" { verb = "notify"; }
+    else if verb == "-ins" { verb = "install"; }
     if verb == "notify" {
         if a.len < 3 { return usage(); }
         String text = joined(a, 3);
@@ -114,14 +115,14 @@ i64 main() {
         return 0;
     }
     String msg = "";
-    if verb == "share" || verb == "view" {
+    if verb == "share" || verb == "view" || verb == "install" {
         if a.len < 3 { return usage(); }
         String shown = joined(a, 2);
         String local = real_file(shown);
         if local.len > 0 {                                             // a file here: the app gets its real path
             if verb == "view" { jout << "\e]7777;open;" << local << "\a"; return 0; }
-            msg = "intent;share;" + local;
-        } else if verb == "share" { jerr << "jearlink: there is no such file: " << shown << "\n"; return 1; }
+            msg = "intent;" + verb + ";" + local;
+        } else if verb == "share" || verb == "install" { jerr << "jearlink: there is no such file: " << shown << "\n"; return 1; }
     }
     if msg.len > 0 { }
     else if verb == "view" || verb == "share" || verb == "call" || verb == "app" {
