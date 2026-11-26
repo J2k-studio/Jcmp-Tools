@@ -111,7 +111,7 @@ i64 cmd_install(String name) {
     if index.len == 0 { return 1; }
     String[] e = find_entry(index, name);
     if e.len < 4 {
-        err("jc: the index has no library named '" + name + "' (try: jc lib list)\n");
+        err("jc: the index has no library named '" + name + "' (try: jex lib list)\n");
         return 1;
     }
     String tmp = dir + "/." + name + ".tmp";
@@ -190,7 +190,7 @@ i64 cmd_installed() {
     return 0;
 }
 
-// jc tools | jc install NAME ... : the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...), put next to jget, checked with their SHA-256
+// ex tools | ex install NAME ... : the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...), put next to jget, checked with their SHA-256
 // where the files of Jcmp-Tools are: the repository (raw) and the releases; JCMPTOOLS_RAW and JCMPTOOLS_DL name others (a mirror, the tests)
 String tools_raw() {
     switch Env::get("JCMPTOOLS_RAW") { Option::Some(v): { if v.len > 0 { return v; } } Option::None: { } }
@@ -202,7 +202,7 @@ String tools_dl() {
     return "https://github.com/J2k-studio/Jcmp-Tools/releases/download";
 }
 
-// ---- jc update / unstall
+// ---- ex update / unstall
 // is version a newer than version b (numbers with dots; 2026.10.21 and 3.14.0.3 work too)
 bool tool_ver_newer(String a, String b) {
     String[] x = a.split(".");
@@ -264,13 +264,13 @@ String tool_latest(String vtext, String name) {
     return "";
 }
 
-// jc install unstall NAME ...: the program of a tool and the files that came with it
+// ex install unstall NAME ...: the program of a tool and the files that came with it
 i64 tool_unstall(String[] av, i64 at, String dir) {
     i64 rc = 0;
     for k in at..av.len {
         String name = av[k];
         if name == "jget" || name == "jc" { err("jc: " + name + " stays: jc uses it (delete the file by hand if you want to)\n"); rc = 1; continue; }
-        if name == "jsh" { err("jc: jsh is the shell: it stays (jc update brings it up to date)\n"); rc = 1; continue; }
+        if name == "jsh" { err("jc: jsh is the shell: it stays (ex update brings it up to date)\n"); rc = 1; continue; }
         if !Fs::exists(dir + "/" + name) { err("jc: " + name + " is not installed here\n"); rc = 1; continue; }
         String[] extra = arr(4);
         if name == "python" { extra.push("python3"); extra.push("pip"); extra.push("pip3"); extra.push("python-android"); }
@@ -307,7 +307,7 @@ i64 cmd_tool(String[] av, i64 at) {
             String[] parts = ls[i].split("|");
             if parts.len >= 2 { jout << "  " << parts[0] << "   " << parts[1] << nl; }
         }
-        if av.len <= at { jout << "jc install NAME installs one (more than one: jc install jsh jbox coderin)" << nl; }
+        if av.len <= at { jout << "ex install NAME installs one (more than one: ex install jsh jbox coderin)" << nl; }
         return 0;
     }
     if av[at] == "unstall" || av[at] == "uninstall" || av[at] == "remove" { return tool_unstall(av, at + 1, dir); }
@@ -355,7 +355,7 @@ i64 cmd_tool(String[] av, i64 at) {
             shown += 1;
         }
         if shown == 0 { jout << "everything is up to date" << nl; return 0; }
-        if dry { jout << "(jc update installs them)" << nl; return 0; }
+        if dry { jout << "(ex update installs them)" << nl; return 0; }
     }
     i64 rc = 0;
     for k in 0..wanted.len {
@@ -375,7 +375,7 @@ i64 cmd_tool(String[] av, i64 at) {
                 String near = near_names(name + "", tn);
                 String hint = "";
                 if near.len > 0 { hint = "; did you mean: " + near; }
-                err("jc: there is no tool or package '" + name + "'" + hint + " (jc tools, jc pkg search)\n");
+                err("jc: there is no tool or package '" + name + "'" + hint + " (ex tools, jc pkg search)\n");
                 rc = 1;
             }
             continue;

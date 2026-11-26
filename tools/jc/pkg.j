@@ -225,7 +225,7 @@ i64 pkg_search(String index, String word) {
                 jout << "jc: no package of Jcmp-pkg matches '" << word << "'";
                 String near = near_names(word, all);
                 if near.len > 0 { jout << "; did you mean: " << near; }
-                jout << "\n(the tools of Jcmp-Tools are listed by  jc tools ; your own program is not in an index: it has to be published first)\n";
+                jout << "\n(the tools of Jcmp-Tools are listed by  ex tools ; your own program is not in an index: it has to be published first)\n";
             }
         }
         Result::Err(e): { err("jc: the package index is not valid JSON\n"); return 1; }
@@ -266,7 +266,7 @@ i64 pkg_update(String index, bool dry, bool quiet) {
 i64 cmd_pkg(String[] a) {
     if a.len < 3 { err("usage: jc pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n"); return 1; }
     String sub = a[2] + "";
-    // jc update asks quietly: with no package installed there is nothing to update, so the index is not even fetched
+    // ex update asks quietly: with no package installed there is nothing to update, so the index is not even fetched
     String statedir = pkg_state();
     bool quiet_ask = sub == "update" && a[a.len - 1] == "--quiet";
     if quiet_ask && !Dir::exists(statedir) { return 0; }

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.12.10
+* **Changed:** the prompt starts with `ex` (it was `jc`), and every message, hint and tip says `ex install NAME`, `ex list`, `ex update` (the command `jc` is gone from exshell: `ex` is the command of the system); the libraries of the language are `jex lib ...`.
+
 ## 0.12.9
 * **Changed:** the start screen says exshell (it said Jaric) and `made in Jex`, the address is github.com/J2k-studio/exshell, and the text is at the left edge (it left 12 empty columns for a picture that only the old Jaric app drew); the user name of a new shell is `exshell`.
 
