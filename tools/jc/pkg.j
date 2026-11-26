@@ -270,7 +270,14 @@ i64 cmd_pkg(String[] a) {
     String statedir = pkg_state();
     bool quiet_ask = sub == "update" && a[a.len - 1] == "--quiet";
     if quiet_ask && !Dir::exists(statedir) { return 0; }
-    if sub == "list" { return pkg_list(); }
+    if sub == "list" {                                         // what is installed, then what can be installed
+        i64 lrc = pkg_list();
+        String lindex = pkg_fetch_index();
+        if lindex.len == 0 { return 1; }
+        jout << "\navailable (ex pkg install NAME):\n";
+        pkg_search(lindex, "");
+        return lrc;
+    }
     if sub == "remove" && a.len >= 4 {
         for i in 3..a.len { if pkg_remove(a[i] + "") != 0 { return 1; } }
         return 0;
