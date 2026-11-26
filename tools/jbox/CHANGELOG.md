@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.15.1
+* **Changed:** `clear` clears the whole page, the scrollback too (it sends ESC [ 3 J before the clear), not only what is seen.
+
 ## 0.15.0
 * **Added:** `man cp`, `man mv`, `man rm`, `man diff`, `man patch` and `man jq` show a short manual with examples, held in jbox (no network needed). `jbox help` lists `jq`, `patch`, `df`, `ps`, `hex` and the new flags.
 * **Fixed:** `jbox help` did not list the commands added since 0.10.

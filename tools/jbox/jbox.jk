@@ -1307,7 +1307,7 @@ i64 do_sleep(String[] a) {
 }
 
 i64 do_clear() {
-    jout << (char)27 << "[2J" << (char)27 << "[H";
+    jout << (char)27 << "[3J" << (char)27 << "[2J" << (char)27 << "[H";
     return 0;
 }
 
@@ -2315,7 +2315,7 @@ i64 do_install(String[] args) {
 
 i64 main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.15.0\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.15.1\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }

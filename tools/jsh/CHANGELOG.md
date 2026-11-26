@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.12.12
+* **Changed:** `clear` clears the whole page, the scrollback too (it sends ESC [ 3 J before the clear), not only what is seen.
+
 ## 0.12.11
 * **Fixed:** the start screen still said `jc install X` (the word came after a colour code, so the change to `ex` missed it); the message for the moved commands (`install`, `update`, `unstall`) says `ex` and no longer mentions `jc`.
 

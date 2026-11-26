@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.11"; }
+String jsh_version() { return "0.12.12"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -1941,7 +1941,7 @@ bool builtin(String[] a) {
     }
     bool no_clear = !have_program("clear");
     if name == "clear" && no_clear {            // a few commands that a fresh install needs before jbox is installed
-        jout << esc() << "[2J" << esc() << "[H";
+        jout << esc() << "[3J" << esc() << "[2J" << esc() << "[H";
         bcode = 0;
         return true;
     }
