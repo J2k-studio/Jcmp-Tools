@@ -302,18 +302,18 @@ bool is_package_name(String what) {                        // FILE.jc or a path:
 
 // the libraries and the tools: what the commands of manage.j print when they are used wrongly
 i64 usage() {
-    jerr << "jc: jex lib list | installed | install NAME | unstall NAME      the libraries of J2K\n";
-    jerr << "    ex tools | install NAME | update [-n] | unstall NAME        the tools of Jcmp-Tools\n";
+    jerr << "ex: install NAME | update [-n] | unstall NAME | tools | list | info FILE.jc | run ID|FILE.jc | perm ID      tools and apps\n";
+    jerr << "    (the libraries of the language are managed by jex: jex lib install NAME)\n";
     return 1;
 }
 
 i64 main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jc " << jc_version() << "\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "ex " << jc_version() << "\n"; return 0; }
     if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
-        jout << "jc: install and run the programs of Jaric (.jc packages)\n";
+        jout << "ex: install and update the tools and apps of exshell (the packages are .jc files)\n";
         jout << "  ex info FILE.jc | install FILE.jc [-y] | run ID|FILE.jc [args] | list | perm ID [NAME on|off] | remove ID\n";
-        jout << "  ex tools | lib list | lib install NAME | lib unstall NAME   (the tools; the libraries of J2K)\n";
+        jout << "  ex tools | install NAME | update [-n] | unstall NAME   (the tools; the libraries of the language: jex lib ...)\n";
         jout << "  ex install NAME (a tool of Jcmp-Tools) | install STORE.ID (jstore) | unstall NAME (remove a tool) | update [-n] (jsh and the tools and programs that have an update)\n";
         return 0;
     }
