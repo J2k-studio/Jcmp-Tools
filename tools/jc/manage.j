@@ -37,11 +37,11 @@ String fetch_index(String dir) {
         if download_one(where[i], tmp, true) {
             switch Fs::read_text(tmp) {
                 Result::Ok(t): { Fs::remove(tmp); return t; }
-                Result::Err(e): { err("jc: cannot read the index: " + e.message + "\n"); }
+                Result::Err(e): { err("ex: cannot read the index: " + e.message + "\n"); }
             }
         }
     }
-    err("jc: the index of libraries could not be fetched; set JGET_INDEX to the address (or the path) of an index\n");
+    err("ex: the index of libraries could not be fetched; set JGET_INDEX to the address (or the path) of an index\n");
     return "";
 }
 
@@ -102,7 +102,7 @@ i64 cmd_install(String name) {
         return 0;
     }
     if !name_ok(name) {
-        err("jc: '" + name + "' is not a library name (letters, digits and _ only)\n");
+        err("ex: '" + name + "' is not a library name (letters, digits and _ only)\n");
         return 1;
     }
     String dir = lib_dir();
@@ -111,7 +111,7 @@ i64 cmd_install(String name) {
     if index.len == 0 { return 1; }
     String[] e = find_entry(index, name);
     if e.len < 4 {
-        err("jc: the index has no library named '" + name + "' (try: jex lib list)\n");
+        err("ex: the index has no library named '" + name + "' (try: jex lib list)\n");
         return 1;
     }
     String tmp = dir + "/." + name + ".tmp";
@@ -120,38 +120,38 @@ i64 cmd_install(String name) {
         Result::Ok(h): {
             if h != e[3] {
                 Fs::remove(tmp);
-                err("jc: the checksum of " + name + " does not match the index, nothing was installed\n");
+                err("ex: the checksum of " + name + " does not match the index, nothing was installed\n");
                 err("  index: " + e[3] + "\n");
                 err("  file : " + h + "\n");
                 return 1;
             }
         }
         Result::Err(er): {
-            err("jc: cannot check the file: " + er.message + "\n");
+            err("ex: cannot check the file: " + er.message + "\n");
             return 1;
         }
     }
     String target = dir + "/" + name + ".j";
     switch Fs::rename(tmp, target) {
         Result::Ok(x): { jout << "installed " << name << " " << e[1] << " in " << target << nl; install_deps(target, dir); return 0; }
-        Result::Err(er): { err("jc: cannot install: " + er.message + "\n"); return 1; }
+        Result::Err(er): { err("ex: cannot install: " + er.message + "\n"); return 1; }
     }
     return 1;
 }
 
 i64 cmd_remove(String name) {
     if !name_ok(name) {
-        err("jc: '" + name + "' is not a library name\n");
+        err("ex: '" + name + "' is not a library name\n");
         return 1;
     }
     String target = lib_dir() + "/" + name + ".j";
     if !Fs::exists(target) {
-        err("jc: " + name + " is not installed\n");
+        err("ex: " + name + " is not installed\n");
         return 1;
     }
     switch Fs::remove(target) {
         Result::Ok(x): { jout << "removed " << name << nl; return 0; }
-        Result::Err(er): { err("jc: cannot remove: " + er.message + "\n"); return 1; }
+        Result::Err(er): { err("ex: cannot remove: " + er.message + "\n"); return 1; }
     }
     return 1;
 }
@@ -269,9 +269,9 @@ i64 tool_unstall(String[] av, i64 at, String dir) {
     i64 rc = 0;
     for k in at..av.len {
         String name = av[k];
-        if name == "jget" || name == "jc" { err("jc: " + name + " stays: jc uses it (delete the file by hand if you want to)\n"); rc = 1; continue; }
-        if name == "jsh" { err("jc: jsh is the shell: it stays (ex update brings it up to date)\n"); rc = 1; continue; }
-        if !Fs::exists(dir + "/" + name) { err("jc: " + name + " is not installed here\n"); rc = 1; continue; }
+        if name == "jget" || name == "jc" { err("ex: " + name + " stays: ex uses it (delete the file by hand if you want to)\n"); rc = 1; continue; }
+        if name == "jsh" { err("ex: jsh is the shell: it stays (ex update brings it up to date)\n"); rc = 1; continue; }
+        if !Fs::exists(dir + "/" + name) { err("ex: " + name + " is not installed here\n"); rc = 1; continue; }
         String[] extra = arr(4);
         if name == "python" { extra.push("python3"); extra.push("pip"); extra.push("pip3"); extra.push("python-android"); }
         else if name == "neuron" { extra.push("xr"); extra.push("xaiorin"); }
@@ -287,7 +287,7 @@ i64 tool_unstall(String[] av, i64 at, String dir) {
 
 i64 cmd_tool(String[] av, i64 at) {
     String me = self_path();
-    if me.len == 0 { err("jc: cannot find where this program is\n"); return 1; }
+    if me.len == 0 { err("ex: cannot find where this program is\n"); return 1; }
     String dir = default_bin_dir();
     i64 slash = 0 - 1;
     for i in 0..me.len { if me[i] == '/' { slash = i; } }
@@ -375,7 +375,7 @@ i64 cmd_tool(String[] av, i64 at) {
                 String near = near_names(name + "", tn);
                 String hint = "";
                 if near.len > 0 { hint = "; did you mean: " + near; }
-                err("jc: there is no tool or package '" + name + "'" + hint + " (ex tools, jc pkg search)\n");
+                err("ex: there is no tool or package '" + name + "'" + hint + " (ex tools, ex pkg search)\n");
                 rc = 1;
             }
             continue;
@@ -388,7 +388,7 @@ i64 cmd_tool(String[] av, i64 at) {
             Result::Err(e): { }
         }
         Fs::remove(lv);
-        if ver.len == 0 { err("jc: cannot read the newest version of " + name + "\n"); rc = 1; continue; }
+        if ver.len == 0 { err("ex: cannot read the newest version of " + name + "\n"); rc = 1; continue; }
         String base = tools_dl() + "/" + name + "-v" + ver;
         String tmp = dir + "/." + name + ".new";
         String sums = dir + "/." + name + ".sums";
@@ -416,7 +416,7 @@ i64 cmd_tool(String[] av, i64 at) {
         if want.len == 0 || want != have {
             Fs::remove(tmp);
             Fs::remove(sums + ".keep");
-            err("jc: the checksum of " + name + " does not match, nothing was installed\n");
+            err("ex: the checksum of " + name + " does not match, nothing was installed\n");
             rc = 1;
             continue;
         }
@@ -436,7 +436,7 @@ i64 cmd_tool(String[] av, i64 at) {
                     Result::Ok(h): { thave = h; }
                     Result::Err(e): { }
                 }
-                if thave == extra { if !untar(tarfile, dir) { rc = 1; } } else { err("jc: the checksum of the files of " + name + " does not match\n"); rc = 1; }
+                if thave == extra { if !untar(tarfile, dir) { rc = 1; } } else { err("ex: the checksum of the files of " + name + " does not match\n"); rc = 1; }
                 Fs::remove(tarfile);
             } else { rc = 1; }
             Fs::remove(sums + ".keep");

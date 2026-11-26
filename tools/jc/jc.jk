@@ -6,7 +6,7 @@
 //   ex run ID|FILE.jc [args]     run an installed program (or a package that is not installed: it is installed first, asking once)
 //   ex list                      the installed programs with their version and the permissions they have
 //   ex perm ID [NAME on|off]     show or change the permissions of a program
-//   jc pkg install NAME | remove NAME | list | search [WORD]   the packages of Jcmp-pkg (programs built for Jaric: git, clang ...)
+//   ex pkg install NAME | remove NAME | list | search [WORD]   the packages of Jcmp-pkg (programs built for Jaric: git, clang ...)
 //   ex remove ID                 delete a program (its folder under apps/)
 // A .jc is a zip file: manifest.toml (name, id, version, type, entry, permissions = ["files", "network", ...]), the program (entry) and assets/.
 // A program started by jc finds JC_ASSETS (its assets folder), JC_HOME (its own folder) and JC_PERMS (the permissions it has, with commas):
@@ -18,10 +18,10 @@
 #import "pkg"
 #import "manage"
 
-String jc_version() { return "0.5.5"; }
+String jc_version() { return "0.5.6"; }
 
 i64 fail(String msg) {
-    jerr << "jc: " << msg << "\n";
+    jerr << "ex: " << msg << "\n";
     return 1;
 }
 
@@ -174,7 +174,7 @@ i64 do_install(String path, bool yes) {
     i64 written = 0;
     for i in 0..zn_name.len {
         String n = zn_name[i];
-        if !safe_name(n) { jerr << "jc: skipped " << n << " (an odd name)\n"; continue; }
+        if !safe_name(n) { jerr << "ex: skipped " << n << " (an odd name)\n"; continue; }
         if n.ends_with("/") { Dir::make_all(dir + "/" + n); continue; }
         String data = zip_extract(z, i, "");
         if zip_err.len > 0 { return fail(n + ": " + zip_err); }
@@ -374,6 +374,6 @@ i64 main() {
     if a[1] == "list" { return do_list(); }
     if a[1] == "perm" { return do_perm(a); }
     if a[1] == "remove" && a.len >= 3 { return do_remove(a[2]); }
-    jerr << "jc: unknown command '" << a[1] << "' (jc help)\n";
+    jerr << "ex: unknown command '" << a[1] << "' (ex help)\n";
     return 2;
 }

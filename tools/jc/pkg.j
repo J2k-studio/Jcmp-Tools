@@ -34,12 +34,12 @@ String pkg_fetch_index() {
     String addr = pkg_index_address();
     if !addr.starts_with("http") {
         String local = pkg_read(addr);
-        if local.len == 0 { err("jc: cannot read the package index " + addr + "\n"); }
+        if local.len == 0 { err("ex: cannot read the package index " + addr + "\n"); }
         return local;
     }
     String tmp = pkg_root() + "/.index.tmp";
     make_dir(pkg_root());
-    if !download(addr, tmp, true) { err("jc: cannot fetch the package index " + addr + "\n"); return ""; }
+    if !download(addr, tmp, true) { err("ex: cannot fetch the package index " + addr + "\n"); return ""; }
     String fetched = pkg_read(tmp);
     Fs::remove(tmp);
     return fetched;
@@ -79,7 +79,7 @@ String pkg_entry(String index, String name) {
                 }
             }
         }
-        Result::Err(e): { err("jc: the package index is not valid JSON: " + e.message + "\n"); }
+        Result::Err(e): { err("ex: the package index is not valid JSON: " + e.message + "\n"); }
     }
     return found;
 }
@@ -88,9 +88,9 @@ bool pkg_installed(String name) { return Fs::exists(pkg_state() + "/" + name + "
 
 i64 pkg_install(String index, String name, i64 depth) {
     if pkg_installed(name) { return 0; }
-    if depth > 20 { err("jc: the dependencies of " + name + " go too deep\n"); return 1; }
+    if depth > 20 { err("ex: the dependencies of " + name + " go too deep\n"); return 1; }
     String line = pkg_entry(index, name);
-    if line.len == 0 { err("jc: no package named " + name + " (jc pkg search)\n"); return 1; }
+    if line.len == 0 { err("ex: no package named " + name + " (ex pkg search)\n"); return 1; }
     String[] f = line.split("|");
     String[] deps = f[3].split(",");
     for i in 0..deps.len {
@@ -101,41 +101,41 @@ i64 pkg_install(String index, String name, i64 depth) {
     String root = pkg_root();
     make_dir(pkg_state());
     String tmp = root + "/.pkg-" + name + ".tar.gz";
-    jout << "jc: " << name << " " << f[0] << "\n";
-    if !download(f[1], tmp, true) { err("jc: cannot download " + name + "\n"); return 1; }
+    jout << "ex: " << name << " " << f[0] << "\n";
+    if !download(f[1], tmp, true) { err("ex: cannot download " + name + "\n"); return 1; }
     switch Sha256::file(tmp) {
         Result::Ok(h): {
             if h != f[2] {
                 Fs::remove(tmp);
-                err("jc: the checksum of " + name + " does not match the index, nothing was installed\n");
+                err("ex: the checksum of " + name + " does not match the index, nothing was installed\n");
                 return 1;
             }
         }
-        Result::Err(e): { err("jc: cannot check " + name + ": " + e.message + "\n"); return 1; }
+        Result::Err(e): { err("ex: cannot check " + name + ": " + e.message + "\n"); return 1; }
     }
     tar_names = "";
     tar_record = true;
     bool ok = untar(tmp, root);
     tar_record = false;
     Fs::remove(tmp);
-    if !ok { err("jc: cannot unpack " + name + "\n"); return 1; }
+    if !ok { err("ex: cannot unpack " + name + "\n"); return 1; }
     String list = f[0] + "\n" + tar_names;
     Result<i64, Error> wr = Fs::write_bytes(pkg_state() + "/" + name + ".list", list);
-    if !wr.is_ok() { err("jc: cannot write the list of " + name + "\n"); return 1; }
+    if !wr.is_ok() { err("ex: cannot write the list of " + name + "\n"); return 1; }
     return 0;
 }
 
 i64 pkg_remove(String name) {
     String lp = pkg_state() + "/" + name + ".list";
     String listed = pkg_read(lp);
-    if listed.len == 0 { err("jc: " + name + " is not installed\n"); return 1; }
+    if listed.len == 0 { err("ex: " + name + " is not installed\n"); return 1; }
     String[] lines = listed.split("\n");
     String root = pkg_root();
     for i in 1..lines.len {
         if lines[i].len > 0 && !lines[i].contains("..") { Sys::unlink((root + "/" + lines[i]).c()); }
     }
     Fs::remove(lp);
-    jout << "jc: removed " << name << "\n";
+    jout << "ex: removed " << name << "\n";
     return 0;
 }
 
@@ -222,13 +222,13 @@ i64 pkg_search(String index, String word) {
                 }
             }
             if found == 0 && word.len > 0 {
-                jout << "jc: no package of Jcmp-pkg matches '" << word << "'";
+                jout << "ex: no package of Jcmp-pkg matches '" << word << "'";
                 String near = near_names(word, all);
                 if near.len > 0 { jout << "; did you mean: " << near; }
                 jout << "\n(the tools of Jcmp-Tools are listed by  ex tools ; your own program is not in an index: it has to be published first)\n";
             }
         }
-        Result::Err(e): { err("jc: the package index is not valid JSON\n"); return 1; }
+        Result::Err(e): { err("ex: the package index is not valid JSON\n"); return 1; }
     }
     return 0;
 }
@@ -262,9 +262,9 @@ i64 pkg_update(String index, bool dry, bool quiet) {
     return rc;
 }
 
-// jc pkg install NAME... | remove NAME... | list | search [WORD]
+// ex pkg install NAME... | remove NAME... | list | search [WORD]
 i64 cmd_pkg(String[] a) {
-    if a.len < 3 { err("usage: jc pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n"); return 1; }
+    if a.len < 3 { err("usage: ex pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n"); return 1; }
     String sub = a[2] + "";
     // ex update asks quietly: with no package installed there is nothing to update, so the index is not even fetched
     String statedir = pkg_state();
@@ -286,10 +286,10 @@ i64 cmd_pkg(String[] a) {
         if sub == "update" && a.len >= 4 && a[3] == "--quiet" { return pkg_update(index, false, true); }
         if sub == "update" && a.len >= 5 && a[3] == "-n" && a[4] == "--quiet" { return pkg_update(index, true, true); }
         if sub == "update" { return pkg_update(index, a.len >= 4 && a[3] == "-n", false); }
-        if a.len < 4 { err("usage: jc pkg install NAME\n"); return 1; }
+        if a.len < 4 { err("usage: ex pkg install NAME\n"); return 1; }
         for i in 3..a.len { if pkg_install(index, a[i] + "", 0) != 0 { return 1; } }
         return 0;
     }
-    err("usage: jc pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n");
+    err("usage: ex pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n");
     return 1;
 }
