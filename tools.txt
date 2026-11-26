@@ -1,6 +1,7 @@
 # The tools of Jcmp-Tools: NAME|what it is
 island|Alarms, timers and notices on the island of the Jaric app, from the terminal (also the commands timer and alarm)
 jget|Download files from the web (https, a progress bar), and the libraries of the J2K language
+jurl|Download a URL (like curl): -o -O -P -X -H -d -I -i -L, https, a progress bar (was jget)
 makej|A build tool for J2K projects: the build file is a plain file (nano makej) or a J2K program
 jnote|Quick notes and checklists in the terminal: plain text files (jnote add, todo, check, find)
 jmaip|Keys and secrets: a vault, passkeys that sign a challenge, files encrypted with a key from a passkey (AES-256-GCM)
@@ -17,7 +18,7 @@ imgj|Prepare pictures for a game: read PNG and JPEG, cut the background, real si
 authj|One-time codes for two-step logins (TOTP like Google Authenticator) for GitHub and other sites; a vault locked with a passphrase
 jrawser|Jrawser, the browser of the Jaric app: tabs, bookmarks, history, downloads (the system WebView in a window)
 mulap|Record songs and make beats: a plan of a beat becomes a sound file (the engine; pads and recording come next)
-jearlink|The apps of the phone from the Jaric app terminal: open links, share, call, start apps, notifications (-viw -snd -sh -cll -ap -aps -ntf)
+jearlink|The apps of the phone from the terminal: open links, share, install an apk (-ins), call, start apps, notifications (-viw -snd -sh -cll -ap -aps -ntf)
 cam|The camera of the phone for the Jaric app terminal: photos and reading QR codes
 jfile|The files of the phone in a terminal: Downloads, Pictures, Documents ...; look, open, copy, move, delete
 mujic|A music player for the terminal: your songs, free songs to fetch, synced lyrics (mujic)
