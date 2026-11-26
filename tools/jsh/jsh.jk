@@ -979,7 +979,7 @@ bool root_login() {
         if p1.len < 4 { jerr << "login: too short\n"; return false; }
         String p2 = read_secret("again: ");
         if p1 != p2 { jerr << "login: the two are not the same\n"; return false; }
-        String salt = str(Time::now_ms());
+        String salt = stg(Time::now_ms());
         Dir::make_all(Path::parent(file));
         Fs::write_text(file, salt + " " + Hash::sha256(salt + p1) + "\n");
         jout << "root password set.\n";
@@ -1024,7 +1024,7 @@ String drive_expand(String w, i64^ taken) {
 
 // ${...}: the value of a variable with a change: ${x:-d} ${x:=d} ${x:+d} ${#x} ${x:off:len} ${x#p} ${x##p} ${x%p} ${x%%p} ${x/p/r} ${x//p/r}
 String param_exp(String body) {
-    if body.len > 1 && body[0] == '#' { return str(getv(body.slice(1, body.len)).len); }
+    if body.len > 1 && body[0] == '#' { return stg(getv(body.slice(1, body.len)).len); }
     i64 k = 0;
     String name = "";
     while k < body.len && ((body[k] >= 'A' && body[k] <= 'Z') || (body[k] >= 'a' && body[k] <= 'z') || body[k] == '_' || (body[k] >= '0' && body[k] <= '9')) { name.push(body[k]); k += 1; }
@@ -1125,7 +1125,7 @@ String expand(String w) {
                     if w[j] == ')' { depth -= 1; if depth == 0 { break; } }
                     j += 1;
                 }
-                r = r + str(arith(w.slice(i + 3, j - 1)));
+                r = r + stg(arith(w.slice(i + 3, j - 1)));
                 i = j + 1;
                 continue;
             }
@@ -1150,11 +1150,11 @@ String expand(String w) {
                     continue;
                 }
             }
-            if w[i + 1] == '?' { r = r + str(last_status); i += 2; continue; }
+            if w[i + 1] == '?' { r = r + stg(last_status); i += 2; continue; }
             if w.slice(i + 1, w.len).starts_with("RANDOM") && (i + 7 >= w.len || !((w[i + 7] >= 'A' && w[i + 7] <= 'Z') || (w[i + 7] >= 'a' && w[i + 7] <= 'z') || w[i + 7] == '_' || (w[i + 7] >= '0' && w[i + 7] <= '9'))) {
                 if rand_state == 0 { rand_state = Time::now_ms() & 2147483647; }
                 rand_state = (rand_state * 1103515245 + 12345) & 2147483647;
-                r = r + str((rand_state >> 8) % 32768);
+                r = r + stg((rand_state >> 8) % 32768);
                 i += 7;
                 continue;
             }
@@ -1483,7 +1483,7 @@ void setting_change(i64 i, i64 dir) {
         if dir == 0 { jout << "\nfont size (6 .. 40): "; f = Input::line().trim().to_int(); } else { f += dir; }
         if f < 6 { f = 6; }
         if f > 40 { f = 40; }
-        kv_set(cfg, "font", str(f), false);
+        kv_set(cfg, "font", stg(f), false);
         return;
     }
     if i >= 13 {                                           // the newer items: a list of choices (the arrows), a number, or text (Enter)
@@ -1506,7 +1506,7 @@ void setting_change(i64 i, i64 dir) {
             if dir == 0 { jout << "\nlines of history (100 .. 100000): "; n = Input::line().trim().to_int(); } else { n += dir * 500; }
             if n < 100 { n = 100; }
             if n > 100000 { n = 100000; }
-            kv_set(cfg, key, str(n), false);
+            kv_set(cfg, key, stg(n), false);
             return;
         } else if i == 21 {
             key = "startup";
@@ -1531,7 +1531,7 @@ void setting_change(i64 i, i64 dir) {
         if dir == 0 { jout << "\nanimation time in ms (0 = none): "; ms = Input::line().trim().to_int(); } else { ms += dir * 40; }
         if ms < 0 { ms = 0; }
         if ms > 2000 { ms = 2000; }
-        kv_set(cfg, "animation_ms", str(ms), false);
+        kv_set(cfg, "animation_ms", stg(ms), false);
         return;
     }
     if i == 12 {
@@ -1649,7 +1649,7 @@ void setting_draw(i64 sel) {
     String out = e + "[H" + e + "[1mjaric setting" + e + "[0m  " + e + "[2m" + tail + e + "[0m" + e + "[K";
     for r in 0..room {
         i64 li = top + r;
-        out = out + e + "[" + str(r + 2) + ";1H";
+        out = out + e + "[" + stg(r + 2) + ";1H";
         if li < lines.len { out = out + lines[li]; }
         out = out + e + "[K";
     }
@@ -1657,7 +1657,7 @@ void setting_draw(i64 sel) {
     if top > 0 { help = help + "  (more above)"; }
     if top + room < lines.len { help = help + "  (more below)"; }
     if help.len > cols - 1 { help = help.slice(0, cols - 1); }
-    out = out + e + "[" + str(rows) + ";1H" + e + "[2m" + help + e + "[0m" + e + "[K";
+    out = out + e + "[" + stg(rows) + ";1H" + e + "[2m" + help + e + "[0m" + e + "[K";
     jout << out;
 }
 
@@ -1724,7 +1724,7 @@ String exec_failed_text(String path, i64 er) {
     if er == 0 - 8 { return "this file is not a program that this phone can run (wrong format or built for another system)"; }
     if er == 0 - 2 { return "the file is there, but the system could not load it (its loader is missing: built for another system?)"; }
     if er == 0 - 26 { return "the file is being written by another program (text file busy)"; }
-    return "cannot run it (error " + str(0 - er) + ")";
+    return "cannot run it (error " + stg(0 - er) + ")";
 }
 
 // a jsh script: the name ends in .jsh, or the first line is [#jsh], #jsh or #!jsh
@@ -1796,8 +1796,8 @@ bool builtin(String[] a) {
                 bcode = 126;
                 return true;
             }
-            for i in 1..a.len { if i < 10 { setv(str(i), a[i]); } }
-            setv("#", str(a.len - 1));
+            for i in 1..a.len { if i < 10 { setv(stg(i), a[i]); } }
+            setv("#", stg(a.len - 1));
             setv("0", name);
             bcode = run_file(name);
             return true;
@@ -1991,7 +1991,7 @@ bool builtin(String[] a) {
         if p1.len < 4 { jerr << "passwd: too short (at least 4 characters)\n"; bcode = 1; return true; }
         String p2 = read_secret("again: ");
         if p1 != p2 { jerr << "passwd: the two are not the same\n"; bcode = 1; return true; }
-        String salt = str(Time::now_ms());
+        String salt = stg(Time::now_ms());
         Fs::write_text(root_file(), salt + " " + Hash::sha256(salt + p1) + "\n");
         jout << "root password changed.\n";
         bcode = 0;
@@ -2608,10 +2608,10 @@ i64 find_fn(String name) {
 void call_fn(i64 f, String[] words) {
     String[] body = fn_bodies[f].split("\x01");
     for i in 1..words.len {
-        if i < 10 { setv(str(i), expand(words[i])); }
+        if i < 10 { setv(stg(i), expand(words[i])); }
     }
-    for i in words.len..10 { unsetv(str(i)); }
-    setv("#", str(words.len - 1));
+    for i in words.len..10 { unsetv(stg(i)); }
+    setv("#", stg(words.len - 1));
     run_tokens(body);
     returning = 0;
     loop_ctl = 0;
@@ -2725,7 +2725,7 @@ i64 run_script_text(String text) {
                 body = body + bl + "\n";
             }
             here_n += 1;
-            String tmp = Path::join(getv("HOME"), ".jsh_here_" + str(here_n));
+            String tmp = Path::join(getv("HOME"), ".jsh_here_" + stg(here_n));
             Fs::write_text(tmp, body);
             here_files.push(tmp);
             line = line.slice(0, hd) + "< " + tmp + line.slice(b, line.len);
@@ -2804,7 +2804,7 @@ void run_words(String[] raw0) {
             else if w[i] == "&>>" && i + 1 < nwords { out_file = w[i + 1]; append = 1; err_mode = 3; i += 2; }
             else if w[i] == "<<<" && i + 1 < nwords {                                  // a here-string: the word and a new line become the input
                 here_n += 1;
-                in_file = Path::join(getv("HOME"), ".jsh_here_" + str(here_n));
+                in_file = Path::join(getv("HOME"), ".jsh_here_" + stg(here_n));
                 Fs::write_text(in_file, w[i + 1] + "\n");
                 here_files.push(in_file);
                 i += 2;
@@ -2922,10 +2922,10 @@ String colour_rgb(String spec, String fallback) {
             if d < 0 { return fallback; }
             v = v * 16 + d;
         }
-        return str((v >> 16) & 255) + ";" + str((v >> 8) & 255) + ";" + str(v & 255);
+        return stg((v >> 16) & 255) + ";" + stg((v >> 8) & 255) + ";" + stg(v & 255);
     }
     String[] p = s.split(",");
-    if p.len == 3 { return str(p[0].to_int() & 255) + ";" + str(p[1].to_int() & 255) + ";" + str(p[2].to_int() & 255); }
+    if p.len == 3 { return stg(p[0].to_int() & 255) + ";" + stg(p[1].to_int() & 255) + ";" + stg(p[2].to_int() & 255); }
     return fallback;
 }
 
@@ -3029,7 +3029,7 @@ void log_event(String cmd, i64 status) {
     if status == 127 { msg = "command not found"; }
     if status == 126 { msg = "cannot run"; }
     String one = cmd.replace("\t", " ").replace("\n", " ");
-    Fs::append_text(file, one + "\t" + str(status) + "\t" + msg + "\n");
+    Fs::append_text(file, one + "\t" + stg(status) + "\t" + msg + "\n");
 }
 
 void run_line(String text) {
@@ -3139,8 +3139,8 @@ i64 main() {
     if cmdline.len > 1 {                                      // jsh -c "commands"   or   jsh script
         running = 1;
         if cmdline[1] == "-c" && cmdline.len > 2 { run_line(cmdline[2]); return last_status; }
-        for i in 2..cmdline.len { if i - 1 < 10 { setv(str(i - 1), cmdline[i]); } }     // jsh script a b : $1 = a, $2 = b, $# = 2
-        setv("#", str(cmdline.len - 2));
+        for i in 2..cmdline.len { if i - 1 < 10 { setv(stg(i - 1), cmdline[i]); } }     // jsh script a b : $1 = a, $2 = b, $# = 2
+        setv("#", stg(cmdline.len - 2));
         setv("0", cmdline[1]);
         return run_file(cmdline[1]);
     }
@@ -3156,7 +3156,7 @@ i64 main() {
     String quiet_file = getv("HOME") + "/.jsh_quiet";
     bool quiet = Fs::exists(quiet_file);
     if tty && !quiet { cover(); }
-    else { jout << "jsh " << jsh_version() << " (the shell of Jaric): help shows the commands\n"; }
+    else { jout << "jsh " << jsh_version() << " (the shell of exshell): help shows the commands\n"; }
     String rc_file = getv("HOME") + "/.jshrc";
     if tty && Fs::exists(rc_file) { run_file(rc_file); }      // the settings: aliases, export, ...
     if tty { history_load(); }                                  // the commands of the sessions before (the arrows and the grey text use them)

@@ -65,7 +65,7 @@ for _ in range(5):
 rd(0.3)
 rows=[''.join(r).rstrip() for r in scr.g]
 import re as _re
-pr = [k for k, r in enumerate(rows) if _re.match(r'jc \S+:/', r)]
+pr = [k for k, r in enumerate(rows) if _re.match(r'ex \S+:/', r)]
 ok = len(pr) == 1
 if ok:
     pw = rows[pr[0]].index('echo')

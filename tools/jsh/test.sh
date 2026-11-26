@@ -3,11 +3,12 @@
 set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null; ROOT=$(pwd)
 [ "$(./_out/jsh --version)" = "jsh $(cat VERSION)" ] || { echo "jsh test: --version differs from VERSION"; exit 1; }
+T0=$PWD
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T"
 SH="$OLDPWD/_out/jsh"
 OUT=$(printf 'echo hello world\necho "a  b" | cat\necho one > f.txt\necho two >> f.txt\ncat < f.txt\nfalse\necho status $?\necho x | tr x y | cat\nnosuchprog\ncd /\npwd\nexit 7\n' | "$SH" 2>&1) && rc=0 || rc=$?
-WANT='jsh 0.12.8 (the shell of Jaric): help shows the commands
+WANT="jsh $(cat "$T0/VERSION") (the shell of exshell): help shows the commands
 hello world
 a  b
 one
@@ -15,7 +16,7 @@ two
 status 1
 y
 jsh: nosuchprog: command not found
-r:/'
+r:/"
 [ "$OUT" = "$WANT" ] || { echo "shell test: the output differs"; echo "$OUT"; exit 1; }
 [ "$rc" = 7 ] || { echo "shell test: exit code $rc, wanted 7"; exit 1; }
 echo "shell test: ok"
@@ -24,7 +25,7 @@ T2=$(mktemp -d); trap 'rm -rf "$T" "$T2"' EXIT
 cd "$T2"; touch a.txt b.txt c.log
 printf 'echo "echo in the script"\nexport K=5\necho k=$K\n' > s.jsh
 OUT2=$(printf 'NAME=jao\necho hi $NAME\nalias say=echo\nsay aliased\necho *.txt\nfalse || echo second\ntrue && echo third\necho a ; echo b\nunset NAME\necho [$NAME]\ntype cd\nexit 0\n' | HOME="$T2" "$SH" 2>&1)
-WANT2='jsh 0.12.8 (the shell of Jaric): help shows the commands
+WANT2="jsh $(cat "$T0/VERSION") (the shell of exshell): help shows the commands
 hi jao
 aliased
 a.txt b.txt
@@ -33,7 +34,7 @@ third
 a
 b
 []
-cd is a jsh built-in'
+cd is a jsh built-in"
 [ "$OUT2" = "$WANT2" ] || { echo "shell test (step 5): the output differs"; echo "$OUT2"; exit 1; }
 [ "$(HOME="$T2" "$SH" -c 'echo one; echo two')" = "one
 two" ] || { echo "shell test: -c failed"; exit 1; }
@@ -149,7 +150,7 @@ rd(1.0); got = []
 for c in [b'\r', b'cd jaric\r', b'cd :/\r', ('cd ' + os.environ['T13'] + '\r').encode(), b'exit\r']:
     os.write(fd, c); o = rd(0.6)
     t = re.sub(r'\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07', '', o)
-    m = re.findall(r'jc (\S+)>', t)
+    m = re.findall(r'ex (\S+)>', t)
     got.append(m[-1] if m else '?')
 if got[:3] != ['f:/', 'f:/jaric', 'f:/'] or not got[3].startswith('r:/'):
     print(got); sys.exit(1)
@@ -180,7 +181,7 @@ rd(1.0); got = []
 for c in [b'\r', b'cd jaric\r', b'exit\r']:
     os.write(fd, c); o = rd(0.6)
     t = re.sub(r'\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07', '', o)
-    m = re.findall(r'jc (\S+)>', t); got.append(m[-1] if m else '?')
+    m = re.findall(r'ex (\S+)>', t); got.append(m[-1] if m else '?')
 if got[:2] != ['f:/', 'f:/jaric']:
     print(got); sys.exit(1)
 PY
@@ -276,7 +277,7 @@ echo "shell test (step 18): ok"
 T19=$(mktemp -d)
 R19=$(cd "$T19" && "$SH" -c 'ech hi; jfile2; zzzzzzzz; cam' 2>&1) || true
 case "$R19" in *"ech: command not found  (did you mean echo?)"*) ;; *) echo "shell test (step 19): did you mean: $R19"; exit 1 ;; esac
-case "$R19" in *"cam: command not found  (a tool of Jaric: jc install cam)"*) ;; *) echo "shell test (step 19): a tool that is not installed: $R19"; exit 1 ;; esac
+case "$R19" in *"cam: command not found  (a tool of Jaric: ex install cam)"*) ;; *) echo "shell test (step 19): a tool that is not installed: $R19"; exit 1 ;; esac
 case "$R19" in *"zzzzzzzz: command not found"*"did you mean"*) echo "shell test (step 19): no guess for nonsense: $R19"; exit 1 ;; esac
 rm -rf "$T19"
 echo "shell test (step 19): ok"
