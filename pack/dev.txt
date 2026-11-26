@@ -1,0 +1,7 @@
+# the language and what builds with it
+jcmp
+makej
+jurl
+tarj
+zipj
+jgit

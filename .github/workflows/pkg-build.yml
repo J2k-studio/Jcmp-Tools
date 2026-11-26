@@ -1,0 +1,45 @@
+# Builds one package with the build scripts of termux-packages, the prefix changed to Jaric's, packs it (and what it needs) and puts it in a release.
+name: build
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "package to build (e.g. git)"
+        required: true
+      source:
+        description: "build recipe when it has another name (clang is made by libllvm); empty = the package itself"
+        required: false
+        default: ""
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: get termux-packages
+        run: git clone --depth 1 https://github.com/termux/termux-packages.git tp
+      - name: change the prefix to Jaric's
+        run: |
+          cd tp
+          sed -i 's/com\.termux/com.jaric.app/g' scripts/properties.sh
+      - name: build
+        run: |
+          cd tp
+          for try in 1 2 3; do
+            ./scripts/run-docker.sh ./build-package.sh -a aarch64 "${{ github.event.inputs.source || github.event.inputs.package }}" && break
+            echo "the build failed (try $try): again"
+          done
+          ls output | head -200
+      - name: pack
+        run: |
+          mkdir -p dist
+          python3 pkg/recipes/pack.py "${{ github.event.inputs.package }}" tp/output dist "https://github.com/${{ github.repository }}/releases/download/pkg-${{ github.event.inputs.package }}"
+          ls -la dist
+      - name: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "pkg-${{ github.event.inputs.package }}" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "pkg-${{ github.event.inputs.package }}" dist/* --title "package ${{ github.event.inputs.package }}" --notes "built from termux-packages with the prefix of Jaric (aarch64); index-${{ github.event.inputs.package }}.json has the lines for index.json"
