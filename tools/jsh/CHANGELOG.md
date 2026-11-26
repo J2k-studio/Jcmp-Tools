@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.12.11
+* **Fixed:** the start screen still said `jc install X` (the word came after a colour code, so the change to `ex` missed it); the message for the moved commands (`install`, `update`, `unstall`) says `ex` and no longer mentions `jc`.
+
 ## 0.12.10
 * **Changed:** the prompt starts with `ex` (it was `jc`), and every message, hint and tip says `ex install NAME`, `ex list`, `ex update` (the command `jc` is gone from exshell: `ex` is the command of the system); the libraries of the language are `jex lib ...`.
 

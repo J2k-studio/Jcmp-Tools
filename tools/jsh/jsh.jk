@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.10"; }
+String jsh_version() { return "0.12.11"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -1971,7 +1971,7 @@ bool builtin(String[] a) {
     if name == "install" || name == "update" || name == "unstall" {     // moved to jc: say so (ex install NAME, ex update, ex unstall NAME)
         String tail = " NAME";
         if name == "update" { tail = " [-n]"; }
-        jerr << name << ": use  jc " << name << tail << "   (jc is not installed? jget tool jc)\n";
+        jerr << name << ": use  ex " << name << tail << "\n";
         bcode = 2;
         return true;
     }
@@ -2237,7 +2237,7 @@ bool builtin(String[] a) {
             sa.push("jstore");
             if a.len == 2 { sa.push("list"); }
             for i in 2..a.len { sa.push(a[i]); }
-            if !have_program("jstore") { jout << "the store is not installed:  jget tool jc jstore\n"; }
+            if !have_program("jstore") { jout << "the store is not installed:  ex install jstore\n"; }
             else { run_words(sa); bcode = last_status; }
         } else if a.len >= 2 && a[1] == "keepalive" {
             jout << "keep the sessions after you swipe the app away (like Termux):\n";
@@ -3083,7 +3083,7 @@ void cover() {
     jout << room << e << "[2mgithub.com/J2k-studio/exshell" << e << "[0m\n\n";
     jout << e << "[2m  shell jsh " << jsh_version() << e << "[0m\n\n";
     jout << e << "[1m  Start here" << e << "[0m\n";
-    jout << "  " << e << "[96mjc install X" << e << "[0m   get a tool\n";
+    jout << "  " << e << "[96mex install X" << e << "[0m   get a tool\n";
     jout << "  " << e << "[96mcam" << e << "[0m            camera and QR\n";
     jout << "  " << e << "[96mmujic" << e << "[0m          music\n";
     jout << "  " << e << "[96mjfile" << e << "[0m          files\n";
