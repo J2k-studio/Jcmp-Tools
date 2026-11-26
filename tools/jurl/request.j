@@ -1,4 +1,4 @@
-// jget as a curl: a request with a method, headers and a body, and what comes back. Used when one of these is on the command line:
+// jurl as a curl: a request with a method, headers and a body, and what comes back. Used when one of these is on the command line:
 //   -X METHOD   -H "Name: value"   -d DATA (@file reads a file, @- the keyboard)   -I (the head only)   -i (the head, then the body)
 //   -u user:password   -A agent   -f (a code of 400 or more is an error: exit 22)   -L (follow redirects: it is on; --no-location turns it off)
 //   -s (quiet)   -o FILE   -O (the name in the address)   -w "%{http_code}" (the code, then a new line, after the body)
@@ -45,7 +45,7 @@ String req_read_body(String spec) {
             return all;
         }
         Result<String, Error> r = Fs::read_text(file);
-        if !r.is_ok() { err("jget: cannot read " + file + "\n"); return ""; }
+        if !r.is_ok() { err("jurl: cannot read " + file + "\n"); return ""; }
         return r.take();
     }
     return spec + "";
@@ -63,7 +63,7 @@ i64 cmd_request(String[] av, i64 at) {
     i64 i = at;
     while i < av.len {
         String a = av[i];
-        if req_flag_takes_value(a) && i + 1 >= av.len { err("jget: " + a + " needs a value\n"); return 2; }
+        if req_flag_takes_value(a) && i + 1 >= av.len { err("jurl: " + a + " needs a value\n"); return 2; }
         if a == "-X" || a == "--request" { o.method = av[i + 1].upper(); i += 2; }
         else if a == "-H" || a == "--header" {
             String h = av[i + 1].trim();
@@ -87,9 +87,9 @@ i64 cmd_request(String[] av, i64 at) {
         else if a == "--no-location" { o.follow = false; i += 1; }
         else if a == "-O" { o.by_name = true; i += 1; }
         else if a == "-s" || a == "-S" || a == "-h" { i += 1; }
-        else if a.starts_with("-") && a.len > 1 { err("jget: unknown option " + a + "\n"); return 2; }
+        else if a.starts_with("-") && a.len > 1 { err("jurl: unknown option " + a + "\n"); return 2; }
         else if o.url.len == 0 { o.url = a + ""; i += 1; }
-        else { err("jget: one address only (got " + o.url + " and " + a + ")\n"); return 2; }
+        else { err("jurl: one address only (got " + o.url + " and " + a + ")\n"); return 2; }
     }
     if o.url.len == 0 { return usage(); }
     if o.method.len == 0 {
@@ -103,7 +103,7 @@ i64 cmd_request(String[] av, i64 at) {
     String reply = "";
     switch Net::http_exchange(o.method, o.url, o.headers, o.body, follow, 0) {
         Result::Ok(t): { reply = t; }
-        Result::Err(e): { err("jget: " + e.message + "\n"); return 1; }
+        Result::Err(e): { err("jurl: " + e.message + "\n"); return 1; }
     }
     i64 he = reply.find("\r\n\r\n");
     String head = reply.slice(0, he) + "";
@@ -115,7 +115,7 @@ i64 cmd_request(String[] av, i64 at) {
     else if o.with_head { out = head + "\r\n\r\n" + body; }
     else { out = body; }
     if o.fail && code >= 400 {
-        err("jget: the server answered " + str(code) + "\n");
+        err("jurl: the server answered " + str(code) + "\n");
         return 22;
     }
     String to = o.to;
@@ -125,7 +125,7 @@ i64 cmd_request(String[] av, i64 at) {
     } else {
         switch Fs::write_text(to, out) {
             Result::Ok(n): { }
-            Result::Err(e): { err("jget: cannot write " + to + ": " + e.message + "\n"); return 1; }
+            Result::Err(e): { err("jurl: cannot write " + to + ": " + e.message + "\n"); return 1; }
         }
     }
     if o.write_code { jout << str(code) << "\n"; }

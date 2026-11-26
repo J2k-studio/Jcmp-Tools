@@ -5,7 +5,7 @@
 // and the names it put there are written to  usr/var/lib/jcpkg/NAME.list  so it can be removed.
 
 String pkg_index_address() {
-    return env_or("JC_PKG_INDEX", "https://raw.githubusercontent.com/J2k-studio/Jcmp-pkg/main/index.json");
+    return env_or("JC_PKG_INDEX", "https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/pkg/index.json");
 }
 
 // the folder that holds usr/ : JC_PKG_ROOT, else PREFIX without its last part, else ~/.jaric

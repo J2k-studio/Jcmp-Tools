@@ -18,7 +18,7 @@
 #import "pkg"
 #import "manage"
 
-String jc_version() { return "0.5.7"; }
+String jc_version() { return "0.6.0"; }
 
 i64 fail(String msg) {
     jerr << "ex: " << msg << "\n";
@@ -302,7 +302,7 @@ bool is_package_name(String what) {                        // FILE.jc or a path:
 
 // the libraries and the tools: what the commands of manage.j print when they are used wrongly
 i64 usage() {
-    jerr << "ex: install NAME | update [-n] | unstall NAME | tools | list | info FILE.jc | run ID|FILE.jc | perm ID      tools and apps\n";
+    jerr << "ex: pack list|install NAME | install NAME | update [-n] | unstall NAME | tools | list | info FILE.jc | run ID|FILE.jc | perm ID      tools and apps\n";
     jerr << "    (the libraries of the language are managed by jex: jex lib install NAME)\n";
     return 1;
 }
@@ -317,6 +317,7 @@ i64 main() {
         jout << "  ex install NAME (a tool of Jcmp-Tools) | install STORE.ID (jstore) | unstall NAME (remove a tool) | update [-n] (jsh and the tools and programs that have an update)\n";
         return 0;
     }
+    if a[1] == "pack" { return cmd_pack(a); }
     if a[1] == "pkg" { return cmd_pkg(a); }                    // the packages of Jcmp-pkg (git, clang, python ...)
     if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
     if a[1] == "update" || a[1] == "upgrade" {                 // jsh and every installed tool with a newer version, then the programs of the store

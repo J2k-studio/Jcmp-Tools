@@ -1,28 +1,28 @@
-// jurl (was jget) -- download files from the web, and libraries for the J2K language
+// jurl (was jurl) -- download files from the web, and libraries for the J2K language
 //
-//   jget URL                      save the file at URL in the current folder (the name is the last part of the address);
-//                                 when the output goes to a pipe or a file (jget URL | sh) the data goes there instead
-//   jget -O URL                   save the file with the name in the address, even when the output goes to a pipe
-//   jget URL -o FILE              save it as FILE   (-o - writes it to the screen)
-//   jget URL URL ...              several files, each under its own name;  -P DIR  into the folder DIR;  -l LIST  the addresses are in the file LIST
-//   jget -r N URL                 try again up to N times when a download fails
-//   jget -h URL ...               the same (-h = http: the address follows)
+//   jurl URL                      save the file at URL in the current folder (the name is the last part of the address);
+//                                 when the output goes to a pipe or a file (jurl URL | sh) the data goes there instead
+//   jurl -O URL                   save the file with the name in the address, even when the output goes to a pipe
+//   jurl URL -o FILE              save it as FILE   (-o - writes it to the screen)
+//   jurl URL URL ...              several files, each under its own name;  -P DIR  into the folder DIR;  -l LIST  the addresses are in the file LIST
+//   jurl -r N URL                 try again up to N times when a download fails
+//   jurl -h URL ...               the same (-h = http: the address follows)
 //   (a downloaded script or program is made executable by itself, unless it already is; -x does it for any file)
-//   jget -X POST -H "Name: v" -d DATA URL   a request like curl (request.j): the answer goes to the screen; -I -i -u -A -f -L --no-location -o -O
-//   jget -m URL ...               songs from links go to the music folder (~/music, or $MUJIC_DIR): mujic plays them
-//   jget -sh URL [args]           download a shell script and run it at once (what  curl URL | sh  does), then delete it
-//   jget -jsh URL [args]          the same, run by jsh (the shell of Jaric)
-//   jget --install [DIR]          copy this program into DIR (default: $PREFIX/bin on Termux, else ~/.local/bin)
-//   jget --update                 replace this program by the latest release
-//   jget -q ...                   no progress bar
-//   jget -li list                 the libraries of the index (a * marks the installed ones)
-//   jget -li install NAME         download a library, check its SHA-256 against the index, put it in the library folder
-//   jget -li unstall NAME         delete an installed library (remove and uninstall work too)
-//   jget -li installed            the libraries in the library folder
-//   jget --version | --help
+//   jurl -X POST -H "Name: v" -d DATA URL   a request like curl (request.j): the answer goes to the screen; -I -i -u -A -f -L --no-location -o -O
+//   jurl -m URL ...               songs from links go to the music folder (~/music, or $MUJIC_DIR): mujic plays them
+//   jurl -sh URL [args]           download a shell script and run it at once (what  curl URL | sh  does), then delete it
+//   jurl -jsh URL [args]          the same, run by jsh (the shell of Jaric)
+//   jurl --install [DIR]          copy this program into DIR (default: $PREFIX/bin on Termux, else ~/.local/bin)
+//   jurl --update                 replace this program by the latest release
+//   jurl -q ...                   no progress bar
+//   jurl -li list                 the libraries of the index (a * marks the installed ones)
+//   jurl -li install NAME         download a library, check its SHA-256 against the index, put it in the library folder
+//   jurl -li unstall NAME         delete an installed library (remove and uninstall work too)
+//   jurl -li installed            the libraries in the library folder
+//   jurl --version | --help
 //
 // A progress bar (percent, size, speed) is drawn on the screen when the error output is a terminal.
-// http:// and https:// addresses are fetched by jget itself (it looks the name up with DNS, speaks TLS 1.3 with the check of the
+// http:// and https:// addresses are fetched by jurl itself (it looks the name up with DNS, speaks TLS 1.3 with the check of the
 // certificate, and HTTP/1.1: redirects, chunked answers; big files are written to disk as they arrive). A server that cannot talk
 // TLS 1.3 with ChaCha20, and the other kinds of address (file://, ftp://), are fetched by curl, or by wget when there is no curl.
 // The trusted roots are those of the system (or the file named in J2K_CA). A certificate that is refused is never retried with curl.
@@ -38,7 +38,7 @@ using stdlib;
 #import "core"
 #import "request"
 
-String jget_version() { return "0.1.0"; }
+String jurl_version() { return "0.1.1"; }
 
 // the folder for songs: $MUJIC_DIR, else ~/music
 String music_folder() {
@@ -59,7 +59,7 @@ bool has_audio_ext(String n) {
     return l.ends_with(".mp3") || l.ends_with(".ogg") || l.ends_with(".m4a") || l.ends_with(".flac") || l.ends_with(".wav") || l.ends_with(".opus") || l.ends_with(".aac");
 }
 
-// jget -m URL ...: songs from links go to the music folder (the name from the link; .mp3 is added when it has no sound extension)
+// jurl -m URL ...: songs from links go to the music folder (the name from the link; .mp3 is added when it has no sound extension)
 i64 cmd_music(String[] av, i64 at) {
     if av.len <= at { return usage(); }
     String dir = music_folder();
@@ -76,24 +76,24 @@ i64 cmd_music(String[] av, i64 at) {
 }
 
 i64 usage() {
-    err("usage: jget URL [-o FILE]               download a file (to a pipe or a file when the output goes there: jget URL | sh)\n");
-    err("       jget -O URL                      save it with the name in the address (even in a pipe)\n");
-    err("       jget URL URL ...                 several files, each under its own name;  -P DIR: into the folder DIR;  -l LIST: the addresses are in the file LIST\n");
-    err("       jget -r N URL                    try again up to N times when a download fails   (URL1|URL2: a mirror, tried in order)\n");
-    err("       jget -x URL                      and make the file executable\n");
-    err("       jget -m URL ...                  songs from links go to ~/music (or $MUJIC_DIR)\n");
-    err("       jget -sh URL [args]              download a script and run it at once\n");
-    err("       jget -jsh URL [args]             the same with jsh (a script of Jaric, first line [#jsh])\n");
-    err("       jget -q URL                      without the progress bar (-s too)\n");
-    err("       jget -X POST -H \"A: b\" -d DATA URL   a request like curl: -X -H -d (@file) -I -i -u user:pw -A agent -f -w \"%{{http_code}}\" -o FILE\n");
-    err("       jget untar FILE [DIR]            open a .tar or a .tar.gz (.tgz) here or in DIR\n");
-    err("       jget --install [DIR] | --update  install this program / replace it by the latest release\n");
-    err("       jget --version\n");
-    err("jget only downloads. Tools and libraries are installed by jc:  jc install NAME   jc lib install NAME   jc update\n");
+    err("usage: jurl URL [-o FILE]               download a file (to a pipe or a file when the output goes there: jurl URL | sh)\n");
+    err("       jurl -O URL                      save it with the name in the address (even in a pipe)\n");
+    err("       jurl URL URL ...                 several files, each under its own name;  -P DIR: into the folder DIR;  -l LIST: the addresses are in the file LIST\n");
+    err("       jurl -r N URL                    try again up to N times when a download fails   (URL1|URL2: a mirror, tried in order)\n");
+    err("       jurl -x URL                      and make the file executable\n");
+    err("       jurl -m URL ...                  songs from links go to ~/music (or $MUJIC_DIR)\n");
+    err("       jurl -sh URL [args]              download a script and run it at once\n");
+    err("       jurl -jsh URL [args]             the same with jsh (a script of Jaric, first line [#jsh])\n");
+    err("       jurl -q URL                      without the progress bar (-s too)\n");
+    err("       jurl -X POST -H \"A: b\" -d DATA URL   a request like curl: -X -H -d (@file) -I -i -u user:pw -A agent -f -w \"%{{http_code}}\" -o FILE\n");
+    err("       jurl untar FILE [DIR]            open a .tar or a .tar.gz (.tgz) here or in DIR\n");
+    err("       jurl --install [DIR] | --update  install this program / replace it by the latest release\n");
+    err("       jurl --version\n");
+    err("jurl only downloads. Tools and libraries are installed by ex:  ex install NAME   jex lib install NAME   ex update\n");
     return 1;
 }
 
-// the old forms  jget tool ...  and  jget -li ...  are sent to jc (it installs the tools and the libraries since jget 1.0.0)
+// the old forms  jurl tool ...  and  jurl -li ...  are sent to jc (it installs the tools and the libraries since jurl 1.0.0)
 i64 forward_to_jc(String[] av) {
     String[] a = arr(8);
     String first = av[1];
@@ -109,7 +109,7 @@ i64 forward_to_jc(String[] av) {
     }
     Result<i64, Error> r = Proc::run("jc", a);
     if !r.is_ok() {
-        err("jget: jget only downloads now: tools and libraries are installed by jc, and jc is not here.\n  get it:  curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jc\n");
+        err("jurl: jurl only downloads now: tools and libraries are installed by jc, and jc is not here.\n  get it:  curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jc\n");
         return 2;
     }
     return r.take();
@@ -144,7 +144,7 @@ void after_download(String to) {
     i64 fresh = (mode & 4095) | ((mode & 292) >> 2);       // x where r is (0444 -> 0111)
     if g_exec == 1 { fresh = (mode & 4095) | 73 | ((mode & 292) >> 2); }
     i64 r = Sys::chmod(to.c(), fresh);
-    if r < 0 { err("jget: cannot make " + to + " executable: " + Error::reason(r) + "\n"); }
+    if r < 0 { err("jurl: cannot make " + to + " executable: " + Error::reason(r) + "\n"); }
 }
 
 // the addresses in a list file: one a line, an empty line and a line that starts with # are skipped
@@ -159,14 +159,14 @@ String[] urls_of_file(String path, i64^ rc) {
                 if ln.len > 0 && ln[0] != '#' { out.push(ln + ""); }
             }
         }
-        Result::Err(e): { err("jget: cannot read the list " + path + ": " + e.message + "\n"); rc[0] = 1; }
+        Result::Err(e): { err("jurl: cannot read the list " + path + ": " + e.message + "\n"); rc[0] = 1; }
     }
     return out;
 }
 
-// jget URL [URL ...] [-o FILE] [-P DIR] [-l LIST] [-r N]  (-h before the address is allowed)
-// Where the data goes: -o FILE (one address only); else -O (the name in the address); else, when the output of jget goes to another program or a file
-// (jget URL | sh), to the output; else (a terminal) to a file named like the end of the address. Several addresses: each is saved under its own name.
+// jurl URL [URL ...] [-o FILE] [-P DIR] [-l LIST] [-r N]  (-h before the address is allowed)
+// Where the data goes: -o FILE (one address only); else -O (the name in the address); else, when the output of jurl goes to another program or a file
+// (jurl URL | sh), to the output; else (a terminal) to a file named like the end of the address. Several addresses: each is saved under its own name.
 //   -P DIR   the files go into the folder DIR (it is made when it is not there)
 //   -l LIST  the addresses are read from the file LIST (one a line; # starts a comment); they come after the ones on the line
 //   -r N     a download that fails is tried again, up to N more times (a mirror list  A|B  is tried in order each time)
@@ -195,8 +195,8 @@ i64 cmd_fetch(String[] av, i64 at) {
         for k in 0..more.len { urls.push(more[k] + ""); }
     }
     if urls.len == 0 { return usage(); }
-    if to.len > 0 && urls.len > 1 { err("jget: -o names one file; with several addresses each is saved under its own name (or use -P DIR)\n"); return 1; }
-    if dir.len > 0 && !Dir::exists(dir) { switch Dir::make_all(dir) { Result::Ok(v): { } Result::Err(e): { err("jget: cannot make the folder " + dir + ": " + e.message + "\n"); return 1; } } }
+    if to.len > 0 && urls.len > 1 { err("jurl: -o names one file; with several addresses each is saved under its own name (or use -P DIR)\n"); return 1; }
+    if dir.len > 0 && !Dir::exists(dir) { switch Dir::make_all(dir) { Result::Ok(v): { } Result::Err(e): { err("jurl: cannot make the folder " + dir + ": " + e.message + "\n"); return 1; } } }
     i64 done = 0;
     for u in 0..urls.len {
         String dest = to;
@@ -208,18 +208,18 @@ i64 cmd_fetch(String[] av, i64 at) {
         i64 again = 0;
         while !ok && again < retries {
             again += 1;
-            err("jget: " + urls[u] + ": again (" + str(again) + " of " + str(retries) + ")\n");
+            err("jurl: " + urls[u] + ": again (" + str(again) + " of " + str(retries) + ")\n");
             ok = download(urls[u], dest, g_quiet == 1);
         }
         if ok { after_download(dest); done += 1; } else { rc = 1; }
     }
-    if urls.len > 1 { err("jget: " + str(done) + " of " + str(urls.len) + " downloaded\n"); }
+    if urls.len > 1 { err("jurl: " + str(done) + " of " + str(urls.len) + " downloaded\n"); }
     return rc;
 }
 
 // The policy for scripts from the net (setting "run_net" in etc/config.local of the Jaric app; JGET_CONFIG names another file):
 //   ask (default): at a terminal the size and the first 20 lines are shown and Enter / y runs it, anything else does not;
-//                  without a terminal (a script runs jget) nothing can be asked, so it runs as before
+//                  without a terminal (a script runs jurl) nothing can be asked, so it runs as before
 //   never: refuse      allow: run at once
 String conf_value(String key) {
     String file = "";
@@ -249,31 +249,31 @@ String conf_value(String key) {
 // true when the downloaded script may be run
 bool run_net_allowed(String tmp, String url) {
     String policy = conf_value("run_net");
-    if policy == "never" { err("jget: running scripts from the net is switched off (jaric setting: run scripts from the net = never)\n"); return false; }
+    if policy == "never" { err("jurl: running scripts from the net is switched off (jaric setting: run scripts from the net = never)\n"); return false; }
     if policy == "allow" { return true; }
     if Sys::isatty(0) != 0 || Sys::isatty(2) != 0 { return true; }       // nobody to ask
     Result<String, Error> r = Fs::read_text(tmp);
     String text = "";
     if r.is_ok() { text = r.take(); }
     String[] ls = text.split("\n");
-    err("jget: " + url + "  (" + str(text.len) + " bytes) is a script. The first lines:\n");
+    err("jurl: " + url + "  (" + str(text.len) + " bytes) is a script. The first lines:\n");
     for i in 0..ls.len { if i < 20 { err("  | " + ls[i] + "\n"); } }
     err("Run it? [y/N] ");
     String a = Input::line().trim();
     return a == "y" || a == "Y" || a == "yes";
 }
 
-// jget -sh URL [args]: download a script, run it with sh (-jsh: with jsh, the shell of Jaric), delete it
+// jurl -sh URL [args]: download a script, run it with sh (-jsh: with jsh, the shell of Jaric), delete it
 i64 cmd_run_script(String[] av, i64 at, String shell) {
     if av.len <= at { return usage(); }
     String url = av[at];
-    String tmp = "/data/local/tmp/.jget_script";
+    String tmp = "/data/local/tmp/.jurl_script";
     switch Env::get("TMPDIR") {
-        Option::Some(t): { tmp = t + "/.jget_script." + str(Sys::getpid()); }
-        Option::None: { tmp = "/tmp/.jget_script." + str(Sys::getpid()); }
+        Option::Some(t): { tmp = t + "/.jurl_script." + str(Sys::getpid()); }
+        Option::None: { tmp = "/tmp/.jurl_script." + str(Sys::getpid()); }
     }
     if !download(url, tmp, true) { return 1; }
-    if !run_net_allowed(tmp, url) { Fs::remove(tmp); err("jget: not run\n"); return 1; }
+    if !run_net_allowed(tmp, url) { Fs::remove(tmp); err("jurl: not run\n"); return 1; }
     String[] args = arr(0);
     args.push(tmp);
     for i in at + 1..av.len { args.push(av[i]); }
@@ -282,44 +282,44 @@ i64 cmd_run_script(String[] av, i64 at, String shell) {
     return code;
 }
 
-// jget --install [DIR]
+// jurl --install [DIR]
 i64 cmd_install_self(String[] av, i64 at) {
     String dir = default_bin_dir();
     if av.len > at { dir = av[at]; }
     if !make_dir(dir) { return 1; }
     String me = self_path();
-    if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
-    if !install_file(me, dir + "/jget") { return 1; }
-    jout << "installed jget in " << dir << "/jget" << nl;
+    if me.len == 0 { err("jurl: cannot find where this program is\n"); return 1; }
+    if !install_file(me, dir + "/jurl") { return 1; }
+    jout << "installed jurl in " << dir << "/jurl" << nl;
     return 0;
 }
 
-// jget --update: the latest release replaces this program (checked with its SHA-256)
+// jurl --update: the latest release replaces this program (checked with its SHA-256)
 i64 cmd_update_self() {
     String me = self_path();
-    if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
-    // the newest version of jget is the text of tools/jget/LATEST in the repository of the tools (a release of another tool cannot be mistaken for it)
+    if me.len == 0 { err("jurl: cannot find where this program is\n"); return 1; }
+    // the newest version of jurl is the text of tools/jurl/LATEST in the repository of the tools (a release of another tool cannot be mistaken for it)
     String lv = me + ".latest";
-    if !download("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools/jget/LATEST", lv, true) { return 1; }
+    if !download("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools/jurl/LATEST", lv, true) { return 1; }
     String ver = "";
     switch Fs::read_text(lv) {
         Result::Ok(t): { ver = t.trim(); }
         Result::Err(e): { }
     }
     Fs::remove(lv);
-    if ver.len == 0 { err("jget: cannot read the newest version\n"); return 1; }
-    String base = "https://github.com/J2k-studio/Jcmp-Tools/releases/download/jget-v" + ver;
+    if ver.len == 0 { err("jurl: cannot read the newest version\n"); return 1; }
+    String base = "https://github.com/J2k-studio/Jcmp-Tools/releases/download/jurl-v" + ver;
     String tmp = me + ".new";
     String sums = me + ".sums";
     if !download(base + "/SHA256SUMS", sums, true) { return 1; }
-    if !download(base + "/jget", tmp, g_quiet == 1) { Fs::remove(sums); return 1; }
+    if !download(base + "/jurl", tmp, g_quiet == 1) { Fs::remove(sums); return 1; }
     String want = "";
     switch Fs::read_text(sums) {
         Result::Ok(t): {
             String[] lines = t.split("\n");
             for i in 0..lines.len {
                 String[] w = lines[i].trim().split(" ");
-                if w.len >= 2 && w[w.len - 1] == "jget" { want = w[0]; }
+                if w.len >= 2 && w[w.len - 1] == "jurl" { want = w[0]; }
             }
         }
         Result::Err(e): { }
@@ -332,12 +332,12 @@ i64 cmd_update_self() {
     }
     if want.len == 0 || want != have {
         Fs::remove(tmp);
-        err("jget: the checksum of the new program does not match, nothing was changed\n");
+        err("jurl: the checksum of the new program does not match, nothing was changed\n");
         return 1;
     }
     Sys::chmod(tmp.c(), 493);
     if !put_in_place(tmp, me) { return 1; }
-    jout << "jget is updated" << nl;
+    jout << "jurl is updated" << nl;
     return 0;
 }
 
@@ -351,12 +351,12 @@ i64 main() {
     }
     if av.len < 2 { return usage(); }
     String first = av[1];
-    if first == "--version" || first == "-V" { jout << "jurl " << jget_version() << nl; return 0; }
+    if first == "--version" || first == "-V" { jout << "jurl " << jurl_version() << nl; return 0; }
     if first == "--help" { usage(); return 0; }
     if first == "-li" || first == "tool" { return forward_to_jc(av); }
     if first == "-sh" { return cmd_run_script(av, 2, "sh"); }
     if first == "-jsh" { return cmd_run_script(av, 2, "jsh"); }
-    if first == "untar" {                                  // jget untar FILE [DIR] : a .tar or a gzip-packed tar (.tar.gz, .tgz)
+    if first == "untar" {                                  // jurl untar FILE [DIR] : a .tar or a gzip-packed tar (.tar.gz, .tgz)
         if av.len < 3 { return usage(); }
         String into = ".";
         if av.len >= 4 { into = av[3]; }

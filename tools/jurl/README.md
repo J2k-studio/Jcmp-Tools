@@ -1,72 +1,72 @@
-# jget
+# jurl
 
-Download files from the web. A small program written in J2K: URLs, a progress bar, HTTPS (TLS 1.3 with the check of the certificate), mirrors. Since 1.0.0 **jget only downloads**; the tools and the libraries are installed by [jc](../jc/README.md).
+Download files from the web. A small program written in J2K: URLs, a progress bar, HTTPS (TLS 1.3 with the check of the certificate), mirrors. Since 1.0.0 **jurl only downloads**; the tools and the libraries are installed by [jc](../jc/README.md).
 
 ```
-jget https://example.com/file.tar.gz          save it here, named file.tar.gz
-jget URL -o other.name                        save it with another name   (-o - : write it to the screen)
-jget -q URL                                   no progress bar
-jget URL URL ...                              several files, each under its own name
-jget -P DIR URL ...                           put the files into the folder DIR (made when missing)
-jget -l LIST                                  the addresses are in the file LIST (one a line, # starts a comment)
-jget -r N URL                                 try again up to N times when a download fails
-jget 'URL1|URL2'                              a mirror: the second is tried when the first fails
-jget -x URL                                   make any file executable (scripts and programs already are)
-jget -m URL                                   a song from a link goes to ~/music (mujic plays it)
-jget -sh URL [args]  /  jget -jsh URL         download a script and run it at once (sh / jsh)
-jget untar FILE [DIR]                         open a .tar or a .tar.gz
-jget --install [DIR]  /  jget --update        put this program in your commands folder / replace it by the latest release
+jurl https://example.com/file.tar.gz          save it here, named file.tar.gz
+jurl URL -o other.name                        save it with another name   (-o - : write it to the screen)
+jurl -q URL                                   no progress bar
+jurl URL URL ...                              several files, each under its own name
+jurl -P DIR URL ...                           put the files into the folder DIR (made when missing)
+jurl -l LIST                                  the addresses are in the file LIST (one a line, # starts a comment)
+jurl -r N URL                                 try again up to N times when a download fails
+jurl 'URL1|URL2'                              a mirror: the second is tried when the first fails
+jurl -x URL                                   make any file executable (scripts and programs already are)
+jurl -m URL                                   a song from a link goes to ~/music (mujic plays it)
+jurl -sh URL [args]  /  jurl -jsh URL         download a script and run it at once (sh / jsh)
+jurl untar FILE [DIR]                         open a .tar or a .tar.gz
+jurl --install [DIR]  /  jurl --update        put this program in your commands folder / replace it by the latest release
 ```
 
-Tools and libraries: `jc install NAME`, `jc update`, `jc unstall NAME`, `jc tools`, `jc lib install NAME`. (The old forms `jget tool ...` and `jget -li ...` are sent to jc.)
+Tools and libraries: `ex install NAME`, `ex update`, `jc unstall NAME`, `jc tools`, `jex lib install NAME`. (The old forms `jurl tool ...` and `jurl -li ...` are sent to jc.)
 
 * A progress bar (percent, size, speed) is drawn when the error output is a terminal. A file is written as it arrives (any size, any bytes) and renamed when it is whole.
-* `http://` and `https://` addresses are fetched by jget itself (DNS, TLS 1.3 with the check of the certificate, HTTP/1.1, redirects, chunked answers); `file://`, `ftp://` and servers that only know older protocols by `curl`, or `wget` when there is no `curl`.
+* `http://` and `https://` addresses are fetched by jurl itself (DNS, TLS 1.3 with the check of the certificate, HTTP/1.1, redirects, chunked answers); `file://`, `ftp://` and servers that only know older protocols by `curl`, or `wget` when there is no `curl`.
   The trusted roots are the system's (Termux: `$PREFIX/etc/tls/cert.pem`) or the file in `J2K_CA`. The TLS code is new and has not been audited.
 * Libraries: the index is a text file (`NAME VERSION URL SHA256`), several indexes can be given (`JGET_INDEX`, mirrors); the checksum is checked before anything is installed.
   The default index is [Jcmp-libs](https://github.com/J2k-studio/Jcmp-libs). Libraries go to `~/.j2k/Library` (`JGET_LIB`).
 
-## jget as a curl (1.1.0)
+## jurl as a curl (1.1.0)
 A request with a method, headers and a body; the answer goes to the screen:
 ```
-jget -d name=ann -d age=31 https://example.com/form                  # a POST (a body makes it a POST); two -d are joined with &
-jget -X PUT -H "Content-Type: application/json" -d @data.json URL      # -d @file reads a file, -d @- the keyboard
-jget -I URL                  # the head only          jget -i URL     # the head, then the body
-jget -u me:secret URL        # Basic authorization    jget -A "my app" URL
-jget -f URL                  # a code of 400 or more is an error (exit 22), as curl -f
-jget --no-location URL       # do not follow redirects (they are followed by default)
-jget -w x URL                # the HTTP code after the body    jget -o answer.txt URL
+jurl -d name=ann -d age=31 https://example.com/form                  # a POST (a body makes it a POST); two -d are joined with &
+jurl -X PUT -H "Content-Type: application/json" -d @data.json URL      # -d @file reads a file, -d @- the keyboard
+jurl -I URL                  # the head only          jurl -i URL     # the head, then the body
+jurl -u me:secret URL        # Basic authorization    jurl -A "my app" URL
+jurl -f URL                  # a code of 400 or more is an error (exit 22), as curl -f
+jurl --no-location URL       # do not follow redirects (they are followed by default)
+jurl -w x URL                # the HTTP code after the body    jurl -o answer.txt URL
 ```
-Without these options `jget URL` is a download with a progress bar, as before.
+Without these options `jurl URL` is a download with a progress bar, as before.
 
 ## Install
 
 ```
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install-jget.sh | sh
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install-jurl.sh | sh
 ```
 
-(Linux ARM64, for example Termux; the program is one file.) `jget --version` shows the version.
+(Linux ARM64, for example Termux; the program is one file.) `jurl --version` shows the version.
 
 ## Build
 
-jget is written in J2K and needs the compiler `jcmp` (0.9.187 or newer) with its library: `jcmp tools/jget/jget.jk -o jget`. `tools/jget/test.sh` builds it and runs the tests (it needs `python3` for a local web server).
+jurl is written in J2K and needs the compiler `jcmp` (0.9.187 or newer) with its library: `jcmp tools/jurl/jurl.jk -o jurl`. `tools/jurl/test.sh` builds it and runs the tests (it needs `python3` for a local web server).
 
 ## Tools of Jcmp-Tools
 
-`jget tool list` shows them and `jget tool coderin` (or several: `jget tool jsh jbox makej`) puts them next to jget, after a check of their SHA-256. No curl and no `sh` script are needed, so it works inside the Jaric app too.
+`jurl tool list` shows them and `jurl tool coderin` (or several: `jurl tool jsh jbox makej`) puts them next to jurl, after a check of their SHA-256. No curl and no `sh` script are needed, so it works inside the Jaric app too.
 
 ## Install
 ```
-jget --install                                                       # a jget you already have puts itself in your commands folder
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jget     # with curl, the first time
+jurl --install                                                       # a jurl you already have puts itself in your commands folder
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jurl     # with curl, the first time
 ```
-Update later with `jget --update`. In jsh: `jc install jget`.
+Update later with `jurl --update`. In jsh: `ex install jurl`.
 
 ## A short lesson
-1. Fetch a file: `jget https://example.com/file.zip` (a bar shows the progress; `-q` hides it, `-o name` names the file).
-2. See the tools: `jget tool list`; get one: `jget tool mujic` (more than one: `jget tool jsh jbox jc`).
-3. Libraries of the language: `jget -li list`, `jget -li install deflate`, then `#import <deflate>`.
-4. Open an archive: `jget untar FILE.tar.gz`.
-5. A script from the net: `jget -sh URL` or `jget -jsh URL` shows the first lines and asks before it runs (`jaric setting`: run scripts from the net).
+1. Fetch a file: `jurl https://example.com/file.zip` (a bar shows the progress; `-q` hides it, `-o name` names the file).
+2. See the tools: `jurl tool list`; get one: `jurl tool mujic` (more than one: `jurl tool jsh jbox jc`).
+3. Libraries of the language: `jurl -li list`, `jurl -li install deflate`, then `#import <deflate>`.
+4. Open an archive: `jurl untar FILE.tar.gz`.
+5. A script from the net: `jurl -sh URL` or `jurl -jsh URL` shows the first lines and asks before it runs (`jaric setting`: run scripts from the net).
 
 License: the license of the repository (the file `LICENSE` at the root of Jcmp-Tools). Build: `J2K_PATH=path sh build.sh` (the library deflate). Test: `sh test.sh`.

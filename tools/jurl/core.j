@@ -1,4 +1,4 @@
-// core.j: what jget and jc share: the HTTPS client (TLS 1.3), downloads with a progress bar and checks, tar, small helpers. (jget is the program that downloads; jc installs the tools and the libraries with it.)
+// core.j: what jurl and jc share: the HTTPS client (TLS 1.3), downloads with a progress bar and checks, tar, small helpers. (jurl is the program that downloads; ex installs the tools and the libraries with it.)
 
 
 i64 g_quiet;                 // -q: no progress bar
@@ -80,7 +80,7 @@ String url_decode(String s) {
 bool put_in_place(String part, String to) {
     i64 r = Sys::rename(part.c(), to.c());
     if r < 0 {
-        err("jget: cannot write " + to + ": " + Error::reason(r) + "\n");
+        err("jurl: cannot write " + to + ": " + Error::reason(r) + "\n");
         Sys::unlink(part.c());
         return false;
     }
@@ -108,13 +108,13 @@ bool download_external(String address, String to, bool quiet) {
         w.push(address);
         code = run_prog("wget", w);
         if code == 127 {
-            err("jget: neither curl nor wget was found; jget fetches http:// and https:// addresses by itself, but this one failed and the other kinds of address need curl or wget: " + address + "\n");
+            err("jurl: neither curl nor wget was found; jurl fetches http:// and https:// addresses by itself, but this one failed and the other kinds of address need curl or wget: " + address + "\n");
             return false;
         }
     }
     if code != 0 {
         if to != "-" { Sys::unlink(target.c()); }
-        err("jget: cannot fetch " + address + " (exit code " + str(code) + ")\n");
+        err("jurl: cannot fetch " + address + " (exit code " + str(code) + ")\n");
         return false;
     }
     if to == "-" { return true; }
@@ -145,13 +145,13 @@ bool download_one(String address, String to, bool quiet) {
         }
         // the server answered with an error (curl would get the same answer), or the certificate was refused
         if native_err.starts_with("HTTP ") || security_refusal(native_err) {
-            err("jget: " + native_err + "\n");
+            err("jurl: " + native_err + "\n");
             return false;
         }
     }
     // other addresses (file://, ftp://), and a failure of the native client that curl or wget may do better (a server with an older TLS)
     if download_external(address, to, quiet) { return true; }
-    if native_err.len > 0 { err("jget: " + native_err + "\n"); }
+    if native_err.len > 0 { err("jurl: " + native_err + "\n"); }
     return false;
 }
 
@@ -169,7 +169,7 @@ bool download(String spec, String to, bool quiet) {
 bool make_dir(String dir) {
     switch Dir::make_all(dir) {
         Result::Ok(x): return true;
-        Result::Err(e): { err("jget: cannot make the folder " + dir + ": " + e.message + "\n"); return false; }
+        Result::Err(e): { err("jurl: cannot make the folder " + dir + ": " + e.message + "\n"); return false; }
     }
     return false;
 }
@@ -199,12 +199,12 @@ String default_bin_dir() {
 // copy the file `from` to `to` (to.new first, then renamed), with the permissions of an executable; any bytes
 bool install_file(String from, String to) {
     i64 in = Sys::open_read(from.c());
-    if in < 0 { err("jget: cannot read " + from + ": " + Error::reason(in) + "\n"); return false; }
+    if in < 0 { err("jurl: cannot read " + from + ": " + Error::reason(in) + "\n"); return false; }
     String tmp = to + ".new";
     i64 out = Sys::open(tmp.c(), 577, 493);
     if out < 0 {
         Sys::close(in);
-        err("jget: cannot write " + tmp + ": " + Error::reason(out) + "\n");
+        err("jurl: cannot write " + tmp + ": " + Error::reason(out) + "\n");
         return false;
     }
     char buf[8192];
@@ -225,7 +225,7 @@ bool install_file(String from, String to) {
     Sys::close(out);
     if !ok {
         Sys::unlink(tmp.c());
-        err("jget: cannot copy " + from + "\n");
+        err("jurl: cannot copy " + from + "\n");
         return false;
     }
     Sys::chmod(tmp.c(), 493);
@@ -256,18 +256,18 @@ i64 tar_number(char^ p, i64 len) {
 // a tar that is packed with gzip (the files of a tool, a .tar.gz): unpacked next to itself first, then read as a tar
 bool untar(String path, String dir) {
     i64 g = Sys::open_read(path.c());
-    if g < 0 { err("jget: cannot read " + path + "\n"); return false; }
+    if g < 0 { err("jurl: cannot read " + path + "\n"); return false; }
     char magic[2];
     i64 got = Sys::read(g, @magic, 2);
     Sys::close(g);
     if got == 2 && (magic[0] & 255) == 31 && (magic[1] & 255) == 139 {
         Result<String, Error> rz = Fs::read_bytes(path);
-        if !rz.is_ok() { err("jget: cannot read " + path + "\n"); return false; }
+        if !rz.is_ok() { err("jurl: cannot read " + path + "\n"); return false; }
         bool zok = false;
         String plain = Gzip::unpack(rz.take(), @zok);
-        if !zok { err("jget: the gzip file " + path + " is damaged\n"); return false; }
+        if !zok { err("jurl: the gzip file " + path + " is damaged\n"); return false; }
         String tmp = path + ".plain";
-        if !Fs::write_bytes(tmp, plain).is_ok() { err("jget: cannot write " + tmp + "\n"); return false; }
+        if !Fs::write_bytes(tmp, plain).is_ok() { err("jurl: cannot write " + tmp + "\n"); return false; }
         plain = "";
         bool good = untar_plain(tmp, dir);
         Fs::remove(tmp);
@@ -278,7 +278,7 @@ bool untar(String path, String dir) {
 
 bool untar_plain(String path, String dir) {
     i64 fd = Sys::open_read(path.c());
-    if fd < 0 { err("jget: cannot read " + path + "\n"); return false; }
+    if fd < 0 { err("jurl: cannot read " + path + "\n"); return false; }
     char h[512];
     char blk[4096];
     bool ok = true;
@@ -296,7 +296,7 @@ bool untar_plain(String path, String dir) {
         i64 kind = h[156] & 255;
         bool bad = name.len == 0 || name[0] == '/';
         for i in 0..name.len { if name[i] == '.' && i + 1 < name.len && name[i + 1] == '.' { bad = true; } }
-        if bad { err("jget: a file name in the tar is not allowed: " + name + "\n"); ok = false; break; }
+        if bad { err("jurl: a file name in the tar is not allowed: " + name + "\n"); ok = false; break; }
         String full = dir + "/" + name;
         if kind == '5' || name[name.len - 1] == '/' {
             if !make_dir(full) { ok = false; }
@@ -305,7 +305,7 @@ bool untar_plain(String path, String dir) {
             for i in 0..full.len { if full[i] == '/' { slash = i; } }
             if slash > 0 { make_dir(full.slice(0, slash)); }
             i64 out = Sys::open_write(full.c());
-            if out < 0 { err("jget: cannot write " + full + "\n"); ok = false; break; }
+            if out < 0 { err("jurl: cannot write " + full + "\n"); ok = false; break; }
             i64 left = size;
             while left > 0 {
                 i64 n = left;

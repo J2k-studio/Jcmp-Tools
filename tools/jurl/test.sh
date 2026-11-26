@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# test.sh [JCMP] -- build jget with the compiler JCMP (default: jcmp) and test it. Prints PASS or FAIL lines; the exit code is the number of failures.
+# test.sh [JCMP] -- build jurl with the compiler JCMP (default: jcmp) and test it. Prints PASS or FAIL lines; the exit code is the number of failures.
 # Needs: jcmp with its Library (JCMP_LIB if the library is not next to it), python3 (a local web server for the http:// tests), sha256sum.
 cd "$(dirname "$0")" || exit 1
 HERE=$PWD
@@ -10,12 +10,12 @@ FAILS=0
 ok()  { echo "PASS  $1"; }
 bad() { echo "FAIL  $1"; FAILS=$((FAILS+1)); }
 t()   { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
-# jget imports the library deflate (jget -li install deflate, or the folder of the Jcmp sources: build/libs)
+# jurl imports the library deflate (jurl -li install deflate, or the folder of the Jcmp sources: build/libs)
 [ -z "${J2K_PATH:-}" ] && [ -d "$HOME/Jcmp/build/libs" ] && export J2K_PATH="$HOME/Jcmp/build/libs"
-$JCMP jurl.jk -o "$W/jurl" >"$W/build.txt" 2>&1 || { cat "$W/build.txt"; echo "FAIL  jget does not build"; exit 1; }
+$JCMP jurl.jk -o "$W/jurl" >"$W/build.txt" 2>&1 || { cat "$W/build.txt"; echo "FAIL  jurl does not build"; exit 1; }
 J="$W/jurl"
 ( cd "$HERE/../jc" && $JCMP jc.jk -o "$W/jc" ) >"$W/build_jc.txt" 2>&1 || { cat "$W/build_jc.txt"; echo "FAIL  jc does not build"; exit 1; }
-export PATH="$W:$PATH"                                      # jget -li ... and jget tool ... are sent to jc
+export PATH="$W:$PATH"                                      # jurl -li ... and jurl tool ... are sent to jc
 mkdir -p "$W/tz/src/sub"; echo hello > "$W/tz/src/a.txt"; echo deep > "$W/tz/src/sub/b.txt"
 ( cd "$W/tz" && tar czf t.tar.gz src && tar cf t.tar src )
 mkdir "$W/tz/o1" "$W/tz/o2"
@@ -72,11 +72,11 @@ t "run_net = never: the script is not run" '[ -z "$(JGET_CONFIG="$W/never.conf" 
 t "run_net = allow: the script is run" '[ "$(JGET_CONFIG="$W/allow.conf" $J -sh http://127.0.0.1:$PORT/hello.sh one 2>/dev/null)" = "ran with one" ]'
 cat > "$W/ask.py" <<'PY'
 import pty, os, sys, time, select
-answer, jget, url = sys.argv[1], sys.argv[2], sys.argv[3]
+answer, jurl, url = sys.argv[1], sys.argv[2], sys.argv[3]
 pid, fd = pty.fork()
 if pid == 0:
     os.environ['JGET_CONFIG'] = '/nonexistent'
-    os.execv(jget, ['jget', '-sh', url, 'one'])
+    os.execv(jurl, ['jurl', '-sh', url, 'one'])
 out = b''
 asked = False
 end = time.time() + 15
@@ -98,7 +98,7 @@ t "run_net = ask at a terminal: the first lines are shown and n does not run" 'p
 t "run_net = ask at a terminal: y runs it" 'python3 "$W/ask.py" y "$J" http://127.0.0.1:$PORT/hello.sh | tr "\n" " " | grep -q "ASKED RAN"'
 t "-jsh: the script is run by the program jsh, with the arguments" '[ "$(PATH="$W/bin:$PATH" $J -jsh http://127.0.0.1:$PORT/hello.sh two 2>/dev/null | tr "\n" "|")" = "via jsh|ran with two|" ]'
 t "-sh: downloads a script, runs it with the arguments, leaves nothing" '[ "$($J -sh http://127.0.0.1:$PORT/hello.sh one 2>/dev/null)" = "ran with one" ]'
-t "pipe: with no -o the data goes to the output (jget URL | sh)" '[ "$($J -q http://127.0.0.1:$PORT/page.txt)" = "hello jurl" ] && [ ! -e page.txt ]'
+t "pipe: with no -o the data goes to the output (jurl URL | sh)" '[ "$($J -q http://127.0.0.1:$PORT/page.txt)" = "hello jurl" ] && [ ! -e page.txt ]'
 t "pipe: a script goes to sh and runs" '[ "$($J -q http://127.0.0.1:$PORT/hello.sh | sh -s one)" = "ran with one" ]'
 t "download: no .part file is left" '[ -z "$(ls | grep part)" ]'
 t "download: an error status fails and leaves no file" '! $J -q -O http://127.0.0.1:$PORT/missing.bin 2>/dev/null && [ ! -e missing.bin ]'
@@ -118,7 +118,7 @@ t "libraries: unstall (uninstall and remove also work)" '$J -li unstall twice >/
 unset JGET_INDEX JGET_LIB
 if command -v openssl >/dev/null 2>&1; then
     # https against a server of our own: a CA made here, a certificate for localhost
-    (cd "$W/www" && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout ca.key -out ca.pem -days 2 -subj "/CN=jget test CA" -addext "basicConstraints=critical,CA:TRUE" >/dev/null 2>&1 &&
+    (cd "$W/www" && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout ca.key -out ca.pem -days 2 -subj "/CN=jurl test CA" -addext "basicConstraints=critical,CA:TRUE" >/dev/null 2>&1 &&
      openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout key.pem -out leaf.csr -subj "/CN=localhost" >/dev/null 2>&1 &&
      printf 'subjectAltName=DNS:localhost\nbasicConstraints=CA:FALSE\n' > leaf.ext &&
      openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out cert.pem -days 2 -sha256 -extfile leaf.ext >/dev/null 2>&1)
@@ -134,7 +134,7 @@ else
     echo "SKIP  https tests (no openssl here)"
 fi
 kill $SRV 2>/dev/null
-# jget tool update / unstall against a mirror on this machine (JCMPTOOLS_RAW, JCMPTOOLS_DL): update = jsh and the installed tools that have a newer version
+# jurl tool update / unstall against a mirror on this machine (JCMPTOOLS_RAW, JCMPTOOLS_DL): update = jsh and the installed tools that have a newer version
 M="$W/mirror"; mkdir -p "$M/tools/jsh" "$M/tools/foo" "$M/tools/bar" "$M/dl/jsh-v0.2.0" "$M/dl/foo-v1.0.0" "$M/dl/bar-v1.0.0"
 printf '# tools\njsh|the shell\nfoo|a tool\nbar|another tool\n' > "$M/tools.txt"
 printf 'jsh 0.2.0\nfoo 1.0.0\nbar 1.0.0\n' > "$M/versions.txt"
@@ -146,5 +146,5 @@ printf '#!/bin/sh\necho "jsh 0.1.0"\n' > "$TB/jsh"; chmod 755 "$TB/jsh"
 printf '#!/bin/sh\necho "foo 1.0.0"\n' > "$TB/foo"; chmod 755 "$TB/foo"
 TE="JCMPTOOLS_RAW=file://$M JCMPTOOLS_DL=file://$M/dl"
 cd / ; rm -rf "$W"
-echo "jget: $FAILS failures"
+echo "jurl: $FAILS failures"
 exit $FAILS

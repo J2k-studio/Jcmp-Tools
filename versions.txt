@@ -10,7 +10,7 @@ jamanager 0.3.0
 jaric-os 0.14.0
 jash 0.1.0
 jbox 0.15.0
-jc 0.5.7
+jc 0.6.0
 jcmp 1.2.10.0
 jearlink 0.2.0
 jfile 0.3.0
@@ -22,7 +22,7 @@ jpty 0.1.1
 jrawser 0.1.0
 jsh 0.12.11
 jstore 0.2.0
-jurl 0.1.0
+jurl 0.1.1
 jvp4 0.1.0
 jx86 0.1.0
 learnj 0.5.0

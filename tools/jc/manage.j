@@ -194,12 +194,12 @@ i64 cmd_installed() {
 // where the files of Jcmp-Tools are: the repository (raw) and the releases; JCMPTOOLS_RAW and JCMPTOOLS_DL name others (a mirror, the tests)
 String tools_raw() {
     switch Env::get("JCMPTOOLS_RAW") { Option::Some(v): { if v.len > 0 { return v; } } Option::None: { } }
-    return "https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main";
+    return "https://raw.githubusercontent.com/J2k-studio/ex-pkg/main";
 }
 
 String tools_dl() {
     switch Env::get("JCMPTOOLS_DL") { Option::Some(v): { if v.len > 0 { return v; } } Option::None: { } }
-    return "https://github.com/J2k-studio/Jcmp-Tools/releases/download";
+    return "https://github.com/J2k-studio/ex-pkg/releases/download";
 }
 
 // ---- ex update / unstall
@@ -465,4 +465,37 @@ i64 cmd_library(String[] av, i64 at) {
         return cmd_remove(name);
     }
     return usage();
+}
+
+// ex pack list | ex pack install NAME: a pack is a list of tools and packages (pack/NAME.txt of ex-pkg); every line is installed
+i64 cmd_pack(String[] a) {
+    String me = self_path();
+    if me.len == 0 { err("ex: cannot find where this program is\n"); return 1; }
+    String tmp = me + ".pack";
+    if a.len < 3 || a[2] == "list" {
+        if !download(tools_raw() + "/pack/index.txt", tmp, true) { err("ex: cannot fetch the list of packs\n"); return 1; }
+        switch Fs::read_text(tmp) {
+            Result::Ok(t): { String[] ls = t.split("\n"); for i in 0..ls.len { String[] f = ls[i].split("|"); if f.len >= 2 { jout << f[0] << "  " << f[1] << "\n"; } } }
+            Result::Err(e): { }
+        }
+        Fs::remove(tmp);
+        jout << "(ex pack install NAME)\n";
+        return 0;
+    }
+    if a[2] != "install" || a.len < 4 { err("usage: ex pack list | ex pack install NAME\n"); return 1; }
+    String name = a[3] + "";
+    if !download(tools_raw() + "/pack/" + name + ".txt", tmp, true) { err("ex: there is no pack named " + name + " (ex pack list)\n"); return 1; }
+    String[] w = arr(16);
+    w.push("jc");
+    w.push("install");
+    switch Fs::read_text(tmp) {
+        Result::Ok(t): {
+            String[] ls = t.split("\n");
+            for i in 0..ls.len { String n = ls[i].trim(); if n.len > 0 && n[0] != '#' { w.push(n + ""); } }
+        }
+        Result::Err(e): { }
+    }
+    Fs::remove(tmp);
+    if w.len < 3 { err("ex: the pack " + name + " is empty\n"); return 1; }
+    return cmd_tool(w, 1);
 }
