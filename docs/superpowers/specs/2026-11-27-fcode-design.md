@@ -1,4 +1,6 @@
-# coderin next: a modern code editor for the terminal (design, waiting for the owner's approval)
+# fcode: a modern code editor for the terminal (design, waiting for the owner's approval)
+
+Name: **fcode** (the owner, 2026-11-27). It takes the place of coderin, the editor of today.
 
 ## Intent
 The owner moves their work into exshell and writes code there. They want an editor like VS Code in the terminal: the same keys and command
@@ -55,14 +57,15 @@ app); everywhere else F1 opens the palette.
 
 ## Stages (each one is released and usable)
 1. **Daily editor**: the parts above without extensions: tabs, tree, quick open, palette, many cursors, replace, the new keys. It replaces coderin
-   only when it does everything today's coderin does (save, find, undo, selection, clipboard, mouse, brackets, run and compile, next error).
-2. **Make it yours**: settings and keybindings, themes and snippets of VS Code, extensions from `ex install coderin-ext-NAME` (today's
+   (the word `coderin` then opens fcode) only when it does everything today's coderin does (save, find, undo, selection, clipboard, mouse, brackets, run and compile, next error).
+2. **Make it yours**: settings and keybindings, themes and snippets of VS Code, extensions from `ex install fcode-ext-NAME` (today's
    `snippets`, `words`, `commands` folders keep working).
 3. **Language help**: LSP, first `clangd` (package clang) and `pylsp` (python); a server for Jex later (a language task, paused now).
 4. **Extension commands**: programs that talk to the editor (JSON in and out) to add features.
 
 ## Constraints and choices (mine, say if wrong)
-* Written in Jex, one static program, still called `coderin`; today's version stays until stage 1 is complete.
+* Written in Jex, one static program, `fcode`; coderin stays installed and unchanged until stage 1 is complete. fcode reads the settings and the
+  extension folders of coderin (`~/.config/coderin/`) when it has none of its own (`~/.config/fcode/`).
 * Tests drive it through a pseudo terminal and read the screen with exshell's own terminal at 40 and 80 columns.
 * Every release comes with its lesson in the documents.
 
