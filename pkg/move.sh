@@ -19,7 +19,12 @@ for d in walk(idx):
     m = re.match(r'https://github.com/J2k-studio/Jcmp-pkg/releases/download/([^/]+)/(.+)$', u)
     if not m or done >= n: continue
     tag, fn = m.groups(); tmp = os.path.join(os.environ.get('TMPDIR', '/tmp'), fn)
-    urllib.request.urlretrieve(u, tmp)
+    ok = False
+    for attempt in range(4):                                  # a big file can stop half way on a phone: try again (gh resumes nothing, so it starts over)
+        if os.path.exists(tmp): os.remove(tmp)
+        r = subprocess.call(['gh', 'release', 'download', tag, '-p', fn, '-D', os.path.dirname(tmp), '--clobber', '-R', 'J2k-studio/Jcmp-pkg'])
+        if r == 0 and os.path.exists(tmp): ok = True; break
+    if not ok: sys.exit('could not download ' + fn)
     if 'sha256' in d and hashlib.sha256(open(tmp, 'rb').read()).hexdigest() != d['sha256']: sys.exit('sha256 differs: ' + fn)
     if subprocess.call(['gh', 'release', 'view', tag, '-R', 'J2k-studio/ex-pkg'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
         subprocess.check_call(['gh', 'release', 'create', tag, '-R', 'J2k-studio/ex-pkg', '-t', tag, '-n', 'moved from Jcmp-pkg'])

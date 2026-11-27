@@ -1,734 +1,734 @@
 [
- {
-  "name": "ca-certificates",
-  "version": "1:2026.10.20-1",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/ca-certificates-1.2026.10.20-1-aarch64.tar.gz",
-  "sha256": "8ba55f7203958b31f50f1c9700382bc1c009eabb7e7ca97e6b82eea440c7aaf1",
-  "size": 115900,
-  "unpacked": 200116,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "clang",
-  "version": "21.1.8-3",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/clang-21.1.8-3-aarch64.tar.gz",
-  "sha256": "8707062a41f6fa5fababafa26588c9d1b2b6cbd9ad73e17192e62b240e9146ac",
-  "size": 49404681,
-  "unpacked": 188453903,
-  "depends": [
-   "libcompiler-rt",
-   "lld",
-   "llvm",
-   "ndk-sysroot",
-   "libllvm"
-  ],
-  "bin": [
-   "bin/aarch64-linux-android-clang",
-   "bin/aarch64-linux-android-clang++",
-   "bin/aarch64-linux-android-cpp",
-   "bin/aarch64-linux-android-g++",
-   "bin/aarch64-linux-android-gcc",
-   "bin/amdgpu-arch",
-   "bin/analyze-build",
-   "bin/c++",
-   "bin/cc",
-   "bin/clang",
-   "bin/clang++",
-   "bin/clang++-21",
-   "bin/clang-21",
-   "bin/clang-apply-replacements",
-   "bin/clang-change-namespace",
-   "bin/clang-check",
-   "bin/clang-cl",
-   "bin/clang-cpp",
-   "bin/clang-doc",
-   "bin/clang-extdef-mapping",
-   "bin/clang-format",
-   "bin/clang-include-cleaner",
-   "bin/clang-include-fixer",
-   "bin/clang-installapi",
-   "bin/clang-linker-wrapper",
-   "bin/clang-move",
-   "bin/clang-nvlink-wrapper",
-   "bin/clang-offload-bundler",
-   "bin/clang-offload-packager",
-   "bin/clang-query",
-   "bin/clang-refactor",
-   "bin/clang-reorder-fields",
-   "bin/clang-repl",
-   "bin/clang-scan-deps",
-   "bin/clang-sycl-linker",
-   "bin/clang-tblgen",
-   "bin/clang-tidy",
-   "bin/clangd",
-   "bin/cpp",
-   "bin/diagtool",
-   "bin/find-all-symbols",
-   "bin/g++",
-   "bin/gcc",
-   "bin/git-clang-format",
-   "bin/hmaptool",
-   "bin/intercept-build",
-   "bin/modularize",
-   "bin/nvptx-arch",
-   "bin/offload-arch",
-   "bin/pp-trace",
-   "bin/run-clang-tidy",
-   "bin/scan-build",
-   "bin/scan-build-py",
-   "bin/scan-view"
-  ]
- },
- {
-  "name": "dropbear",
-  "version": "2026.94",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-dropbear/dropbear-2026.94-aarch64.tar.gz",
-  "sha256": "6aadf725e9710a356da3b608ca3f94c2964f4d78da0f9eec3cc07198a41440b0",
-  "size": 182682,
-  "unpacked": 691830,
-  "depends": [
-   "termux-auth",
-   "zlib"
-  ],
-  "bin": [
-   "bin/dbclient",
-   "bin/dropbear",
-   "bin/dropbearconvert",
-   "bin/dropbearkey",
-   "bin/dropbearmulti",
-   "bin/scp",
-   "bin/ssh"
-  ]
- },
- {
-  "name": "gdbm",
-  "version": "1.26-1",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/gdbm-1.26-1-aarch64.tar.gz",
-  "sha256": "01bdb0fcada43dd487134081f0cd236bdab6162ad0020f6f947eed39a43cb96d",
-  "size": 191010,
-  "unpacked": 506697,
-  "depends": [
-   "readline"
-  ],
-  "bin": [
-   "bin/gdbm_dump",
-   "bin/gdbm_load",
-   "bin/gdbmtool"
-  ]
- },
- {
-  "name": "git",
-  "version": "2.56.0",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/git-2.56.0-aarch64.tar.gz",
-  "sha256": "397389a065c5e6c640868729e852268e045e2a1b09df0a4e574074b6ba1be4fa",
-  "size": 12835297,
-  "unpacked": 573826458,
-  "depends": [
-   "libcurl",
-   "libexpat",
-   "libiconv",
-   "less",
-   "openssl",
-   "pcre2",
-   "zlib"
-  ],
-  "bin": [
-   "bin/git",
-   "bin/git-cvsserver",
-   "bin/git-receive-pack",
-   "bin/git-shell",
-   "bin/git-upload-archive",
-   "bin/git-upload-pack",
-   "bin/scalar"
-  ]
- },
- {
-  "name": "less",
-  "version": "710",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/less-710-aarch64.tar.gz",
-  "sha256": "f631868adbd7ad8409920ea3c3f6db66874b76fb6b35e4c9cdcde548dff91c7b",
-  "size": 170977,
-  "unpacked": 354729,
-  "depends": [
-   "ncurses",
-   "pcre2"
-  ],
-  "bin": [
-   "bin/less"
-  ]
- },
- {
-  "name": "libandroid-glob",
-  "version": "0.6-3",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libandroid-glob-0.6-3-aarch64.tar.gz",
-  "sha256": "ac8d2377797b5ae6a42925d44c7d9c0b10cfa98b480b05da49769ad3efb54129",
-  "size": 7482,
-  "unpacked": 16427,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libandroid-posix-semaphore",
-  "version": "0.1-4",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libandroid-posix-semaphore-0.1-4-aarch64.tar.gz",
-  "sha256": "e7000351eca4208fe101ed45a01450b48ffb849a18f5bb0bcf5600858b70d311",
-  "size": 4020,
-  "unpacked": 8347,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libandroid-support",
-  "version": "29-1",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libandroid-support-29-1-aarch64.tar.gz",
-  "sha256": "55475215d8455ace2db817a64dceb6e76d9c567a9707670000af446a52ca3735",
-  "size": 12563,
-  "unpacked": 29715,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libbz2",
-  "version": "1.0.8-8",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libbz2-1.0.8-8-aarch64.tar.gz",
-  "sha256": "2db48455120af04d24f83a0b5f8920aca5a8999d82eef48b6dfbbd8e94bff926",
-  "size": 31109,
-  "unpacked": 160008,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libc++",
-  "version": "30",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libc++-30-aarch64.tar.gz",
-  "sha256": "037facac071a765d5fd5eabdcbf218248dacb00a1c59296988b83aa8c7dc1f30",
-  "size": 463779,
-  "unpacked": 1423696,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libcompiler-rt",
-  "version": "21.1.8-3",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libcompiler-rt-21.1.8-3-aarch64.tar.gz",
-  "sha256": "2a73edf02ba184edf280ca1fd40f3d648a211931132ffca23859c103178fdd8c",
-  "size": 7558336,
-  "unpacked": 34573033,
-  "depends": [
-   "libc++"
-  ],
-  "bin": []
- },
- {
-  "name": "libcrypt",
-  "version": "0.2-6",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libcrypt-0.2-6-aarch64.tar.gz",
-  "sha256": "0926e402a0a25e89da2696982221ee53ef8bcd16e773e23ce11bba67d8330186",
-  "size": 9983,
-  "unpacked": 18904,
-  "depends": [
-   "openssl"
-  ],
-  "bin": []
- },
- {
-  "name": "libcurl",
-  "version": "8.23.0",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/libcurl-8.23.0-aarch64.tar.gz",
-  "sha256": "aa693471c14c7c0507ef5916d86d65b911fcedfee3298281a1e20c6a2a95299b",
-  "size": 1168690,
-  "unpacked": 1926280,
-  "depends": [
-   "libnghttp2",
-   "libnghttp3",
-   "libngtcp2",
-   "libssh2",
-   "openssl",
-   "zlib"
-  ],
-  "bin": [
-   "bin/curl-config",
-   "bin/wcurl"
-  ]
- },
- {
-  "name": "libexpat",
-  "version": "2.9.0",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libexpat-2.9.0-aarch64.tar.gz",
-  "sha256": "a02598c11e653ff0c2c79c09349fe8efaefae7e3827fc53b05515448ddeae8a2",
-  "size": 124595,
-  "unpacked": 630130,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libffi",
-  "version": "3.8.0",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libffi-3.8.0-aarch64.tar.gz",
-  "sha256": "88e4e7f54d9dfb177f6d5de18b418cc215163bcea19db1d5102506fbe4a25ff9",
-  "size": 44982,
-  "unpacked": 159096,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libiconv",
-  "version": "1.19",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libiconv-1.19-aarch64.tar.gz",
-  "sha256": "a12d61fe11f7dce1ba08c9c0655e2342de70a61998227181c633f5221be31e51",
-  "size": 763546,
-  "unpacked": 1153208,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libllvm",
-  "version": "21.1.8-3",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libllvm-21.1.8-3-aarch64.tar.gz",
-  "sha256": "81e626f4e068c2b584c93c1423285831990686de212bdc0bc5b870b0cbdfdff9",
-  "size": 48724184,
-  "unpacked": 303100764,
-  "depends": [
-   "libc++",
-   "libffi",
-   "libxml2",
-   "ncurses",
-   "zlib",
-   "zstd"
-  ],
-  "bin": [
-   "bin/dlltool",
-   "bin/dwp",
-   "bin/readtapi",
-   "bin/windres"
-  ]
- },
- {
-  "name": "liblzma",
-  "version": "5.8.4",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/liblzma-5.8.4-aarch64.tar.gz",
-  "sha256": "79da344b725970f77bc01953bc202094238d9daa85f9033467fd09444a24055c",
-  "size": 243162,
-  "unpacked": 1063561,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libnghttp2",
-  "version": "1.70.0",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/libnghttp2-1.70.0-aarch64.tar.gz",
-  "sha256": "b1d92d2b87e3203af574d683dbe41536e1b1e57c9b4d96bb63ef45d6eb7f34e7",
-  "size": 126490,
-  "unpacked": 456920,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libnghttp3",
-  "version": "1.18.0",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/libnghttp3-1.18.0-aarch64.tar.gz",
-  "sha256": "1b87482f663eaa9dfa63c827105031ecd909cf7a80a8e29b10c8017280b232e1",
-  "size": 92720,
-  "unpacked": 281225,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "libngtcp2",
-  "version": "1.25.0",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/libngtcp2-1.25.0-aarch64.tar.gz",
-  "sha256": "69da58b50a14a208b4455604f67ea43c0336acb09f7168b9f552f085ec64fa19",
-  "size": 225970,
-  "unpacked": 712774,
-  "depends": [
-   "openssl"
-  ],
-  "bin": []
- },
- {
-  "name": "libsqlite",
-  "version": "3.54.1",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libsqlite-3.54.1-aarch64.tar.gz",
-  "sha256": "a801d126cd7fc2f82d425247c5c2a1b99c91203694eefa144c586e19924be4f6",
-  "size": 1572887,
-  "unpacked": 5702882,
-  "depends": [
-   "zlib"
-  ],
-  "bin": []
- },
- {
-  "name": "libssh2",
-  "version": "1.11.1-2",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/libssh2-1.11.1-2-aarch64.tar.gz",
-  "sha256": "3cedb8907caa244956a9f5af7ec19515d939ae70667fd69a643629a8b5c1f04e",
-  "size": 251099,
-  "unpacked": 445130,
-  "depends": [
-   "openssl",
-   "zlib"
-  ],
-  "bin": []
- },
- {
-  "name": "libxml2",
-  "version": "2.15.4-1",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libxml2-2.15.4-1-aarch64.tar.gz",
-  "sha256": "9f12524ed6d5841ff3a31e6de91d66727582606c7067c8001ce575fe46c155d5",
-  "size": 582395,
-  "unpacked": 3680706,
-  "depends": [
-   "libandroid-glob",
-   "libiconv",
-   "zlib"
-  ],
-  "bin": [
-   "bin/xml2-config"
-  ]
- },
- {
-  "name": "lld",
-  "version": "21.1.8-3",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/lld-21.1.8-3-aarch64.tar.gz",
-  "sha256": "cd9267479ebe9c7c6c282e8eef0d772835cd4264f455dd66560a8ef1ab3e6e1b",
-  "size": 5617882,
-  "unpacked": 55982706,
-  "depends": [
-   "libllvm"
-  ],
-  "bin": [
-   "bin/aarch64-linux-android-ld",
-   "bin/ld",
-   "bin/ld.lld",
-   "bin/ld64.lld",
-   "bin/lld",
-   "bin/lld-link",
-   "bin/wasm-ld"
-  ]
- },
- {
-  "name": "llvm",
-  "version": "21.1.8-3",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/llvm-21.1.8-3-aarch64.tar.gz",
-  "sha256": "a6f509ddc8b2f5c0a1f7a1097da2f280873ac9639e708a3a2084919dcd743bdd",
-  "size": 24410001,
-  "unpacked": 82502021,
-  "depends": [
-   "libllvm"
-  ],
-  "bin": [
-   "bin/aarch64-linux-android-ar",
-   "bin/aarch64-linux-android-nm",
-   "bin/aarch64-linux-android-objdump",
-   "bin/aarch64-linux-android-ranlib",
-   "bin/aarch64-linux-android-readelf",
-   "bin/aarch64-linux-android-strip",
-   "bin/addr2line",
-   "bin/ar",
-   "bin/bugpoint",
-   "bin/c++filt",
-   "bin/dsymutil",
-   "bin/llc",
-   "bin/lli",
-   "bin/llvm-addr2line",
-   "bin/llvm-ar",
-   "bin/llvm-as",
-   "bin/llvm-bcanalyzer",
-   "bin/llvm-bitcode-strip",
-   "bin/llvm-c-test",
-   "bin/llvm-cat",
-   "bin/llvm-cfi-verify",
-   "bin/llvm-cgdata",
-   "bin/llvm-config",
-   "bin/llvm-cov",
-   "bin/llvm-ctxprof-util",
-   "bin/llvm-cvtres",
-   "bin/llvm-cxxdump",
-   "bin/llvm-cxxfilt",
-   "bin/llvm-cxxmap",
-   "bin/llvm-debuginfo-analyzer",
-   "bin/llvm-debuginfod",
-   "bin/llvm-debuginfod-find",
-   "bin/llvm-diff",
-   "bin/llvm-dis",
-   "bin/llvm-dlltool",
-   "bin/llvm-dwarfdump",
-   "bin/llvm-dwarfutil",
-   "bin/llvm-dwp",
-   "bin/llvm-exegesis",
-   "bin/llvm-extract",
-   "bin/llvm-gsymutil",
-   "bin/llvm-ifs",
-   "bin/llvm-install-name-tool",
-   "bin/llvm-jitlink",
-   "bin/llvm-lib",
-   "bin/llvm-libtool-darwin",
-   "bin/llvm-link",
-   "bin/llvm-lipo",
-   "bin/llvm-lto",
-   "bin/llvm-lto2",
-   "bin/llvm-mc",
-   "bin/llvm-mca",
-   "bin/llvm-ml",
-   "bin/llvm-ml64",
-   "bin/llvm-modextract",
-   "bin/llvm-mt",
-   "bin/llvm-nm",
-   "bin/llvm-objcopy",
-   "bin/llvm-objdump",
-   "bin/llvm-opt-report",
-   "bin/llvm-otool",
-   "bin/llvm-pdbutil",
-   "bin/llvm-profdata",
-   "bin/llvm-profgen",
-   "bin/llvm-ranlib",
-   "bin/llvm-rc",
-   "bin/llvm-readelf",
-   "bin/llvm-readobj",
-   "bin/llvm-readtapi",
-   "bin/llvm-reduce",
-   "bin/llvm-remarkutil",
-   "bin/llvm-rtdyld",
-   "bin/llvm-sim",
-   "bin/llvm-size",
-   "bin/llvm-split",
-   "bin/llvm-stress",
-   "bin/llvm-strings",
-   "bin/llvm-strip",
-   "bin/llvm-symbolizer",
-   "bin/llvm-tblgen",
-   "bin/llvm-tli-checker",
-   "bin/llvm-undname",
-   "bin/llvm-windres",
-   "bin/llvm-xray",
-   "bin/nm",
-   "bin/objcopy",
-   "bin/objdump",
-   "bin/opt",
-   "bin/ranlib",
-   "bin/readelf",
-   "bin/reduce-chunk-list",
-   "bin/sancov",
-   "bin/sanstats",
-   "bin/size",
-   "bin/split-file",
-   "bin/strings",
-   "bin/strip",
-   "bin/verify-uselistorder"
-  ]
- },
- {
-  "name": "ncurses",
-  "version": "6.6.20260307+really6.5.20250830",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/ncurses-6.6.20260307+really6.5.20250830-aarch64.tar.gz",
-  "sha256": "7ebadc97126342b43f6d7ceb54de4067bb8fc32e7034f07577253e019e8ccd92",
-  "size": 628293,
-  "unpacked": 11365405,
-  "depends": [],
-  "bin": [
-   "bin/clear",
-   "bin/ncursesw6-config",
-   "bin/reset",
-   "bin/tset"
-  ]
- },
- {
-  "name": "ncurses-ui-libs",
-  "version": "6.6.20260307+really6.5.20250830",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/ncurses-ui-libs-6.6.20260307+really6.5.20250830-aarch64.tar.gz",
-  "sha256": "3f8d0517abb47a69b4b998cabb4066de22a834e5ce6b87b5071b771da9be9587",
-  "size": 43186,
-  "unpacked": 621028,
-  "depends": [
-   "ncurses"
-  ],
-  "bin": []
- },
- {
-  "name": "ndk-sysroot",
-  "version": "30",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/ndk-sysroot-30-aarch64.tar.gz",
-  "sha256": "b8728ed09786a4588f1aad345a116fc34aa7dd52a213a9dda292c45b56594331",
-  "size": 3268808,
-  "unpacked": 20507466,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "openssl",
-  "version": "1:3.6.5",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/openssl-1.3.6.5-aarch64.tar.gz",
-  "sha256": "5d29492fd5305e6eb7c09aca66985d779516311f3d2bc6da7fa1a9aa197c9d4f",
-  "size": 3186267,
-  "unpacked": 14393768,
-  "depends": [
-   "ca-certificates",
-   "zlib"
-  ],
-  "bin": []
- },
- {
-  "name": "pcre2",
-  "version": "10.49",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/pcre2-10.49-aarch64.tar.gz",
-  "sha256": "00213c4fa406b9337384dfc2be00a5e7dd3015f023f6559592561596869c7fa6",
-  "size": 1526482,
-  "unpacked": 3865265,
-  "depends": [],
-  "bin": [
-   "bin/pcre2-config"
-  ]
- },
- {
-  "name": "python",
-  "version": "3.14.8",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/python-3.14.8-aarch64.tar.gz",
-  "sha256": "18a7adff682346477fea6ff7dbd3ef43518011287a93268aee0d56a00c57da1a",
-  "size": 6857559,
-  "unpacked": 24448990,
-  "depends": [
-   "gdbm",
-   "libandroid-posix-semaphore",
-   "libandroid-support",
-   "libbz2",
-   "libcrypt",
-   "libexpat",
-   "libffi",
-   "liblzma",
-   "libsqlite",
-   "ncurses",
-   "ncurses-ui-libs",
-   "openssl",
-   "readline",
-   "zlib",
-   "zstd"
-  ],
-  "bin": [
-   "bin/py3clean",
-   "bin/py3compile",
-   "bin/pydoc",
-   "bin/pydoc3",
-   "bin/pydoc3.14",
-   "bin/python",
-   "bin/python-config",
-   "bin/python3",
-   "bin/python3-config",
-   "bin/python3.14",
-   "bin/python3.14-config"
-  ]
- },
- {
-  "name": "python-pip",
-  "version": "26.2.2-2",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/python-pip-26.2.2-2-aarch64.tar.gz",
-  "sha256": "748c715480496a3e29dce56d5201b26aba7a6e766918448463227714cdaad44c",
-  "size": 1602578,
-  "unpacked": 5745256,
-  "depends": [
-   "ca-certificates",
-   "python"
-  ],
-  "bin": [
-   "bin/pip",
-   "bin/pip3",
-   "bin/pip3.14"
-  ]
- },
- {
-  "name": "readline",
-  "version": "8.3.6",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/readline-8.3.6-aarch64.tar.gz",
-  "sha256": "8ba757824f63345a12f62c223e8f2e0143b1cfc70b292caacb40cef4dee66ea4",
-  "size": 492798,
-  "unpacked": 2543263,
-  "depends": [
-   "libandroid-support",
-   "ncurses"
-  ],
-  "bin": []
- },
- {
-  "name": "termux-auth",
-  "version": "1.5.0-1",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-dropbear/termux-auth-1.5.0-1-aarch64.tar.gz",
-  "sha256": "dbb25cb717c613836e0ced839a8961614cb71e3d64846b71922aa9a8f1910c12",
-  "size": 7625,
-  "unpacked": 24074,
-  "depends": [
-   "openssl"
-  ],
-  "bin": [
-   "bin/passwd",
-   "bin/pwlogin"
-  ]
- },
- {
-  "name": "zlib",
-  "version": "1.3.2",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/zlib-1.3.2-aarch64.tar.gz",
-  "sha256": "cc75f60cb93b47234e530051b33b47deeb82b171980448e6d85e5593b3eb9efe",
-  "size": 74943,
-  "unpacked": 343338,
-  "depends": [],
-  "bin": []
- },
- {
-  "name": "zstd",
-  "version": "1.5.7-1",
-  "arch": "aarch64",
-  "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/zstd-1.5.7-1-aarch64.tar.gz",
-  "sha256": "e98ba13db60011e5168ebf1999dd22afba56ab45a7024ac0e195920f2f53eb4a",
-  "size": 472326,
-  "unpacked": 3417238,
-  "depends": [
-   "liblzma",
-   "zlib"
-  ],
-  "bin": [
-   "bin/unzstd",
-   "bin/zstd",
-   "bin/zstdcat",
-   "bin/zstdgrep",
-   "bin/zstdless",
-   "bin/zstdmt"
-  ]
- }
+  {
+    "name": "ca-certificates",
+    "version": "1:2026.10.20-1",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/ex-pkg/releases/download/pkg-python-pip/ca-certificates-1.2026.10.20-1-aarch64.tar.gz",
+    "sha256": "8ba55f7203958b31f50f1c9700382bc1c009eabb7e7ca97e6b82eea440c7aaf1",
+    "size": 115900,
+    "unpacked": 200116,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "clang",
+    "version": "21.1.8-3",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/ex-pkg/releases/download/pkg-clang/clang-21.1.8-3-aarch64.tar.gz",
+    "sha256": "8707062a41f6fa5fababafa26588c9d1b2b6cbd9ad73e17192e62b240e9146ac",
+    "size": 49404681,
+    "unpacked": 188453903,
+    "depends": [
+      "libcompiler-rt",
+      "lld",
+      "llvm",
+      "ndk-sysroot",
+      "libllvm"
+    ],
+    "bin": [
+      "bin/aarch64-linux-android-clang",
+      "bin/aarch64-linux-android-clang++",
+      "bin/aarch64-linux-android-cpp",
+      "bin/aarch64-linux-android-g++",
+      "bin/aarch64-linux-android-gcc",
+      "bin/amdgpu-arch",
+      "bin/analyze-build",
+      "bin/c++",
+      "bin/cc",
+      "bin/clang",
+      "bin/clang++",
+      "bin/clang++-21",
+      "bin/clang-21",
+      "bin/clang-apply-replacements",
+      "bin/clang-change-namespace",
+      "bin/clang-check",
+      "bin/clang-cl",
+      "bin/clang-cpp",
+      "bin/clang-doc",
+      "bin/clang-extdef-mapping",
+      "bin/clang-format",
+      "bin/clang-include-cleaner",
+      "bin/clang-include-fixer",
+      "bin/clang-installapi",
+      "bin/clang-linker-wrapper",
+      "bin/clang-move",
+      "bin/clang-nvlink-wrapper",
+      "bin/clang-offload-bundler",
+      "bin/clang-offload-packager",
+      "bin/clang-query",
+      "bin/clang-refactor",
+      "bin/clang-reorder-fields",
+      "bin/clang-repl",
+      "bin/clang-scan-deps",
+      "bin/clang-sycl-linker",
+      "bin/clang-tblgen",
+      "bin/clang-tidy",
+      "bin/clangd",
+      "bin/cpp",
+      "bin/diagtool",
+      "bin/find-all-symbols",
+      "bin/g++",
+      "bin/gcc",
+      "bin/git-clang-format",
+      "bin/hmaptool",
+      "bin/intercept-build",
+      "bin/modularize",
+      "bin/nvptx-arch",
+      "bin/offload-arch",
+      "bin/pp-trace",
+      "bin/run-clang-tidy",
+      "bin/scan-build",
+      "bin/scan-build-py",
+      "bin/scan-view"
+    ]
+  },
+  {
+    "name": "dropbear",
+    "version": "2026.94",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/ex-pkg/releases/download/pkg-dropbear/dropbear-2026.94-aarch64.tar.gz",
+    "sha256": "6aadf725e9710a356da3b608ca3f94c2964f4d78da0f9eec3cc07198a41440b0",
+    "size": 182682,
+    "unpacked": 691830,
+    "depends": [
+      "termux-auth",
+      "zlib"
+    ],
+    "bin": [
+      "bin/dbclient",
+      "bin/dropbear",
+      "bin/dropbearconvert",
+      "bin/dropbearkey",
+      "bin/dropbearmulti",
+      "bin/scp",
+      "bin/ssh"
+    ]
+  },
+  {
+    "name": "gdbm",
+    "version": "1.26-1",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/gdbm-1.26-1-aarch64.tar.gz",
+    "sha256": "01bdb0fcada43dd487134081f0cd236bdab6162ad0020f6f947eed39a43cb96d",
+    "size": 191010,
+    "unpacked": 506697,
+    "depends": [
+      "readline"
+    ],
+    "bin": [
+      "bin/gdbm_dump",
+      "bin/gdbm_load",
+      "bin/gdbmtool"
+    ]
+  },
+  {
+    "name": "git",
+    "version": "2.56.0",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/git-2.56.0-aarch64.tar.gz",
+    "sha256": "397389a065c5e6c640868729e852268e045e2a1b09df0a4e574074b6ba1be4fa",
+    "size": 12835297,
+    "unpacked": 573826458,
+    "depends": [
+      "libcurl",
+      "libexpat",
+      "libiconv",
+      "less",
+      "openssl",
+      "pcre2",
+      "zlib"
+    ],
+    "bin": [
+      "bin/git",
+      "bin/git-cvsserver",
+      "bin/git-receive-pack",
+      "bin/git-shell",
+      "bin/git-upload-archive",
+      "bin/git-upload-pack",
+      "bin/scalar"
+    ]
+  },
+  {
+    "name": "less",
+    "version": "710",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/less-710-aarch64.tar.gz",
+    "sha256": "f631868adbd7ad8409920ea3c3f6db66874b76fb6b35e4c9cdcde548dff91c7b",
+    "size": 170977,
+    "unpacked": 354729,
+    "depends": [
+      "ncurses",
+      "pcre2"
+    ],
+    "bin": [
+      "bin/less"
+    ]
+  },
+  {
+    "name": "libandroid-glob",
+    "version": "0.6-3",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libandroid-glob-0.6-3-aarch64.tar.gz",
+    "sha256": "ac8d2377797b5ae6a42925d44c7d9c0b10cfa98b480b05da49769ad3efb54129",
+    "size": 7482,
+    "unpacked": 16427,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libandroid-posix-semaphore",
+    "version": "0.1-4",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libandroid-posix-semaphore-0.1-4-aarch64.tar.gz",
+    "sha256": "e7000351eca4208fe101ed45a01450b48ffb849a18f5bb0bcf5600858b70d311",
+    "size": 4020,
+    "unpacked": 8347,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libandroid-support",
+    "version": "29-1",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libandroid-support-29-1-aarch64.tar.gz",
+    "sha256": "55475215d8455ace2db817a64dceb6e76d9c567a9707670000af446a52ca3735",
+    "size": 12563,
+    "unpacked": 29715,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libbz2",
+    "version": "1.0.8-8",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libbz2-1.0.8-8-aarch64.tar.gz",
+    "sha256": "2db48455120af04d24f83a0b5f8920aca5a8999d82eef48b6dfbbd8e94bff926",
+    "size": 31109,
+    "unpacked": 160008,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libc++",
+    "version": "30",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libc++-30-aarch64.tar.gz",
+    "sha256": "037facac071a765d5fd5eabdcbf218248dacb00a1c59296988b83aa8c7dc1f30",
+    "size": 463779,
+    "unpacked": 1423696,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libcompiler-rt",
+    "version": "21.1.8-3",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libcompiler-rt-21.1.8-3-aarch64.tar.gz",
+    "sha256": "2a73edf02ba184edf280ca1fd40f3d648a211931132ffca23859c103178fdd8c",
+    "size": 7558336,
+    "unpacked": 34573033,
+    "depends": [
+      "libc++"
+    ],
+    "bin": []
+  },
+  {
+    "name": "libcrypt",
+    "version": "0.2-6",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libcrypt-0.2-6-aarch64.tar.gz",
+    "sha256": "0926e402a0a25e89da2696982221ee53ef8bcd16e773e23ce11bba67d8330186",
+    "size": 9983,
+    "unpacked": 18904,
+    "depends": [
+      "openssl"
+    ],
+    "bin": []
+  },
+  {
+    "name": "libcurl",
+    "version": "8.23.0",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/libcurl-8.23.0-aarch64.tar.gz",
+    "sha256": "aa693471c14c7c0507ef5916d86d65b911fcedfee3298281a1e20c6a2a95299b",
+    "size": 1168690,
+    "unpacked": 1926280,
+    "depends": [
+      "libnghttp2",
+      "libnghttp3",
+      "libngtcp2",
+      "libssh2",
+      "openssl",
+      "zlib"
+    ],
+    "bin": [
+      "bin/curl-config",
+      "bin/wcurl"
+    ]
+  },
+  {
+    "name": "libexpat",
+    "version": "2.9.0",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libexpat-2.9.0-aarch64.tar.gz",
+    "sha256": "a02598c11e653ff0c2c79c09349fe8efaefae7e3827fc53b05515448ddeae8a2",
+    "size": 124595,
+    "unpacked": 630130,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libffi",
+    "version": "3.8.0",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libffi-3.8.0-aarch64.tar.gz",
+    "sha256": "88e4e7f54d9dfb177f6d5de18b418cc215163bcea19db1d5102506fbe4a25ff9",
+    "size": 44982,
+    "unpacked": 159096,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libiconv",
+    "version": "1.19",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libiconv-1.19-aarch64.tar.gz",
+    "sha256": "a12d61fe11f7dce1ba08c9c0655e2342de70a61998227181c633f5221be31e51",
+    "size": 763546,
+    "unpacked": 1153208,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libllvm",
+    "version": "21.1.8-3",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libllvm-21.1.8-3-aarch64.tar.gz",
+    "sha256": "81e626f4e068c2b584c93c1423285831990686de212bdc0bc5b870b0cbdfdff9",
+    "size": 48724184,
+    "unpacked": 303100764,
+    "depends": [
+      "libc++",
+      "libffi",
+      "libxml2",
+      "ncurses",
+      "zlib",
+      "zstd"
+    ],
+    "bin": [
+      "bin/dlltool",
+      "bin/dwp",
+      "bin/readtapi",
+      "bin/windres"
+    ]
+  },
+  {
+    "name": "liblzma",
+    "version": "5.8.4",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/liblzma-5.8.4-aarch64.tar.gz",
+    "sha256": "79da344b725970f77bc01953bc202094238d9daa85f9033467fd09444a24055c",
+    "size": 243162,
+    "unpacked": 1063561,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libnghttp2",
+    "version": "1.70.0",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/libnghttp2-1.70.0-aarch64.tar.gz",
+    "sha256": "b1d92d2b87e3203af574d683dbe41536e1b1e57c9b4d96bb63ef45d6eb7f34e7",
+    "size": 126490,
+    "unpacked": 456920,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libnghttp3",
+    "version": "1.18.0",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/libnghttp3-1.18.0-aarch64.tar.gz",
+    "sha256": "1b87482f663eaa9dfa63c827105031ecd909cf7a80a8e29b10c8017280b232e1",
+    "size": 92720,
+    "unpacked": 281225,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "libngtcp2",
+    "version": "1.25.0",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/libngtcp2-1.25.0-aarch64.tar.gz",
+    "sha256": "69da58b50a14a208b4455604f67ea43c0336acb09f7168b9f552f085ec64fa19",
+    "size": 225970,
+    "unpacked": 712774,
+    "depends": [
+      "openssl"
+    ],
+    "bin": []
+  },
+  {
+    "name": "libsqlite",
+    "version": "3.54.1",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/libsqlite-3.54.1-aarch64.tar.gz",
+    "sha256": "a801d126cd7fc2f82d425247c5c2a1b99c91203694eefa144c586e19924be4f6",
+    "size": 1572887,
+    "unpacked": 5702882,
+    "depends": [
+      "zlib"
+    ],
+    "bin": []
+  },
+  {
+    "name": "libssh2",
+    "version": "1.11.1-2",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/libssh2-1.11.1-2-aarch64.tar.gz",
+    "sha256": "3cedb8907caa244956a9f5af7ec19515d939ae70667fd69a643629a8b5c1f04e",
+    "size": 251099,
+    "unpacked": 445130,
+    "depends": [
+      "openssl",
+      "zlib"
+    ],
+    "bin": []
+  },
+  {
+    "name": "libxml2",
+    "version": "2.15.4-1",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/libxml2-2.15.4-1-aarch64.tar.gz",
+    "sha256": "9f12524ed6d5841ff3a31e6de91d66727582606c7067c8001ce575fe46c155d5",
+    "size": 582395,
+    "unpacked": 3680706,
+    "depends": [
+      "libandroid-glob",
+      "libiconv",
+      "zlib"
+    ],
+    "bin": [
+      "bin/xml2-config"
+    ]
+  },
+  {
+    "name": "lld",
+    "version": "21.1.8-3",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/lld-21.1.8-3-aarch64.tar.gz",
+    "sha256": "cd9267479ebe9c7c6c282e8eef0d772835cd4264f455dd66560a8ef1ab3e6e1b",
+    "size": 5617882,
+    "unpacked": 55982706,
+    "depends": [
+      "libllvm"
+    ],
+    "bin": [
+      "bin/aarch64-linux-android-ld",
+      "bin/ld",
+      "bin/ld.lld",
+      "bin/ld64.lld",
+      "bin/lld",
+      "bin/lld-link",
+      "bin/wasm-ld"
+    ]
+  },
+  {
+    "name": "llvm",
+    "version": "21.1.8-3",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/llvm-21.1.8-3-aarch64.tar.gz",
+    "sha256": "a6f509ddc8b2f5c0a1f7a1097da2f280873ac9639e708a3a2084919dcd743bdd",
+    "size": 24410001,
+    "unpacked": 82502021,
+    "depends": [
+      "libllvm"
+    ],
+    "bin": [
+      "bin/aarch64-linux-android-ar",
+      "bin/aarch64-linux-android-nm",
+      "bin/aarch64-linux-android-objdump",
+      "bin/aarch64-linux-android-ranlib",
+      "bin/aarch64-linux-android-readelf",
+      "bin/aarch64-linux-android-strip",
+      "bin/addr2line",
+      "bin/ar",
+      "bin/bugpoint",
+      "bin/c++filt",
+      "bin/dsymutil",
+      "bin/llc",
+      "bin/lli",
+      "bin/llvm-addr2line",
+      "bin/llvm-ar",
+      "bin/llvm-as",
+      "bin/llvm-bcanalyzer",
+      "bin/llvm-bitcode-strip",
+      "bin/llvm-c-test",
+      "bin/llvm-cat",
+      "bin/llvm-cfi-verify",
+      "bin/llvm-cgdata",
+      "bin/llvm-config",
+      "bin/llvm-cov",
+      "bin/llvm-ctxprof-util",
+      "bin/llvm-cvtres",
+      "bin/llvm-cxxdump",
+      "bin/llvm-cxxfilt",
+      "bin/llvm-cxxmap",
+      "bin/llvm-debuginfo-analyzer",
+      "bin/llvm-debuginfod",
+      "bin/llvm-debuginfod-find",
+      "bin/llvm-diff",
+      "bin/llvm-dis",
+      "bin/llvm-dlltool",
+      "bin/llvm-dwarfdump",
+      "bin/llvm-dwarfutil",
+      "bin/llvm-dwp",
+      "bin/llvm-exegesis",
+      "bin/llvm-extract",
+      "bin/llvm-gsymutil",
+      "bin/llvm-ifs",
+      "bin/llvm-install-name-tool",
+      "bin/llvm-jitlink",
+      "bin/llvm-lib",
+      "bin/llvm-libtool-darwin",
+      "bin/llvm-link",
+      "bin/llvm-lipo",
+      "bin/llvm-lto",
+      "bin/llvm-lto2",
+      "bin/llvm-mc",
+      "bin/llvm-mca",
+      "bin/llvm-ml",
+      "bin/llvm-ml64",
+      "bin/llvm-modextract",
+      "bin/llvm-mt",
+      "bin/llvm-nm",
+      "bin/llvm-objcopy",
+      "bin/llvm-objdump",
+      "bin/llvm-opt-report",
+      "bin/llvm-otool",
+      "bin/llvm-pdbutil",
+      "bin/llvm-profdata",
+      "bin/llvm-profgen",
+      "bin/llvm-ranlib",
+      "bin/llvm-rc",
+      "bin/llvm-readelf",
+      "bin/llvm-readobj",
+      "bin/llvm-readtapi",
+      "bin/llvm-reduce",
+      "bin/llvm-remarkutil",
+      "bin/llvm-rtdyld",
+      "bin/llvm-sim",
+      "bin/llvm-size",
+      "bin/llvm-split",
+      "bin/llvm-stress",
+      "bin/llvm-strings",
+      "bin/llvm-strip",
+      "bin/llvm-symbolizer",
+      "bin/llvm-tblgen",
+      "bin/llvm-tli-checker",
+      "bin/llvm-undname",
+      "bin/llvm-windres",
+      "bin/llvm-xray",
+      "bin/nm",
+      "bin/objcopy",
+      "bin/objdump",
+      "bin/opt",
+      "bin/ranlib",
+      "bin/readelf",
+      "bin/reduce-chunk-list",
+      "bin/sancov",
+      "bin/sanstats",
+      "bin/size",
+      "bin/split-file",
+      "bin/strings",
+      "bin/strip",
+      "bin/verify-uselistorder"
+    ]
+  },
+  {
+    "name": "ncurses",
+    "version": "6.6.20260307+really6.5.20250830",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/ncurses-6.6.20260307+really6.5.20250830-aarch64.tar.gz",
+    "sha256": "7ebadc97126342b43f6d7ceb54de4067bb8fc32e7034f07577253e019e8ccd92",
+    "size": 628293,
+    "unpacked": 11365405,
+    "depends": [],
+    "bin": [
+      "bin/clear",
+      "bin/ncursesw6-config",
+      "bin/reset",
+      "bin/tset"
+    ]
+  },
+  {
+    "name": "ncurses-ui-libs",
+    "version": "6.6.20260307+really6.5.20250830",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/ncurses-ui-libs-6.6.20260307+really6.5.20250830-aarch64.tar.gz",
+    "sha256": "3f8d0517abb47a69b4b998cabb4066de22a834e5ce6b87b5071b771da9be9587",
+    "size": 43186,
+    "unpacked": 621028,
+    "depends": [
+      "ncurses"
+    ],
+    "bin": []
+  },
+  {
+    "name": "ndk-sysroot",
+    "version": "30",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/ndk-sysroot-30-aarch64.tar.gz",
+    "sha256": "b8728ed09786a4588f1aad345a116fc34aa7dd52a213a9dda292c45b56594331",
+    "size": 3268808,
+    "unpacked": 20507466,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "openssl",
+    "version": "1:3.6.5",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/openssl-1.3.6.5-aarch64.tar.gz",
+    "sha256": "5d29492fd5305e6eb7c09aca66985d779516311f3d2bc6da7fa1a9aa197c9d4f",
+    "size": 3186267,
+    "unpacked": 14393768,
+    "depends": [
+      "ca-certificates",
+      "zlib"
+    ],
+    "bin": []
+  },
+  {
+    "name": "pcre2",
+    "version": "10.49",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-git/pcre2-10.49-aarch64.tar.gz",
+    "sha256": "00213c4fa406b9337384dfc2be00a5e7dd3015f023f6559592561596869c7fa6",
+    "size": 1526482,
+    "unpacked": 3865265,
+    "depends": [],
+    "bin": [
+      "bin/pcre2-config"
+    ]
+  },
+  {
+    "name": "python",
+    "version": "3.14.8",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/python-3.14.8-aarch64.tar.gz",
+    "sha256": "18a7adff682346477fea6ff7dbd3ef43518011287a93268aee0d56a00c57da1a",
+    "size": 6857559,
+    "unpacked": 24448990,
+    "depends": [
+      "gdbm",
+      "libandroid-posix-semaphore",
+      "libandroid-support",
+      "libbz2",
+      "libcrypt",
+      "libexpat",
+      "libffi",
+      "liblzma",
+      "libsqlite",
+      "ncurses",
+      "ncurses-ui-libs",
+      "openssl",
+      "readline",
+      "zlib",
+      "zstd"
+    ],
+    "bin": [
+      "bin/py3clean",
+      "bin/py3compile",
+      "bin/pydoc",
+      "bin/pydoc3",
+      "bin/pydoc3.14",
+      "bin/python",
+      "bin/python-config",
+      "bin/python3",
+      "bin/python3-config",
+      "bin/python3.14",
+      "bin/python3.14-config"
+    ]
+  },
+  {
+    "name": "python-pip",
+    "version": "26.2.2-2",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/python-pip-26.2.2-2-aarch64.tar.gz",
+    "sha256": "748c715480496a3e29dce56d5201b26aba7a6e766918448463227714cdaad44c",
+    "size": 1602578,
+    "unpacked": 5745256,
+    "depends": [
+      "ca-certificates",
+      "python"
+    ],
+    "bin": [
+      "bin/pip",
+      "bin/pip3",
+      "bin/pip3.14"
+    ]
+  },
+  {
+    "name": "readline",
+    "version": "8.3.6",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-python-pip/readline-8.3.6-aarch64.tar.gz",
+    "sha256": "8ba757824f63345a12f62c223e8f2e0143b1cfc70b292caacb40cef4dee66ea4",
+    "size": 492798,
+    "unpacked": 2543263,
+    "depends": [
+      "libandroid-support",
+      "ncurses"
+    ],
+    "bin": []
+  },
+  {
+    "name": "termux-auth",
+    "version": "1.5.0-1",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-dropbear/termux-auth-1.5.0-1-aarch64.tar.gz",
+    "sha256": "dbb25cb717c613836e0ced839a8961614cb71e3d64846b71922aa9a8f1910c12",
+    "size": 7625,
+    "unpacked": 24074,
+    "depends": [
+      "openssl"
+    ],
+    "bin": [
+      "bin/passwd",
+      "bin/pwlogin"
+    ]
+  },
+  {
+    "name": "zlib",
+    "version": "1.3.2",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/zlib-1.3.2-aarch64.tar.gz",
+    "sha256": "cc75f60cb93b47234e530051b33b47deeb82b171980448e6d85e5593b3eb9efe",
+    "size": 74943,
+    "unpacked": 343338,
+    "depends": [],
+    "bin": []
+  },
+  {
+    "name": "zstd",
+    "version": "1.5.7-1",
+    "arch": "aarch64",
+    "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/pkg-clang/zstd-1.5.7-1-aarch64.tar.gz",
+    "sha256": "e98ba13db60011e5168ebf1999dd22afba56ab45a7024ac0e195920f2f53eb4a",
+    "size": 472326,
+    "unpacked": 3417238,
+    "depends": [
+      "liblzma",
+      "zlib"
+    ],
+    "bin": [
+      "bin/unzstd",
+      "bin/zstd",
+      "bin/zstdcat",
+      "bin/zstdgrep",
+      "bin/zstdless",
+      "bin/zstdmt"
+    ]
+  }
 ]
