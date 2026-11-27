@@ -260,7 +260,7 @@ i64 pkg_search(String index, String word) {
 }
 
 // the installed packages that have another version in the index: removed and installed again (dry: only shown)
-i64 pkg_update(String index, bool dry, bool quiet) {
+i64 pkg_update(String index, bool dry, bool quiet, String[] only) {
     String st = pkg_state();
     if !Dir::exists(st) { if !quiet { jout << "no packages installed\n"; } return 0; }
     String[] mine = arr(8);
@@ -270,6 +270,7 @@ i64 pkg_update(String index, bool dry, bool quiet) {
     }
     i64 shown = 0;
     i64 rc = 0;
+    String[] todo = arr(8);
     for i in 0..mine.len {
         String line = pkg_line(st, mine[i] + "");
         String[] pv = line.split("  ");
@@ -277,12 +278,21 @@ i64 pkg_update(String index, bool dry, bool quiet) {
         String have = pv[1] + "";
         String[] f = pkg_entry(index, name).split("|");
         String want = f[0] + "";
-        if want.len == 0 || want == have { continue; }
+        bool asked = only.len == 0;
+        for k in 0..only.len { if only[k] == name { asked = true; } }
+        if !asked { continue; }
+        if want.len == 0 || want == have { if only.len > 0 { jout << name << " is up to date\n"; shown += 1; } continue; }
         jout << name << ": " << have << " -> " << want << "\n";
         shown += 1;
-        if dry { continue; }
-        if pkg_remove(name) != 0 { rc = 1; continue; }
-        if pkg_install(index, name, 0) != 0 { rc = 1; }
+        todo.push(name + "");
+    }
+    for k in 0..only.len { if !pkg_installed(only[k]) { jout << only[k] << " is not installed (ex install " << only[k] << ")\n"; shown += 1; } }
+    if !dry && todo.len > 0 {
+        if !person_agrees("install " + list_text(todo) + "?") { jout << "nothing was changed\n"; return 0; }
+        for k in 0..todo.len {
+            if pkg_remove(todo[k]) != 0 { rc = 1; continue; }
+            if pkg_install(index, todo[k], 0) != 0 { rc = 1; }
+        }
     }
     if shown == 0 && !quiet { jout << "the packages are up to date\n"; }
     return rc;
@@ -316,10 +326,22 @@ i64 cmd_pkg(String[] a) {
             if a.len >= 4 { w = a[3] + ""; }
             return pkg_search(index, w);
         }
-        if sub == "update" && a.len >= 4 && a[3] == "--quiet" { return pkg_update(index, false, true); }
-        if sub == "update" && a.len >= 5 && a[3] == "-n" && a[4] == "--quiet" { return pkg_update(index, true, true); }
-        if sub == "update" { return pkg_update(index, a.len >= 4 && a[3] == "-n", false); }
+        if sub == "update" {
+            bool dry = false;
+            bool quiet = false;
+            String[] only = arr(4);
+            for i in 3..a.len { if a[i] == "-n" { dry = true; } else if a[i] == "--quiet" { quiet = true; } else { only.push(a[i] + ""); } }
+            return pkg_update(index, dry, quiet, only);
+        }
         if a.len < 4 { err("usage: ex pkg install NAME\n"); return 1; }
+        String[] fresh = arr(4);
+        for i in 3..a.len { if !pkg_installed(a[i]) { fresh.push(a[i] + ""); } }
+        if fresh.len > 0 {
+            String question = "install " + list_text(fresh) + " (and what it needs)?";
+            if !person_agrees(question) { jout << "nothing was installed\n"; return 0; }
+        }
+        bool agreed_before = g_agreed;
+        g_agreed = true;
         for i in 3..a.len {
             String want = a[i] + "";
             if pkg_installed(want) { jout << "ex: " << pkg_line(statedir, want + ".list") << " is installed already (ex unstall " << want << " takes it away)\n"; continue; }
@@ -334,6 +356,7 @@ i64 cmd_pkg(String[] a) {
             }
             if pkg_install(index, want, 0) != 0 { return 1; }
         }
+        g_agreed = agreed_before;
         return 0;
     }
     err("usage: ex pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n");

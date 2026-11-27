@@ -248,7 +248,9 @@ String entry_at(String pack, i64 at) {
     i64 c = pack[p] & 255;
     p += 1;
     i64 type = (c >> 4) & 7;
-    while (c & 128) != 0 { c = pack[p] & 255; p += 1; }
+    i64 size = c & 15;
+    i64 sh = 4;
+    while (c & 128) != 0 { c = pack[p] & 255; p += 1; size = size | ((c & 127) << sh); sh += 7; }
     i64 base_at = 0 - 1;
     String base_hex = "";
     if type == 6 {
@@ -261,9 +263,9 @@ String entry_at(String pack, i64 at) {
         p += 20;
     }
     bool ok = false;
-    String data = dfl_inflate_raw(pack, p + 2, pack.len, @ok);
+    String data = pack_inflate(pack, p, size, @ok);
     if !ok { g_kind = ""; return ""; }
-    g_end = dfl_inf_pos + 4;                                          // after the zlib check number
+    g_end = g_zend;
     if type >= 1 && type <= 4 {
         if type == 1 { g_kind = "commit"; } else if type == 2 { g_kind = "tree"; } else if type == 3 { g_kind = "blob"; } else { g_kind = "tag"; }
         return data;

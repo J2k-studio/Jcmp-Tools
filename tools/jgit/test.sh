@@ -5,7 +5,7 @@ cd "$(dirname "$0")"; export J2K_PATH="${J2K_PATH:-$HOME/Jcmp/build/libs}"; sh b
 J="$PWD/_out/jgit"; ROOT="$PWD"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export JGIT_NAME="Tester" JGIT_EMAIL="t@example.org" HOME="$T/home"; mkdir -p "$HOME"
-[ "$("$J" --version)" = "jgit 0.5.0" ] || { echo "jgit test: version"; exit 1; }
+[ "$("$J" --version)" = "jgit 0.5.1" ] || { echo "jgit test: version"; exit 1; }
 cd "$T"; "$J" init r1 > /dev/null; cd r1
 "$J" status > /dev/null 2>&1 && true
 mkdir -p src/deep; echo hello > a.txt; echo world > src/b.txt; printf '#!/bin/sh\necho x\n' > src/run.sh; chmod 755 src/run.sh; head -c 3000 /dev/urandom > bin.dat; echo deep > src/deep/c.txt

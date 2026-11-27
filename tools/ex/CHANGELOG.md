@@ -1,5 +1,11 @@
 # ex changelog
 
+## 0.14.0
+* **Added:** `install`, `update` and `unstall` ask `[y/n]` first at a terminal; `-y` does not ask (a script is not asked).
+* **Added:** `ex update NAME...` updates only those (a tool, a package or `app`).
+* **Added:** `ex unstall mascot` turns the mascot of the app off.
+* **Fixed:** `ex update NAME` also updated everything else.
+
 ## 0.13.0
 * **Added:** the commands that ask the app: `toast notify copy paste vibrate torch battery open share send pick apk apps launch call play pause resume stop tab exit api` (exshell 0.1.89 or newer; the same as the library `exapi`).
 * **Fixed:** none.

@@ -9,7 +9,7 @@
 #import <stdlib>
 #import <deflate>
 
-String jgit_version() { return "0.5.0"; }
+String jgit_version() { return "0.5.1"; }
 
 i64 fail(String msg) {
     jerr << "jgit: " << msg << "\n";
@@ -182,21 +182,20 @@ i64 pack_find(String hex) {
     String raw = from_hex(hex);
     i64 first = raw[0] & 255;
     for pk in 0..pk_idx.len {
-        String idx = pk_idx[pk];
-        i64 total = be32(idx, 8 + 255 * 4);
+        i64 total = be32(pk_idx[pk], 8 + 255 * 4);
         i64 lo = 0;
-        if first > 0 { lo = be32(idx, 8 + (first - 1) * 4); }
-        i64 hi = be32(idx, 8 + first * 4);              // the objects that start with this byte are lo .. hi-1
+        if first > 0 { lo = be32(pk_idx[pk], 8 + (first - 1) * 4); }
+        i64 hi = be32(pk_idx[pk], 8 + first * 4);              // the objects that start with this byte are lo .. hi-1
         i64 shas = 8 + 256 * 4;
         while lo < hi {
             i64 mid = (lo + hi) / 2;
-            String here = idx.slice(shas + mid * 20, shas + mid * 20 + 20);
+            String here = pk_idx[pk].slice(shas + mid * 20, shas + mid * 20 + 20);
             if here == raw {
                 i64 offs = shas + total * 20 + total * 4;
-                i64 off = be32(idx, offs + mid * 4);
+                i64 off = be32(pk_idx[pk], offs + mid * 4);
                 if off >= 2147483648 {                   // the high bit: the number of a 64 bit offset
                     i64 big = offs + total * 4 + (off & 2147483647) * 8;
-                    off = (be32(idx, big) << 32) | be32(idx, big + 4);
+                    off = (be32(pk_idx[pk], big) << 32) | be32(pk_idx[pk], big + 4);
                 }
                 g_pack = pk;
                 return off;
@@ -233,18 +232,31 @@ String apply_delta(String base, String d) {
     return out;
 }
 
+// The zlib data that starts at `at` of a pack and gives `size` bytes. Only a window of the pack is handed to the decompressor: it keeps a copy
+// of what it is given, and a pack can be many megabytes. g_zend is the first byte after the data and its check number.
+i64 g_zend;
+String pack_inflate(String data, i64 at, i64 size, bool^ ok) {
+    i64 to = at + size + size / 8 + 1024;                        // zlib never grows data by more than this
+    if to > data.len { to = data.len; }
+    String window = data.slice(at, to);
+    String out = dfl_inflate_raw(window, 2, window.len, ok);
+    g_zend = at + dfl_inf_pos + 4;
+    return out;
+}
+
 String g_kind;
 // the object at an offset of a pack; sets g_kind
 String pack_object(i64 pk, i64 offset) {
-    String data = pk_data[pk];
     i64 p = offset;
-    i64 c = data[p] & 255;
+    i64 c = pk_data[pk][p] & 255;
     p += 1;
     i64 type = (c >> 4) & 7;
-    while (c & 128) != 0 { c = data[p] & 255; p += 1; }
+    i64 size = c & 15;
+    i64 sh = 4;
+    while (c & 128) != 0 { c = pk_data[pk][p] & 255; p += 1; size = size | ((c & 127) << sh); sh += 7; }
     if type >= 1 && type <= 4 {
         bool ok = false;
-        String body = dfl_inflate_raw(data, p + 2, data.len, @ok);
+        String body = pack_inflate(pk_data[pk], p, size, @ok);
         if !ok { g_kind = ""; return ""; }
         if type == 1 { g_kind = "commit"; } else if type == 2 { g_kind = "tree"; } else if type == 3 { g_kind = "blob"; } else { g_kind = "tag"; }
         return body;
@@ -252,21 +264,21 @@ String pack_object(i64 pk, i64 offset) {
     String base = "";
     String kind = "";
     if type == 6 {                                           // a delta against an object earlier in the same pack, by distance
-        i64 c2 = data[p] & 255;
+        i64 c2 = pk_data[pk][p] & 255;
         p += 1;
         i64 ofs = c2 & 127;
-        while (c2 & 128) != 0 { c2 = data[p] & 255; p += 1; ofs = ((ofs + 1) << 7) | (c2 & 127); }
+        while (c2 & 128) != 0 { c2 = pk_data[pk][p] & 255; p += 1; ofs = ((ofs + 1) << 7) | (c2 & 127); }
         base = pack_object(pk, offset - ofs);
         kind = g_kind;
     } else if type == 7 {                                    // a delta against an object by its name
-        String bh = to_hex(data.slice(p, p + 20));
+        String bh = to_hex(pk_data[pk].slice(p, p + 20));
         p += 20;
         base = read_object(bh);
         kind = g_kind;
     } else { g_kind = ""; return ""; }
     if kind.len == 0 { g_kind = ""; return ""; }
     bool ok = false;
-    String delta = dfl_inflate_raw(data, p + 2, data.len, @ok);
+    String delta = pack_inflate(pk_data[pk], p, size, @ok);
     if !ok { g_kind = ""; return ""; }
     String out = apply_delta(base, delta);
     g_kind = kind;

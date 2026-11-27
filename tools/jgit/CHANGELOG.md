@@ -1,5 +1,9 @@
 # jgit changelog
 
+## 0.5.1
+* **Added:** none.
+* **Fixed:** a clone of a big repository was still very slow: the whole pack was copied for every object (a 70 MB repository now clones in about 2 minutes on a phone instead of more than 8).
+
 ## 0.5.0
 * **Added:** `clone`, `fetch` and `pull` show how much has arrived, the objects and the files.
 * **Added:** `jgit clone --depth 1 URL`: only the newest commit, much less to bring.

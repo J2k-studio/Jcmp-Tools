@@ -401,6 +401,12 @@ i64 cmd_tool(String[] av, i64 at) {
         else { wanted.push(av[k]); }
     }
     if want_update {
+        String[] only = arr(8);                          // ex update NAME ... : those and no others
+        for k in 0..wanted.len { only.push(wanted[k] + ""); }
+        wanted = arr(8);
+        for k in 0..only.len {
+            if tool_installed_version(dir, only[k]).len == 0 { jout << only[k] << " is not installed (ex install " << only[k] << ")\n"; }
+        }
         String vtext = tool_versions_text(dir);
         String[] tl = text.split("\n");
         i64 shown = 0;
@@ -414,6 +420,13 @@ i64 cmd_tool(String[] av, i64 at) {
         }
         for i in 0..order.len {
             String name = order[i];
+            if only.len > 0 {
+                bool asked = false;
+                for k in 0..only.len { if only[k] == name { asked = true; } }
+                if !asked { continue; }
+                String here = tool_installed_version(dir, name);
+                if here.len == 0 { continue; }
+            }
             String have = tool_installed_version(dir, name);
             if have.len == 0 && name != "jsh" { continue; }                                      // not installed: update does not add tools (jsh is the base)
             if have == "unknown" && name != "jsh" { continue; }                                  // a file that jget did not install (no marker, no NAME X.Y.Z): leave it alone
@@ -436,7 +449,12 @@ i64 cmd_tool(String[] av, i64 at) {
         }
         if shown == 0 { jout << "everything is up to date" << nl; return 0; }
         if dry { jout << "(ex update installs them)" << nl; offer_command("ex update"); return 0; }
+        if !person_agrees("install " + stg(shown) + " update(s)?") { jout << "nothing was changed" << nl; return 0; }
+    } else if wanted.len > 0 {
+        if !person_agrees("install " + list_text(wanted) + "?") { jout << "nothing was installed" << nl; return 0; }
     }
+    bool agreed_before = g_agreed;
+    g_agreed = true;
     i64 rc = 0;
     bool with_libs = false;
     bool with_jex = false;
@@ -547,6 +565,7 @@ i64 cmd_tool(String[] av, i64 at) {
         if cmd_tool(jw, 1) != 0 { rc = 1; }
     }
     if with_libs && rc == 0 { if install_all_libs() != 0 { rc = 1; } }
+    g_agreed = agreed_before;
     return rc;
 }
 

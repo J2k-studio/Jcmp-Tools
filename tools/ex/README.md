@@ -18,6 +18,19 @@ ex app update         the newest app (Android asks you to tap Update)
 The libraries of the language are the job of `jex`; building a project is the job of `makej`.
 License: MPL-2.0. Build: `JCMP=path sh build.sh`. Test: `sh test.sh`.
 
+## It asks first
+At a terminal `ex install`, `ex update` and `ex unstall` show what they will do and ask `[y/n]`; only `y` goes on.
+
+| Command | What it does |
+|---|---|
+| `ex update` | what is newer: tools, then packages, then the app; one question for each group |
+| `ex update jsh` | only `jsh` (several names work; `app` is the app) |
+| `ex update -n` | only show |
+| `ex install git -y` | no question (`--yes` too) |
+| `ex unstall mascot` | turns the mascot of the app off (`ex set mascot on` brings it back) |
+
+A script that runs `ex` has nobody to ask, so it goes on as before.
+
 ## Ask the app
 In exshell (0.1.89 or newer) these talk to the app, also from a script that runs in the background:
 

@@ -265,4 +265,49 @@ r = [json.loads(l) for l in open(sys.argv[1])]
 for want in (['battery'], ['toast', 'hello there'], ['notify', 'the build', 'passed now'], ['open', os.path.realpath(sys.argv[2] + '/doc.txt')], ['open', 'https://example.com'], ['tab', 'echo hi'], ['copy', 'piped text'], ['toast', 'from code']):
     assert want in r, (want, r)
 PY
+# a person at a terminal is asked before anything is installed; a name means only that one; -y does not ask; a script is not asked
+Q="$T/ask"; mkdir -p "$Q/bin" "$Q/mirror/tools/foo" "$Q/mirror/tools/bar" "$Q/mirror/tools/baz" "$Q/mirror/dl/foo-v2.0.0" "$Q/mirror/dl/bar-v2.0.0" "$Q/mirror/dl/baz-v1.0.0"
+cp "$J" "$Q/bin/ex"; printf '# tools\nfoo|a\nbar|b\nbaz|c\n' > "$Q/mirror/tools.txt"; printf 'foo 2.0.0\nbar 2.0.0\nbaz 1.0.0\n' > "$Q/mirror/versions.txt"
+for p in foo:2.0.0 bar:2.0.0 baz:1.0.0; do n=${p%:*}; v=${p#*:}; echo $v > "$Q/mirror/tools/$n/LATEST"; printf '#!/bin/sh\necho "%s %s"\n' $n $v > "$Q/mirror/dl/$n-v$v/$n"; ( cd "$Q/mirror/dl/$n-v$v" && sha256sum $n > SHA256SUMS ); done
+old() { for n in foo bar; do printf '#!/bin/sh\necho "%s 1.0.0"\n' $n > "$Q/bin/$n"; chmod 755 "$Q/bin/$n"; rm -f "$Q/bin/.$n.version"; done; rm -f "$Q/bin/baz" "$Q/bin/.baz.version"; }
+cat > "$Q/ask.py" <<'PY'
+import os, pty, select, sys, time
+answer = sys.argv[1]
+pid, fd = pty.fork()
+if pid == 0: os.execv(sys.argv[2], sys.argv[2:])
+out = b''; asked = 0; end = time.time() + 40
+while time.time() < end:
+    r, _, _ = select.select([fd], [], [], 1)
+    if not r: continue
+    try: c = os.read(fd, 4096)
+    except OSError: break
+    if not c: break
+    out += c
+    while out.count(b'[y/n]') > asked:
+        asked += 1; time.sleep(0.2); os.write(fd, answer.encode() + b'\r')
+os.waitpid(pid, 0)
+sys.stdout.write(out.decode(errors='replace') + '\nASKED %d\n' % asked)
+PY
+AX() { ans=$1; shift; env JC_PKG_ROOT="$Q/pkg" JC_PKG_INDEX="$T/index.json" JCMPTOOLS_RAW="file://$Q/mirror" JCMPTOOLS_DL="file://$Q/mirror/dl" EXSHELL= python3 -I "$Q/ask.py" $ans "$Q/bin/ex" "$@" > "$Q/o"; }
+ver() { "$Q/bin/$1" --version; }
+bad() { echo "ex test: $1:"; cat "$Q/o"; exit 1; }
+old; AX n update; grep -q "ASKED 1" "$Q/o" && [ "$(ver foo)" = "foo 1.0.0" ] && [ "$(ver bar)" = "bar 1.0.0" ] || bad "update, no"
+old; AX y update; grep -q "ASKED 1" "$Q/o" && [ "$(ver foo)" = "foo 2.0.0" ] && [ "$(ver bar)" = "bar 2.0.0" ] || bad "update, yes"
+old; AX y update foo; [ "$(ver foo)" = "foo 2.0.0" ] && [ "$(ver bar)" = "bar 1.0.0" ] || bad "update of one name"
+grep -q "bar: " "$Q/o" && bad "update of one name shows the others"
+AX y update foo; grep -q "up to date" "$Q/o" && grep -q "ASKED 0" "$Q/o" || bad "update of a name that is new already"
+AX y update baz; grep -q "not installed" "$Q/o" && [ ! -e "$Q/bin/baz" ] || bad "update of a name that is not installed"
+old; AX n update -y; grep -q "ASKED 0" "$Q/o" && [ "$(ver bar)" = "bar 2.0.0" ] || bad "update -y"
+old; AX n update -y foo; [ "$(ver foo)" = "foo 2.0.0" ] && [ "$(ver bar)" = "bar 1.0.0" ] || bad "update -y NAME"
+old; AX n install baz; grep -q "ASKED 1" "$Q/o" && [ ! -e "$Q/bin/baz" ] || bad "install, no"
+AX y install baz; grep -q "ASKED 1" "$Q/o" && [ "$(ver baz)" = "baz 1.0.0" ] || bad "install, yes"
+old; AX n install baz -y; grep -q "ASKED 0" "$Q/o" && [ -x "$Q/bin/baz" ] || bad "install -y"
+rm -rf "$Q/pkg"; AX n install beta; grep -q "ASKED 1" "$Q/o" && [ ! -e "$Q/pkg/usr/bin/beta" ] || bad "package, no"
+AX y install beta; grep -q "ASKED 1" "$Q/o" && [ -x "$Q/pkg/usr/bin/beta" ] || bad "package, yes (asked once)"
+old; AX n unstall foo; grep -q "ASKED 1" "$Q/o" && [ -x "$Q/bin/foo" ] || bad "unstall, no"
+AX y unstall foo; grep -q "ASKED 1" "$Q/o" && [ ! -e "$Q/bin/foo" ] || bad "unstall, yes"
+old; AX n unstall foo -y; grep -q "ASKED 0" "$Q/o" && [ ! -e "$Q/bin/foo" ] || bad "unstall -y"
+AX n pkg remove beta; grep -q "ASKED 1" "$Q/o" && [ -x "$Q/pkg/usr/bin/beta" ] || bad "package remove, no"
+AX y unstall mascos; grep -q "ASKED 1" "$Q/o" && grep -q "mascot;off" "$Q/o" || bad "unstall mascot"
+old; ( env JCMPTOOLS_RAW="file://$Q/mirror" JCMPTOOLS_DL="file://$Q/mirror/dl" EXSHELL= "$Q/bin/ex" install baz < /dev/null > "$Q/o" 2>&1 ) && [ -x "$Q/bin/baz" ] || bad "a script is not asked"
 echo "ex tests: ok"

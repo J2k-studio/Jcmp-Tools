@@ -386,3 +386,20 @@ void remove_tree(String path) {
         Dir::remove(path);
     } else { Fs::remove(path); }
 }
+
+// ---- asking the person: install, update and unstall ask first at a terminal ( -y does not ask; a script has nobody to ask )
+bool g_yes;                   // -y was given
+bool g_agreed;                // the person said yes to this already (a package that turns out to be a tool is not asked twice)
+
+bool person_agrees(String question) {
+    if g_yes || g_agreed || Sys::isatty(0) != 0 { return true; }
+    jout << question << " [y/n] ";
+    String a = Input::line().trim();
+    return a == "y" || a == "Y" || a == "yes";
+}
+
+String list_text(String[] names) {
+    String s = "";
+    for i in 0..names.len { if i > 0 { s.append(", "); } s.append(names[i]); }
+    return s;
+}
