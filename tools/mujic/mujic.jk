@@ -2209,9 +2209,9 @@ i64 do_remove_cli(String[] a) {
 
 i64 main() {
     g_album = "";
-    String VERSION = "0.15.1";
+    String mj_version = "0.15.1";
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { jout << "mujic " << VERSION << "\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-v") { jout << "mujic " << mj_version << "\n"; return 0; }
     // mujic -session [arguments]: in the Jaric app the player opens in a tab of its own and this shell stays free; elsewhere it runs here
     if args.len > 1 && args[1] == "-session" {
         bool in_app = false;

@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.16.0
+* **Added:** `time COMMAND` (says how long the command ran) and `watch [-n SECONDS] COMMAND` (runs it again and again with a clear screen).
 * **Added:** `ip addr` and `ip link` (also `ifconfig`): the interfaces with their flags, mtu, IPv4 address and prefix, made with ioctl, because Android does not let an app open a netlink socket (the real `ip` says "Cannot bind netlink socket"). Routes and changes need root and are refused with a clear message.
 
 ## 0.15.2
