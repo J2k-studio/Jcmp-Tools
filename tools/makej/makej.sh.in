@@ -21,7 +21,7 @@ if [ "${1:-}" = "doctor" ]; then
     echo "makej doctor"
     echo "the compiler and the tools of J2K:"
     if command -v jcmp >/dev/null 2>&1; then ok "jcmp $(jcmp -version 2>/dev/null | cut -d' ' -f2)"; else miss "jcmp (the J2K compiler)" "jc install jcmp"; fi
-    if command -v jc >/dev/null 2>&1; then ok "jc (installs tools and libraries)"; else miss "jc" "curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh"; fi
+    if command -v jc >/dev/null 2>&1; then ok "jc (installs tools and libraries)"; else miss "jc" "curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh"; fi
     command -v jget >/dev/null 2>&1 && ok "jget (downloads)" || miss "jget" "jc install jget"
     echo "for a program, a game and a package (makej, makej run, makej pack):"
     command -v unzip >/dev/null 2>&1 && ok "unzip" || miss "unzip" "pkg install unzip   (or jc install zipj)"
@@ -926,7 +926,7 @@ if [ "${1:-}" = "init" ] && [ -z "${2:-}" ] && [ -t 0 ] && [ -t 1 ] && [ ! -e ma
         case "$k" in -pro|-tool|-lib) printf 'Name: '; read -r nm || nm=; set -- init "$k" "$nm" ;; *) set -- init "$k" ;; esac
     fi
 fi
-# makej init -tool NAME: a command-line program for the store of Jcmp-Tools (or your own): the files that jc install and release.sh of the others have
+# makej init -tool NAME: a command-line program for the store of ex-pkg (or your own): the files that jc install and release.sh of the others have
 if [ "${1:-}" = "init" ] && [ "${2:-}" = "-tool" ]; then
     nm=${3:-}
     [ -n "$nm" ] || { echo "makej: the name of the tool is missing: makej init -tool NAME" >&2; exit 2; }
@@ -947,7 +947,7 @@ int main() {
 MAKEJ_TOOL_EOF
     echo 0.1.0 > VERSION; echo 0.1.0 > LATEST
     printf '# %s changelog\n\n## 0.1.0\n* **Added:** the first version.\n* **Fixed:** none.\n' "$nm" > CHANGELOG.md
-    printf '# %s\n\nWhat it does, in two lines.\n\n    %s --help\n\nInstall: `jc install %s` (when it is in the store of Jcmp-Tools).\n' "$nm" "$nm" "$nm" > README.md
+    printf '# %s\n\nWhat it does, in two lines.\n\n    %s --help\n\nInstall: `jc install %s` (when it is in the store of ex-pkg).\n' "$nm" "$nm" "$nm" > README.md
     cat > test.sh <<MAKEJ_TOOL_EOF
 #!/bin/sh
 # tests of $nm: makej test

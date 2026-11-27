@@ -9,7 +9,7 @@
 #import <stdlib>
 #import <deflate>
 
-String jgit_version() { return "0.4.0"; }
+String jgit_version() { return "0.5.0"; }
 
 i64 fail(String msg) {
     jerr << "jgit: " << msg << "\n";

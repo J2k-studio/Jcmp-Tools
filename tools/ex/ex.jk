@@ -13,8 +13,9 @@
 #import "core"
 #import "pkg"
 #import "manage"
+#import "exapi"
 
-String ex_version() { return "0.12.0"; }
+String ex_version() { return "0.13.0"; }
 
 i64 fail(String msg) {
     jerr << "ex: " << msg << "\n";
@@ -321,6 +322,17 @@ i64 usage() {
     jout << "  font NAME     the letters\n";
     jout << "  awake on|off  keep running\n";
     jout << "  app update    a new app\n\n";
+    jout << "Ask the app (ex api):\n";
+    jout << "  toast TEXT    a short note\n";
+    jout << "  notify T TEXT a notification\n";
+    jout << "  copy / paste  the clipboard\n";
+    jout << "  open X  share FILE  apk FILE\n";
+    jout << "  play FILE  pause  resume  stop\n";
+    jout << "  pick image|file   apps\n";
+    jout << "  launch NAME   call NUMBER\n";
+    jout << "  battery  torch on|off\n";
+    jout << "  vibrate [MS]  tab COMMAND\n";
+    jout << "  exit          close the app\n\n";
     jout << "Libraries: jex lib install NAME\n";
     return 0;
 }
@@ -648,6 +660,51 @@ fn cmd_set(str[] a) {
     return 0;
 }
 
+// ------------------------------------------------------------ the app: ex toast, ex notify, ex battery ... (the library exapi)
+bool is_app_word(String w) {
+    return " toast notify copy paste vibrate torch battery open share send pick apk apps launch call play pause resume stop tab exit api ".contains(" " + w + " ");
+}
+
+// the words from at on, parted by spaces
+String rest_words(String[] a, i64 at) {
+    String s = "";
+    for i in at..a.len { if i > at { s.push(' '); } s.append(a[i]); }
+    return s;
+}
+
+String all_input() {
+    String s = "";
+    char b[4096];
+    i64 n = Sys::read(0, @b, 4096);
+    while n > 0 { for i in 0..n { s.push(b[i]); } n = Sys::read(0, @b, 4096); }
+    return s;
+}
+
+i64 cmd_app(String[] a) {
+    String c = a[1] + "";
+    String[] w = arr(4);
+    w.push(c + "");
+    if c == "notify" {
+        if a.len > 2 { w.push(a[2] + ""); }
+        if a.len > 3 { w.push(rest_words(a, 3)); }
+    } else if c == "toast" || c == "send" || c == "tab" {
+        if a.len > 2 { w.push(rest_words(a, 2)); }
+    } else if c == "copy" {
+        if a.len > 2 { w.push(rest_words(a, 2)); } else { w.push(all_input()); }        // ex copy TEXT, or what is piped in
+    } else if c == "open" || c == "share" || c == "apk" || c == "play" {
+        if a.len > 2 { w.push(ex_path(a[2])); }
+    } else if a.len > 2 {
+        w.push(rest_words(a, 2));
+    }
+    ExResult r = Ex::request(w);
+    if !r.ok { jerr << "ex: " << r.text << "\n"; return 1; }
+    if r.text.len > 0 {
+        jout << r.text;
+        if !r.text.ends_with("\n") { jout << nl; }
+    }
+    return 0;
+}
+
 i64 main() {
     String[] a = Env::args();
     if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "ex " << ex_version() << "\n"; return 0; }
@@ -661,6 +718,7 @@ i64 main() {
         return 0;
     }
     if a[1] == "doctor" { return doctor(); }
+    if is_app_word(a[1]) { return cmd_app(a); }
     if a[1] == "app" {
         bool dry = a.len < 3 || a[2] != "update";
         for i in 2..a.len { if a[i] == "-n" { dry = true; } }
@@ -717,7 +775,7 @@ i64 main() {
         }
         w.push("jc");
         for i in 2..a.len { w.push(a[i] + ""); }
-        return cmd_tool(w, 1);                                   // a tool of Jcmp-Tools
+        return cmd_tool(w, 1);                                   // a tool of ex-pkg
     }
     if a[1] == "install" && a.len >= 3 {
         bool yes = false;

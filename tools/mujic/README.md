@@ -35,7 +35,7 @@ The folder of your songs: a folder `jsong` in the storage of the phone (`/sdcard
 ## Install
 ```
 jc install mujic                                                        # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s mujic     # with curl (no jget needed)
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s mujic     # with curl (no jget needed)
 ```
 In jsh: `jc install mujic`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 

@@ -28,7 +28,7 @@ sh test.sh       # needs python3 with qrcode and Pillow: a pretend app (fake_app
 ## Install
 ```
 jc install cam                                                         # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s cam     # with curl (no jget needed)
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s cam     # with curl (no jget needed)
 ```
 In jsh: `jc install cam`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 

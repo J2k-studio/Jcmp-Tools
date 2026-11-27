@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.1
+* **Added:** programs of the packages get `GIT_EXEC_PATH`, `GIT_TEMPLATE_DIR`, `SSL_CERT_FILE`, `GIT_SSL_CAINFO`, `CURL_CA_BUNDLE` and `TERMINFO` under `$PREFIX`.
+* **Fixed:** `git clone https://...` ("remote-https is not a git command") and Python `https` in the packages; a variable text of an added variable could be reused before the program started.
+* **Changed:** the removed tools are no longer offered as words.
+
 ## 0.15.0
 * **Changed:** `fcode` (the editor that was `coderin`) is known: path colours, the hint for a command that is not there.
 * **Fixed:** none.

@@ -35,8 +35,7 @@ for n in $names; do
     # the program itself, when it is built: --version says NAME X.Y.Z and --help works without a terminal
     if [ -x "$d/dist/$n" ] && ! echo " $OTHERS " | grep -q " $n "; then
         v=$("$d/dist/$n" --version 2>/dev/null | head -n 1)
-        shown=$n; [ "$n" = jc ] && shown=ex; [ "$n" = coderin ] && shown=fcode           # the tool of the registry name jc calls itself ex
-        [ "$v" = "$shown $ver" ] || add "dist/$n --version says '$v', wanted '$shown $ver'"
+        [ "$v" = "$n $ver" ] || add "dist/$n --version says '$v', wanted '$n $ver'"
         "$d/dist/$n" --help > /dev/null 2>&1 < /dev/null || add "dist/$n --help does not exit 0"
     fi
     if [ -n "$err" ]; then bad=$((bad+1)); printf "%b\n" "$err"; else echo "ok   $n $ver"; fi

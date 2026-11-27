@@ -342,3 +342,16 @@ echo "$R22" | grep -q "run it as ./plain.txt" && echo "$R22" | grep -q "exit 127
 rm -rf "$T22"
 echo "shell test (step 22): ok"
 echo "shell test (step 21): ok"
+# step 23: a program of the packages finds its helpers and certificates under $PREFIX (they were built for another folder)
+T23=$(mktemp -d); mkdir -p "$T23/usr/bin" "$T23/usr/libexec/git-core" "$T23/usr/share/git-core/templates" "$T23/usr/etc/tls"; : > "$T23/usr/etc/tls/cert.pem"
+cp /system/bin/env "$T23/usr/bin/env"; chmod +x "$T23/usr/bin/env"          # a real program under $PREFIX (a script would be run by jsh itself)
+U="$T23/usr"
+R23=$(cd "$T23" && env -u GIT_EXEC_PATH -u GIT_TEMPLATE_DIR -u SSL_CERT_FILE -u GIT_SSL_CAINFO -u CURL_CA_BUNDLE -u TERMINFO -u LD_LIBRARY_PATH PREFIX="$U" "$ROOT/_out/jsh" -c "$U/bin/env" 2>&1)
+for want in "GIT_EXEC_PATH=$U/libexec/git-core" "GIT_TEMPLATE_DIR=$U/share/git-core/templates" "SSL_CERT_FILE=$U/etc/tls/cert.pem" "GIT_SSL_CAINFO=$U/etc/tls/cert.pem" "CURL_CA_BUNDLE=$U/etc/tls/cert.pem" "LD_LIBRARY_PATH=$U/lib"; do
+    echo "$R23" | grep -qx "$want" || { echo "shell test (step 23): no $want"; echo "$R23" | head -40; exit 1; }
+done
+echo "$R23" | grep -q "^TERMINFO=" && { echo "shell test (step 23): TERMINFO without its folder"; exit 1; }
+R23=$(cd "$T23" && PREFIX="$U" SSL_CERT_FILE=/mine "$ROOT/_out/jsh" -c "$U/bin/env" 2>&1)
+echo "$R23" | grep -qx "SSL_CERT_FILE=/mine" && [ "$(echo "$R23" | grep -c '^SSL_CERT_FILE=')" = 1 ] || { echo "shell test (step 23): a variable of the person is kept"; exit 1; }
+rm -rf "$T23"
+echo "shell test (step 23): ok"

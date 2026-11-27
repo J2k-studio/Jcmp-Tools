@@ -27,6 +27,31 @@ diff -r seed work1 -x .git > /dev/null || { echo "net test: the clone has other 
 git -C work1 fsck --strict > /dev/null 2>&1 || { echo "net test: git fsck finds a problem in the clone"; exit 1; }
 [ -z "$(git -C work1 status --short)" ] || { echo "net test: git status is not clean after the clone"; exit 1; }
 [ -x work1/run.sh ] || { echo "net test: the execute right is lost"; exit 1; }
+# the pack of the server is kept as a pack (with an index that git accepts), not unpacked object by object
+ls work1/.git/objects/pack/pack-*.pack > /dev/null 2>&1 || { echo "net test: no pack was kept"; exit 1; }
+git verify-pack work1/.git/objects/pack/pack-*.idx || { echo "net test: git does not accept the index of the pack"; exit 1; }
+[ "$(find work1/.git/objects -type f -path '*/objects/??/*' | wc -l)" -eq 0 ] || { echo "net test: loose objects after a clone"; exit 1; }
+# a person at a terminal sees that something happens
+python3 -I - "$JG" "$URL" "$T/seen" <<'PY' || { echo "net test: the progress of a clone"; exit 1; }
+import os, pty, sys
+pid, fd = pty.fork()
+if pid == 0: os.execv(sys.argv[1], ['jgit', 'clone', sys.argv[2], sys.argv[3]])
+out = b''
+while True:
+    try: c = os.read(fd, 4096)
+    except OSError: break
+    if not c: break
+    out += c
+assert os.waitpid(pid, 0)[1] == 0, out
+for w in (b'receiving', b'objects', b'files', b'cloned'): assert w in out, (w, out)
+PY
+# --depth 1: only the newest commit
+"$JG" clone --depth 1 "$URL" thin > /dev/null || { echo "net test: a shallow clone"; exit 1; }
+diff -r seed thin -x .git > /dev/null || { echo "net test: the shallow clone has other files"; exit 1; }
+[ "$(git -C thin log --format=%s | tr '\n' ' ')" = "three " ] || { echo "net test: the shallow clone has more than one commit: $(git -C thin log --format=%s)"; exit 1; }
+git -C thin fsck > /dev/null 2>&1 || { echo "net test: git fsck of the shallow clone"; exit 1; }
+[ "$(cd thin && "$JG" log 2>&1 | grep -c '^commit')" = 1 ] || { echo "net test: jgit log of a shallow clone"; exit 1; }
+[ -z "$(cd thin && "$JG" log 2>&1 >/dev/null)" ] || { echo "net test: jgit log of a shallow clone complains"; exit 1; }
 # push
 cd work1
 printf 'changed by jgit\n' > a.txt; mkdir -p new; seq 1 50 > new/list.txt; printf 'x\n' > run2.sh; chmod +x run2.sh
@@ -43,8 +68,12 @@ diff -r work1 real -x .git > /dev/null || { echo "net test: a clone made by git 
 # pull: a commit made by git is taken
 cd real; printf 'from real git\n' > from_real.txt; git add .; git commit -qm real; git push -q "http://jgit:tok@127.0.0.1:$PORT/repo.git" main 2>/dev/null
 cd ../work1
+"$JG" fetch > "$T/pull.txt" || { echo "net test: fetch"; exit 1; }
 "$JG" pull > /dev/null || { echo "net test: pull"; exit 1; }
 [ "$(cat from_real.txt)" = "from real git" ] || { echo "net test: the pulled file is not there"; exit 1; }
+N=$(sed -n 's/^fetched \([0-9]*\) objects.*/\1/p' "$T/pull.txt"); [ -n "$N" ] && [ "$N" -le 5 ] || { echo "net test: a pull must bring only what is new: $(cat "$T/pull.txt")"; exit 1; }
+(cd "$T/thin" && "$JG" pull > /dev/null) || { echo "net test: pull in a shallow clone"; exit 1; }
+[ "$(cat "$T/thin/from_real.txt")" = "from real git" ] && git -C "$T/thin" fsck > /dev/null 2>&1 || { echo "net test: the shallow clone after a pull"; exit 1; }
 git fsck --strict > /dev/null 2>&1 || { echo "net test: git fsck after the pull"; exit 1; }
 # the branches changed on both sides: no merge, a clear message, nothing broken
 printf 'mine\n' > mine.txt; "$JG" add . > /dev/null; "$JG" commit -m mine > /dev/null

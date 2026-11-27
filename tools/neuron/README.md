@@ -35,7 +35,7 @@ Settings (`jash set xr.port 7791`; `free_text` off: when no question of the talk
 ## Install
 ```
 jc install neuron                                                     # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s neuron     # with curl
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s neuron     # with curl
 ```
 In jsh: `jc install neuron`.
 

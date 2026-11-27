@@ -13,7 +13,7 @@ License: the license of the compiler (see its repository); this folder only carr
 ## Install
 ```
 jc install jcmp                                                        # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jcmp     # with curl (no jget needed)
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s jcmp     # with curl (no jget needed)
 ```
 In jsh: `jc install jcmp`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 

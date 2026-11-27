@@ -1,5 +1,5 @@
 #!/bin/sh
-# release.sh [JCMP]: test, build dist/jx86 and write SHA256SUMS. Then: gh release create jx86-vX.Y.Z dist/* --repo J2k-studio/Jcmp-Tools --title ...
+# release.sh [JCMP]: test, build dist/jx86 and write SHA256SUMS. Then: gh release create jx86-vX.Y.Z dist/* --repo J2k-studio/ex-pkg --title ...
 set -eu
 cd "$(dirname "$0")"
 export JCMP=${1:-${JCMP:-jcmp}}

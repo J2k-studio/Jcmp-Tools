@@ -1,5 +1,5 @@
 #!/bin/sh
-# release.sh [JCMP]: build, test, write dist/apkj and SHA256SUMS. Then: gh release create apkj-vX.Y.Z dist/* --repo J2k-studio/Jcmp-Tools --title ...
+# release.sh [JCMP]: build, test, write dist/apkj and SHA256SUMS. Then: gh release create apkj-vX.Y.Z dist/* --repo J2k-studio/ex-pkg --title ...
 set -eu
 cd "$(dirname "$0")"
 export JCMP=${1:-${JCMP:-jcmp}}

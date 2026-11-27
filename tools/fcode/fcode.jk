@@ -300,7 +300,7 @@ void handle(i64 k) {
 }
 
 // ---------------------------------------------------------------- fcode -ex : extensions from the repository of the tools (downloaded with jget)
-String ex_base() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/extensions"; }
+String ex_base() { return "https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/extensions"; }
 i64 jget_to(String url, String file) {
     String[] ja = arr(4);
     ja.push("-q"); ja.push(url); ja.push("-o"); ja.push(file);

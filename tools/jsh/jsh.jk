@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.15.0"; }
+String jsh_version() { return "0.15.1"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -1419,25 +1419,30 @@ i64^ build_argv(String[] a, i64 n) {
 }
 
 // tries name in every folder of the PATH (it returns only when none worked)
-// The programs of the packages (clang, git ...) look for their libraries in a folder that was fixed when they were built, for another app: a
-// program that lives under $PREFIX is started with LD_LIBRARY_PATH = $PREFIX/lib (the programs of the system are left as they are)
+// The programs of the packages (clang, git, python ...) look for their libraries, helpers and certificates in a folder that was fixed when they
+// were built, for another app: a program that lives under $PREFIX is started with variables that name the places under $PREFIX (a variable that
+// is already set is left as it is; the programs of the system are left as they are)
+String[] env_added;                        // the texts of the added variables stay here until the program is started
 i64^ envp_for(String full, i64^ envp) {
     String pre = getv("PREFIX");
     if pre.len == 0 { return envp; }
-    i64 have = findv("LD_LIBRARY_PATH");
-    if have >= 0 { return envp; }
     String under = pre + "/";
     if !full.starts_with(under) { return envp; }
-    String lib = "LD_LIBRARY_PATH=" + pre + "/lib";
+    String[] names = "LD_LIBRARY_PATH GIT_EXEC_PATH GIT_TEMPLATE_DIR SSL_CERT_FILE GIT_SSL_CAINFO CURL_CA_BUNDLE TERMINFO".split(" ");
+    String[] places = "/lib /libexec/git-core /share/git-core/templates /etc/tls/cert.pem /etc/tls/cert.pem /etc/tls/cert.pem /share/terminfo".split(" ");
+    env_added = arr(8);
+    for k in 0..names.len {
+        if findv(names[k]) >= 0 { continue; }
+        String place = pre + places[k];
+        if k > 0 && file_mode_of(place) < 0 { continue; }          // only what is there (the libraries are named in any case)
+        env_added.push(names[k] + "=" + place);
+    }
     i64 n = 0;
     while envp[n] != 0 { n += 1; }
-    i64^ more = (i64^)Mem::alloc(8 * (n + 2));
+    i64^ more = (i64^)Mem::alloc(8 * (n + env_added.len + 1));
     for i in 0..n { more[i] = envp[i]; }
-    char^ text = (char^)Mem::alloc(lib.len + 1);
-    for i in 0..lib.len { text[i] = lib[i]; }
-    text[lib.len] = 0;
-    more[n] = (i64)text;
-    more[n + 1] = 0;
+    for i in 0..env_added.len { more[n + i] = (i64)env_added[i].c(); }
+    more[n + env_added.len] = 0;
     return more;
 }
 
@@ -1485,7 +1490,7 @@ String typo_hint(String name) {
         if have_program("jcmp") { return "  (the compiler is jcmp: did you mean jcmp?)"; }
         return "  (ex install jexcmp)";
     }
-    String tools = "jex jene ascode jurl jget makej jsh jbox jpty fcode coderin jcmp zipj unj tarj gzj imgj authj cam jfile jmanager jamanager jgit mujic jvp4 python yt-dlp neuron calc drive jash jstore";
+    String tools = "jex jene ascode jurl jget makej jsh jbox jpty fcode jcmp zipj unj tarj gzj imgj authj cam jfile jgit mujic jvp4 python yt-dlp neuron calc drive jash jstore";
     String[] tl = tools.split(" ");
     for i in 0..tl.len { if tl[i] == name { return "  (a tool of Jaric: ex install " + tl[i] + ")"; } }
     i64 limit = 1;

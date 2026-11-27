@@ -1,5 +1,5 @@
 #!/bin/sh
-# release.sh [YT_DLP_FILE] : the tool yt-dlp of Jcmp-Tools = the launcher of the tool python (called yt-dlp, it runs yt-dlp.pyz) and
+# release.sh [YT_DLP_FILE] : the tool yt-dlp of ex-pkg = the launcher of the tool python (called yt-dlp, it runs yt-dlp.pyz) and
 #   yt-dlp-files.tar (yt-dlp.pyz, the one-file program of yt-dlp, Unlicense). Needs the tool python (python-android) next to it.
 #   dist/yt-dlp, dist/yt-dlp-files.tar, dist/SHA256SUMS ; VERSION = the version of yt-dlp.
 set -eu

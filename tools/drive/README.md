@@ -18,7 +18,7 @@ A limit is shown and checked (`drive work` says "used 120 MB of 2.0 GB"); it is 
 ## Install
 ```
 jc install drive                                                       # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s drive     # with curl
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s drive     # with curl
 ```
 In jsh: `jc install drive`.
 

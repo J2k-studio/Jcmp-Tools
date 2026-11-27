@@ -114,7 +114,7 @@ More (jbox 0.6.0): `rev` (lines backwards), `paste a b`, `fold -w 40`, `printf '
 jget https://example.com/f.tar.gz        # saved as f.tar.gz  (a progress bar shows)
 jget URL -o name.ext                      # another name   (-o - : to the screen)
 jget -sh URL arg1                         # download a script and run it
-jc tools                            # the tools of Jcmp-Tools
+jc tools                            # the tools of ex-pkg
 jc install coderin jsh jbox                # install tools next to jget (checked with SHA-256)
 jc lib list                             # libraries of the J2K language
 jc lib install NAME / unstall NAME

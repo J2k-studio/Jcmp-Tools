@@ -4,7 +4,7 @@ set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 J="$PWD/_out/calc"
 chk() { [ "$("$J" -q "$1" 2>&1)" = "$2" ] || { echo "calc test: $1 gave '$("$J" -q "$1" 2>&1)', wanted '$2'"; exit 1; }; }
-[ "$("$J" --version)" = "calc 0.1.1" ] || { echo "calc test: version"; exit 1; }
+[ "$("$J" --version)" = "calc 0.2.0" ] || { echo "calc test: version"; exit 1; }
 chk "1 + 2 * 3" 7
 chk "(1 + 2) * 3" 9
 chk "0xff xor 0x0f" 240
@@ -49,4 +49,5 @@ chk "abs(0 - 7)" 7
 [ "$(printf 'x = 5\nx * 2\nans + 1\n\n' | "$J" -q)" = "$(printf '5\n10\n11')" ] || { echo "calc test: variables and ans"; exit 1; }
 # an empty line does not leave the prompt; exit does
 [ "$(printf '1+1\n\n\n2+2\nexit\n9\n' | "$J" -q)" = "$(printf '2\n4')" ] || { echo "calc test: empty lines and exit"; exit 1; }
+python3 ui_test.py "$J" || exit 1
 echo "calc tests: ok"

@@ -3,19 +3,46 @@
 // ascode: a harness for a model (like the claude command): the model asks for a tool (read, list, search, write, edit, run), ascode asks
 // the person when the tool changes something, does it, and gives the result back, until the model is done.
 //   ascode [--model mock:FILE] [--mode ask|read|auto] [TASK ...]
-// A1 (this version): the core, the tools, the permission modes and a scripted model for tests. The models claude (API) and llama come next.
+// The models: claude (the Messages API, claude.j) and a scripted one for tests (mock:FILE). llama comes next.
 #import <stdlib>
 using stdlib;
 
-String ascode_version() { return "0.1.0"; }
+String ascode_version() { return "0.2.0"; }
 
 String g_mode;          // ask: ask before a change (write, edit, run); read: changes are refused; auto: changes inside the folder are done
 String g_root;          // the folder of the work: a path outside it is always asked, also in auto
 
 // ---------------------------------------------------------------- the person
+bool g_eof;               // the input has ended
+
+// a line the person types ("" at the end of the input); hidden: nothing is shown while it is typed
+String read_text_line(bool hidden) {
+    char old[64];
+    bool tty = hidden && Sys::isatty(0) == 0;
+    if tty {
+        Sys::call(29, 0, 21505, (i64)@old, 0, 0, 0);          // TCGETS
+        char raw[64];
+        for i in 0..64 { raw[i] = old[i]; }
+        raw[12] = raw[12] & 245;                              // no ECHO, no ICANON
+        Sys::call(29, 0, 21506, (i64)@raw, 0, 0, 0);
+    }
+    String out = "";
+    char b[2];
+    while true {
+        i64 n = Sys::read(0, @b, 1);
+        if n <= 0 { g_eof = true; break; }
+        if b[0] == 10 || (tty && b[0] == 13) { break; }
+        if b[0] == 127 || b[0] == 8 { if out.len > 0 { out = out.slice(0, out.len - 1); } continue; }
+        out.push(b[0]);
+    }
+    if tty { Sys::call(29, 0, 21506, (i64)@old, 0, 0, 0); }
+    return out;
+}
+
 bool person_says_yes(String what) {
     jout << "ascode: " << what << " [y/n] ";
-    String a = Input::line().trim();
+    String line = read_text_line(false);
+    String a = line.trim();
     return a == "y" || a == "Y" || a == "yes";
 }
 
@@ -190,6 +217,9 @@ i64 usage() {
     jout << "ascode: a harness for a model\n\n";
     jout << "Usage: ascode [OPTIONS] [TASK]\n\n";
     jout << "Options:\n";
+    jout << "  ascode      a session (the first\n              time asks the key)\n";
+    jout << "  --model claude[:ID]\n";
+    jout << "              Claude (default,\n              claude-opus-5-5); the\n              key is in\n              ~/.config/ascode/key\n";
     jout << "  --model mock:FILE\n";
     jout << "              a scripted model\n";
     jout << "  --mode ask  ask before a\n";
@@ -203,11 +233,14 @@ i64 usage() {
     return 0;
 }
 
+#import "claude"
+#import "chat"
+
 i64 main() {
     String[] a = Env::args();
     g_mode = "ask";
     g_root = "";
-    String model = "";
+    String model = "claude";
     String task = "";
     i64 i = 1;
     while i < a.len {
@@ -223,7 +256,16 @@ i64 main() {
     for q in 0..512 { cw[q] = 0; }
     Sys::getcwd(@cw, 512);
     g_root = (char^)@cw;
-    if !model.starts_with("mock:") { jerr << "ascode: a model is needed: --model mock:FILE (claude and llama come next)\n"; return 2; }
+    if task == "claude" || (task.starts_with("claude:") && !task.contains(" ")) { model = task + ""; task = ""; }
+    if model == "claude" || model.starts_with("claude:") {
+        String id = "";
+        if model.len > 7 { id = model.slice(7, model.len); }
+        if task.len == 0 { return chat(id); }
+        if !cl_open(id) { jerr << "ascode: no key. Run  ascode  once to give it,\nor put it in ~/.config/ascode/key\n"; return 1; }
+        jout << "ascode: " << cl_model << nl;
+        return cl_run(task);
+    }
+    if !model.starts_with("mock:") { jerr << "ascode: the model is claude or mock:FILE\n"; return 2; }
     if !mock_open(model.slice(5, model.len)) { jerr << "ascode: cannot read the script " << model.slice(5, model.len) << "\n"; return 1; }
     return run_loop(task);
 }

@@ -225,7 +225,7 @@ i64 pkg_search(String index, String word) {
                 jout << "ex: no package of Jcmp-pkg matches '" << word << "'";
                 String near = near_names(word, all);
                 if near.len > 0 { jout << "; did you mean: " << near; }
-                jout << "\n(the tools of Jcmp-Tools are listed by  ex tools ; your own program is not in an index: it has to be published first)\n";
+                jout << "\n(the tools of ex-pkg are listed by  ex tools ; your own program is not in an index: it has to be published first)\n";
             }
         }
         Result::Err(e): { err("ex: the package index is not valid JSON\n"); return 1; }

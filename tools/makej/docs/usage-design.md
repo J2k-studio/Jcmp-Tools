@@ -38,4 +38,4 @@ Now: the script `makej` puts `lib/` next to itself on `J2K_PATH`. Alternatives: 
 2. Which commands from section 1 are wanted first (the prototype has 3)?
 3. Output folder name and one folder per CPU?
 4. How is makej installed: `jget`, with jcmp, or by hand?
-5. Does makej live in its own repository (now) or in Jcmp-Tools (with jget)?
+5. Does makej live in its own repository (now) or in ex-pkg (with jget)?

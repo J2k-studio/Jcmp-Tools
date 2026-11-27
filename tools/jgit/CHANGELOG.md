@@ -1,5 +1,11 @@
 # jgit changelog
 
+## 0.5.0
+* **Added:** `clone`, `fetch` and `pull` show how much has arrived, the objects and the files.
+* **Added:** `jgit clone --depth 1 URL`: only the newest commit, much less to bring.
+* **Fixed:** a clone was very slow (every object was packed again, one file each): the pack of the server is now kept, with an index that git accepts.
+* **Fixed:** `fetch` and `pull` brought the whole history again; only what is new comes now.
+
 ## 0.4.0
 * **Added:** the network over http and https (the smart protocol of git): `jgit clone URL [DIR]`, `jgit remote [-v] | add | remove`, `jgit fetch`, `jgit pull` (fast-forward), `jgit push`, `jgit token HOST TOKEN` (the password of a server, kept for you only). The result is checked by git itself against a real git server: `git fsck --strict`, `git log` and a `git clone` read what jgit made.
 * **Fixed:** none. Not yet: ssh addresses, merges, tags.

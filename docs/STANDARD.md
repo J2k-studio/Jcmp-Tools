@@ -1,4 +1,4 @@
-# The standard of the tools of Jcmp-Tools
+# The standard of the tools of ex-pkg
 
 Every tool follows these rules. A new tool is not released until it passes the checklist at the end.
 
@@ -20,7 +20,7 @@ Every tool follows these rules. A new tool is not released until it passes the c
 
 ## Versions and releases
 * `X.Y.Z`: Z = a fix, Y = something new, X = a break (not before 1.0). One number in `VERSION`; the program prints it; the changelog has a section for it. **The version text in the source must be changed together with `VERSION`** (jsh 0.5.1 to 0.6.0 printed 0.5.0 because it was not: `test.sh` now checks `NAME --version` against `VERSION`).
-* A release is the tag `NAME-vX.Y.Z` in Jcmp-Tools with the file `NAME` and `SHA256SUMS`; `release.sh` builds, tests, writes the sums. `install.sh NAME` and `jc install NAME` check the sums.
+* A release is the tag `NAME-vX.Y.Z` in ex-pkg with the file `NAME` and `SHA256SUMS`; `release.sh` builds, tests, writes the sums. `install.sh NAME` and `jc install NAME` check the sums.
 * A tool built for the Jaric app is built from the same source (no copy that differs): `build_app.sh` takes `~/jget/tools/*`; the only other copy (`os/userland/shell/jsh.jk` in Jaric) is replaced by the tool's file at every release.
 
 ## Checklist before a release

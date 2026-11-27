@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0
+* **Added:** at a terminal, after a download jurl says the name and the size of the file it saved.
+* **Fixed:** `jurl tool ...` and `jurl -li ...` go to `ex` and `jex` (they went to `jc`, which is gone).
+
 ## 0.1.2
 * **Fixed:** a link to a page of github.com (`.../blob/REF/PATH`) gave the web page (HTML), so `jurl URL | sh` said "syntax error"; jurl now takes the file from raw.githubusercontent.com and says so.
 

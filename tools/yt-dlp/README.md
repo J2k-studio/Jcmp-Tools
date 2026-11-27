@@ -10,7 +10,7 @@ yt-dlp --version
 ## Install
 ```
 jc install python yt-dlp                                              # with jget (python first)
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s python yt-dlp     # with curl
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s python yt-dlp     # with curl
 ```
 Update later with `jc install yt-dlp` again (the sites change often, so an old yt-dlp stops working).
 

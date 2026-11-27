@@ -52,7 +52,7 @@ Status: a prototype (2026-10-22) written before the usage was designed; the desi
 ## Install
 ```
 jc install makej                                                        # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s makej     # with curl (no jget needed)
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s makej     # with curl (no jget needed)
 ```
 In jsh: `jc install makej`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 
@@ -63,4 +63,4 @@ In jsh: `jc install makej`. Both check the SHA-256 of the file before anything i
 4. Many cores: `makej -j` builds the targets together and draws a bar for each job (`makej -j 4` uses four).
 5. `makej clean` removes the results, `makej install FOLDER` builds and copies them.
 
-License: the license of the repository (the file `LICENSE` at the root of Jcmp-Tools).
+License: the license of the repository (the file `LICENSE` at the root of ex-pkg).

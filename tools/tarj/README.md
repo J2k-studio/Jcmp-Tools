@@ -17,7 +17,7 @@ License: MPL-2.0. Build: `JCMP=path sh build.sh` (the library: `jc lib install d
 ## Install
 ```
 jc install tarj                                                        # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s tarj     # with curl (no jget needed)
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s tarj     # with curl (no jget needed)
 ```
 In jsh: `jc install tarj`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 

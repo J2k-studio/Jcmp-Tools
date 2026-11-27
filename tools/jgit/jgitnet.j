@@ -101,10 +101,18 @@ Resp http_do(String method, Url u, String path, String extra, String body, i64 d
         }
     }
     String all = "";
-    switch Net::http_read_all(sec, h) {
-        Result::Ok(t): { all = t; }
-        Result::Err(e): { Net::http_chan_close(sec, h); r.head = e.message + ""; return r; }
+    bool shown = method == "POST" && path.ends_with("/git-upload-pack");          // the objects: say how much has arrived
+    i64 said = 0 - 1;
+    bool more = true;
+    while more {
+        Result<String, Error> got = Net::http_chan_recv(sec, h, 65536);
+        switch got {
+            Result::Ok(chunk): { if chunk.len == 0 { more = false; } else { all.append(chunk); } }
+            Result::Err(e): { Net::http_chan_close(sec, h); r.head = e.message + ""; return r; }
+        }
+        if shown && all.len / 262144 != said { said = all.len / 262144; progress("receiving " + mb_text(all.len)); }
     }
+    if shown { progress("receiving " + mb_text(all.len)); progress_end(); }
     Net::http_chan_close(sec, h);
     i64 he = all.find("\r\n\r\n");
     if he < 0 { r.head = "no header in the answer"; return r; }
@@ -196,68 +204,174 @@ bool advertise(Url u, String service) {
 }
 
 // ---------------------------------------------------------------- the objects of a pack
-// writes the objects of a pack as loose objects; the number written, or -1
+// The pack of the server is kept as it is, with an index beside it (as git does): nothing has to be packed again, which is most of the time of a
+// clone. Every object is still made once, to know its name.
+
+i64 g_depth;                    // clone --depth N: only the newest N commits (0: all)
+
+bool progress_wanted() { return Sys::isatty(2) == 0; }
+
+// one line on the screen that is written over itself
+void progress(String text) { if progress_wanted() { jerr << "\r" << text << "\x1b[K"; } }
+void progress_end() { if progress_wanted() { jerr << "\n"; } }
+
+String mb_text(i64 bytes) { return stg(bytes / 1048576) + "." + stg((bytes % 1048576) * 10 / 1048576) + " MB"; }
+
+// the objects made last, kept for the deltas that stand on them (at most 64 MB); any other base is made again from the pack
+i64[] ca_at;
+String[] ca_kind;
+String[] ca_body;
+i64 ca_first;
+i64 ca_bytes;
+
+void cache_reset() { ca_at = arr(64); ca_kind = arr(64); ca_body = arr(64); ca_first = 0; ca_bytes = 0; }
+
+void cache_put(i64 at, String kind, String body) {
+    ca_at.push(at); ca_kind.push(kind + ""); ca_body.push(body + "");
+    ca_bytes += body.len;
+    while ca_first < ca_at.len - 1 && (ca_bytes > 67108864 || ca_at.len - ca_first > 3000) {
+        ca_bytes -= ca_body[ca_first].len;
+        ca_body[ca_first] = "";
+        ca_at[ca_first] = 0 - 1;
+        ca_first += 1;
+    }
+}
+
+// the entry of a pack that starts at `at`: its kind and body (a delta is put on its base); "" kind when it cannot be made here.
+// g_kind is the kind, g_end the first byte after the entry (when it was read now)
+i64 g_end;
+i64[] pk_starts;                // the entries read so far, in the order of the pack, and their names
+String[] pk_hexes;
+
+String entry_at(String pack, i64 at) {
+    i64 p = at;
+    i64 c = pack[p] & 255;
+    p += 1;
+    i64 type = (c >> 4) & 7;
+    while (c & 128) != 0 { c = pack[p] & 255; p += 1; }
+    i64 base_at = 0 - 1;
+    String base_hex = "";
+    if type == 6 {
+        c = pack[p] & 255; p += 1;
+        i64 off = c & 127;
+        while (c & 128) != 0 { c = pack[p] & 255; p += 1; off = ((off + 1) << 7) | (c & 127); }
+        base_at = at - off;
+    } else if type == 7 {
+        base_hex = to_hex(pack.slice(p, p + 20));
+        p += 20;
+    }
+    bool ok = false;
+    String data = dfl_inflate_raw(pack, p + 2, pack.len, @ok);
+    if !ok { g_kind = ""; return ""; }
+    g_end = dfl_inf_pos + 4;                                          // after the zlib check number
+    if type >= 1 && type <= 4 {
+        if type == 1 { g_kind = "commit"; } else if type == 2 { g_kind = "tree"; } else if type == 3 { g_kind = "blob"; } else { g_kind = "tag"; }
+        return data;
+    }
+    if type == 7 {
+        for k in 0..pk_hexes.len { if pk_hexes[k] == base_hex { base_at = pk_starts[k]; } }
+    }
+    if base_at < 0 { g_kind = ""; return ""; }
+    String bkind = "";
+    String bbody = "";
+    i64 k = ca_at.len - 1;
+    while k >= ca_first && bkind.len == 0 {
+        if ca_at[k] == base_at { bkind = ca_kind[k] + ""; bbody = ca_body[k] + ""; }
+        k -= 1;
+    }
+    if bkind.len == 0 {
+        i64 end = g_end;
+        bbody = entry_at(pack, base_at);
+        bkind = g_kind + "";
+        g_end = end;
+        if bkind.len == 0 { g_kind = ""; return ""; }
+        cache_put(base_at, bkind, bbody);
+    }
+    String body = apply_delta(bbody, data);
+    g_kind = bkind + "";
+    return body;
+}
+
+
+// writes pack-NAME.pack and its index (version 2) into objects/pack
+bool keep_pack(String pack, i64[] crcs) {
+    i64 n = pk_starts.len;
+    String[] keys = arr(n + 1);
+    for i in 0..n { keys.push(pk_hexes[i] + " " + stg(i)); }
+    keys.sort();
+    i64[] order = arr(n + 1);
+    i64 fan[256];
+    for i in 0..256 { fan[i] = 0; }
+    for i in 0..n {
+        order.push(keys[i].slice(41, keys[i].len).to_int());
+        String one = from_hex(keys[i].slice(0, 40));
+        fan[one[0] & 255] += 1;
+    }
+    String idx = "";
+    put32(idx, 4285812579); put32(idx, 2);
+    i64 sum = 0;
+    for i in 0..256 { sum += fan[i]; put32(idx, sum); }
+    for i in 0..n { idx.append(from_hex(pk_hexes[order[i]])); }
+    for i in 0..n { put32(idx, crcs[order[i]]); }
+    for i in 0..n {
+        if pk_starts[order[i]] >= 2147483648 { return false; }
+        put32(idx, pk_starts[order[i]]);
+    }
+    String trailer = pack.slice(pack.len - 20, pack.len);
+    idx.append(trailer);
+    idx.append(sha1_raw(idx));
+    String dir = g_git + "/objects/pack";
+    Dir::make_all(dir);
+    String base = dir + "/pack-" + to_hex(trailer);
+    if !Fs::write_bytes(base + ".pack", pack).is_ok() { return false; }
+    if !Fs::write_bytes(base + ".idx", idx).is_ok() { return false; }
+    pk_loaded = 0;                                                    // read the packs again
+    return true;
+}
+
+// reads a pack from the server and keeps it; the number of objects, or -1
 i64 unpack_pack(String pack) {
     if pack.len < 32 || !pack.starts_with("PACK") { jerr << "jgit: the answer is not a pack\n"; return 0 - 1; }
     i64 n = be32(pack, 8);
+    if n == 0 { return 0; }
+    if sha1_raw(pack.slice(0, pack.len - 20)) != pack.slice(pack.len - 20, pack.len) { jerr << "jgit: the pack arrived damaged (try again)\n"; return 0 - 1; }
+    cache_reset();
+    pk_starts = arr(n + 1);
+    pk_hexes = arr(n + 1);
+    i64[] crcs = arr(n + 1);
     i64 p = 12;
-    i64[] starts = arr(n + 1);
-    String[] kinds = arr(n + 1);
-    String[] bodies = arr(n + 1);
-    String[] hexes = arr(n + 1);
     for i in 0..n {
-        if p >= pack.len { jerr << "jgit: the pack is cut\n"; return 0 - 1; }
+        if p >= pack.len - 20 { jerr << "jgit: the pack is cut\n"; return 0 - 1; }
         i64 start = p;
-        i64 c = pack[p] & 255;
-        p += 1;
-        i64 type = (c >> 4) & 7;
-        i64 size = c & 15;
-        i64 shift = 4;
-        while (c & 128) != 0 { c = pack[p] & 255; p += 1; size = size | ((c & 127) << shift); shift += 7; }
-        i64 base_at = 0 - 1;
-        String base_hex = "";
-        if type == 6 {
-            c = pack[p] & 255; p += 1;
-            i64 off = c & 127;
-            while (c & 128) != 0 { c = pack[p] & 255; p += 1; off = ((off + 1) << 7) | (c & 127); }
-            base_at = start - off;
-        } else if type == 7 {
-            base_hex = to_hex(pack.slice(p, p + 20));
-            p += 20;
-        }
-        bool ok = false;
-        String data = dfl_inflate_raw(pack, p + 2, pack.len, @ok);
-        if !ok { jerr << "jgit: an object of the pack is damaged\n"; return 0 - 1; }
-        p = dfl_inf_pos + 4;                                          // after the zlib check number
-        String kind = "";
-        String body = "";
-        if type == 1 { kind = "commit"; body = data; }
-        else if type == 2 { kind = "tree"; body = data; }
-        else if type == 3 { kind = "blob"; body = data; }
-        else if type == 4 { kind = "tag"; body = data; }
-        else {
-            String bkind = "";
-            String bbody = "";
-            if type == 6 {
-                for k in 0..i { if starts[k] == base_at { bkind = kinds[k]; bbody = bodies[k]; } }
-            } else {
-                for k in 0..i { if hexes[k] == base_hex { bkind = kinds[k]; bbody = bodies[k]; } }
-                if bkind.len == 0 { bbody = read_object(base_hex); bkind = g_kind; }
-            }
-            if bkind.len == 0 { jerr << "jgit: a delta without its base\n"; return 0 - 1; }
-            kind = bkind;
-            body = apply_delta(bbody, data);
-        }
-        starts.push(start); kinds.push(kind); bodies.push(body);
-        String hx = write_object(kind, body);
-        hexes.push(hx);
+        String body = entry_at(pack, start);
+        if g_kind.len == 0 { progress_end(); jerr << "jgit: an object of the pack is damaged\n"; return 0 - 1; }
+        p = g_end;
+        String full = g_kind + " " + stg(body.len);
+        full.push((char)0);
+        full.append(body);
+        pk_hexes.push(to_hex(sha1_raw(full)));
+        pk_starts.push(start);
+        crcs.push(dfl_crc32_of(pack, start, p));
+        cache_put(start, g_kind, body);
+        if i % 100 == 0 || i == n - 1 { progress("objects " + stg(i + 1) + "/" + stg(n)); }
     }
+    progress_end();
+    cache_reset();
+    if !keep_pack(pack, crcs) { jerr << "jgit: the pack could not be written\n"; return 0 - 1; }
     return n;
 }
 
 // ---------------------------------------------------------------- fetch
-// asks for the objects of the wanted hashes (those that are not here yet) and writes them; the number of objects, or -1
-i64 fetch_objects(Url u, String[] want) {
+// the commits where this shallow clone ends (.git/shallow, one name a line)
+String[] shallow_list() {
+    String[] out = arr(4);
+    String[] ls = read_text_file(g_git + "/shallow").split("\n");
+    for i in 0..ls.len { if ls[i].trim().len == 40 { out.push(ls[i].trim() + ""); } }
+    return out;
+}
+
+// asks for the objects of the wanted hashes; have: commits that are here (the server leaves out what they reach). The number of objects, or -1
+i64 fetch_objects(Url u, String[] want, String[] have) {
     String body = "";
     bool first = true;
     for i in 0..want.len {
@@ -265,13 +379,33 @@ i64 fetch_objects(Url u, String[] want) {
         if first { line = line + " ofs-delta agent=jgit/" + jgit_version(); first = false; }
         body = body + pkt(line + "\n");
     }
-    body = body + "0000" + pkt("done\n");
+    String[] ends = shallow_list();
+    for i in 0..ends.len { body = body + pkt("shallow " + ends[i] + "\n"); }
+    if g_depth > 0 { body = body + pkt("deepen " + stg(g_depth) + "\n"); }
+    body = body + "0000";
+    for i in 0..have.len { body = body + pkt("have " + have[i] + "\n"); }
+    body = body + pkt("done\n");
     Resp r = http_do("POST", u, repo_path(u, "/git-upload-pack"), "Content-Type: application/x-git-upload-pack-request\r\nAccept: application/x-git-upload-pack-result\r\n", body, 0);
     if r.code != 200 { jerr << "jgit: the server answered " << r.code << " to the request of objects\n"; return 0 - 1; }
-    // the answer: a line NAK (or ACK ...), then the pack
+    // the answer: the new ends of a shallow clone, a line NAK (or ACK ...), then the pack
     i64 at = r.body.find("PACK");
     if at < 0 { jerr << "jgit: no pack in the answer\n"; return 0 - 1; }
-    return unpack_pack(r.body.slice(at, r.body.len));
+    String[] ls = pkt_split(r.body.slice(0, at));
+    bool changed = false;
+    for i in 0..ls.len {
+        if ls[i].starts_with("shallow ") && ls[i].len >= 48 { ends.push(ls[i].slice(8, 48)); changed = true; }
+        if ls[i].starts_with("unshallow ") && ls[i].len >= 50 {
+            String gone = ls[i].slice(10, 50);
+            for k in 0..ends.len { if ends[k] == gone { ends[k] = ""; changed = true; } }
+        }
+    }
+    i64 got = unpack_pack(r.body.slice(at, r.body.len));
+    if got >= 0 && changed {
+        String text = "";
+        for k in 0..ends.len { if ends[k].len == 40 && !text.contains(ends[k]) { text = text + ends[k] + "\n"; } }
+        Fs::write_text(g_git + "/shallow", text);
+    }
+    return got;
 }
 
 bool have_object(String hex) { return Fs::exists(obj_path(hex)) || pack_find(hex) >= 0; }
@@ -297,7 +431,15 @@ i64 do_fetch_remote(String name, bool quiet) {
     }
     i64 got = 0;
     if want.len > 0 {
-        got = fetch_objects(u, want);
+        String[] have = arr(8);
+        String head = head_commit();
+        if head.len == 40 && have_object(head) { have.push(head + ""); }
+        for i in 0..g_ref_name.len {
+            if !g_ref_name[i].starts_with("refs/heads/") { continue; }
+            String old = ref_hash("refs/remotes/" + name + "/" + g_ref_name[i].slice(11, g_ref_name[i].len));
+            if old.len == 40 && old != head && have_object(old) { have.push(old + ""); }
+        }
+        got = fetch_objects(u, want, have);
         if got < 0 { return 1; }
     }
     i64 moved = 0;
@@ -324,6 +466,7 @@ bool checkout_commit(String hex) {
     tree_files(tree, "", np, ns, nm);
     ix_clear();
     for k in 0..np.len {
+        if k % 50 == 0 || k == np.len - 1 { progress("files " + stg(k + 1) + "/" + stg(np.len)); }
         String body = read_object(to_hex(ns[k]));
         if g_kind != "blob" { jerr << "jgit: cannot read " << np[k] << "\n"; return false; }
         String full = g_top + "/" + np[k];
@@ -333,6 +476,7 @@ bool checkout_commit(String hex) {
         ix_set(np[k], ns[k], nm[k], body.len, mtime_of(full));
     }
     ix_save();
+    progress_end();
     return true;
 }
 
@@ -373,12 +517,20 @@ i64 do_remote(String[] a) {
 }
 
 i64 do_clone(String[] a) {
-    if a.len < 3 { return fail("usage: jgit clone URL [FOLDER]"); }
-    String us = a[2];
+    g_depth = 0;
+    String[] words = arr(4);
+    i64 i0 = 2;
+    while i0 < a.len {
+        if a[i0] == "--depth" && i0 + 1 < a.len { g_depth = a[i0 + 1].to_int(); i0 += 2; if g_depth < 1 { return fail("--depth wants a number from 1"); } continue; }
+        words.push(a[i0] + "");
+        i0 += 1;
+    }
+    if words.len < 1 { return fail("usage: jgit clone [--depth N] URL [FOLDER]"); }
+    String us = words[0] + "";
     Url u;
     if !parse_url(us, @u) { return fail("this address is not read: " + us + " (https:// addresses are known)"); }
     String dir = "";
-    if a.len > 3 { dir = a[3] + ""; }
+    if words.len > 1 { dir = words[1] + ""; }
     else {
         String last = u.path;
         i64 sl = 0 - 1;

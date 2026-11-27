@@ -3,7 +3,7 @@
 #import <stdlib>
 #import <math>
 
-String calc_version() { return "0.1.1"; }
+String calc_version() { return "0.2.0"; }
 
 // ---- the result of the last parse: an integer or a double
 i64 r_i;
@@ -101,7 +101,7 @@ void parse_number() {
             if src[pos] != '_' { w = w * b + digit_val(src[pos]); n += 1; }
             pos += 1;
         }
-        if n == 0 { fail_at("digits are missing after " + str(b) + "#"); }
+        if n == 0 { fail_at("digits are missing after " + stg(b) + "#"); }
         set_int(w);
         return;
     }
@@ -441,9 +441,9 @@ String fmt_double(double d) {
         frac = frac - (double)dg;
     }
     while f.len > 0 && f[f.len - 1] == '0' { f.pop(); }
-    String out = sign + str(ip);
+    String out = sign + stg(ip);
     if f.len > 0 { out = out + "." + f; }
-    if e10 != 0 { if e10 > 0 { out = out + "e+" + str(e10); } else { out = out + "e" + str(e10); } }
+    if e10 != 0 { if e10 > 0 { out = out + "e+" + stg(e10); } else { out = out + "e" + stg(e10); } }
     return out;
 }
 
@@ -459,13 +459,13 @@ void show_result(bool quiet) {
     jout << "  oct  0o" << to_base(r_i, 8, 64) << "\n";
 }
 
-// one line: "x = expr" makes a variable, anything else is shown
-i64 eval_line(String line, bool quiet) {
+// one line reckoned: "x = expr" makes a variable. keep: the variable and ans are set (not while the line is still typed). false: see err
+bool eval_value(String line, bool keep) {
     src = line + "";
     pos = 0;
     err = "";
     skip_ws();
-    if src.len == 0 { return 0; }
+    if src.len == 0 || pos >= src.len { return false; }
     // NAME = expr
     i64 p = pos;
     if is_name_start(src[p]) {
@@ -479,17 +479,22 @@ i64 eval_line(String line, bool quiet) {
             parse_or();
             skip_ws();
             if err.len == 0 && pos < src.len { fail_at("unexpected '" + src.slice(pos, pos + 1) + "'"); }
-            if err.len > 0 { jerr << "calc: " << err << "\n"; return 1; }
-            set_var(name, r_f, r_i, r_d);
-            show_result(quiet);
-            return 0;
+            if err.len > 0 { return false; }
+            if keep { set_var(name, r_f, r_i, r_d); }
+            return true;
         }
     }
     parse_or();
     skip_ws();
     if err.len == 0 && pos < src.len { fail_at("unexpected '" + src.slice(pos, pos + 1) + "'"); }
-    if err.len > 0 { jerr << "calc: " << err << "\n"; return 1; }
-    ans_f = r_f; ans_i = r_i; ans_d = r_d;
+    if err.len > 0 { return false; }
+    if keep { ans_f = r_f; ans_i = r_i; ans_d = r_d; }
+    return true;
+}
+
+i64 eval_line(String line, bool quiet) {
+    if line.trim().len == 0 { return 0; }
+    if !eval_value(line, true) { jerr << "calc: " << err << "\n"; return 1; }
     show_result(quiet);
     return 0;
 }
@@ -508,27 +513,32 @@ String read_line(bool^ eof) {
 }
 
 void help() {
-    jout << "calc: a calculator.   calc \"EXPRESSION\"   |   calc   (a prompt: exit, quit or Ctrl-D leaves)\n";
+    jout << "calc: a calculator.   calc \"EXPRESSION\"   |   calc   (the calculator screen: type or tap, Ctrl-Q leaves)   |   calc -l   (line by line)\n";
     jout << "  numbers   255  0xff  0b1111_1111  0o377  16#ff  3.14  1e3        names   pi e tau ans   x = 5\n";
     jout << "  operators + - * / // % ** (power)   << >>   < <= > >= == !=   and & | or xor not ~   ( )   (7/2 is 3.5, 8/2 is 4, 7//2 is 3)\n";
     jout << "  functions sqrt cbrt sin cos tan asin acos atan atan2 sinh cosh tanh exp ln log log2 abs floor ceil round trunc min max pow hypot gcd lcm fact popcount bswap deg rad\n";
     jout << "  a whole number is shown in decimal, hex, binary and octal.   -q  only the value\n";
 }
 
+#import "ui"
+
 i64 main() {
     String[] a = Env::args();
     var_name = arr(8); var_i = arr(8); var_d = arr(8); var_f = arr(8);
     bool quiet = false;
+    bool lines = false;
     String expr = "";
     for i in 1..a.len {
         if a[i] == "--version" || a[i] == "-V" { jout << "calc " << calc_version() << "\n"; return 0; }
         if a[i] == "--help" || a[i] == "-h" || a[i] == "-help" || a[i] == "help" { help(); return 0; }
         if a[i] == "-q" { quiet = true; continue; }
+        if a[i] == "-l" { lines = true; continue; }
         if expr.len > 0 { expr = expr + " "; }
         expr = expr + a[i];
     }
     if expr.len > 0 { return eval_line(expr, quiet); }
     bool tty = Sys::isatty(0) == 0;
+    if tty && !quiet && !lines && Sys::isatty(1) == 0 { return screen(); }
     if tty { jout << "calc " << calc_version() << "  (calc --help; exit, quit or Ctrl-D leaves)\n"; }
     i64 rc = 0;
     while true {

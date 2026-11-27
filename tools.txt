@@ -1,18 +1,14 @@
-# The tools of Jcmp-Tools: NAME|what it is
-island|Alarms, timers and notices on the island of the Jaric app, from the terminal (also the commands timer and alarm)
+# The tools of ex-pkg: NAME|what it is
 jget|Download files from the web (https, a progress bar), and the libraries of the J2K language
-jurl|Download a URL (like curl): -o -O -P -X -H -d -I -i -L, https, a progress bar (was jget)
+jurl|Download from the web (like curl): jurl LINK saves the file and says its name; -o -O -P -X -H -d -I -i -L, https, a progress bar
 makej|A build tool for J2K projects: the build file is a plain file (nano makej) or a J2K program
-jnote|Quick notes and checklists in the terminal: plain text files (jnote add, todo, check, find)
-jmaip|Keys and secrets: a vault, passkeys that sign a challenge, files encrypted with a key from a passkey (AES-256-GCM)
 jx86|An x86_64 emulator for Linux programs (static ELF): run and measure x86 code on any machine
 jsh|A small shell for J2K machines: line editing, ghost text, pipes, variables, aliases, scripts
 jbox|The basic commands in one program (dir cat cp mv rm mkdir grep sort ...); installs links so every shell finds them
 jpty|Run a program on a pseudo terminal, driven through two pipes (for apps and tools)
 fcode|A code editor for the terminal (colours, select, copy and paste, find)
-coderin|The old name of fcode (the same program): use fcode
 ex|The commands of the system: ex install, update, search, run, the settings of the app
-ascode|A harness for a model: read, edit, run, with a y before a change
+ascode|An assistant in a folder (Claude): reads, edits and runs with a y before a change
 jex|The command of the language: fetch libraries, update the compiler (jex lib install NAME)
 jene|Make and run games with jex: jene -c NAME, -b, -rc
 jcmp|The compiler of Jex (ex install jexcmp: with jex and every library)
@@ -29,12 +25,8 @@ jfile|The files of the phone in a terminal: Downloads, Pictures, Documents ...; 
 mujic|A music player for the terminal: your songs, free songs to fetch, synced lyrics (mujic)
 jvp4|A video player made only of J2K (today: jvp4 info reads mp4 / mov files)
 yt-dlp|Downloads audio and video from many sites with yt-dlp (needs the tool python); use it only for what you may download
-jamanager|The task manager of Jaric: programs, memory, stop a program, drives, caches (jamanager ps, top, mem, kill, drives, cache)
 jash|The settings of your programs in one file (~/.jash) and the command to read and change it (jash list, get, set, edit, import)
 neuron|Small AI models on the phone: train a GPT (attention) or a small model on your text, chat with it, run GGUF models, the assistant xaiorin (xr)
-jc|The old name of ex (the same program): use ex
-jgit|git written in J2K: init, add, commit, status, log, diff, branch, switch; the repositories are the repositories of git, also packed ones (no network yet)
+jgit|git written in J2K: init, add, commit, status, log, diff, branch, switch; the repositories are the repositories of git, also packed ones clone (--depth 1), fetch, pull, push over https
 drive|New drives for Jaric: a new place or a name for a folder (drive, drive new NAME [PATH], drive remove NAME)
-calc|A calculator for the terminal: sums, hex, binary, xor and, or, shifts, functions, variables (calc "0xff xor 0x0f")
-jaric-os|(paused) Jaric OS: the operating system of the Jaric project in a machine inside the app: jaric-os starts it (start screen, then a console on a disk made of a folder)
-learnj|A game that teaches computers, English and the J2K language: tracks, quizzes, a dragon duel, exams (progress in ~/.learnj)
+calc|A calculator: a screen with keys to tap, or calc "0xff xor 0x0f" (hex, binary, bit operations, functions, variables)

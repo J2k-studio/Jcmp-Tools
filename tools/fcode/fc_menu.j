@@ -9,7 +9,7 @@ void menu_do(String act) {
     if act == "nexterror" { if err_line.len > 0 { err_i = (err_i + 1) % err_line.len; } show_error(); return; }
     if act == "examples" { examples_menu(); return; }
     if act == "keys" { pane_text("Keys", "F10 menu   F9 compile   F5 run   F11 compile and run   F8 next error   Esc closes the log\nCtrl-S save  Ctrl-Q quit  Ctrl-F find  Ctrl-G go to line  Ctrl-Z undo  Ctrl-Y redo\nCtrl-C copy  Ctrl-X cut  Ctrl-V paste  Ctrl-A select all  Ctrl-K delete line  Ctrl-E commands"); return; }
-    if act == "about" { pane_text("About", "fcode 0.6.0: a text editor for the terminal and the Jaric app.  J2k-studio  github.com/J2k-studio/Jcmp-Tools"); return; }
+    if act == "about" { pane_text("About", "fcode 0.6.0: a text editor for the terminal and the Jaric app.  J2k-studio  github.com/J2k-studio/ex-pkg"); return; }
     if act == "replace" {
         String a1 = ask("replace: ");
         if a1.len == 0 { return; }

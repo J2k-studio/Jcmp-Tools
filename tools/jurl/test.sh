@@ -14,8 +14,9 @@ t()   { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 [ -z "${J2K_PATH:-}" ] && [ -d "$HOME/Jcmp/build/libs" ] && export J2K_PATH="$HOME/Jcmp/build/libs"
 $JCMP jurl.jk -o "$W/jurl" >"$W/build.txt" 2>&1 || { cat "$W/build.txt"; echo "FAIL  jurl does not build"; exit 1; }
 J="$W/jurl"
-( cd "$HERE/../jc" && $JCMP jc.jk -o "$W/jc" ) >"$W/build_jc.txt" 2>&1 || { cat "$W/build_jc.txt"; echo "FAIL  jc does not build"; exit 1; }
-export PATH="$W:$PATH"                                      # jurl -li ... and jurl tool ... are sent to jc
+( cd "$HERE/../ex" && $JCMP ex.jk -o "$W/ex" ) >"$W/build_ex.txt" 2>&1 || { cat "$W/build_ex.txt"; echo "FAIL  ex does not build"; exit 1; }
+( cd "$HERE/../jex" && $JCMP jex.jk -o "$W/jex" ) >"$W/build_jex.txt" 2>&1 || { cat "$W/build_jex.txt"; echo "FAIL  jex does not build"; exit 1; }
+export PATH="$W:$PATH"                                      # jurl -li ... and jurl tool ... are sent to ex and jex
 mkdir -p "$W/tz/src/sub"; echo hello > "$W/tz/src/a.txt"; echo deep > "$W/tz/src/sub/b.txt"
 ( cd "$W/tz" && tar czf t.tar.gz src && tar cf t.tar src )
 mkdir "$W/tz/o1" "$W/tz/o2"
@@ -141,10 +142,25 @@ printf 'jsh 0.2.0\nfoo 1.0.0\nbar 1.0.0\n' > "$M/versions.txt"
 echo 0.2.0 > "$M/tools/jsh/LATEST"; echo 1.0.0 > "$M/tools/foo/LATEST"; echo 1.0.0 > "$M/tools/bar/LATEST"
 mkfake() { printf '#!/bin/sh\necho "%s %s"\n' "$2" "$3" > "$M/dl/$2-v$3/$2"; ( cd "$M/dl/$2-v$3" && sha256sum "$2" > SHA256SUMS ); }
 mkfake x jsh 0.2.0; mkfake x foo 1.0.0; mkfake x bar 1.0.0
-TB="$W/tbin"; mkdir -p "$TB"; cp "$J" "$TB/jurl"; cp "$W/jc" "$TB/jc"
+TB="$W/tbin"; mkdir -p "$TB"; cp "$J" "$TB/jurl"; cp "$W/ex" "$TB/ex"; cp "$W/jex" "$TB/jex"
 printf '#!/bin/sh\necho "jsh 0.1.0"\n' > "$TB/jsh"; chmod 755 "$TB/jsh"
 printf '#!/bin/sh\necho "foo 1.0.0"\n' > "$TB/foo"; chmod 755 "$TB/foo"
 TE="JCMPTOOLS_RAW=file://$M JCMPTOOLS_DL=file://$M/dl"
+# at a terminal jurl says where the file went (a person who types  jurl LINK  saw nothing)
+SV=$(mktemp -d); printf 'twelve bytes' > "$SV/source.bin"; mkdir "$SV/into"
+got=$(cd "$SV/into" && python3 -I -c 'import os, pty, sys
+pid, fd = pty.fork()
+if pid == 0: os.execv(sys.argv[1], ["jurl", sys.argv[2]])
+out = b""
+while True:
+    try: c = os.read(fd, 4096)
+    except OSError: break
+    if not c: break
+    out += c
+os.waitpid(pid, 0); sys.stdout.write(out.decode(errors="replace"))' "$J" "file://$SV/source.bin")
+case "$got" in *"saved source.bin (12 B)"*) ;; *) echo "jurl: FAIL: no word about the saved file: $got"; FAILS=$((FAILS+1)) ;; esac
+got=$(cd "$SV/into" && "$J" -O "file://$SV/source.bin" 2>&1 >/dev/null); [ -z "$got" ] || { echo "jurl: FAIL: a script must hear nothing: $got"; FAILS=$((FAILS+1)); }
+rm -rf "$SV"
 cd / ; rm -rf "$W"
 echo "jurl: $FAILS failures"
 exit $FAILS
