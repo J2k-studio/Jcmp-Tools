@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.8.0
+* **Changed:** the same program as ex 0.8.0 (`ex app update`, `ex doctor`).
+* **Fixed:** none.
+
 ## 0.7.0
 * **Changed:** `jc` is the old name of `ex`: this is the same program, built from the sources of `ex`, and it stays for two releases. Use `ex`.
 * **Fixed:** none (see the changelog of `ex`).

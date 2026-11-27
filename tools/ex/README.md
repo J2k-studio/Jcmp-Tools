@@ -11,6 +11,8 @@ ex search WORD        find a package
 ex run FILE.jc        a program in a .jc file (asks for its permissions once)
 ex theme black        a setting of the app (ex setting list shows them all)
 ex awake on           keep the sessions running in the background
+ex doctor             is everything in place, and what to do
+ex app update         the newest app (Android asks you to tap Update)
 ```
 The libraries of the language are the job of `jex`; building a project is the job of `makej`.
 License: MPL-2.0. Build: `JCMP=path sh build.sh`. Test: `sh test.sh`.

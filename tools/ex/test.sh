@@ -141,4 +141,22 @@ cp "$J" "$U/bin/ex"; printf '# tools\nex|the commands\n' > "$U/mirror/tools.txt"
 printf '#!/bin/sh\necho "ex 9.9.9"\n' > "$U/mirror/dl/ex-v9.9.9/ex"; ( cd "$U/mirror/dl/ex-v9.9.9" && sha256sum ex > SHA256SUMS )
 ( cd "$U/bin" && JC_PKG_ROOT="$U/pkg" JCMPTOOLS_RAW="file://$U/mirror" JCMPTOOLS_DL="file://$U/mirror/dl" ./ex update > "$U/up.log" 2>&1 ) || true
 [ "$("$U/bin/ex" --version)" = "ex 9.9.9" ] || { echo "ex test: ex update did not replace itself: $(cat "$U/up.log")"; exit 1; }
+# ex app: what the newest app is comes from a file; a newer one is downloaded, checked and given to jearlink (a fake one records the words)
+X="$T/app"; mkdir -p "$X/bin" "$X/home" "$X/tmp"
+printf 'not really an app\n' > "$X/new.apk"
+printf 'version 9.9\ncode 2000000000\nsha256 %s\nurl file://%s\n' "$(sha256sum "$X/new.apk" | cut -d' ' -f1)" "$X/new.apk" > "$X/app.txt"
+printf '#!/bin/sh\necho "$*" > "%s"\n' "$X/ear.log" > "$X/bin/jearlink"; chmod 755 "$X/bin/jearlink"
+A() { env EXSHELL=1 EXSHELL_CODE="$1" EXSHELL_VERSION=1.0 EX_APP_INDEX="file://$X/app.txt" HOME="$X/home" TMPDIR="$X/tmp" PATH="$X/bin:$PATH" "$J" app ${2:-} ${3:-}; }
+A 1 update -n | grep -q "app newest: 9.9" || { echo "ex test: app update -n"; exit 1; }
+[ ! -e "$X/ear.log" ] || { echo "ex test: -n must install nothing"; exit 1; }
+A 1 update > "$X/o" 2>&1 || { echo "ex test: app update: $(cat "$X/o")"; exit 1; }
+[ "$(cat "$X/ear.log")" = "-ins $X/home/.cache/exshell-9.9.apk" ] || { echo "ex test: jearlink got: $(cat "$X/ear.log" 2>/dev/null)"; exit 1; }
+A 2000000000 update | grep -q "up to date" || { echo "ex test: the same app must be up to date"; exit 1; }
+sed -i 's/^sha256 .*/sha256 0000000000000000000000000000000000000000000000000000000000000000/' "$X/app.txt"; rm -f "$X/ear.log"
+A 1 update > /dev/null 2>&1 && { echo "ex test: a wrong checksum of the app must fail"; exit 1; }
+[ ! -e "$X/ear.log" ] || { echo "ex test: a wrong app must not be installed"; exit 1; }
+# ex doctor says what is there and ends well
+printf 'ex 9.9.9\n' > "$U/mirror/versions.txt"
+( cd "$U/bin" && JCMPTOOLS_RAW="file://$U/mirror" "$J" doctor ) > "$T/doc.txt" 2>&1 || { echo "ex test: doctor: $(cat "$T/doc.txt")"; exit 1; }
+grep -q "^network   ok" "$T/doc.txt" && grep -q "^free " "$T/doc.txt" || { echo "ex test: doctor said: $(cat "$T/doc.txt")"; exit 1; }
 echo "ex tests: ok"
