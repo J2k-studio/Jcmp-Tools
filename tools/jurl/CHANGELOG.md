@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+* **Added:** a command written for curl works with `jurl` in its place: bundled flags (`-fsSL`, `-LO`, `-sSLo FILE`), long names (`--silent`, `--output` ...), any order; flags that change nothing here (`--compressed`, `--max-time`) are taken. With `-f`, `-S` or `-L` and no `-o` / `-O` the answer goes to the output, as in curl.
+* **Added:** a short help with examples; everything is in `jurl --help-all`.
+* **Fixed:** `jurl -o FILE URL` (the file name first) showed the help; `-I` with a bundle was refused.
+
 ## 0.2.0
 * **Added:** at a terminal, after a download jurl says the name and the size of the file it saved.
 * **Fixed:** `jurl tool ...` and `jurl -li ...` go to `ex` and `jex` (they went to `jc`, which is gone).

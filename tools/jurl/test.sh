@@ -52,6 +52,24 @@ cd "$W/out"
 t "download: -o names the file" '$J -q http://127.0.0.1:$PORT/page.txt -o mine.txt && [ "$(cat mine.txt)" = "hello jurl" ]'
 t "download: -o - writes to the screen" '[ "$($J http://127.0.0.1:$PORT/page.txt -o - 2>/dev/null)" = "hello jurl" ]'
 t "download: -h URL is the same" '$J -q -h http://127.0.0.1:$PORT/page.txt -o h.txt && [ "$(cat h.txt)" = "hello jurl" ]'
+# the commands people copy from the web are written for curl: jurl understands their flags, in a bundle and by their long names, in any order
+U=http://127.0.0.1:$PORT
+mkdir -p "$W/out/curl" && cd "$W/out/curl"
+t "curl: -fsSL prints the answer" '[ "$($J -fsSL $U/page.txt 2>&1)" = "hello jurl" ]'
+t "curl: -fsSL URL | sh" '[ "$($J -fsSL $U/hello.sh | sh -s -- there)" = "ran with there" ]'
+t "curl: -sSfL and long names" '[ "$($J --silent --show-error --fail --location $U/page.txt 2>&1)" = "hello jurl" ]'
+t "curl: -LO saves under the name of the address" '$J -LOs $U/page.txt && [ "$(cat page.txt)" = "hello jurl" ]'
+t "curl: -sSLo FILE" '$J -sSLo one.txt $U/page.txt && [ "$(cat one.txt)" = "hello jurl" ]'
+t "curl: -ofile with the name attached" '$J -s -otwo.txt $U/page.txt && [ "$(cat two.txt)" = "hello jurl" ]'
+t "curl: -o before the address" '$J -s -o three.txt $U/page.txt && [ "$(cat three.txt)" = "hello jurl" ]'
+t "curl: --output after the address" '$J $U/page.txt --silent --output four.txt && [ "$(cat four.txt)" = "hello jurl" ]'
+t "curl: -f on a page that is not there: it fails and prints nothing" 'out=$($J -fsSL $U/nothing.zz 2>/dev/null); [ $? -ne 0 ] && [ -z "$out" ]'
+t "curl: -sI shows the head only" '$J -sI $U/page.txt > head.txt && grep -qi "^content-length: 11" head.txt && ! grep -q "hello jurl" head.txt'
+t "curl: flags that change nothing here are taken" '[ "$($J -fsSL --compressed --retry 2 --max-time 30 --connect-timeout 5 -4 $U/page.txt 2>&1)" = "hello jurl" ]'
+t "curl: -k is refused (certificates are always checked)" 'out=$($J -k $U/page.txt 2>&1); [ $? -ne 0 ] && echo "$out" | grep -q certificate'
+t "help: short, with examples, narrow" '$J --help > help.txt 2>&1; grep -q "jurl -fsSL LINK" help.txt && [ "$(awk "length > 40" help.txt | wc -l)" = 0 ]'
+t "help: --help-all has the rest" '$J --help-all 2>&1 | grep -q -- "-P DIR"'
+cd "$W/out"
 PORT2=$((PORT + 2))
 (cd "$HERE" && exec python3 echo_server.py $PORT2 >/dev/null 2>&1) &
 for w in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do (exec 3<>/dev/tcp/127.0.0.1/$PORT2) 2>/dev/null && break; sleep 0.5; done
@@ -136,12 +154,12 @@ else
 fi
 kill $SRV 2>/dev/null
 # jurl tool update / unstall against a mirror on this machine (JCMPTOOLS_RAW, JCMPTOOLS_DL): update = jsh and the installed tools that have a newer version
-M="$W/mirror"; mkdir -p "$M/tools/jsh" "$M/tools/foo" "$M/tools/bar" "$M/dl/jsh-v0.2.0" "$M/dl/foo-v1.0.0" "$M/dl/bar-v1.0.0"
+M="$W/mirror"; mkdir -p "$M/tools/jsh" "$M/tools/foo" "$M/tools/bar" "$M/dl/jsh-v0.3.0" "$M/dl/foo-v1.0.0" "$M/dl/bar-v1.0.0"
 printf '# tools\njsh|the shell\nfoo|a tool\nbar|another tool\n' > "$M/tools.txt"
-printf 'jsh 0.2.0\nfoo 1.0.0\nbar 1.0.0\n' > "$M/versions.txt"
-echo 0.2.0 > "$M/tools/jsh/LATEST"; echo 1.0.0 > "$M/tools/foo/LATEST"; echo 1.0.0 > "$M/tools/bar/LATEST"
+printf 'jsh 0.3.0\nfoo 1.0.0\nbar 1.0.0\n' > "$M/versions.txt"
+echo 0.3.0 > "$M/tools/jsh/LATEST"; echo 1.0.0 > "$M/tools/foo/LATEST"; echo 1.0.0 > "$M/tools/bar/LATEST"
 mkfake() { printf '#!/bin/sh\necho "%s %s"\n' "$2" "$3" > "$M/dl/$2-v$3/$2"; ( cd "$M/dl/$2-v$3" && sha256sum "$2" > SHA256SUMS ); }
-mkfake x jsh 0.2.0; mkfake x foo 1.0.0; mkfake x bar 1.0.0
+mkfake x jsh 0.3.0; mkfake x foo 1.0.0; mkfake x bar 1.0.0
 TB="$W/tbin"; mkdir -p "$TB"; cp "$J" "$TB/jurl"; cp "$W/ex" "$TB/ex"; cp "$W/jex" "$TB/jex"
 printf '#!/bin/sh\necho "jsh 0.1.0"\n' > "$TB/jsh"; chmod 755 "$TB/jsh"
 printf '#!/bin/sh\necho "foo 1.0.0"\n' > "$TB/foo"; chmod 755 "$TB/foo"

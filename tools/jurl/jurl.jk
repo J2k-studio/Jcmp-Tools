@@ -38,7 +38,7 @@ using stdlib;
 #import "core"
 #import "request"
 
-String jurl_version() { return "0.2.0"; }
+String jurl_version() { return "0.3.0"; }
 
 // the folder for songs: $MUJIC_DIR, else ~/music
 String music_folder() {
@@ -75,7 +75,25 @@ i64 cmd_music(String[] av, i64 at) {
     return rc;
 }
 
+// the short help: what a person types most, and how a command written for curl is typed here
 i64 usage() {
+    err("jurl: get things from the web\n\n");
+    err("  jurl LINK          save the file\n");
+    err("  jurl LINK -o NAME  save it as NAME\n");
+    err("  jurl LINK -o -     show it\n");
+    err("  jurl LINK | sh     send it on\n");
+    err("  jurl -sh LINK      run a script\n");
+    err("  jurl -x LINK       save, can be run\n\n");
+    err("A command written for curl? Type\njurl in place of curl:\n");
+    err("  jurl -fsSL LINK | sh\n");
+    err("  jurl -LO LINK\n");
+    err("  jurl -I LINK       the head only\n");
+    err("  jurl -d a=1 LINK   send data\n\n");
+    err("All of it: jurl --help-all\n");
+    return 2;
+}
+
+i64 usage_all() {
     err("usage: jurl URL [-o FILE]               download a file (to a pipe or a file when the output goes there: jurl URL | sh)\n");
     err("       jurl -O URL                      save it with the name in the address (even in a pipe)\n");
     err("       jurl URL URL ...                 several files, each under its own name;  -P DIR: into the folder DIR;  -l LIST: the addresses are in the file LIST\n");
@@ -358,17 +376,33 @@ i64 cmd_update_self() {
 }
 
 i64 main() {
-    String[] all = Env::args();
+    String[] all = curl_words(Env::args());
     String[] av = arr(0);
+    bool habit = false;                    // -f -S -L: the way of curl, where the answer goes to the output unless -o or -O says else
+    bool asks = false;                     // a request with a method, headers or data
+    bool named = false;
+    bool script = false;
+    for i in 1..all.len {
+        String a = all[i] + "";
+        if a == "-sh" || a == "-jsh" { script = true; }
+        if script { break; }
+        if a == "-f" || a == "-S" || a == "-L" { habit = true; }
+        if a == "-I" || a == "-i" || a == "-X" || a == "-H" || a == "-d" || a == "-u" || a == "-A" || a == "-w" || a == "--no-location" { asks = true; }
+        if a == "-o" || a == "-O" || a == "-P" { named = true; }
+        if a == "-k" { err("jurl: -k is not taken: the certificate of a server is always checked\n"); return 2; }
+    }
     for i in 0..all.len {
         if i > 0 && (all[i] == "-q" || all[i] == "-s") { g_quiet = 1; }
         else if i > 0 && all[i] == "-x" { g_exec = 1; }
+        else if i > 0 && !asks && !script && (all[i] == "-f" || all[i] == "-S" || all[i] == "-L" || all[i] == "-v") { }          // a plain download follows redirects and fails on an error by itself
         else { av.push(all[i]); }
     }
+    if habit && !asks && !named && !script { av.push("-o"); av.push("-"); }
     if av.len < 2 { return usage(); }
     String first = av[1];
     if first == "--version" || first == "-V" { jout << "jurl " << jurl_version() << nl; return 0; }
     if first == "--help" { usage(); return 0; }
+    if first == "--help-all" { usage_all(); return 0; }
     if first == "-li" || first == "tool" { return forward_on(av); }
     if first == "-sh" { return cmd_run_script(av, 2, "sh"); }
     if first == "-jsh" { return cmd_run_script(av, 2, "jsh"); }
@@ -383,7 +417,7 @@ i64 main() {
     if first == "-m" { return cmd_music(av, 2); }
     if first == "--install" { return cmd_install_self(av, 2); }
     if first == "--update" { return cmd_update_self(); }
-    if req_wanted(av, 1) { return cmd_request(av, 1); }
-    if first == "-h" || first == "-O" || first == "-P" || first == "-l" || first == "--list" || first == "-r" || is_address(first) { return cmd_fetch(av, 1); }
+    if asks { return cmd_request(av, 1); }
+    if first == "-o" || first == "-h" || first == "-O" || first == "-P" || first == "-l" || first == "--list" || first == "-r" || is_address(first) { return cmd_fetch(av, 1); }
     return usage();
 }

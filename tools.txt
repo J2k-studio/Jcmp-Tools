@@ -1,6 +1,6 @@
 # The tools of ex-pkg: NAME|what it is
 jget|Download files from the web (https, a progress bar), and the libraries of the J2K language
-jurl|Download from the web (like curl): jurl LINK saves the file and says its name; -o -O -P -X -H -d -I -i -L, https, a progress bar
+jurl|Get things from the web: jurl LINK saves the file; commands written for curl work (-fsSL, -LO, -I, -d), https
 makej|A build tool for J2K projects: the build file is a plain file (nano makej) or a J2K program
 jx86|An x86_64 emulator for Linux programs (static ELF): run and measure x86 code on any machine
 jsh|A small shell for J2K machines: line editing, ghost text, pipes, variables, aliases, scripts

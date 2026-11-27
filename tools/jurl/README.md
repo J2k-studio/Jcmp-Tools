@@ -20,6 +20,25 @@ jurl --install [DIR]  /  jurl --update        put this program in your commands 
 
 Tools and libraries: `ex install NAME`, `ex update`, `ex unstall NAME`, `ex tools`, `jex lib install NAME`. (The old forms `jurl tool ...` and `jurl -li ...` are sent to `ex` and `jex`.)
 
+## The everyday commands
+| You want to | Type |
+|---|---|
+| save a file | `jurl LINK` (it says the name and the size) |
+| save it under another name | `jurl LINK -o NAME` |
+| see it | `jurl LINK -o -` |
+| give it to another program | `jurl LINK \| sh` |
+| run a script from the web | `jurl -sh LINK` |
+
+## A command written for curl
+Write `jurl` where it says `curl`:
+```
+curl -fsSL https://example.com/install.sh | sh
+jurl -fsSL https://example.com/install.sh | sh
+```
+`-f -s -S -L -O -o -I -i -X -H -d -u -A -w -r`, bundled or long (`--silent`, `--output`), in any order. `-k` is refused: the certificate of a server is always checked.
+
+**Limit:** jurl speaks TLS 1.3 only. A server without it (for example `registry.npmjs.org`) answers "the server sent an alert"; there a system `curl` is needed.
+
 At a terminal `jurl LINK` saves the file under the name in the address and says so (`saved main.zip (2.4 MB)`); to see a page instead, use `jurl LINK -o -`.
 
 * A progress bar (percent, size, speed) is drawn when the error output is a terminal. A file is written as it arrives (any size, any bytes) and renamed when it is whole.

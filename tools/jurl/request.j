@@ -4,6 +4,89 @@
 //   -s (quiet)   -o FILE   -O (the name in the address)   -w "%{http_code}" (the code, then a new line, after the body)
 // The body goes to the screen (curl does that too) unless -o or -O is given.
 
+// The commands people copy from the web are written for curl. Their flags are brought to one form before anything looks at them: a bundle
+// (-fsSL) is parted, a value written right after its letter (-oNAME) is parted too, long names become the letters, and what changes nothing
+// here (--compressed, --max-time 30 ...) is dropped. What comes after -sh / -jsh belongs to the script and is left as it is.
+String curl_long(String a) {
+    if a == "--silent" { return "-s"; }
+    if a == "--show-error" { return "-S"; }
+    if a == "--fail" { return "-f"; }
+    if a == "--location" { return "-L"; }
+    if a == "--remote-name" { return "-O"; }
+    if a == "--head" { return "-I"; }
+    if a == "--include" { return "-i"; }
+    if a == "--output" { return "-o"; }
+    if a == "--request" { return "-X"; }
+    if a == "--header" { return "-H"; }
+    if a == "--data" || a == "--data-raw" || a == "--data-binary" { return "-d"; }
+    if a == "--user" { return "-u"; }
+    if a == "--user-agent" { return "-A"; }
+    if a == "--write-out" { return "-w"; }
+    if a == "--retry" { return "-r"; }
+    if a == "--insecure" { return "-k"; }
+    return a + "";
+}
+
+// the words with a value that is dropped, and those without
+bool curl_dropped_value(String a) { return a == "--max-time" || a == "--connect-timeout" || a == "--retry-delay" || a == "--retry-max-time" || a == "-m_" || a == "--proto"; }
+bool curl_dropped(String a) { return a == "--compressed" || a == "--progress-bar" || a == "--tlsv1.2" || a == "--tlsv1.3" || a == "--http1.1" || a == "--http2" || a == "--ipv4" || a == "-4" || a == "-6" || a == "-#" || a == "--no-progress-meter"; }
+
+String[] curl_words(String[] av) {
+    String[] out = arr(av.len + 8);
+    bool script = false;
+    i64 i = 0;
+    while i < av.len {
+        String a = av[i] + "";
+        if i == 0 || script { out.push(a + ""); i += 1; continue; }
+        if a == "-sh" || a == "-jsh" { script = true; out.push(a + ""); i += 1; continue; }
+        if curl_dropped(a) { i += 1; continue; }
+        if curl_dropped_value(a) { i += 2; continue; }
+        if a.starts_with("--") {
+            String s = curl_long(a);
+            out.push(s + "");
+            i += 1;
+            if req_letter_takes_value(s) && i < av.len { out.push(av[i] + ""); i += 1; }
+            continue;
+        }
+        if a.len > 2 && a[0] == '-' && a != "-li" && cluster_known(a) {
+            bool took = false;
+            for k in 1..a.len {
+                if took { break; }
+                String one = "-";
+                one.push(a[k]);
+                if one == "-4" || one == "-6" || one == "-#" { continue; }
+                out.push(one + "");
+                if req_letter_takes_value(one) {
+                    if k + 1 < a.len { out.push(a.slice(k + 1, a.len)); }
+                    else if i + 1 < av.len { i += 1; out.push(av[i] + ""); }
+                    took = true;
+                }
+            }
+            i += 1;
+            continue;
+        }
+        out.push(a + "");
+        i += 1;
+        if req_letter_takes_value(a) && i < av.len { out.push(av[i] + ""); i += 1; }          // the value stays as it is, whatever it looks like
+    }
+    return out;
+}
+
+bool req_letter_takes_value(String a) { return a == "-o" || a == "-X" || a == "-H" || a == "-d" || a == "-u" || a == "-A" || a == "-w" || a == "-r" || a == "-P" || a == "-l"; }
+
+// is every letter of a bundle one that is known (up to the first that takes a value)
+bool cluster_known(String a) {
+    String plain = "fsSLOIivkq46#";
+    String valued = "oXHdAuwrP";
+    for k in 1..a.len {
+        String c = "";
+        c.push(a[k]);
+        if valued.contains(c) { return true; }
+        if !plain.contains(c) { return false; }
+    }
+    return true;
+}
+
 struct ReqOpts {
     String method;
     String headers;          // "Name: value\r\n" for each -H
@@ -86,7 +169,8 @@ i64 cmd_request(String[] av, i64 at) {
         else if a == "-L" || a == "--location" { o.follow = true; i += 1; }
         else if a == "--no-location" { o.follow = false; i += 1; }
         else if a == "-O" { o.by_name = true; i += 1; }
-        else if a == "-s" || a == "-S" || a == "-h" { i += 1; }
+        else if a == "-s" || a == "-S" || a == "-h" || a == "-v" || a == "-q" { i += 1; }
+        else if a == "-r" && i + 1 < av.len { i += 2; }
         else if a.starts_with("-") && a.len > 1 { err("jurl: unknown option " + a + "\n"); return 2; }
         else if o.url.len == 0 { o.url = a + ""; i += 1; }
         else { err("jurl: one address only (got " + o.url + " and " + a + ")\n"); return 2; }

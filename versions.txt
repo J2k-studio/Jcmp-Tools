@@ -19,7 +19,7 @@ jgit 0.5.1
 jpty 0.1.1
 jrawser 0.1.0
 jsh 0.15.2
-jurl 0.2.0
+jurl 0.3.0
 jvp4 0.1.0
 jx86 0.1.0
 makej 0.11.0
