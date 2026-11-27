@@ -360,6 +360,7 @@ i64 cmd_tool(String[] av, i64 at) {
     i64 rc = 0;
     for k in 0..wanted.len {
         String name = wanted[k];
+        if name == "jex" || name == "jexcmp" || name == "jexc" { name = "jcmp"; jout << "ex: jex is the language, its compiler is the tool jcmp: installing jcmp" << nl; }       // the names people look for point to the tool
         bool known = false;
         String[] ls = text.split("\n");
         for i in 0..ls.len { if ls[i].starts_with(name + "|") { known = true; } }

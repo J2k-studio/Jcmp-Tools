@@ -2317,13 +2317,18 @@ bool builtin(String[] a) {
     }
     if name == "help" {
         jout << "jsh, the shell of Jaric\n\n";
-        jout << "  built-ins   cd pwd echo history export unset env alias unalias type which source install test [ ] read break continue return jobs wait exit\n";
-        jout << "  scripts     if / elif / else / fi    while / until / for ... do ... done    name() { ... }    $(command)  $((1 + 2))\n";
-        jout << "  lines       a | b    a > file    a >> file    a < file    a &    a ; b    a && b    a || b    * ? ~ globs\n";
-        jout << "  keys        Tab takes the grey text    arrows: history, move    Ctrl-J another line    Ctrl-C cancel    Ctrl-D leave\n";
-        jout << "  tools       ex install NAME ...  (ex list shows the tools)   ex update [-n]   ex unstall NAME
-";
-        jout << "  the app     jaric theme | font | core\n";
+        jout << "Built-ins:\n";
+        jout << "  cd pwd echo history\n  export unset env alias\n  unalias type which source\n  install test [ ] read\n  break continue return\n  jobs wait exit\n\n";
+        jout << "Scripts:\n";
+        jout << "  if / elif / else / fi\n  while / until / for\n    ... do ... done\n  name() { ... }\n  $(command)  $((1 + 2))\n\n";
+        jout << "Lines:\n";
+        jout << "  a | b      pipe\n  a > file   write\n  a >> file  append\n  a < file   read\n  a &        background\n  a ; b      then\n  a && b     if a worked\n  a || b     if a failed\n  * ? ~      globs\n\n";
+        jout << "Keys:\n";
+        jout << "  Tab      take grey text\n  Up/Down  history\n  Ctrl-J   another line\n  Ctrl-C   cancel\n  Ctrl-D   leave\n\n";
+        jout << "Tools:\n";
+        jout << "  ex install NAME\n  ex list\n  ex update [-n]\n  ex unstall NAME\n\n";
+        jout << "The app:\n";
+        jout << "  jaric theme | font | core\n";
         bcode = 0;
         return true;
     }

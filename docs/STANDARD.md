@@ -70,3 +70,13 @@ Defaults need no file. A setting is read in this order: the command line, the en
 
 ## The guide of a tool
 A README is the front page; a tool with more than a few commands also has a **guide**: a section `## Commands` in the README, or a file `docs/GUIDE.md`, that goes through **every command and option with an example**, shows a step by step lesson for each big feature (for example an Android app with `makej init -apk`), and has a table of the error messages and what to do. `check-standard.sh` prints a note for a tool that has neither. (Written so far: makej.)
+
+
+## How the text of a tool looks (rule added 2026-11-27 at the owner's request, adjustable)
+The screen of a phone is about 38 characters wide, and the text must be readable there (a line that is too long is cut in the middle of a word by the terminal, and nobody can read it). The same rules hold for jexcmp, ex-pkg, jbox, jsh and every tool:
+1. **Lines of at most 38 characters** in `--help`, `help`, `list` and every message (messages that carry a path or a name the tool cannot cut may be longer). A tool that knows the width (`COLUMNS`, or `ioctl TIOCGWINSZ`) wraps at the width **between words**, never inside one.
+2. **The layout of a help text** (as in git, cargo and busybox): `Usage:` line first, a short sentence of what it is, then sections with a title that ends in a colon (`Commands:`, `Options:`, `Examples:`), the items under a title indented by two spaces, one item per line, name then at least two spaces then a short description (the descriptions line up in one column inside a section). No several items on one line.
+3. **Order:** Usage, what it is, Commands, Options, Examples, where to read more. Options: `-x, --long   what it does`.
+4. **Colour** is a help, never the only sign: output to a pipe or a file has none; `NO_COLOR` turns it off.
+5. **Errors** go to the standard error as `name: what went wrong` (one line), exit code 1 (2 for a wrong use).
+6. `check-standard.sh` runs `NAME --help` of every built tool and reports lines longer than 38 characters.

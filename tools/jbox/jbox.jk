@@ -2327,6 +2327,100 @@ i64 do_install(String[] args) {
     return rc;
 }
 
+// ip: Android does not let an app open a netlink socket (the real `ip` fails with "Cannot bind netlink socket"), and /proc/net is closed too.
+// ioctl on a socket still works, so `ip addr`, `ip link` (and `ifconfig`) are made from it: the names of the interfaces, flags, mtu, the IPv4 address and mask, the MAC address when it is shown.
+// Not possible without root: routes, neighbours, changes (ip route, ip neigh, ip addr add ...).
+String ip_ipv4(char^ b, i64 off) {
+    return str(((i64)b[off]) & 255) + "." + str(((i64)b[off + 1]) & 255) + "." + str(((i64)b[off + 2]) & 255) + "." + str(((i64)b[off + 3]) & 255);
+}
+
+String ip_hex2(i64 v) {
+    String d = "0123456789abcdef";
+    String r = "";
+    r.push(d[(v >> 4) & 15]);
+    r.push(d[v & 15]);
+    return r;
+}
+
+i64 ip_prefix(char^ b, i64 off) {
+    i64 n = 0;
+    for i in 0..4 {
+        i64 v = ((i64)b[off + i]) & 255;
+        while v > 0 { n += v & 1; v = v >> 1; }
+    }
+    return n;
+}
+
+i64 do_ip(String[] a) {
+    String what = "addr";
+    if a.len > 1 { what = a[1]; }
+    if what == "a" || what == "address" { what = "addr"; }
+    if what == "l" { what = "link"; }
+    if what == "r" || what == "neigh" || what == "n" || what == "rule" || what == "tunnel" { what = "route"; }
+    if what == "route" {
+        jerr << "ip: Android does not allow an app to read or change routes and neighbours (that needs root)\n";
+        return 1;
+    }
+    if what != "addr" && what != "link" { jerr << "ip: only `ip addr` and `ip link` are possible here (Android closes netlink)\n"; return 1; }
+    i64 s = Sys::call(198, 2, 2, 0, 0, 0, 0);                  // socket(AF_INET, SOCK_DGRAM)
+    if s < 0 { return fail("ip", "cannot open a socket"); }
+    char r[64];
+    i64 shown = 0;
+    for idx in 1..128 {
+        Mem::set(@r, 0, 64);
+        r[16] = (char)(idx & 255);
+        r[17] = (char)((idx >> 8) & 255);
+        if Sys::call(29, s, 0x8910, (i64)@r, 0, 0, 0) < 0 { continue; }      // SIOCGIFNAME: the name of interface number idx
+        String name = "";
+        for i in 0..16 { if r[i] == 0 { break; } name.push(r[i]); }
+        char q[64];
+        Mem::set(@q, 0, 64);
+        for i in 0..16 { q[i] = r[i]; }
+        String flags = "";
+        i64 mtu = 0;
+        i64 up = 0;
+        i64 fl = 0;
+        if Sys::call(29, s, 0x8913, (i64)@q, 0, 0, 0) >= 0 { fl = (((i64)q[16]) & 255) | ((((i64)q[17]) & 255) << 8); }       // SIOCGIFFLAGS
+        if (fl & 1) != 0 { flags = flags + "UP,"; up = 1; }
+        if (fl & 8) != 0 { flags = flags + "LOOPBACK,"; }
+        if (fl & 2) != 0 { flags = flags + "BROADCAST,"; }
+        if (fl & 0x40) != 0 { flags = flags + "RUNNING,"; }
+        if (fl & 0x1000) != 0 { flags = flags + "MULTICAST,"; }
+        if flags.len > 0 { flags.pop(); }
+        Mem::set(@q, 0, 64);
+        for i in 0..16 { q[i] = r[i]; }
+        if Sys::call(29, s, 0x8921, (i64)@q, 0, 0, 0) >= 0 { mtu = (((i64)q[16]) & 255) | ((((i64)q[17]) & 255) << 8) | ((((i64)q[18]) & 255) << 16); }     // SIOCGIFMTU
+        String mac = "";
+        Mem::set(@q, 0, 64);
+        for i in 0..16 { q[i] = r[i]; }
+        if Sys::call(29, s, 0x8927, (i64)@q, 0, 0, 0) >= 0 {                                                                      // SIOCGIFHWADDR
+            i64 any = 0;
+            for i in 0..6 { if q[18 + i] != 0 { any = 1; } }
+            if any == 1 { for i in 0..6 { if i > 0 { mac = mac + ":"; } mac = mac + ip_hex2(((i64)q[18 + i]) & 255); } }
+        }
+        String ip4 = "";
+        i64 pre = 0;
+        Mem::set(@q, 0, 64);
+        for i in 0..16 { q[i] = r[i]; }
+        if Sys::call(29, s, 0x8915, (i64)@q, 0, 0, 0) >= 0 && q[16] == 2 {                                                         // SIOCGIFADDR
+            ip4 = ip_ipv4(@q, 20);
+            char m[64];
+            Mem::set(@m, 0, 64);
+            for i in 0..16 { m[i] = r[i]; }
+            if Sys::call(29, s, 0x891b, (i64)@m, 0, 0, 0) >= 0 { pre = ip_prefix(@m, 20); }                                       // SIOCGIFNETMASK
+        }
+        String state = "DOWN";
+        if up == 1 { state = "UP"; }
+        jout << idx << ": " << name << ": <" << flags << "> mtu " << mtu << " state " << state << "\n";
+        if mac.len > 0 { jout << "    link/ether " << mac << "\n"; }
+        if what == "addr" && ip4.len > 0 { jout << "    inet " << ip4 << "/" << pre << "\n"; }
+        shown += 1;
+    }
+    Sys::call(57, s, 0, 0, 0, 0, 0);
+    if shown == 0 { return fail("ip", "no interface could be read"); }
+    return 0;
+}
+
 i64 main() {
     String[] args = Env::args();
     if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.15.2\n"; return 0; }
@@ -2365,6 +2459,7 @@ i64 main() {
     if app == "rev" { return do_rev(a); }
     if app == "yes" { return do_yes(a); }
     if app == "uname" { return do_uname(a); }
+    if app == "ip" || app == "ifconfig" { return do_ip(a); }
     if app == "hostname" { return do_hostname(a); }
     if app == "whoami" { return do_whoami(a); }
     if app == "realpath" { return do_realpath(a); }

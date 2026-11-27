@@ -1,4 +1,4 @@
-# Jcmp-pkg
+# ex-pkg packages (was Jcmp-pkg)
 
 Packages for [Jaric](https://github.com/J2k-studio/Jcmp): programs that J2K does not (yet) replace — git, clang, python, ssh, java, rust ...
 `jc install NAME` (or `jc pkg install NAME`) reads `index.json`, installs what the package needs first, downloads each `.tar.gz`, checks its sha256 and unpacks it into the folder that holds `usr/` (the prefix of Jaric: the packages are built for it, so libraries are found without tricks). `jc pkg list | search | update | remove NAME` do the rest; the files of a package are listed in `usr/var/lib/jcpkg/NAME.list`. A name that is a tool of Jcmp-Tools is installed as the tool.
