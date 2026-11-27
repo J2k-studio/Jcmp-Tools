@@ -1,5 +1,9 @@
 # ex changelog
 
+## 0.12.0
+* **Changed:** the editor is `fcode` in `ex doctor` (it was `coderin`).
+* **Fixed:** none.
+
 ## 0.11.0
 * **Changed:** `ex update` updates everything with one command: the tools, the programs and, in exshell, the app (the patch is fetched and Android asks you to tap Update); `ex update -n` only says what is newer.
 * **Fixed:** none.

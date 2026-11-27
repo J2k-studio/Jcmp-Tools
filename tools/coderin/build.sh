@@ -1,7 +1,8 @@
 #!/bin/sh
-# builds coderin into _out/coderin (needs jcmp 1.0.0.0 or newer; JCMP=path chooses the compiler)
+# coderin is the old name of fcode: it is built from the sources of fcode (JCMP=path chooses the compiler)
 set -eu
 cd "$(dirname "$0")"
 mkdir -p _out
-"${JCMP:-jcmp}" coderin.jk -o _out/coderin
+here=$PWD
+( cd ../fcode && "${JCMP:-jcmp}" fcode.jk -o "$here/_out/coderin" )
 echo "built _out/coderin"

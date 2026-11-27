@@ -9,7 +9,8 @@ jx86|An x86_64 emulator for Linux programs (static ELF): run and measure x86 cod
 jsh|A small shell for J2K machines: line editing, ghost text, pipes, variables, aliases, scripts
 jbox|The basic commands in one program (dir cat cp mv rm mkdir grep sort ...); installs links so every shell finds them
 jpty|Run a program on a pseudo terminal, driven through two pipes (for apps and tools)
-coderin|A text editor for the terminal (colours for J2K, select, copy and paste, find)
+fcode|A code editor for the terminal (colours, select, copy and paste, find)
+coderin|The old name of fcode (the same program): use fcode
 ex|The commands of the system: ex install, update, search, run, the settings of the app
 ascode|A harness for a model: read, edit, run, with a y before a change
 jex|The command of the language: fetch libraries, update the compiler (jex lib install NAME)

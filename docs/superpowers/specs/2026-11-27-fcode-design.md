@@ -57,15 +57,17 @@ app); everywhere else F1 opens the palette.
 
 ## Stages (each one is released and usable)
 1. **Daily editor**: the parts above without extensions: tabs, tree, quick open, palette, many cursors, replace, the new keys. It replaces coderin
-   (the word `coderin` then opens fcode) only when it does everything today's coderin does (save, find, undo, selection, clipboard, mouse, brackets, run and compile, next error).
+   only when it does everything today's editor does (save, find, undo, selection, clipboard, mouse, brackets, run and compile, next error).
 2. **Make it yours**: settings and keybindings, themes and snippets of VS Code, extensions from `ex install fcode-ext-NAME` (today's
    `snippets`, `words`, `commands` folders keep working).
 3. **Language help**: LSP, first `clangd` (package clang) and `pylsp` (python); a server for Jex later (a language task, paused now).
 4. **Extension commands**: programs that talk to the editor (JSON in and out) to add features.
 
 ## Constraints and choices (mine, say if wrong)
-* Written in Jex, one static program, `fcode`; coderin stays installed and unchanged until stage 1 is complete. fcode reads the settings and the
-  extension folders of coderin (`~/.config/coderin/`) when it has none of its own (`~/.config/fcode/`).
+* Written in Jex, one static program, `fcode`. The editor of today was renamed to fcode on 2026-11-27 (`coderin` is its old name); stage 1 builds on
+  it. It reads `~/.config/coderin/` when there is no `~/.config/fcode/`.
+* An extension of fcode is one file `NAME.fcde` (the owner, 2026-11-27): a zip with the manifest and its files, like a `.vsix`; `fcode --install NAME.fcde`
+  and `ex install` put it in `~/.config/fcode/extensions/`.
 * Tests drive it through a pseudo terminal and read the screen with exshell's own terminal at 40 and 80 columns.
 * Every release comes with its lesson in the documents.
 

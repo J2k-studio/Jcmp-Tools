@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.14.0"; }
+String jsh_version() { return "0.15.0"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -523,7 +523,7 @@ String sub_guess(String line) {
 
 // commands whose words are paths: a path that is a folder is blue, a file is plain, one that is not there is red (a new name as the last word of cp / mv / ln is fine)
 bool takes_paths(String c) {
-    String names = " cd ls dir cat head tail less wc rm cp mv ln chmod stat du tree diff cmp hex coderin touch mkdir rmdir ";
+    String names = " cd ls dir cat head tail less wc rm cp mv ln chmod stat du tree diff cmp hex fcode coderin touch mkdir rmdir ";
     return names.contains(" " + c + " ");
 }
 
@@ -1485,7 +1485,7 @@ String typo_hint(String name) {
         if have_program("jcmp") { return "  (the compiler is jcmp: did you mean jcmp?)"; }
         return "  (ex install jexcmp)";
     }
-    String tools = "jex jene ascode jurl jget makej jsh jbox jpty coderin jcmp zipj unj tarj gzj imgj authj cam jfile jmanager jamanager jgit mujic jvp4 python yt-dlp neuron calc drive jash jstore";
+    String tools = "jex jene ascode jurl jget makej jsh jbox jpty fcode coderin jcmp zipj unj tarj gzj imgj authj cam jfile jmanager jamanager jgit mujic jvp4 python yt-dlp neuron calc drive jash jstore";
     String[] tl = tools.split(" ");
     for i in 0..tl.len { if tl[i] == name { return "  (a tool of Jaric: ex install " + tl[i] + ")"; } }
     i64 limit = 1;
@@ -1587,7 +1587,7 @@ i64 spawn(String[] argv, i64 in_fd, i64 out_fd, i64 out_flags_append, String in_
         String hint = "";
         if is_jbox_name(argv[0]) { hint = "  (ex install jbox)"; }
         if argv[0] == "jcmp" { hint = "  (ex install jexcmp)"; }
-        if argv[0] == "makej" || argv[0] == "coderin" || argv[0] == "jget" { hint = "  (ex install " + argv[0] + ")"; }
+        if argv[0] == "makej" || argv[0] == "fcode" || argv[0] == "coderin" || argv[0] == "jget" { hint = "  (ex install " + argv[0] + ")"; }
         if hint.len == 0 && file_mode_of(argv[0]) >= 0 { hint = "  (there is a file with this name in this folder: run it as ./" + argv[0] + ")"; }
         if hint.len == 0 { hint = typo_hint(argv[0]); }
         jerr << "jsh: " << argv[0] << ": command not found" << hint << "\n";

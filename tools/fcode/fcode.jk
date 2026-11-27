@@ -1,9 +1,9 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
 // distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-// coderin: a text editor for the terminal, written in J2K (for the Jaric app and any ANSI terminal). Version 0.2, in the way of micro:
+// fcode (it was coderin): a text editor for the terminal, written in J2K (for the Jaric app and any ANSI terminal). Version 0.2, in the way of micro:
 // the mouse (a tap or a click puts the cursor there, a drag selects, a double click takes a word, the wheel scrolls), brackets and
-// quotes are closed for you, a command bar (Ctrl-E), and settings, key bindings and colour schemes in ~/.config/coderin/ (no file is made for you).
-//   coderin FILE          Ctrl-S save   Ctrl-Q quit   Ctrl-F find   Ctrl-G go to a line   Ctrl-C copy   Ctrl-X cut   Ctrl-V paste
+// quotes are closed for you, a command bar (Ctrl-E), and settings, key bindings and colour schemes in ~/.config/fcode/ (no file is made for you).
+//   fcode FILE          Ctrl-S save   Ctrl-Q quit   Ctrl-F find   Ctrl-G go to a line   Ctrl-C copy   Ctrl-X cut   Ctrl-V paste
 //   Shift + arrows select   Ctrl-A select all   Ctrl-D copy the line below   Ctrl-K delete the line   Home End PageUp PageDown Tab
 #import <stdlib>
 
@@ -23,7 +23,7 @@ i64 rows;
 i64 cols;
 i64 quit_asked;
 String key_text;              // the characters of the last K_TEXT key
-i64 tabsize = 4;              // settings (the file ~/.config/coderin/settings, or the command  set NAME VALUE )
+i64 tabsize = 4;              // settings (the file ~/.config/fcode/settings, or the command  set NAME VALUE )
 bool use_spaces = true;       // Tab gives spaces
 bool ruler = true;            // the numbers of the lines
 bool mouse_on = true;
@@ -450,7 +450,7 @@ void undo_step(bool redo) {
 }
 
 // ---------------------------------------------------------------- the extension j2k: snippets and word completion with Tab
-// ---------------------------------------------------------------- extensions that you write: ~/.config/coderin/extensions/NAME/
+// ---------------------------------------------------------------- extensions that you write: ~/.config/fcode/extensions/NAME/
 // NAME/snippets   lines  prefix = body   (\n is a new line, | is where the cursor goes)
 // NAME/words      words for the Tab completion (any spaces and lines)
 // NAME/commands   lines  name = shell command   (%f is the file; the command bar runs it:  run name )
@@ -463,10 +463,10 @@ String[] xs_loaded;
 void load_extensions() {
     xs_pre = arr(8); xs_body = arr(8); xs_words = arr(8); xc_name = arr(8); xc_cmd = arr(8); xs_loaded = arr(4);
     load_ext_root(config_dir() + "/extensions");
-    Option<String> pe = Env::get("PATH");                                     // a tool brings its own: DIR/coderin-extensions/NAME (DIR is on the PATH)
+    Option<String> pe = Env::get("PATH");                                     // a tool brings its own: DIR/fcode-extensions/NAME (DIR is on the PATH)
     if pe.is_some() {
         String[] pd = pe.unwrap().split(":");
-        for k in 0..pd.len { if pd[k].len > 0 { load_ext_root(pd[k] + "/coderin-extensions"); } }
+        for k in 0..pd.len { if pd[k].len > 0 { load_ext_root(pd[k] + "/fcode-extensions"); load_ext_root(pd[k] + "/coderin-extensions"); } }
     }
 }
 void load_ext_root(String root) {
@@ -702,7 +702,7 @@ String color_of(i64 kind) {
     if kind == 5 { return rgb(c_typ); }
     return rgb(c_txt);
 }
-// the colours of a scheme: dark (the default), light, mono, amber; a file ~/.config/coderin/colors/NAME with lines  keyword = #RRGGBB  changes or adds one
+// the colours of a scheme: dark (the default), light, mono, amber; a file ~/.config/fcode/colors/NAME with lines  keyword = #RRGGBB  changes or adds one
 void apply_scheme(String name) {
     scheme = name;
     c_kw = 0xFF7B72; c_str = 0xA5D6FF; c_num = 0xD2A8FF; c_com = 0x7D8590; c_typ = 0x79C0FF; c_txt = 0xF2F2F2; c_gut = 0x7D8590; c_sel = 0x3C4666; c_bg = 0x0D1117;
@@ -743,7 +743,10 @@ String config_dir() {
     Option<String> h = Env::get("HOME");
     String home = "";
     if h.is_some() { home = h.unwrap(); }
-    return home + "/.config/coderin";
+    String now = home + "/.config/fcode";
+    String before = home + "/.config/coderin";                      // the folder of the old name is used when there is no new one
+    if !Dir::exists(now) && Dir::exists(before) { return before; }
+    return now;
 }
 
 // ---------------------------------------------------------------- drawing
@@ -1020,7 +1023,7 @@ void menu_do(String act) {
     if act == "nexterror" { if err_line.len > 0 { err_i = (err_i + 1) % err_line.len; } show_error(); return; }
     if act == "examples" { examples_menu(); return; }
     if act == "keys" { pane_text("Keys", "F10 menu   F9 compile   F5 run   F11 compile and run   F8 next error   Esc closes the log\nCtrl-S save  Ctrl-Q quit  Ctrl-F find  Ctrl-G go to line  Ctrl-Z undo  Ctrl-Y redo\nCtrl-C copy  Ctrl-X cut  Ctrl-V paste  Ctrl-A select all  Ctrl-K delete line  Ctrl-E commands"); return; }
-    if act == "about" { pane_text("About", "coderin 0.5.2: a text editor for the terminal and the Jaric app.  J2k-studio  github.com/J2k-studio/Jcmp-Tools"); return; }
+    if act == "about" { pane_text("About", "fcode 0.6.0: a text editor for the terminal and the Jaric app.  J2k-studio  github.com/J2k-studio/Jcmp-Tools"); return; }
     if act == "replace" {
         String a1 = ask("replace: ");
         if a1.len == 0 { return; }
@@ -1277,7 +1280,8 @@ String jaric_setting(String name) {
 
 // the look of the editor when its own settings do not say: what jaric settings says; in the Jaric app the look of Dev-C++; elsewhere dark
 void choose_default_scheme() {
-    String js = jaric_setting("coderin");
+    String js = jaric_setting("fcode");
+    if js.len == 0 { js = jaric_setting("coderin"); }                 // the setting of the old name
     if js.len > 0 { apply_scheme(js); return; }
     String jv = "";
     Option<String> j = Env::get("JARIC");
@@ -1307,7 +1311,7 @@ void load_bindings() {
         if kv.len == 2 { bind_keys.push(kv[0].trim()); bind_acts.push(kv[1].trim()); }
     }
 }
-// the command  set NAME VALUE  is kept in the file settings (this is the only time coderin writes in ~/.config/coderin)
+// the command  set NAME VALUE  is kept in the file settings (this is the only time fcode writes in ~/.config/fcode)
 void save_setting(String name, String val) {
     Dir::make_all(config_dir());
     String file = config_dir() + "/settings";
@@ -1353,11 +1357,11 @@ void command_bar() {
         msg = "replaced in " + str(n) + " lines";
     }
     else if cmd == "set" && w.len == 3 { set_option(w[1], w[2]); save_setting(w[1], w[2]); if msg.len == 0 { msg = w[1] + " = " + w[2]; } }
-    else if cmd == "bind" && w.len == 3 { bind_keys.push(w[1]); bind_acts.push(w[2]); msg = w[1] + " does " + w[2] + " (put it in ~/.config/coderin/bindings to keep it)"; }
+    else if cmd == "bind" && w.len == 3 { bind_keys.push(w[1]); bind_acts.push(w[2]); msg = w[1] + " does " + w[2] + " (put it in ~/.config/fcode/bindings to keep it)"; }
     else if cmd == "check" { check_code(); if err_line.len == 0 { msg = "no errors"; } }
     else if cmd == "next" { if err_line.len > 0 { err_i = (err_i + 1) % err_line.len; } show_error(); }
     else if cmd == "run" && w.len > 1 { run_ext_command(w[1]); }
-    else if cmd == "extensions" { msg = "loaded: "; for i in 0..xs_loaded.len { msg = msg + xs_loaded[i] + " "; } if xs_loaded.len == 0 { msg = "none in ~/.config/coderin/extensions/"; } }
+    else if cmd == "extensions" { msg = "loaded: "; for i in 0..xs_loaded.len { msg = msg + xs_loaded[i] + " "; } if xs_loaded.len == 0 { msg = "none in ~/.config/fcode/extensions/"; } }
     else if cmd == "help" { msg = "check next (errors of the compiler) run NAME (extension command) extensions save quit goto N find TEXT replace A B set NAME VALUE bind Ctrl-x ACTION; settings: tabsize tabstospaces ruler autoindent autopair helpbar mouse colorscheme"; }
     else { msg = "unknown command: " + cmd + " (help)"; }
 }
@@ -1680,7 +1684,7 @@ void handle(i64 k) {
     if k == K_TEXT || k == K_BS { update_popup(); }
 }
 
-// ---------------------------------------------------------------- coderin -ex : extensions from the repository of the tools (downloaded with jget)
+// ---------------------------------------------------------------- fcode -ex : extensions from the repository of the tools (downloaded with jget)
 String ex_base() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/extensions"; }
 i64 jget_to(String url, String file) {
     String[] ja = arr(4);
@@ -1692,21 +1696,21 @@ i64 jget_to(String url, String file) {
     return 127;
 }
 i64 ex_mode(String[] a) {
-    if a.len < 3 {                                                   // coderin -ex : the list
+    if a.len < 3 {                                                   // fcode -ex : the list
         String idx = config_dir() + "/.index";
         Dir::make_all(config_dir());
-        if jget_to(ex_base() + "/index.txt", idx) != 0 { jerr << "coderin: cannot get the list (is jget installed and the network on?)\n"; return 1; }
+        if jget_to(ex_base() + "/index.txt", idx) != 0 { jerr << "fcode: cannot get the list (is jget installed and the network on?)\n"; return 1; }
         switch Fs::read_text(idx) {
-            Result::Ok(t): { jout << "extensions (coderin -ex NAME installs one, coderin -ex -r NAME removes it):\n" << t; }
+            Result::Ok(t): { jout << "extensions (fcode -ex NAME installs one, fcode -ex -r NAME removes it):\n" << t; }
             Result::Err(e): { }
         }
         Fs::remove(idx);
         return 0;
     }
     bool remove = a[2] == "-r";
-    if remove && a.len < 4 { jerr << "usage: coderin -ex -r NAME\n"; return 2; }
+    if remove && a.len < 4 { jerr << "usage: fcode -ex -r NAME\n"; return 2; }
     String name = a[a.len - 1];
-    for i in 0..name.len { if !is_word(name[i] & 255) && name[i] != '-' { jerr << "coderin: bad name\n"; return 2; } }
+    for i in 0..name.len { if !is_word(name[i] & 255) && name[i] != '-' { jerr << "fcode: bad name\n"; return 2; } }
     String dir = config_dir() + "/extensions/" + name;
     if remove {
         String[] fs = "snippets words commands".split(" ");
@@ -1721,23 +1725,23 @@ i64 ex_mode(String[] a) {
     for i in 0..fs.len {
         if jget_to(ex_base() + "/" + name + "/" + fs[i], dir + "/" + fs[i]) == 0 { got += 1; } else { Fs::remove(dir + "/" + fs[i]); }
     }
-    if got == 0 { Dir::remove(dir); jerr << "coderin: no extension " << name << " (coderin -ex shows the list)\n"; return 1; }
+    if got == 0 { Dir::remove(dir); jerr << "fcode: no extension " << name << " (fcode -ex shows the list)\n"; return 1; }
     jout << "installed " << name << " (" << str(got) << " files in " << dir << ")\n";
     return 0;
 }
 
 i64 main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "coderin 0.5.2\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "fcode 0.6.0\n"; return 0; }
     if a.len > 1 && (a[1] == "--help" || a[1] == "-h") {
-        jout << "coderin: a text editor for the terminal.   coderin FILE   open (or make) a file;   coderin -ex [NAME]   list / install extensions\n";
-        jout << "  keys: Ctrl-S save, Ctrl-Q leave, Ctrl-F find, Ctrl-Z undo, Ctrl-C/X/V copy cut paste (the full list: jget docs GUIDE.md, section coderin)\n";
+        jout << "fcode: a text editor for the terminal.   fcode FILE   open (or make) a file;   fcode -ex [NAME]   list / install extensions\n";
+        jout << "  keys: Ctrl-S save, Ctrl-Q leave, Ctrl-F find, Ctrl-Z undo, Ctrl-C/X/V copy cut paste (the full list: jget docs GUIDE.md, section fcode)\n";
         return 0;
     }
     if a.len > 2 && a[1] == "--example" { jout << example_text(a[2].to_int()); return 0; }          // the text of an example (the tests compile them)
     if a.len > 1 && a[1] == "-ex" { return ex_mode(a); }
-    if a.len < 2 { jerr << "usage: coderin FILE   |   coderin -ex [NAME]\n"; return 2; }
-    if Sys::isatty(0) != 0 { jerr << "coderin: it needs a terminal\n"; return 2; }
+    if a.len < 2 { jerr << "usage: fcode FILE   |   fcode -ex [NAME]\n"; return 2; }
+    if Sys::isatty(0) != 0 { jerr << "fcode: it needs a terminal\n"; return 2; }
     path = a[1];
     clip = "";
     msg = "";

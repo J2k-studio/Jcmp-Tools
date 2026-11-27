@@ -6,7 +6,7 @@ def session(fname, keys, wait=2.5):
     if pid == 0:
         os.chdir(work)
         os.environ['HOME'] = work; os.environ['TERM'] = 'xterm'
-        os.execv(ed, ['coderin', fname])
+        os.execv(ed, ['fcode', fname])
     import fcntl, termios, struct
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 90, 0, 0))
     out = b''
@@ -28,8 +28,8 @@ def session(fname, keys, wait=2.5):
     try: os.waitpid(pid, 0)
     except Exception: pass
     return out.decode(errors='replace')
-os.makedirs(work + '/.config/coderin', exist_ok=True)
-open(work + '/.config/coderin/settings', 'w').write('colorscheme = devcpp\n')
+os.makedirs(work + '/.config/fcode', exist_ok=True)
+open(work + '/.config/fcode/settings', 'w').write('colorscheme = devcpp\n')
 open(work + '/good.jk', 'w').write('#import <stdlib>\n\nvoid main() {\n    cout << "hi5 from the log\\n";\n}\n')
 open(work + '/bad.jk', 'w').write('#import <stdlib>\n\nvoid main() {\n    cout << ;\n}\n')
 F11 = b'\x1b[23~'; F9 = b'\x1b[20~'; F10 = b'\x1b[21~'
@@ -43,7 +43,7 @@ assert 'Examples' in o and 'Quit' in o and ' File ' in o, o[-500:]
 o = session('good.jk', [(F10, 0.4), (b'\x1b[B', 0.3), (b'\r', 0.6)])
 assert 'example:' in o, o[-500:]
 # no setting at all: in the Jaric app (JARIC set) the look is Dev-C++; jaric settings (coderin = dark) changes it; the settings of coderin come first
-os.remove(work + '/.config/coderin/settings')
+os.remove(work + '/.config/fcode/settings')
 def with_env(extra, fname='good.jk'):
     os.environ.update(extra)
     try: return session(fname, [(b'', 0.5)])
@@ -52,10 +52,10 @@ def with_env(extra, fname='good.jk'):
 o = with_env({'JARIC': '1'})
 assert ' File ' in o and 'Search' in o, o[-300:]
 os.makedirs(work + '/.config/jaric', exist_ok=True)
-open(work + '/.config/jaric/settings', 'w').write('coderin = dark\n')
+open(work + '/.config/jaric/settings', 'w').write('fcode = dark\n')
 o = with_env({'JARIC': '1'})
 assert ' File ' not in o, o[-300:]
-open(work + '/.config/coderin/settings', 'w').write('colorscheme = devcpp\n')
+open(work + '/.config/fcode/settings', 'w').write('colorscheme = devcpp\n')
 o = with_env({'JARIC': '1'})
 assert ' File ' in o, o[-300:]
 print('ok')

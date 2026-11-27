@@ -13,7 +13,8 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [jex](tools/jex/README.md) | the command of the language: `jex lib install NAME`, `jex update`, `jex doctor` (MPL-2.0) |
 | [jene](tools/jene/README.md) | make, build and run a game: `jene -c NAME`, `-b`, `-rc` (the game tool of Jexcmp; needs `ex install jex`) (MPL-2.0) |
 | [jbox](tools/jbox/README.md) | about 60 small commands in one program: `dir cat grep sort sed find tree rev paste printf base64 sha256sum ...` (MPL-2.0) |
-| [coderin](tools/coderin/README.md) | a text editor for the terminal with J2K colours, extensions and the compiler's errors (MPL-2.0) |
+| [fcode](tools/fcode/README.md) | a text editor for the terminal with J2K colours, extensions and the compiler's errors (MPL-2.0) |
+| [coderin](tools/coderin/README.md) | the old name of `fcode` (the same program) |
 | [mujic](tools/mujic/README.md) | a music player with a typing box and a `/` menu: your songs, free songs to fetch, `/find`, `/import`, `/mv` (sort into folders), synced lyrics, `mujic -session` (own tab) |
 | [zipj](tools/zipj/README.md) | `zipj` makes zip files, `unj` opens them (a password, `-f`, `-o`) (MPL-2.0) |
 | [tarj](tools/tarj/README.md) | `tarj` makes and opens tar / tar.gz, `gzj` packs one file with gzip |

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0
+* **Changed:** `coderin` is the old name of `fcode`: this is the same program, built from the sources of fcode. Use `fcode`.
+* **Fixed:** none (see the changelog of fcode).
+
 ## 0.5.2
 * **Added:** none.
 * **Fixed:** on a narrow screen (a phone) the line of keys at the bottom was longer than the screen, wrapped and scrolled the text away: what was typed could not be seen. Only the keys that fit are shown now.

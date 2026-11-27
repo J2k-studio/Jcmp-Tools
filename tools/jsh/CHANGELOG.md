@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.0
+* **Changed:** `fcode` (the editor that was `coderin`) is known: path colours, the hint for a command that is not there.
+* **Fixed:** none.
+
 ## 0.14.0
 * **Fixed:** a program of a package (clang, git, ssh) said `library "..." not found`: the packages were built for the folder of another app; a program under `$PREFIX` is now started with `LD_LIBRARY_PATH=$PREFIX/lib`.
 

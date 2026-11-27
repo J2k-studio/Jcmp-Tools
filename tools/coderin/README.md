@@ -1,5 +1,7 @@
 # coderin: a text editor for the terminal, in the way of micro and nano
 
+**`coderin` is the old name of `fcode`** (the same program): use `fcode` (`ex install fcode`).
+
 Written in J2K, for the Jaric app and any ANSI terminal (alternate screen, 24-bit colours, the mouse). When you quit, the terminal is as it was.
 
 ```

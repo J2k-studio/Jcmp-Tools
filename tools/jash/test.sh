@@ -1,11 +1,12 @@
 #!/bin/sh
 # jash: set / get / list / unset, a value with spaces, the header, the import of the older files, reset
 set -eu
+HERE=$(cd "$(dirname "$0")" && pwd)
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 J="$PWD/_out/jash"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 export JASH_FILE="$T/.jash" HOME="$T" PREFIX="$T/usr"
-[ "$("$J" --version)" = "jash 0.1.0" ] || { echo "jash test: version"; exit 1; }
+[ "$("$J" --version)" = "jash $(cat "$HERE/VERSION")" ] || { echo "jash test: version"; exit 1; }
 "$J" get jsh.color_mark && { echo "jash test: get of an unset key must fail"; exit 1; }
 "$J" set jsh.color_mark sky; "$J" set app.theme black; "$J" set jsh.color_name "light blue"
 [ "$("$J" get jsh.color_mark)" = "sky" ] || { echo "jash test: get"; exit 1; }

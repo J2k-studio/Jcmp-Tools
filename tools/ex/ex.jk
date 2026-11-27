@@ -14,7 +14,7 @@
 #import "pkg"
 #import "manage"
 
-String ex_version() { return "0.11.0"; }
+String ex_version() { return "0.12.0"; }
 
 i64 fail(String msg) {
     jerr << "ex: " << msg << "\n";
@@ -550,7 +550,7 @@ i64 doctor() {
     check_line("ex", ex_version());
     String vtext = tool_versions_text(dir);
     if vtext.len == 0 { check_line("network", "no: nothing can be fetched"); todo += 1; } else { check_line("network", "ok"); }
-    String[] names = "jsh jbox jex jcmp jurl coderin".split(" ");
+    String[] names = "jsh jbox jex jcmp jurl fcode".split(" ");
     for i in 0..names.len {
         String nm = names[i] + "";
         String have = tool_installed_version(dir, nm);

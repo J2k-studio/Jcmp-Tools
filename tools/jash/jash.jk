@@ -5,14 +5,14 @@
 //   jash get SECTION.KEY       the value of one setting (prints nothing and exits 1 when it is not set)
 //   jash set SECTION.KEY VALUE set one
 //   jash unset SECTION.KEY     remove one
-//   jash edit                  open the file with coderin (or $EDITOR)
+//   jash edit                  open the file with fcode (or $EDITOR)
 //   jash path                  where the file is
 //   jash import                take the older files in: $PREFIX/etc/config.local, theme.toml, ~/.jshrc (JSH_COLOR_*)
 //   jash reset                 empty the file (the old file is kept as .jash.old)
 // The file: the first line [#jash], then  [section]  and  key = value  lines; # starts a comment.
 #import <stdlib>
 
-String jash_version() { return "0.1.0"; }
+String jash_version() { return "0.1.1"; }
 
 i64 fail(String msg) {
     jerr << "jash: " << msg << "\n";
@@ -166,12 +166,12 @@ i64 do_unset(String[] a) {
 }
 
 i64 do_edit() {
-    String ed = env_or("EDITOR", "coderin");
+    String ed = env_or("EDITOR", "fcode");
     if !Fs::exists(file_path()) { write_file("[#jash]\n"); }
     String[] args = arr(1);
     args.push(file_path());
     Result<i64, Error> r = Proc::run(ed, args);
-    if !r.is_ok() { return fail("cannot start " + ed + "  (set EDITOR, or install coderin: jget tool coderin)"); }
+    if !r.is_ok() { return fail("cannot start " + ed + "  (set EDITOR, or install fcode: ex install fcode)"); }
     return 0;
 }
 
