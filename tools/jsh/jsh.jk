@@ -1200,9 +1200,17 @@ String drive_expand(String w, i64^ taken) {
     if k == 0 || k >= w.len || w[k] != ':' { return ""; }
     if k + 1 < w.len && w[k + 1] != '/' { return ""; }
     String name = w.slice(0, k);
-    if !drive_name_ok(name) { return ""; }
-    String root = drive_path(name);
-    if root.len == 0 { return ""; }
+    String root = "";
+    if drive_name_ok(name) { root = drive_path(name); }
+    if root.len == 0 {                                          // not a drive: a folder called Name (here, then at the root of the system) is entered as Name:/
+        bool plain = name.len > 0;
+        for c in 0..name.len { if name[c] == '/' || name[c] == '*' || name[c] == '?' || name[c] == '$' { plain = false; } }
+        if !plain { return ""; }
+        String atroot = "/" + name;
+        if Dir::exists(name) { char fb[512]; for q in 0..512 { fb[q] = 0; } Sys::getcwd(@fb, 512); String cw = (char^)@fb; root = cw + "/" + name; }
+        else if Dir::exists(atroot) { root = atroot; }
+        else { return ""; }
+    }
     taken[0] = k + 1;
     if k + 1 < w.len { taken[0] = k + 2; }                      // the slash after the colon is taken too
     if root == "/" { return "/"; }
