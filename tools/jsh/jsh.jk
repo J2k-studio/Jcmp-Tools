@@ -3028,6 +3028,12 @@ void run_words(String[] raw0) {
         raw = spliced;
         if raw.len == 0 { return; }
     }
+    if raw[0] == "ip" || raw[0] == "ifconfig" {                 // the `ip` of the system needs a netlink socket, which an app may not open: jbox has its own
+        String[] viajbox = arr(raw.len + 1);
+        viajbox.push("jbox");
+        for i in 0..raw.len { viajbox.push(raw[i] + ""); }
+        raw = viajbox;
+    }
     String[] w = arr(raw.len);
     for i in 0..raw.len {
         String e = raw[i];
