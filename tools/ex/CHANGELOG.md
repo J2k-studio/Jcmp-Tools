@@ -1,5 +1,10 @@
 # ex changelog
 
+## 0.13.0
+* **Added:** the commands that ask the app: `toast notify copy paste vibrate torch battery open share send pick apk apps launch call play pause resume stop tab exit api` (exshell 0.1.89 or newer; the same as the library `exapi`).
+* **Fixed:** none.
+* **Removed:** the old name `jc` is no longer released; the tools that were taken out are no longer linked.
+
 ## 0.12.0
 * **Changed:** the editor is `fcode` in `ex doctor` (it was `coderin`).
 * **Fixed:** none.

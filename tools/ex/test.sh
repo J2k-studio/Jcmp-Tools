@@ -211,4 +211,58 @@ PY
 ( cd "$P2/bin" && JC_PKG_ROOT="$T/moved" JC_PKG_INDEX="$T/moved.json" JCMPTOOLS_RAW="file://$M" ./ex install moved > "$P2/o" 2>&1 ) || { echo "ex test: install moved: $(cat "$P2/o")"; exit 1; }
 [ "$("$T/moved/usr/bin/link")" = "real" ] || { echo "ex test: a link to the old folder was not moved: $(ls -l "$T/moved/usr/bin")"; exit 1; }
 [ "$(head -1 "$T/moved/usr/bin/script")" = "#!$T/moved/usr/bin/real" ] || { echo "ex test: a script was not moved: $(head -1 "$T/moved/usr/bin/script")"; exit 1; }
+# the app: ex toast, ex battery ... and the library exapi, against a socket of the test
+cat > "$T/appsrv.py" <<'PY'
+import socket, sys, os, json
+p, log = sys.argv[1], open(sys.argv[2], 'a')
+s = socket.socket(socket.AF_UNIX); s.bind(p); s.listen(8)
+while True:
+    c, _ = s.accept(); data = b''
+    while True:
+        d = c.recv(4096)
+        if not d: break
+        data += d
+    w = data.decode().split('\0'); log.write(json.dumps(w) + '\n'); log.flush()
+    a = {'battery': '0' + '87 charging', 'paste': '0from the phone', 'launch': '1no such app', 'api': '0toast\nnotify', 'get': '0black', 'pick': '0/h/tmp/cam-picked.bin'}.get(w[0], '0')
+    c.sendall(a.encode()); c.close()
+PY
+python3 "$T/appsrv.py" "$T/exapi.sock" "$T/app.log" & APPSRV=$!
+for i in 1 2 3 4 5 6 7 8 9 10; do [ -S "$T/exapi.sock" ] && break; sleep 0.3; done
+app() { EXSHELL_API="$T/exapi.sock" "$J" "$@"; }
+[ "$(app battery)" = "87 charging" ] || { echo "ex test: battery: $(app battery 2>&1)"; kill $APPSRV; exit 1; }
+app toast hello there || { echo "ex test: toast"; kill $APPSRV; exit 1; }
+app notify "the build" passed now || { echo "ex test: notify"; kill $APPSRV; exit 1; }
+( cd "$T" && echo x > doc.txt && app open doc.txt && app open https://example.com && app tab echo hi ) || { echo "ex test: open"; kill $APPSRV; exit 1; }
+printf 'piped text' | app copy || { echo "ex test: copy"; kill $APPSRV; exit 1; }
+out=$(app launch nothing 2>&1) && { echo "ex test: a refused request must fail"; kill $APPSRV; exit 1; }
+echo "$out" | grep -q "no such app" || { echo "ex test: the reason: $out"; kill $APPSRV; exit 1; }
+out=$(EXSHELL_API= "$J" toast x 2>&1) && { echo "ex test: outside the app must fail"; kill $APPSRV; exit 1; }
+echo "$out" | grep -q "not exshell" || { echo "ex test: outside: $out"; kill $APPSRV; exit 1; }
+cat > "$T/use.jk" <<'JK'
+#import <exapi>
+fn main() {
+    if !Ex::inside() { return 1; }
+    Ex::toast("from code");
+    jout << Ex::battery() << " " << Ex::charging() << " " << Ex::paste() << " " << Ex::get("theme") << " " << Ex::pick("image") << nl;
+    if Ex::launch("nothing") { return 2; }
+    jout << Ex::system("exit 7") << nl;
+    ExResult r = Ex::send("echo 'two words' last");
+    jout << r.ok << " " << r.text;
+    ExResult m = Ex::send("no-such-tool -x");
+    jout << m.missing << " " << m.hint << nl;
+    ExResult f = Ex::send("ls /no/such/place");
+    jout << f.ok << " " << (f.text.len > 0) << nl;
+    return 0;
+}
+JK
+J2K_PATH="$PWD:$J2K_PATH" "${JCMP:-jcmp}" "$T/use.jk" -o "$T/use" > "$T/use.txt" 2>&1 || { echo "ex test: the library does not build:"; cat "$T/use.txt"; kill $APPSRV; exit 1; }
+got=$(EXSHELL_API="$T/exapi.sock" "$T/use" | tr '\n' '|')
+[ "$got" = "87 true from the phone black /h/tmp/cam-picked.bin|7|true two words last|true ex install no-such-tool|false true|" ] || { echo "ex test: the library: $got"; kill $APPSRV; exit 1; }
+kill $APPSRV
+python3 - "$T/app.log" "$T" <<'PY' || { echo "ex test: the requests"; exit 1; }
+import json, sys, os
+r = [json.loads(l) for l in open(sys.argv[1])]
+for want in (['battery'], ['toast', 'hello there'], ['notify', 'the build', 'passed now'], ['open', os.path.realpath(sys.argv[2] + '/doc.txt')], ['open', 'https://example.com'], ['tab', 'echo hi'], ['copy', 'piped text'], ['toast', 'from code']):
+    assert want in r, (want, r)
+PY
 echo "ex tests: ok"

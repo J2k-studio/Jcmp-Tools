@@ -1,6 +1,6 @@
 # ex: the commands of the system
 
-One program for the tools, the apps, the packages and the settings of exshell. (It was `jc`; `jc` is the old name of the same program.)
+One program for the tools, the apps, the packages and the settings of exshell. (It was called `jc` before.)
 
 ```
 ex tools              what can be installed (tools and programs)
@@ -17,6 +17,25 @@ ex app update         the newest app (Android asks you to tap Update)
 ```
 The libraries of the language are the job of `jex`; building a project is the job of `makej`.
 License: MPL-2.0. Build: `JCMP=path sh build.sh`. Test: `sh test.sh`.
+
+## Ask the app
+In exshell (0.1.89 or newer) these talk to the app, also from a script that runs in the background:
+
+| Command | What it does |
+|---|---|
+| `ex toast TEXT` | a short note on the screen |
+| `ex notify TITLE TEXT` | a notification |
+| `ex copy TEXT`, `cmd \| ex copy`, `ex paste` | the clipboard (Android gives it only while exshell is in front) |
+| `ex open FILE-OR-LINK`, `ex share FILE`, `ex send TEXT` | other apps of the phone |
+| `ex pick image` / `ex pick file` | choose on the phone; prints the path of a copy |
+| `ex apps`, `ex launch NAME`, `ex call NUMBER`, `ex apk FILE` | apps, the dialler, the installer |
+| `ex play FILE`, `ex pause`, `ex resume`, `ex stop` | sound |
+| `ex battery`, `ex torch on`, `ex vibrate 200` | the phone |
+| `ex tab COMMAND` | a new session that runs it |
+| `ex awake on`, `ex exit` | keep running, close the app |
+| `ex api` | the words the app knows |
+
+In a program: `jex lib install exapi`, then `#import <exapi>` and `Ex::notify("done", "it passed");` (see the library's page). A phone cannot be shut down or restarted by an app without root.
 
 ## A short lesson
 ```
