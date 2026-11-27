@@ -4,7 +4,7 @@
 
 ## First time
 Run `ascode` and paste the key when it asks, or:
-1. Make an API key at <https://console.anthropic.com> (the API is paid by use).
+1. Make an API key at <https://console.anthropic.com>. The API is paid by use, apart from a Claude subscription.
 2. Put it in a file:
 ```
 mkdir -p ~/.config/ascode
@@ -16,7 +16,7 @@ Paste the key, save (Ctrl-S), quit (Ctrl-Q).
 ```
 ascode
 ```
-The first time it asks for the key. Then type what you want, one line, and Enter. The talk is remembered until you leave.
+The first time it asks for the key: paste it (the `Paste` key of the keys bar) and press Enter; it shows as stars, and `q` leaves. Then type what you want, one line, and Enter. The talk is remembered until you leave.
 
 | Command | What it does |
 |---|---|

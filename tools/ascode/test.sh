@@ -93,12 +93,15 @@ def want(text, t=10):
         out += os.read(fd, 4096)
     seen = out; out = out.split(text.encode(), 1)[1]; return seen
 def send(t): time.sleep(0.2); os.write(fd, t.encode() + b'\r')
-want('API key'); want(': '); send('pasted-key-777')
+want('API key'); want('key: ')
+send(''); want('nothing came'); want('key: ')                       # an Enter by mistake does not leave
+send('\x1b[200~ sk-ant-pasted-777 \x1b[201~')
 first = want('> ')
-assert b'pasted-key-777' not in first, 'the key was shown'
+assert b'pasted-777' not in first, 'the key was shown'
+assert b'*****' in first, 'nothing shows that the key arrived'
 assert b'claude-opus-5-5' in first and b'/help' in first, first
 k = home + '/.config/ascode/key'
-assert open(k).read().strip() == 'pasted-key-777' and stat.S_IMODE(os.stat(k).st_mode) == 0o600, oct(os.stat(k).st_mode)
+assert open(k).read() == 'sk-ant-pasted-777\n' and stat.S_IMODE(os.stat(k).st_mode) == 0o600, oct(os.stat(k).st_mode)
 send('hello'); want('done: made.txt'); want('> ')
 send('boom'); want('529'); want('> ')
 send('again'); want('done: made.txt'); want('> ')
@@ -115,6 +118,24 @@ r = [json.loads(l)['body'] for l in open('req.log')]
 texts = lambda b: [m['content'] for m in b['messages'] if m['role'] == 'user' and isinstance(m['content'], str)]
 assert texts(r[-2]) == ['hello', 'again'], texts(r[-2])
 assert texts(r[-1]) == ['small'] and r[-1]['model'] == 'claude-haiku-5-5', r[-1]
+PY
+# q leaves the question of the key; nothing is saved
+HOME="$T/h3" A="$A" python3 - <<'PY' || { echo "ascode test: leaving the question of the key"; exit 1; }
+import os, pty, time
+pid, fd = pty.fork()
+if pid == 0:
+    env = dict(os.environ); env.pop('ANTHROPIC_API_KEY', None)
+    os.execve(os.environ['A'], ['ascode'], env)
+out = b''
+while b'key: ' not in out: out += os.read(fd, 4096)
+time.sleep(0.2); os.write(fd, b'q\r')
+while True:
+    try: c = os.read(fd, 4096)
+    except OSError: break
+    if not c: break
+    out += c
+assert os.waitpid(pid, 0)[1] != 0 and not os.path.exists(os.environ['HOME'] + '/.config/ascode/key'), out
+assert all(len(l) <= 40 for l in out.decode().split('\r\n')), out
 PY
 # a piped talk ends at the end of the input
 printf '/exit\n' | HOME="$T/h2" "$A" > out5.txt 2>&1 || { echo "ascode test: piped: $(cat out5.txt)"; exit 1; }

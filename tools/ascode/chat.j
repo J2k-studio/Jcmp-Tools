@@ -16,17 +16,37 @@ bool cl_save_key(String key) {
     return true;
 }
 
+// what was pasted without the marks a terminal may put round it, without spaces and control letters
+String clean_key(String raw) {
+    String s = raw.replace("\x1b[200~", "");
+    String s2 = s.replace("\x1b[201~", "");
+    String out = "";
+    for i in 0..s2.len { char c = s2[i]; if c > 32 && c < 127 { out.push(c); } }
+    return out;
+}
+
 // asks for the key and keeps it; false when none was given
 bool ask_key() {
-    jout << "Paste your Claude API key, then Enter\n(it is not shown; an empty line leaves): ";
-    String k = read_text_line(true);
-    String t = k.trim();
-    jout << nl;
-    if t.len == 0 { return false; }
-    cl_key = t + "";
-    if cl_save_key(t) { jout << "saved in ~/.config/ascode/key\n"; }
-    else { jout << "ascode: the key could not be saved\n"; }
-    return true;
+    jout << "Paste your Claude API key (it\nstarts with sk-ant-), then Enter.\nIt shows as stars.  q leaves.\n";
+    i64 empty = 0;
+    while true {
+        jout << "key: ";
+        String t = clean_key(read_text_line(true));
+        jout << nl;
+        if t == "q" || (g_eof && t.len == 0) { return false; }
+        if t.len == 0 {                                     // an Enter by mistake does not leave at once
+            empty += 1;
+            if empty >= 3 { return false; }
+            jout << "nothing came. Use the Paste key,\nthen Enter  (q leaves)\n";
+            continue;
+        }
+        cl_key = t + "";
+        if cl_save_key(t) { jout << "saved in ~/.config/ascode/key\n"; }
+        else { jout << "ascode: the key could not be saved\n"; }
+        if !t.starts_with("sk-") { jout << "note: a Claude key starts with\nsk-ant- ; /key changes it\n"; }
+        return true;
+    }
+    return false;
 }
 
 void chat_banner() {

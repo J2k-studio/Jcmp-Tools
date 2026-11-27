@@ -7,7 +7,7 @@
 #import <stdlib>
 using stdlib;
 
-String ascode_version() { return "0.2.0"; }
+String ascode_version() { return "0.2.1"; }
 
 String g_mode;          // ask: ask before a change (write, edit, run); read: changes are refused; auto: changes inside the folder are done
 String g_root;          // the folder of the work: a path outside it is always asked, also in auto
@@ -32,8 +32,9 @@ String read_text_line(bool hidden) {
         i64 n = Sys::read(0, @b, 1);
         if n <= 0 { g_eof = true; break; }
         if b[0] == 10 || (tty && b[0] == 13) { break; }
-        if b[0] == 127 || b[0] == 8 { if out.len > 0 { out = out.slice(0, out.len - 1); } continue; }
+        if b[0] == 127 || b[0] == 8 { if out.len > 0 { out = out.slice(0, out.len - 1); if tty { jout << "\b \b"; Sys::write(1, null, 0); } } continue; }
         out.push(b[0]);
+        if tty && b[0] > 32 && b[0] < 127 { jout << "*"; Sys::write(1, null, 0); }          // a star for each letter: it arrived
     }
     if tty { Sys::call(29, 0, 21506, (i64)@old, 0, 0, 0); }
     return out;

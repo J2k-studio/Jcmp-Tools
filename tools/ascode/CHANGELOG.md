@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+* **Added:** the key shows as stars while it is pasted; `q` leaves the question.
+* **Fixed:** one empty line ended the question (a pasted key could then go to the shell); marks and spaces round a pasted key were saved with it.
+
 ## 0.2.0
 * **Added:** a session: `ascode` (or `ascode claude`) asks for the API key the first time (not shown, saved for you only), then you talk line by line; `/help /model /mode /key /clear /exit`.
 * **Added:** the model Claude (`ascode "task"`, or `--model claude:ID`): the Messages API with the six tools, the key from `~/.config/ascode/key` (or `ANTHROPIC_API_KEY`), never printed; the default model is `claude-opus-5-5`.
