@@ -20,7 +20,7 @@ String env_or(String name, String fallback) {
     return fallback;
 }
 
-String jex_version() { return "0.1.0"; }
+String jex_version() { return "0.1.1"; }
 
 i64 usage() {
     jout << "jex: the command of the language\n\n";

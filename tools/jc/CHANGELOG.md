@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.10.0
+* **Changed:** the same program as ex 0.10.0.
+* **Fixed:** none.
+
 ## 0.9.0
 * **Changed:** the same program as ex 0.9.0 (the app is updated by a patch).
 * **Fixed:** none.

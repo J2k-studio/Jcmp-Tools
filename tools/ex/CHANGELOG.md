@@ -1,5 +1,10 @@
 # ex changelog
 
+## 0.10.0
+* **Added:** `ex unstall`, `ex search`, `ex list` work for packages too; a package installed now has its links and scripts pointed at the real folder (the packages were built for the folder of another app: `ssh`, `dropbearkey` and others were broken links).
+* **Changed:** one set of words for tools and packages: `ex install`, `ex unstall`, `ex search`, `ex tools` (both lists), `ex list` (all that is installed). `ex pkg ...` still works.
+* **Fixed:** `ex pkg install authj` said "no package named authj" for a tool; `ex install jexcmp`, `ex pack install` and `jex update` took the word `install` for a name; installing what is there already said nothing.
+
 ## 0.9.0
 * **Changed:** `ex app update` downloads only a patch (what differs from the installed app) and makes the new APK from the app on the phone; the whole file is fetched only when there is no patch or it does not fit. Android still asks to tap Update.
 * **Fixed:** none.

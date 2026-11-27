@@ -277,7 +277,10 @@ i64 tool_unstall(String[] av, i64 at, String dir) {
         String name = av[k];
         if name == "jget" || name == "ex" { err("ex: " + name + " stays: ex uses it (delete the file by hand if you want to)\n"); rc = 1; continue; }
         if name == "jsh" { err("ex: jsh is the shell: it stays (ex update brings it up to date)\n"); rc = 1; continue; }
-        if !Fs::exists(dir + "/" + name) { err("ex: " + name + " is not installed here\n"); rc = 1; continue; }
+        if !Fs::exists(dir + "/" + name) {
+            if pkg_installed(name + "") { if pkg_remove(name + "") != 0 { rc = 1; } continue; }          // a package: the same words remove it
+            err("ex: " + name + " is not installed here\n"); rc = 1; continue;
+        }
         String[] extra = arr(4);
         if name == "python" { extra.push("python3"); extra.push("pip"); extra.push("pip3"); extra.push("python-android"); }
         else if name == "neuron" { extra.push("xr"); extra.push("xaiorin"); }
@@ -345,7 +348,24 @@ void print_item(String name, String desc, i64 namew) {
     jout << line << cur << nl;
 }
 
+// is NAME in the list of tools (tools.txt)?
+bool tool_listed(String name) {
+    String f = default_bin_dir() + "/.tools.look";
+    if !download(tools_raw() + "/tools.txt", f, true) { return false; }
+    bool found = false;
+    switch Fs::read_text(f) {
+        Result::Ok(t): {
+            String[] ls = t.split("\n");
+            for i in 0..ls.len { if ls[i].starts_with(name + "|") { found = true; } }
+        }
+        Result::Err(e): { }
+    }
+    Fs::remove(f);
+    return found;
+}
+
 i64 cmd_tool(String[] av, i64 at) {
+    if av.len > at + 1 && av[at] == "install" { at += 1; }          // the names start after the word (it was taken for a name)
     String me = self_path();
     if me.len == 0 { err("ex: cannot find where this program is\n"); return 1; }
     String dir = default_bin_dir();
@@ -444,7 +464,7 @@ i64 cmd_tool(String[] av, i64 at) {
                     if comma >= 0 { first = near.slice(0, comma); }
                     offer_command("ex install " + first);
                 }
-                err("ex: there is no tool or package '" + name + "'" + hint + " (ex tools, ex pkg search)\n");
+                err("ex: there is no tool or package '" + name + "'" + hint + " (ex tools, ex search WORD)\n");
                 rc = 1;
             }
             continue;

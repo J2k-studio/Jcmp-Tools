@@ -86,11 +86,36 @@ String pkg_entry(String index, String name) {
 
 bool pkg_installed(String name) { return Fs::exists(pkg_state() + "/" + name + ".list"); }
 
+// a script of a package that starts with  #!  and a program of the folder it was built for: the folder is changed to the real one
+void relocate_scripts(String root, String names) {
+    String built = BUILT_FOR;
+    String start = "#!" + built;
+    String real = root + "/";
+    String[] ls = names.split("\n");
+    for i in 0..ls.len {
+        if ls[i].len == 0 { continue; }
+        String path = root + "/" + ls[i];
+        i64 fd = Sys::open_read(path.c());
+        if fd < 0 { continue; }
+        char head[64];
+        for q in 0..64 { head[q] = 0; }
+        i64 n = Sys::read(fd, @head, 63);
+        Sys::close(fd);
+        if n < start.len { continue; }
+        String first = (char^)@head;
+        if !first.starts_with(start) { continue; }
+        switch Fs::read_text(path) {
+            Result::Ok(t): { String moved = t.replace(built, real); Result<i64, Error> w = Fs::write_bytes(path, moved); if !w.is_ok() { err("ex: cannot change " + path + "\n"); } }
+            Result::Err(e): { }
+        }
+    }
+}
+
 i64 pkg_install(String index, String name, i64 depth) {
     if pkg_installed(name) { return 0; }
     if depth > 20 { err("ex: the dependencies of " + name + " go too deep\n"); return 1; }
     String line = pkg_entry(index, name);
-    if line.len == 0 { err("ex: no package named " + name + " (ex pkg search)\n"); return 1; }
+    if line.len == 0 { err("ex: there is nothing called " + name + " (ex search WORD)\n"); return 1; }
     String[] f = line.split("|");
     String[] deps = f[3].split(",");
     for i in 0..deps.len {
@@ -119,6 +144,7 @@ i64 pkg_install(String index, String name, i64 depth) {
     tar_record = false;
     Fs::remove(tmp);
     if !ok { err("ex: cannot unpack " + name + "\n"); return 1; }
+    relocate_scripts(root, tar_names);
     String list = f[0] + "\n" + tar_names;
     Result<i64, Error> wr = Fs::write_bytes(pkg_state() + "/" + name + ".list", list);
     if !wr.is_ok() { err("ex: cannot write the list of " + name + "\n"); return 1; }
@@ -222,10 +248,10 @@ i64 pkg_search(String index, String word) {
                 }
             }
             if found == 0 && word.len > 0 {
-                jout << "ex: no package matches '" << word << "'";
+                jout << "ex: nothing matches '" << word << "'";
                 String near = near_names(word, all);
                 if near.len > 0 { jout << "; did you mean: " << near; }
-                jout << "\n(the tools of Jcmp-Tools are listed by  ex tools ; your own program is not in an index: it has to be published first)\n";
+                jout << "\n";
             }
         }
         Result::Err(e): { err("ex: the package index is not valid JSON\n"); return 1; }
@@ -274,7 +300,7 @@ i64 cmd_pkg(String[] a) {
         i64 lrc = pkg_list();
         String lindex = pkg_fetch_index();
         if lindex.len == 0 { return 1; }
-        jout << "\navailable (ex pkg install NAME):\n";
+        jout << "\navailable (ex install NAME):\n";
         pkg_search(lindex, "");
         return lrc;
     }
@@ -294,7 +320,20 @@ i64 cmd_pkg(String[] a) {
         if sub == "update" && a.len >= 5 && a[3] == "-n" && a[4] == "--quiet" { return pkg_update(index, true, true); }
         if sub == "update" { return pkg_update(index, a.len >= 4 && a[3] == "-n", false); }
         if a.len < 4 { err("usage: ex pkg install NAME\n"); return 1; }
-        for i in 3..a.len { if pkg_install(index, a[i] + "", 0) != 0 { return 1; } }
+        for i in 3..a.len {
+            String want = a[i] + "";
+            if pkg_installed(want) { jout << "ex: " << pkg_line(statedir, want + ".list") << " is installed already (ex unstall " << want << " takes it away)\n"; continue; }
+            if pkg_entry(index, want).len == 0 && tool_listed(want) {                  // a tool asked for as a package
+                jout << "ex: " << want << " is a tool, not a package: installing the tool (ex install " << want << ")\n";
+                String[] tw = arr(4);
+                tw.push("jc");
+                tw.push("install");
+                tw.push(want + "");
+                if cmd_tool(tw, 1) != 0 { return 1; }
+                continue;
+            }
+            if pkg_install(index, want, 0) != 0 { return 1; }
+        }
         return 0;
     }
     err("usage: ex pkg install NAME | remove NAME | update [-n] | list | search [WORD]\n");

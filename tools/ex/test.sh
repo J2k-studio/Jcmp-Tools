@@ -178,4 +178,31 @@ grep -q "the whole file is fetched" "$X/o" && cmp -s "$X/home/.cache/exshell-9.9
 printf 'ex 9.9.9\n' > "$U/mirror/versions.txt"
 ( cd "$U/bin" && JCMPTOOLS_RAW="file://$U/mirror" "$J" doctor ) > "$T/doc.txt" 2>&1 || { echo "ex test: doctor: $(cat "$T/doc.txt")"; exit 1; }
 grep -q "^network   ok" "$T/doc.txt" && grep -q "^free " "$T/doc.txt" || { echo "ex test: doctor said: $(cat "$T/doc.txt")"; exit 1; }
+# a tool asked for as a package is installed as the tool; a package that is there already says so
+P2="$T/aspkg"; mkdir -p "$P2/bin"; cp "$J" "$P2/bin/ex"; printf '[]' > "$P2/index.json"
+( cd "$P2/bin" && JC_PKG_ROOT="$P2/root" JC_PKG_INDEX="$P2/index.json" JCMPTOOLS_RAW="file://$M" JCMPTOOLS_DL="file://$M/dl" ./ex pkg install foo > "$P2/o" 2>&1 ) || { echo "ex test: pkg install of a tool: $(cat "$P2/o")"; exit 1; }
+[ "$("$P2/bin/foo")" = "foo 1.0.0" ] && grep -q "is a tool, not a package" "$P2/o" || { echo "ex test: pkg install of a tool: $(cat "$P2/o")"; exit 1; }
+JC_PKG_ROOT="$T/pkgroot2" JC_PKG_INDEX="$T/index2.json" "$J" pkg install beta | grep -q "installed already" || { echo "ex test: installed already"; exit 1; }
+# one set of words: a pack installs its names, unstall removes a package, list shows what is here
+mkdir -p "$M/pack"; printf 'foo\n' > "$M/pack/p.txt"; rm -f "$P2/bin/foo" "$P2/bin/.foo.version"
+( cd "$P2/bin" && JC_PKG_ROOT="$P2/root" JC_PKG_INDEX="$P2/index.json" JCMPTOOLS_RAW="file://$M" JCMPTOOLS_DL="file://$M/dl" ./ex pack install p > "$P2/o" 2>&1 ) || { echo "ex test: pack install: $(cat "$P2/o")"; exit 1; }
+[ -x "$P2/bin/foo" ] || { echo "ex test: pack install: $(cat "$P2/o")"; exit 1; }
+( cd "$P2/bin" && JC_PKG_ROOT="$T/pkgroot2" ./ex list ) > "$P2/l" 2>&1; grep -q "^  foo  1.0.0" "$P2/l" && grep -q "^beta  2" "$P2/l" || { echo "ex test: list: $(cat "$P2/l")"; exit 1; }
+( cd "$P2/bin" && JC_PKG_ROOT="$T/pkgroot2" JCMPTOOLS_RAW="file://$M" ./ex unstall beta > "$P2/o" 2>&1 ) || { echo "ex test: unstall a package: $(cat "$P2/o")"; exit 1; }
+[ ! -e "$T/pkgroot2/usr/bin/beta" ] || { echo "ex test: the package is still there"; exit 1; }
+( cd "$P2/bin" && JC_PKG_ROOT="$P2/root" JC_PKG_INDEX="$T/index.json" JCMPTOOLS_RAW="file://$M" ./ex search alp ) > "$P2/s" 2>&1; grep -q "^alpha  1" "$P2/s" || { echo "ex test: search: $(cat "$P2/s")"; exit 1; }
+# the packages were built for the folder of another app: links and scripts that name it are moved to the real folder
+python3 - "$T" <<'PY'
+import sys, io, tarfile, hashlib, json
+t = sys.argv[1]; old = '/data/data/com.jaric.app/files/'
+p = t + '/moved-1-aarch64.tar.gz'
+with tarfile.open(p, 'w:gz', format=tarfile.GNU_FORMAT) as z:
+    for n, data in [('usr/bin/real', b'#!/bin/sh\necho real\n'), ('usr/bin/script', ('#!' + old + 'usr/bin/real\necho x\n').encode())]:
+        i = tarfile.TarInfo(n); i.size = len(data); i.mode = 0o755; z.addfile(i, io.BytesIO(data))
+    i = tarfile.TarInfo('usr/bin/link'); i.type = tarfile.SYMTYPE; i.linkname = old + 'usr/bin/real'; z.addfile(i)
+json.dump([{'name': 'moved', 'version': '1', 'url': 'file://' + p, 'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest(), 'depends': []}], open(t + '/moved.json', 'w'))
+PY
+( cd "$P2/bin" && JC_PKG_ROOT="$T/moved" JC_PKG_INDEX="$T/moved.json" JCMPTOOLS_RAW="file://$M" ./ex install moved > "$P2/o" 2>&1 ) || { echo "ex test: install moved: $(cat "$P2/o")"; exit 1; }
+[ "$("$T/moved/usr/bin/link")" = "real" ] || { echo "ex test: a link to the old folder was not moved: $(ls -l "$T/moved/usr/bin")"; exit 1; }
+[ "$(head -1 "$T/moved/usr/bin/script")" = "#!$T/moved/usr/bin/real" ] || { echo "ex test: a script was not moved: $(head -1 "$T/moved/usr/bin/script")"; exit 1; }
 echo "ex tests: ok"

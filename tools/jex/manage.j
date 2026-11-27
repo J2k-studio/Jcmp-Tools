@@ -338,6 +338,7 @@ void print_item(String name, String desc, i64 namew) {
 }
 
 i64 cmd_tool(String[] av, i64 at) {
+    if av.len > at + 1 && av[at] == "install" { at += 1; }          // the names start after the word (it was taken for a name)
     String me = self_path();
     if me.len == 0 { err("ex: cannot find where this program is\n"); return 1; }
     String dir = default_bin_dir();

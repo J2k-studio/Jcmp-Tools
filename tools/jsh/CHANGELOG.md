@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.14.0
+* **Fixed:** a program of a package (clang, git, ssh) said `library "..." not found`: the packages were built for the folder of another app; a program under `$PREFIX` is now started with `LD_LIBRARY_PATH=$PREFIX/lib`.
+
 ## 0.13.1
 * **Changed:** the start page lists `ex doctor`; a tip names `jurl` (it named the old `jget`).
 * **Fixed:** none.

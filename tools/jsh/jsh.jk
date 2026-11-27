@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.13.1"; }
+String jsh_version() { return "0.14.0"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -1419,6 +1419,28 @@ i64^ build_argv(String[] a, i64 n) {
 }
 
 // tries name in every folder of the PATH (it returns only when none worked)
+// The programs of the packages (clang, git ...) look for their libraries in a folder that was fixed when they were built, for another app: a
+// program that lives under $PREFIX is started with LD_LIBRARY_PATH = $PREFIX/lib (the programs of the system are left as they are)
+i64^ envp_for(String full, i64^ envp) {
+    String pre = getv("PREFIX");
+    if pre.len == 0 { return envp; }
+    i64 have = findv("LD_LIBRARY_PATH");
+    if have >= 0 { return envp; }
+    String under = pre + "/";
+    if !full.starts_with(under) { return envp; }
+    String lib = "LD_LIBRARY_PATH=" + pre + "/lib";
+    i64 n = 0;
+    while envp[n] != 0 { n += 1; }
+    i64^ more = (i64^)Mem::alloc(8 * (n + 2));
+    for i in 0..n { more[i] = envp[i]; }
+    char^ text = (char^)Mem::alloc(lib.len + 1);
+    for i in 0..lib.len { text[i] = lib[i]; }
+    text[lib.len] = 0;
+    more[n] = (i64)text;
+    more[n + 1] = 0;
+    return more;
+}
+
 void exec_path(String name, i64^ av, i64^ envp) {
     String path = getv("PATH");
     if path.len == 0 { path = "/bin:/usr/bin"; }
@@ -1426,7 +1448,7 @@ void exec_path(String name, i64^ av, i64^ envp) {
     for i in 0..path.len + 1 {
         if i == path.len || path[i] == ':' {
             String full = path.slice(start, i) + "/" + name;
-            Sys::execve(full.c(), av, envp);
+            Sys::execve(full.c(), av, envp_for(full, envp));
             start = i + 1;
         }
     }
@@ -1543,7 +1565,7 @@ i64 spawn(String[] argv, i64 in_fd, i64 out_fd, i64 out_flags_append, String in_
         bool slash = false;
         for i in 0..argv[0].len { if argv[0][i] == '/' { slash = true; } }
         if slash {
-            i64 er = Sys::execve(argv[0].c(), av, envp);           // comes back only when it failed
+            i64 er = Sys::execve(argv[0].c(), av, envp_for(argv[0], envp));           // comes back only when it failed
             jerr << "jsh: " << argv[0] << ": " << exec_failed_text(argv[0], er) << "\n";
             if file_mode_of(argv[0]) < 0 { Sys::exit(127); }          // not there: 127; there but cannot be started: 126
             Sys::exit(126);

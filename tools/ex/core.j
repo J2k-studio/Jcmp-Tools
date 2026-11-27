@@ -276,6 +276,7 @@ bool untar(String path, String dir) {
     return untar_plain(path, dir);
 }
 
+#define BUILT_FOR "/data/data/com.jaric.app/files/"     // the folder the packages of ex-pkg were built for: links and scripts are moved to the real one
 String tar_names;                                                   // the names that untar_plain put in place, one per line (when tar_record)
 bool tar_record;
 
@@ -351,6 +352,10 @@ bool untar_plain(String path, String dir) {
             if kind == '2' {
                 // a package of ex-pkg (checked by its sha256) may point to a path of the prefix
                 if target.len == 0 || (target[0] == '/' && !tar_record) { err("jget: a link in the tar is not allowed: " + name + "\n"); ok = false; break; }
+                if tar_record && target.starts_with(BUILT_FOR) {                  // the packages were built for the folder of another app
+                    String here = dir + "/" + target.slice(BUILT_FOR.len, target.len);
+                    target = here + "";
+                }
                 lr = Sys::call(36, (i64)target.c(), -100, (i64)full.c(), 0, 0, 0);
             } else {
                 String from = dir + "/" + target;
