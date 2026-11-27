@@ -27,6 +27,19 @@ rm -f "$F"
 [ "$(cat "$F")" = 'void main() {
     jout << "hi";
 }' ] || { echo "coderin test: closing brackets"; cat -A "$F"; exit 1; }
+# a narrow screen (a phone, 40 columns): the keys line and the status line must fit the width, or they wrap and scroll the text off the screen
+rm -f "$F"
+( sleep 0.3; printf 'hello'; sleep 0.3; printf '\021'; sleep 0.3; printf '\021' ) | $PTY -w 40 -h 30 "$ED" "$F" > narrow
+python3 - narrow <<'PY' || { echo "coderin test: a narrow screen"; exit 1; }
+import re, sys
+b = open(sys.argv[1], 'rb').read().decode('utf8', 'replace')
+parts = re.split(r'(\x1b\[\d+;\d+H)', b)
+bad = []
+for i in range(1, len(parts) - 1, 2):
+    text = re.sub(r'\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07', '', parts[i + 1]).replace('\r', '').replace('\n', '')
+    if len(text) > 40: bad.append((parts[i][2:-1], len(text)))
+if bad: print('text longer than the screen at (row;col, length):', sorted(set(bad))[:6]); sys.exit(1)
+PY
 # the mouse: a click puts the cursor there; a double click and copy and paste
 printf 'first line\nhello world\nlast\n' > m.txt
 ( sleep 0.3; printf '\033[<0;10;2M\033[<0;10;2m'; sleep 0.2; printf 'Z'; sleep 0.2; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 80 -h 24 "$ED" m.txt > /dev/null

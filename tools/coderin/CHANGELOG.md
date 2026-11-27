@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+* **Added:** none.
+* **Fixed:** on a narrow screen (a phone) the line of keys at the bottom was longer than the screen, wrapped and scrolled the text away: what was typed could not be seen. Only the keys that fit are shown now.
+
 ## 0.5.1
 * **Added:** the look comes from `jaric settings` (the file `~/.config/jaric/settings`, `coderin = devcpp|dark|light|mono|amber`) when the settings of coderin do not say; in the Jaric app with no setting at all the look is Dev-C++ (devcpp). The settings of coderin itself come first.
 * **Fixed:** none.
