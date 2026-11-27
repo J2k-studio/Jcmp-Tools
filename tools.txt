@@ -8,7 +8,7 @@ jbox|The basic commands in one program (dir cat cp mv rm mkdir grep sort ...); i
 jpty|Run a program on a pseudo terminal, driven through two pipes (for apps and tools)
 fcode|A code editor for the terminal (colours, select, copy and paste, find)
 ex|The commands of the system: ex install, update, search, run, the settings of the app
-ascode|A harness for a model: read, edit, run, with a y before a change
+ascode|An assistant in a folder (Claude): reads, edits and runs with a y before a change
 jex|The command of the language: fetch libraries, update the compiler (jex lib install NAME)
 jene|Make and run games with jex: jene -c NAME, -b, -rc
 jcmp|The compiler of Jex (ex install jexcmp: with jex and every library)
@@ -29,4 +29,4 @@ jash|The settings of your programs in one file (~/.jash) and the command to read
 neuron|Small AI models on the phone: train a GPT (attention) or a small model on your text, chat with it, run GGUF models, the assistant xaiorin (xr)
 jgit|git written in J2K: init, add, commit, status, log, diff, branch, switch; the repositories are the repositories of git, also packed ones (no network yet)
 drive|New drives for Jaric: a new place or a name for a folder (drive, drive new NAME [PATH], drive remove NAME)
-calc|A calculator for the terminal: sums, hex, binary, xor and, or, shifts, functions, variables (calc "0xff xor 0x0f")
+calc|A calculator: a screen with keys to tap, or calc "0xff xor 0x0f" (hex, binary, bit operations, functions, variables)

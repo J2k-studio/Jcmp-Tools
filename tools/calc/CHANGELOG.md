@@ -1,5 +1,9 @@
 # calc changelog
 
+## 0.2.0
+* **Added:** `calc` alone is a calculator on the whole screen: the history, the line with its result as you type, hex and binary, keys to tap or type. The old prompt is `calc -l` (pipes work as before).
+* **Fixed:** none.
+
 ## 0.1.1
 * **Fixed:** an empty line (a press of Enter) left the prompt; now it only shows the prompt again. `exit`, `quit`, `q` or Ctrl-D leave. The binary form is written in whole groups of four (`0b0001_0110`, not `0b1_0110`).
 
