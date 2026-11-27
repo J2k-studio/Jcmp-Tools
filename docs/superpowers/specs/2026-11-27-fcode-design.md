@@ -7,7 +7,7 @@ The owner moves their work into exshell and writes code there. They want an edit
 names, extensions, usable on a phone. They chose approach A below on 2026-11-27.
 
 ## Goals
-* The keys and the command names of VS Code, so that nothing has to be learned twice.
+* The command names of VS Code and keys close to its own, with Ctrl only where Shift is not there.
 * Extensions that are installed with `ex install`, in our own format, able to read VS Code themes and snippets.
 * Language help through the Language Server Protocol (LSP).
 * Good on 40 columns with touch, and on a wide screen with a keyboard.
@@ -32,7 +32,7 @@ Slower than coderin today; needing a mouse; anything that does not fit 40 column
   1 fn main() {
   2     jout << "hi" << nl;
   3 }
- ┌ > format ───────────────────┐   F1 or Ctrl+Shift+P: the command palette
+ ┌ > format ───────────────────┐   Ctrl+E or F1: the command palette
  │ Format Document       S+A+F │   Ctrl+P: open a file by a few letters
  └─────────────────────────────┘
  Ln 2, Col 9   spaces:4   jex  ✓0 !0
@@ -42,7 +42,7 @@ The file tree (Ctrl+B) covers the text on a narrow screen and sits at the side o
 ## Parts (each its own file, each tested alone)
 * **buffer**: the text, many cursors, undo and redo, recovery copy.
 * **screen**: draws only what changed; widths of Thai and wide characters; never writes past the width.
-* **keys**: reads the escape sequences, also the form that tells Ctrl+Shift+key apart.
+* **keys**: reads the escape sequences.
 * **commands**: one table by the VS Code id (`workbench.action.quickOpen`, `editor.action.commentLine` ...); keys, palette and extensions all call it.
 * **config**: `settings.json` and `keybindings.json` in the form of VS Code (the keys we support; others are listed as ignored).
 * **highlight**: today's highlighter, its languages described by data that an extension can add.
@@ -52,8 +52,8 @@ The file tree (Ctrl+B) covers the text on a narrow screen and sits at the side o
 ## Keys
 VS Code defaults where a terminal can send them: Ctrl+S, Ctrl+P, F1 and Ctrl+Shift+P, Ctrl+F, Ctrl+H, Ctrl+G, Ctrl+/, Ctrl+D (select the next same
 word; today it copies the line, which moves to Shift+Alt+Down), Alt+Up/Down (move the line), Ctrl+B, Ctrl+W (close the tab),
-Ctrl+PageUp/PageDown (tabs). A terminal cannot tell Ctrl+Shift+P from Ctrl+P by itself: exshell gets the "modify other keys" mode (a change of the
-app); everywhere else F1 opens the palette.
+Ctrl+PageUp/PageDown (tabs). The keys need not be exactly VS Code's (the owner, 2026-11-27): every command that VS Code puts on Ctrl+Shift has a key with Ctrl only (the command
+palette: Ctrl+E, the command bar of today, and F1); no change of the app is needed for it.
 
 ## Stages (each one is released and usable)
 1. **Daily editor**: the parts above without extensions: tabs, tree, quick open, palette, many cursors, replace, the new keys. It replaces coderin
