@@ -18,7 +18,7 @@
 #import "pkg"
 #import "manage"
 
-String jc_version() { return "0.6.3"; }
+String jc_version() { return "0.6.4"; }
 
 i64 fail(String msg) {
     jerr << "ex: " << msg << "\n";
@@ -326,10 +326,6 @@ i64 main() {
         w.push("update");
         for i in 2..a.len { w.push(a[i] + ""); }
         i64 rc = cmd_tool(w, 1);
-        String[] sw = arr(2);
-        sw.push("update");
-        Result<i64, Error> sr = Proc::run("jstore", sw);       // the store is optional: not installed = nothing to do
-        if rc == 0 && sr.is_ok() { rc = sr.take(); }
         String[] pw = arr(4);                                  // and the packages of Jcmp-pkg
         pw.push("jc");
         pw.push("pkg");

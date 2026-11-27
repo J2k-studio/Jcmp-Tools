@@ -291,6 +291,27 @@ i64 tool_unstall(String[] av, i64 at, String dir) {
     return rc;
 }
 
+// ex install jexcmp: the compiler and then every library of the index (so that  #import <name>  works at once)
+i64 install_all_libs() {
+    String dir = lib_dir();
+    if !make_dir(dir) { return 1; }
+    String index = fetch_index(dir);
+    if index.len == 0 { return 1; }
+    String[] lines = index.split("\n");
+    i64 rc = 0;
+    i64 n = 0;
+    for i in 0..lines.len {
+        String line = lines[i].trim();
+        if line.len == 0 || line.starts_with("#") { continue; }
+        String[] w = line.split(" ");
+        if w.len < 4 || w[0] == "example" { continue; }
+        String nm = w[0] + "";
+        if cmd_install(nm) != 0 { rc = 1; } else { n += 1; }
+    }
+    jout << "ex: " << n << " libraries" << nl;
+    return rc;
+}
+
 // the standard look of a list (docs/STANDARD.md): "  name   description", the description wrapped between words at the width of the screen
 // (38 when the output goes to a terminal that does not say), the next lines under the first word of the description; not wrapped in a pipe
 void print_item(String name, String desc, i64 namew) {
@@ -389,8 +410,10 @@ i64 cmd_tool(String[] av, i64 at) {
         if dry { jout << "(ex update installs them)" << nl; return 0; }
     }
     i64 rc = 0;
+    bool with_libs = false;
     for k in 0..wanted.len {
         String name = wanted[k];
+        if name == "jexcmp" { with_libs = true; }
         if name == "jex" || name == "jexcmp" || name == "jexc" { name = "jcmp"; jout << "ex: jex is the language, its compiler is the tool jcmp: installing jcmp (games: ex install jene)" << nl; }       // the names people look for point to the tool
         bool known = false;
         String[] ls = text.split("\n");
@@ -482,6 +505,7 @@ i64 cmd_tool(String[] av, i64 at) {
             Proc::run(dir + "/" + name, ja);
         }
     }
+    if with_libs && rc == 0 { if install_all_libs() != 0 { rc = 1; } }
     return rc;
 }
 
