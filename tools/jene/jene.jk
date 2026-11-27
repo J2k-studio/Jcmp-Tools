@@ -1,4 +1,4 @@
-// jene 0.1.1 -- the command of jengine: make, build and run a game project.
+// jene 0.1.2 -- the command of jengine: make, build and run a game project.
 //   jene -c Name     create the folder Name with its structure and a game that runs
 //   jene -b          build the project of this folder (the program goes to bin/)
 //   jene -rc         run it in the console (terminal backend)
@@ -129,10 +129,10 @@ int cmd_reset() {
 
 int main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jene 0.1.1\n"; return 0; }
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jene 0.1.2\n"; return 0; }
     if a.len < 2 || a[1] == "-h" || a[1] == "--help" {
         jout << "jene: make, build and run a game\n";
-        jout << "(a part of jex)\n\n";
+        jout << "(make and run games with jex)\n\n";
         jout << "Usage: jene OPTION [NAME]\n\n";
         jout << "Options:\n";
         jout << "  -c NAME   new project in\n            the folder NAME\n";
@@ -140,7 +140,7 @@ int main() {
         jout << "  -rc       run in the console\n";
         jout << "  -rec      reset the cache\n";
         jout << "  --version the version\n\n";
-        jout << "It comes with jex: ex install jex\n";
+        jout << "Needs: ex install jexcmp\n";
         return 0;
     }
     if a[1] == "-c" && a.len >= 3 { return cmd_create(a[2]); }

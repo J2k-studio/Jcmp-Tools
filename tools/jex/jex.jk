@@ -1,0 +1,92 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// jex: the command of the language (Jex). It fetches the libraries of the language and keeps the compiler up to date:
+//   jex lib list | installed | install NAME | remove NAME | update     the libraries (#import <name>)
+//   jex update                                                       the compiler jcmp and its Library
+//   jex doctor                                                       is the toolchain whole
+// Tools and apps of the system are the job of ex; building a project is the job of makej.
+#import <stdlib>
+#import <deflate>
+#import "zipcore"
+#import "core"
+#import "pkg"
+#import "manage"
+
+String env_or(String name, String fallback) {
+    switch Env::get(name) {
+        Option::Some(v): { if v.len > 0 { return v; } }
+        Option::None: { }
+    }
+    return fallback;
+}
+
+String jex_version() { return "0.1.0"; }
+
+i64 usage() {
+    jout << "jex: the command of the language\n\n";
+    jout << "Usage: jex COMMAND\n\n";
+    jout << "Commands:\n";
+    jout << "  lib list       the libraries\n";
+    jout << "  lib installed  the ones here\n";
+    jout << "  lib install N  fetch library N\n";
+    jout << "  lib remove N   remove it\n";
+    jout << "  lib update     fetch the new\n                 versions\n";
+    jout << "  update         the compiler\n                 and its Library\n";
+    jout << "  doctor         is it whole\n";
+    jout << "  --version      the version\n\n";
+    jout << "Tools and apps: ex install NAME\n";
+    return 0;
+}
+
+// jex lib update: every library that is here is fetched again from the index (a newer one replaces the older)
+i64 lib_update() {
+    String dir = lib_dir();
+    String index = fetch_index(dir);
+    if index.len == 0 { return 1; }
+    String[] lines = index.split("\n");
+    i64 rc = 0;
+    i64 n = 0;
+    for i in 0..lines.len {
+        String line = lines[i].trim();
+        if line.len == 0 || line.starts_with("#") { continue; }
+        String[] w = line.split(" ");
+        if w.len < 4 { continue; }
+        String nm = w[0] + "";
+        if !Fs::exists(dir + "/" + nm + ".j") { continue; }
+        if cmd_install(nm) != 0 { rc = 1; } else { n += 1; }
+    }
+    jout << "jex: " << n << " libraries checked" << nl;
+    return rc;
+}
+
+i64 doctor() {
+    i64 bad = 0;
+    String[] va = arr(2);
+    va.push("--version");
+    Result<i64, Error> r = Proc::run("jcmp", va);
+    if r.is_err() { jout << "jcmp: not found (ex install jexcmp)" << nl; bad += 1; }
+    String dir = lib_dir();
+    if Dir::exists(dir) { jout << "libraries: " << dir << nl; } else { jout << "libraries: none yet (jex lib install NAME)" << nl; }
+    if bad == 0 { jout << "jex: the toolchain is whole" << nl; }
+    return bad;
+}
+
+i64 main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jex " << jex_version() << "\n"; return 0; }
+    if a.len < 2 || a[1] == "-h" || a[1] == "--help" || a[1] == "help" { return usage(); }
+    if a[1] == "lib" || a[1] == "libs" {
+        if a.len >= 3 && a[2] == "update" { return lib_update(); }
+        return cmd_library(a, 2);
+    }
+    if a[1] == "update" {
+        String[] w = arr(4);
+        w.push("jex");
+        w.push("install");
+        w.push("jcmp");
+        return cmd_tool(w, 1);
+    }
+    if a[1] == "doctor" { return doctor(); }
+    jerr << "jex: unknown command " << a[1] << " (jex help)\n";
+    return 2;
+}

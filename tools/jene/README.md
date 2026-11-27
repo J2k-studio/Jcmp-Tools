@@ -1,6 +1,6 @@
 # jene: make, build and run a game
 
-`jene` is a part of jex: it makes games (the engine and its libraries are in the repository Jaric-Engine).
+`jene` makes and runs games with jex (it makes games (the engine and its libraries are in the repository Jaric-Engine).
 
 ```
 jene -c NAME    new project in the folder NAME (a game that runs)
@@ -8,7 +8,7 @@ jene -b         build the project of this folder (bin/)
 jene -rc        run it in the console
 jene -rec       reset the cache
 ```
-The project file `NAME.jene` is short TOML. `jene` calls the compiler `jcmp`, it comes with `ex install jex`.
+The project file `NAME.jene` is short TOML. `jene` calls the compiler `jcmp`, the compiler comes with `ex install jexcmp`.
 License: MPL-2.0. Build: `JCMP=path sh build.sh`. Test: `sh test.sh`.
 
 ## A short lesson

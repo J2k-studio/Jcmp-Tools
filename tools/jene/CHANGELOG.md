@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.2
+* **Changed:** the texts say `ex install jexcmp` for the compiler (jene is not a part of the compiler install).
+
 ## 0.1.1
 * **Changed:** the texts say that jene is a part of jex (it comes with `ex install jex`).
 

@@ -1,0 +1,565 @@
+// manage.j: the tools and the libraries: the lists, the newest versions, install with a SHA-256 check, update, remove. (jc uses it: it was part of jget before jget 1.0.0.)
+String lib_dir() {
+    switch Env::get("JGET_LIB") {
+        Option::Some(d): return d;
+        Option::None: { }
+    }
+    switch Env::get("HOME") {
+        Option::Some(h): return h + "/.j2k/Library";
+        Option::None: return "./Library";
+    }
+    return "./Library";
+}
+
+String default_index() { return "https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/index.txt"; }
+
+// the addresses of the index, in the order to try
+String[] index_addresses() {
+    String spec = default_index();
+    switch Env::get("JGET_INDEX") {
+        Option::Some(u): { if u.trim().len > 0 { spec = u; } }
+        Option::None: { }
+    }
+    String[] all = spec.split(" ");
+    String[] r = arr(0);
+    for i in 0..all.len {
+        String a = all[i].trim();
+        if a.len > 0 { r.push(a); }
+    }
+    return r;
+}
+
+// the text of the index, from the first address that works
+String fetch_index(String dir) {
+    String[] where = index_addresses();
+    String tmp = dir + "/.index.tmp";
+    for i in 0..where.len {
+        if download_one(where[i], tmp, true) {
+            switch Fs::read_text(tmp) {
+                Result::Ok(t): { Fs::remove(tmp); return t; }
+                Result::Err(e): { err("ex: cannot read the index: " + e.message + "\n"); }
+            }
+        }
+    }
+    err("ex: the index of libraries could not be fetched; set JGET_INDEX to the address (or the path) of an index\n");
+    return "";
+}
+
+// the line of the index for `name`, split in four; an empty list when there is none
+String[] find_entry(String index, String name) {
+    String[] lines = index.split("\n");
+    for i in 0..lines.len {
+        String line = lines[i].trim();
+        if line.len == 0 || line.starts_with("#") { continue; }
+        String[] w = line.split(" ");
+        if w.len >= 4 && w[0] == name { return w; }
+    }
+    String[] none = arr(0);
+    return none;
+}
+
+// the libraries that come with the compiler (its folder Library): #import <name> needs no install
+bool builtin_name(String n) {
+    String[] b = "stdlib std core number text files system time data crypto net math cpu vector matrix".split(" ");
+    for i in 0..b.len {
+        if b[i] == n { return true; }
+    }
+    return false;
+}
+
+// the libraries that the installed library imports (#import <name>) and that are not here yet are installed too
+void install_deps(String path, String dir) {
+    switch Fs::read_text(path) {
+        Result::Ok(t): {
+            String[] ls = t.split("\n");
+            for i in 0..ls.len {
+                String line = ls[i];
+                if !line.starts_with("#import <") { continue; }
+                String dep = line.slice(9, line.len);
+                i64 close = dep.find(">");
+                if close < 0 { continue; }
+                dep = dep.slice(0, close);
+                if builtin_name(dep) || dep == "gfx" || dep == "simd" { continue; }
+                if Fs::exists(dir + "/" + dep + ".j") { continue; }
+                jout << "needs " << dep << ": installing it too" << nl;
+                cmd_install(dep);
+            }
+        }
+        Result::Err(er): { }
+    }
+}
+
+i64 cmd_install(String name) {
+    if name == "gfx" {
+        // the graphics library is made of canvas and screen
+        i64 a = cmd_install("canvas");
+        i64 b = cmd_install("screen");
+        if a != 0 { return a; }
+        return b;
+    }
+    if builtin_name(name) {
+        jout << name << " is part of the standard library (installed with the compiler): write  #import <" << name << ">  in your program; nothing to install" << nl;
+        return 0;
+    }
+    if !name_ok(name) {
+        err("ex: '" + name + "' is not a library name (letters, digits and _ only)\n");
+        return 1;
+    }
+    String dir = lib_dir();
+    if !make_dir(dir) { return 1; }
+    String index = fetch_index(dir);
+    if index.len == 0 { return 1; }
+    String[] e = find_entry(index, name);
+    if e.len < 4 {
+        err("ex: the index has no library named '" + name + "' (try: jex lib list)\n");
+        return 1;
+    }
+    String tmp = dir + "/." + name + ".tmp";
+    if !download(e[2], tmp, g_quiet == 1) { return 1; }
+    switch Sha256::file(tmp) {
+        Result::Ok(h): {
+            if h != e[3] {
+                Fs::remove(tmp);
+                err("ex: the checksum of " + name + " does not match the index, nothing was installed\n");
+                err("  index: " + e[3] + "\n");
+                err("  file : " + h + "\n");
+                return 1;
+            }
+        }
+        Result::Err(er): {
+            err("ex: cannot check the file: " + er.message + "\n");
+            return 1;
+        }
+    }
+    String target = dir + "/" + name + ".j";
+    switch Fs::rename(tmp, target) {
+        Result::Ok(x): { jout << "installed " << shown_name(name) << " " << e[1] << " in " << target << nl; install_deps(target, dir); return 0; }
+        Result::Err(er): { err("ex: cannot install: " + er.message + "\n"); return 1; }
+    }
+    return 1;
+}
+
+i64 cmd_remove(String name) {
+    if !name_ok(name) {
+        err("ex: '" + name + "' is not a library name\n");
+        return 1;
+    }
+    String target = lib_dir() + "/" + name + ".j";
+    if !Fs::exists(target) {
+        err("ex: " + name + " is not installed\n");
+        return 1;
+    }
+    switch Fs::remove(target) {
+        Result::Ok(x): { jout << "removed " << name << nl; return 0; }
+        Result::Err(er): { err("ex: cannot remove: " + er.message + "\n"); return 1; }
+    }
+    return 1;
+}
+
+i64 cmd_list() {
+    String dir = lib_dir();
+    if !make_dir(dir) { return 1; }
+    String index = fetch_index(dir);
+    if index.len == 0 { return 1; }
+    String[] lines = index.split("\n");
+    for i in 0..lines.len {
+        String line = lines[i].trim();
+        if line.len == 0 || line.starts_with("#") { continue; }
+        String[] w = line.split(" ");
+        if w.len < 4 { continue; }
+        String mark = " ";
+        if Fs::exists(dir + "/" + w[0] + ".j") { mark = "*"; }
+        jout << mark << " " << w[0] << " " << w[1] << nl;
+    }
+    return 0;
+}
+
+i64 cmd_installed() {
+    String dir = lib_dir();
+    switch Dir::list(dir) {
+        Result::Ok(names): {
+            for i in 0..names.len {
+                if names[i].ends_with(".j") && !names[i].starts_with(".") {
+                    jout << names[i].slice(0, names[i].len - 2) << nl;
+                }
+            }
+            return 0;
+        }
+        Result::Err(er): { jout << "(no libraries installed)" << nl; return 0; }
+    }
+    return 0;
+}
+
+// ex tools | ex install NAME ... : the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...), put next to jget, checked with their SHA-256
+// where the files of Jcmp-Tools are: the repository (raw) and the releases; JCMPTOOLS_RAW and JCMPTOOLS_DL name others (a mirror, the tests)
+// the tool that was called jc is called ex (the registry keeps the old name so that old copies can update themselves)
+String shown_name(String n) {
+    if n == "jc" { return "ex"; }
+    return n;
+}
+
+String tools_raw() {
+    switch Env::get("JCMPTOOLS_RAW") { Option::Some(v): { if v.len > 0 { return v; } } Option::None: { } }
+    return "https://raw.githubusercontent.com/J2k-studio/ex-pkg/main";
+}
+
+String tools_dl() {
+    switch Env::get("JCMPTOOLS_DL") { Option::Some(v): { if v.len > 0 { return v; } } Option::None: { } }
+    return "https://github.com/J2k-studio/ex-pkg/releases/download";
+}
+
+// ---- ex update / unstall
+// is version a newer than version b (numbers with dots; 2026.10.21 and 3.14.0.3 work too)
+bool tool_ver_newer(String a, String b) {
+    String[] x = a.split(".");
+    String[] y = b.split(".");
+    i64 n = x.len;
+    if y.len > n { n = y.len; }
+    for i in 0..n {
+        i64 p = 0;
+        i64 q = 0;
+        if i < x.len { p = x[i].to_int(); }
+        if i < y.len { q = y[i].to_int(); }
+        if p > q { return true; }
+        if p < q { return false; }
+    }
+    return false;
+}
+
+// the version of an installed tool: the marker .NAME.version that jget wrote, else what NAME --version says; "" when it is not installed
+String tool_installed_version(String dir, String name) {
+    if !Fs::exists(dir + "/" + name) { return ""; }
+    String marker = dir + "/." + name + ".version";
+    if Fs::exists(marker) {
+        switch Fs::read_text(marker) {
+            Result::Ok(t): { if t.trim().len > 0 { return t.trim() + ""; } }
+            Result::Err(e): { }
+        }
+    }
+    String[] va = arr(1);
+    va.push("--version");
+    switch Proc::output(dir + "/" + name, va) {
+        Result::Ok(t): {
+            String[] w = t.trim().split(" ");
+            if w.len >= 2 && w[0] == name { return w[1] + ""; }
+        }
+        Result::Err(e): { }
+    }
+    return "unknown";
+}
+
+// the newest versions of all the tools in one request (versions.txt: lines  NAME VERSION)
+String tool_versions_text(String dir) {
+    String f = dir + "/.versions.txt";
+    if !download(tools_raw() + "/versions.txt", f, true) { return ""; }
+    String t = "";
+    switch Fs::read_text(f) {
+        Result::Ok(x): { t = x; }
+        Result::Err(e): { }
+    }
+    Fs::remove(f);
+    return t;
+}
+
+String tool_latest(String vtext, String name) {
+    String[] ls = vtext.split("\n");
+    for i in 0..ls.len {
+        String[] w = ls[i].trim().split(" ");
+        if w.len >= 2 && w[0] == name { return w[1] + ""; }
+    }
+    return "";
+}
+
+// ex install unstall NAME ...: the program of a tool and the files that came with it
+i64 tool_unstall(String[] av, i64 at, String dir) {
+    i64 rc = 0;
+    for k in at..av.len {
+        String name = av[k];
+        if name == "jget" || name == "jc" { err("ex: " + name + " stays: ex uses it (delete the file by hand if you want to)\n"); rc = 1; continue; }
+        if name == "jsh" { err("ex: jsh is the shell: it stays (ex update brings it up to date)\n"); rc = 1; continue; }
+        if !Fs::exists(dir + "/" + name) { err("ex: " + name + " is not installed here\n"); rc = 1; continue; }
+        String[] extra = arr(4);
+        if name == "python" { extra.push("python3"); extra.push("pip"); extra.push("pip3"); extra.push("python-android"); }
+        else if name == "neuron" { extra.push("xr"); extra.push("xaiorin"); }
+        else if name == "yt-dlp" { extra.push("yt-dlp.pyz"); }
+        else if name == "jcmp" { extra.push("Library"); extra.push("coderin-extensions"); }
+        for i in 0..extra.len { if Fs::exists(dir + "/" + extra[i]) { remove_tree(dir + "/" + extra[i]); } }
+        remove_tree(dir + "/" + name);
+        Fs::remove(dir + "/." + name + ".version");
+        jout << "removed " << name << nl;
+    }
+    return rc;
+}
+
+// ex install jexcmp: the compiler and then every library of the index (so that  #import <name>  works at once)
+i64 install_all_libs() {
+    String dir = lib_dir();
+    if !make_dir(dir) { return 1; }
+    String index = fetch_index(dir);
+    if index.len == 0 { return 1; }
+    String[] lines = index.split("\n");
+    i64 rc = 0;
+    i64 n = 0;
+    for i in 0..lines.len {
+        String line = lines[i].trim();
+        if line.len == 0 || line.starts_with("#") { continue; }
+        String[] w = line.split(" ");
+        if w.len < 4 || w[0] == "example" { continue; }
+        String nm = w[0] + "";
+        if cmd_install(nm) != 0 { rc = 1; } else { n += 1; }
+    }
+    jout << "ex: " << n << " libraries" << nl;
+    return rc;
+}
+
+// the standard look of a list (docs/STANDARD.md): "  name   description", the description wrapped between words at the width of the screen
+// (38 when the output goes to a terminal that does not say), the next lines under the first word of the description; not wrapped in a pipe
+void print_item(String name, String desc, i64 namew) {
+    i64 cols = Term::cols();
+    if cols < 20 { cols = 38; }
+    String head = "  " + name;
+    while head.len < namew + 2 { head = head + " "; }
+    if Sys::isatty(1) != 0 { jout << head << desc << nl; return; }        // (isatty gives 0 for a terminal)
+    String pad = "";
+    while pad.len < head.len { pad = pad + " "; }
+    i64 room = cols - head.len;
+    if room < 12 { room = 12; }
+    String[] words = desc.split(" ");
+    String line = head;
+    String cur = "";
+    for i in 0..words.len {
+        String w = words[i] + "";
+        if w.len == 0 { continue; }
+        if cur.len > 0 && cur.len + 1 + w.len > room { jout << line << cur << nl; line = pad; cur = ""; }
+        if cur.len > 0 { cur = cur + " "; }
+        cur = cur + w;
+    }
+    jout << line << cur << nl;
+}
+
+i64 cmd_tool(String[] av, i64 at) {
+    String me = self_path();
+    if me.len == 0 { err("ex: cannot find where this program is\n"); return 1; }
+    String dir = default_bin_dir();
+    i64 slash = 0 - 1;
+    for i in 0..me.len { if me[i] == '/' { slash = i; } }
+    if slash > 0 { dir = me.slice(0, slash); }                      // the tools go where jget is
+    String list = me + ".tools";
+    if !download(tools_raw() + "/tools.txt", list, true) { return 1; }
+    String text = "";
+    switch Fs::read_text(list) {
+        Result::Ok(t): { text = t; }
+        Result::Err(e): { }
+    }
+    Fs::remove(list);
+    if av.len <= at || av[at] == "list" {
+        String[] ls = text.split("\n");
+        for i in 0..ls.len {
+            if ls[i].len == 0 || ls[i][0] == '#' { continue; }
+            String[] parts = ls[i].split("|");
+            if parts.len >= 2 { print_item(parts[0] + "", parts[1] + "", 11); }
+        }
+        if av.len <= at { jout << "ex install NAME installs one (more than one: ex install jsh jbox coderin)" << nl; }
+        return 0;
+    }
+    if av[at] == "unstall" || av[at] == "uninstall" || av[at] == "remove" { return tool_unstall(av, at + 1, dir); }
+    // `update` (and the old `all`) = jsh and the installed tools that have a newer version; with -n only the list
+    String[] wanted = arr(8);
+    bool want_update = false;
+    bool dry = false;
+    for k in at..av.len {
+        if av[k] == "update" || av[k] == "all" { want_update = true; }
+        else if av[k] == "-n" { dry = true; }
+        else { wanted.push(av[k]); }
+    }
+    if want_update {
+        String vtext = tool_versions_text(dir);
+        String[] tl = text.split("\n");
+        i64 shown = 0;
+        // jsh first, then the others in the order of the list
+        String[] order = arr(16);
+        order.push("jsh");
+        for i in 0..tl.len {
+            if tl[i].len == 0 || tl[i][0] == '#' { continue; }
+            String[] parts = tl[i].split("|");
+            if parts.len >= 2 && parts[0] != "jsh" { order.push(parts[0] + ""); }
+        }
+        for i in 0..order.len {
+            String name = order[i];
+            String have = tool_installed_version(dir, name);
+            if have.len == 0 && name != "jsh" { continue; }                                      // not installed: update does not add tools (jsh is the base)
+            if have == "unknown" && name != "jsh" { continue; }                                  // a file that jget did not install (no marker, no NAME X.Y.Z): leave it alone
+            String lat = tool_latest(vtext, name);
+            if lat.len == 0 {                                                                    // no versions.txt: ask the tool itself
+                String lv0 = dir + "/." + name + ".latest";
+                if download(tools_raw() + "/tools/" + name + "/LATEST", lv0, true) {
+                    switch Fs::read_text(lv0) { Result::Ok(t): { lat = t.trim() + ""; } Result::Err(e): { } }
+                    Fs::remove(lv0);
+                }
+            }
+            if lat.len == 0 { continue; }
+            bool newer = have.len == 0 || have == "unknown" || tool_ver_newer(lat, have);
+            if !newer { continue; }
+            String from = have;
+            if from.len == 0 { from = "(not installed)"; }
+            jout << shown_name(name) << ": " << from << " -> " << lat << nl;
+            wanted.push(name);
+            shown += 1;
+        }
+        if shown == 0 { jout << "everything is up to date" << nl; return 0; }
+        if dry { jout << "(ex update installs them)" << nl; return 0; }
+    }
+    i64 rc = 0;
+    bool with_libs = false;
+    bool with_jene = false;
+    for k in 0..wanted.len {
+        String name = wanted[k];
+        if name == "jexcmp" { with_libs = true; }
+        if name == "jex" || name == "jexcmp" || name == "jexc" { name = "jcmp"; with_jene = true; jout << "ex: jex is the language: installing its compiler jcmp and the command jene" << nl; }       // the names people look for point to the tool
+        bool known = false;
+        String[] ls = text.split("\n");
+        for i in 0..ls.len { if ls[i].starts_with(name + "|") { known = true; } }
+        if !known {                                                  // not a tool: maybe a package of Jcmp-pkg (git, clang ...)
+            String[] pw = arr(4);
+            pw.push("jc");
+            pw.push("pkg");
+            pw.push("install");
+            pw.push(name + "");
+            if cmd_pkg(pw) != 0 {
+                String[] tn = arr(16);
+                for i in 0..ls.len { String[] tw = ls[i].split("|"); if tw.len > 0 { tn.push(tw[0] + ""); } }
+                String near = near_names(name + "", tn);
+                String hint = "";
+                if near.len > 0 { hint = "; did you mean: " + near; }
+                err("ex: there is no tool or package '" + name + "'" + hint + " (ex tools, ex pkg search)\n");
+                rc = 1;
+            }
+            continue;
+        }
+        String lv = dir + "/." + name + ".latest";
+        if !download(tools_raw() + "/tools/" + name + "/LATEST", lv, true) { rc = 1; continue; }
+        String ver = "";
+        switch Fs::read_text(lv) {
+            Result::Ok(t): { ver = t.trim(); }
+            Result::Err(e): { }
+        }
+        Fs::remove(lv);
+        if ver.len == 0 { err("ex: cannot read the newest version of " + name + "\n"); rc = 1; continue; }
+        String base = tools_dl() + "/" + name + "-v" + ver;
+        String tmp = dir + "/." + name + ".new";
+        String sums = dir + "/." + name + ".sums";
+        if !download(base + "/SHA256SUMS", sums, true) { rc = 1; continue; }
+        if !download(base + "/" + name, tmp, g_quiet == 1) { Fs::remove(sums); rc = 1; continue; }
+        String want = "";
+        switch Fs::read_text(sums) {
+            Result::Ok(t): {
+                String[] sl = t.split("\n");
+                for i in 0..sl.len {
+                    String[] w = sl[i].trim().split(" ");
+                    if w.len >= 2 && w[w.len - 1] == name { want = w[0]; }
+                    String tarname = name + "-files.tar";
+                    if w.len >= 2 && w[w.len - 1] == tarname { Fs::write_text(sums + ".keep", w[0]); }
+                }
+            }
+            Result::Err(e): { }
+        }
+        Fs::remove(sums);
+        String have = "";
+        switch Sha256::file(tmp) {
+            Result::Ok(h): { have = h; }
+            Result::Err(e): { }
+        }
+        if want.len == 0 || want != have {
+            Fs::remove(tmp);
+            Fs::remove(sums + ".keep");
+            err("ex: the checksum of " + name + " does not match, nothing was installed\n");
+            rc = 1;
+            continue;
+        }
+        Sys::chmod(tmp.c(), 493);
+        if !put_in_place(tmp, dir + "/" + name) { rc = 1; continue; }
+        // the files of the tool (the library of the compiler): NAME-files.tar, when it is in the release; it goes into the folder of the tool
+        String extra = "";
+        switch Fs::read_text(sums + ".keep") {
+            Result::Ok(t): { extra = t; }
+            Result::Err(e): { }
+        }
+        if extra.len > 0 {
+            String tarfile = dir + "/." + name + ".files.tar";
+            if download(base + "/" + name + "-files.tar", tarfile, g_quiet == 1) {
+                String thave = "";
+                switch Sha256::file(tarfile) {
+                    Result::Ok(h): { thave = h; }
+                    Result::Err(e): { }
+                }
+                if thave == extra { if !untar(tarfile, dir) { rc = 1; } } else { err("ex: the checksum of the files of " + name + " does not match\n"); rc = 1; }
+                Fs::remove(tarfile);
+            } else { rc = 1; }
+            Fs::remove(sums + ".keep");
+        }
+        Fs::write_text(dir + "/." + name + ".version", ver);
+        jout << "installed " << shown_name(name) << " " << ver << " in " << dir << nl;
+        if name == "jbox" || name == "zipj" || name == "tarj" || name == "jamanager" || name == "island" {                                             // its commands as links next to it
+            String[] ja = arr(2);
+            ja.push("--install");
+            ja.push(dir);
+            Proc::run(dir + "/" + name, ja);
+        }
+    }
+    if with_jene && rc == 0 {                                   // jene is a part of jex (games): it comes with the compiler
+        String[] jw = arr(4);
+        jw.push("jc");
+        jw.push("install");
+        jw.push("jene");
+        if cmd_tool(jw, 1) != 0 { rc = 1; }
+    }
+    if with_libs && rc == 0 { if install_all_libs() != 0 { rc = 1; } }
+    return rc;
+}
+
+i64 cmd_library(String[] av, i64 at) {
+    if av.len <= at { return usage(); }
+    String cmd = av[at];
+    if cmd == "list" { return cmd_list(); }
+    if cmd == "installed" { return cmd_installed(); }
+    if cmd == "install" || cmd == "remove" || cmd == "unstall" || cmd == "uninstall" {
+        if av.len <= at + 1 { return usage(); }
+        String name = av[at + 1];
+        if cmd == "install" { return cmd_install(name); }
+        return cmd_remove(name);
+    }
+    return usage();
+}
+
+// ex pack list | ex pack install NAME: a pack is a list of tools and packages (pack/NAME.txt of ex-pkg); every line is installed
+i64 cmd_pack(String[] a) {
+    String me = self_path();
+    if me.len == 0 { err("ex: cannot find where this program is\n"); return 1; }
+    String tmp = me + ".pack";
+    if a.len < 3 || a[2] == "list" {
+        if !download(tools_raw() + "/pack/index.txt", tmp, true) { err("ex: cannot fetch the list of packs\n"); return 1; }
+        switch Fs::read_text(tmp) {
+            Result::Ok(t): { String[] ls = t.split("\n"); for i in 0..ls.len { String[] f = ls[i].split("|"); if f.len >= 2 { jout << f[0] << "  " << f[1] << "\n"; } } }
+            Result::Err(e): { }
+        }
+        Fs::remove(tmp);
+        jout << "(ex pack install NAME)\n";
+        return 0;
+    }
+    if a[2] != "install" || a.len < 4 { err("usage: ex pack list | ex pack install NAME\n"); return 1; }
+    String name = a[3] + "";
+    if !download(tools_raw() + "/pack/" + name + ".txt", tmp, true) { err("ex: there is no pack named " + name + " (ex pack list)\n"); return 1; }
+    String[] w = arr(16);
+    w.push("jc");
+    w.push("install");
+    switch Fs::read_text(tmp) {
+        Result::Ok(t): {
+            String[] ls = t.split("\n");
+            for i in 0..ls.len { String n = ls[i].trim(); if n.len > 0 && n[0] != '#' { w.push(n + ""); } }
+        }
+        Result::Err(e): { }
+    }
+    Fs::remove(tmp);
+    if w.len < 3 { err("ex: the pack " + name + " is empty\n"); return 1; }
+    return cmd_tool(w, 1);
+}

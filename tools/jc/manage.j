@@ -411,11 +411,10 @@ i64 cmd_tool(String[] av, i64 at) {
     }
     i64 rc = 0;
     bool with_libs = false;
-    bool with_jene = false;
+    bool with_jex = false;
     for k in 0..wanted.len {
         String name = wanted[k];
-        if name == "jexcmp" { with_libs = true; }
-        if name == "jex" || name == "jexcmp" || name == "jexc" { name = "jcmp"; with_jene = true; jout << "ex: jex is the language: installing its compiler jcmp and the command jene" << nl; }       // the names people look for point to the tool
+        if name == "jexcmp" { name = "jcmp"; with_libs = true; with_jex = true; jout << "ex: jexcmp is the compiler jcmp with the command jex and every library" << nl; }       // the whole toolchain at once
         bool known = false;
         String[] ls = text.split("\n");
         for i in 0..ls.len { if ls[i].starts_with(name + "|") { known = true; } }
@@ -506,11 +505,11 @@ i64 cmd_tool(String[] av, i64 at) {
             Proc::run(dir + "/" + name, ja);
         }
     }
-    if with_jene && rc == 0 {                                   // jene is a part of jex (games): it comes with the compiler
+    if with_jex && rc == 0 {                                    // jex (the command that fetches the libraries) comes with the compiler
         String[] jw = arr(4);
         jw.push("jc");
         jw.push("install");
-        jw.push("jene");
+        jw.push("jex");
         if cmd_tool(jw, 1) != 0 { rc = 1; }
     }
     if with_libs && rc == 0 { if install_all_libs() != 0 { rc = 1; } }
