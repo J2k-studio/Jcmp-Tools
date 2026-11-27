@@ -527,6 +527,24 @@ bool takes_paths(String c) {
     return names.contains(" " + c + " ");
 }
 
+// does a name in the folder start with part? The names of the last folder are kept while a line is typed (a folder with many files was read again
+// for every key: slow when a long line is pasted); read_command forgets them
+String ls_dir;
+String[] ls_names;
+bool ls_ready;
+
+bool name_starts(String dir, String part) {
+    if !ls_ready || ls_dir != dir {
+        Result<String[], Error> r = Dir::list(dir);
+        if r.is_err() { return false; }
+        ls_names = r.take();
+        ls_dir = dir + "";
+        ls_ready = true;
+    }
+    for i in 0..ls_names.len { if ls_names[i].starts_with(part) { return true; } }
+    return false;
+}
+
 // 0 plain, 1 folder, 2 not found, 3 the start of a name that is there (still typing)
 i64 path_state(String w, bool typing, bool dest, String cmd) {
     if w.len == 0 || w.starts_with("-") || w.starts_with("~") || w.starts_with("$") { return 0; }
@@ -543,11 +561,7 @@ i64 path_state(String w, bool typing, bool dest, String cmd) {
     if !Dir::exists(dir) { return 2; }
     if dest && !typing { return 0; }                                // a new name in a folder that is there
     if typing {
-        Result<String[], Error> r = Dir::list(dir);
-        if r.is_ok() {
-            String[] names = r.take();
-            for i in 0..names.len { if names[i].starts_with(part) { return 3; } }
-        }
+        if name_starts(dir, part) { return 3; }
         if dest { return 0; }
     }
     return 2;
@@ -691,6 +705,7 @@ bool read_command(String prompt) {
     set_icrnl(false);
     redraw_row = 0;
     redraw_end = 0;
+    ls_ready = false;
     jout << prompt;
     if g_next.len > 0 { redraw(shown, line, cursor); }
     while true {
