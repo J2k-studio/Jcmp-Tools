@@ -1,31 +1,51 @@
 # ascode: a harness for a model
 
-`ascode` lets a model work in a folder, with the tools of the person: it reads, lists, searches, writes, edits and runs commands, and it asks before it changes anything. The model is Claude (the Anthropic API, `claude-opus-5-5` unless you name another); a model on the phone (`llama`) comes later.
+`ascode` lets a model work in a folder, with the tools of the person: it reads, lists, searches, writes, edits and runs commands, and it asks before it changes anything. The model is yours to choose: Claude, another provider, or a server on this machine.
 
 ## First time
-Run `ascode` and paste the key when it asks, or:
-1. Make an API key at <https://console.anthropic.com>. The API is paid by use, apart from a Claude subscription.
-2. Put it in a file:
-```
-mkdir -p ~/.config/ascode
-fcode ~/.config/ascode/key
-```
-Paste the key, save (Ctrl-S), quit (Ctrl-Q).
+Run `ascode`. It asks three things:
+1. **Who answers** (a number or a name)
+2. **The API key** of that provider: paste it (the `Paste` key of the keys bar), Enter; it shows as stars, `q` leaves
+3. **The model:** a number from the list, a word to filter it, or its name (Claude starts with `claude-opus-5-5`)
+
+| Provider | Where a key is made | |
+|---|---|---|
+| `claude` | console.anthropic.com | Anthropic |
+| `openrouter` | openrouter.ai/keys | many models with one key |
+| `openai` | platform.openai.com | |
+| `gemini` | aistudio.google.com | |
+| `groq` | console.groq.com | |
+| `deepseek` | platform.deepseek.com | |
+| `mistral` | console.mistral.ai | |
+| `together` | api.together.xyz | |
+| `local` | no key | a llama.cpp server on this machine (port 8080) |
+| `ollama` | no key | Ollama on this machine (port 11434) |
+| `custom` | your own | any address that speaks "chat completions" |
+
+The APIs are paid by use (some have a free part: see the provider). The model must be able to use tools, or it can only talk.
 
 ## A talk
 ```
 ascode
 ```
-The first time it asks for the key: paste it (the `Paste` key of the keys bar) and press Enter; it shows as stars, and `q` leaves. Then type what you want, one line, and Enter. The talk is remembered until you leave.
+Type what you want, one line, and Enter. The talk is remembered until you leave or change who answers.
 
 | Command | What it does |
 |---|---|
-| `/help` | the commands |
+| `/setup` | choose who answers, key, model |
+| `/provider NAME` | another provider (a new talk) |
+| `/models word` | the models it offers |
 | `/model NAME` | another model (a new talk) |
-| `/mode ask` / `read` / `auto` | how changes are allowed |
 | `/key` | a new API key |
+| `/url ADDRESS` | the address of `local`, `ollama`, `custom` |
+| `/mode ask` / `read` / `auto` | how changes are allowed |
+| `/max N` | the longest answer in tokens (0: usual) |
+| `/note TEXT` | told to the model every time (`/note none`) |
+| `/config` | the settings (the key is never shown) |
 | `/clear` | a new talk |
-| `/exit` | leave |
+| `/help`, `/exit` | |
+
+These choices stay in `~/.config/ascode/config`; a key is in its own file there, readable by you only.
 
 ## One task
 ```
@@ -33,6 +53,8 @@ ascode "what is in this folder?"
 ascode "fix the error in main.jex"
 ascode --mode read "explain main.jex"
 ascode --model claude:claude-haiku-5-5 "a small question"
+ascode --provider openrouter --model NAME "a question"
+ascode config
 ```
 The key is only sent to the API; it is never printed.
 

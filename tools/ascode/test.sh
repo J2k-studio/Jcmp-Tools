@@ -36,8 +36,22 @@ import http.server, json, sys
 log = open('req.log', 'a')
 class H(http.server.BaseHTTPRequestHandler):
     n = 0
+    def answer(s, out):
+        b = json.dumps(out).encode()
+        s.send_response(200); s.send_header('content-type', 'application/json'); s.send_header('content-length', str(len(b))); s.end_headers(); s.wfile.write(b)
+    def do_GET(s):
+        log.write(json.dumps({'path': s.path, 'headers': {k.lower(): v for k, v in s.headers.items()}}) + '\n'); log.flush()
+        s.answer({'data': [{'id': 'vendor/small-model'}, {'id': 'vendor/big-model'}, {'id': 'other/model-z'}]})
     def do_POST(s):
         body = s.rfile.read(int(s.headers['content-length'])).decode()
+        if s.path.endswith('/chat/completions'):
+            j = json.loads(body)
+            log.write(json.dumps({'path': s.path, 'headers': {k.lower(): v for k, v in s.headers.items()}, 'body': j}) + '\n'); log.flush()
+            if j['messages'][-1]['role'] == 'user':
+                s.answer({'choices': [{'finish_reason': 'tool_calls', 'message': {'role': 'assistant', 'content': None, 'tool_calls': [{'id': 'call_9', 'type': 'function', 'function': {'name': 'write', 'arguments': json.dumps({'path': 'oa.txt', 'content': 'from {"oa"}\n'})}}]}}]})
+            else:
+                s.answer({'choices': [{'finish_reason': 'stop', 'message': {'role': 'assistant', 'content': 'oa done'}}]})
+            return
         log.write(json.dumps({'headers': {k.lower(): v for k, v in s.headers.items()}, 'body': json.loads(body)}) + '\n'); log.flush()
         if '"boom"' in body.split('"messages"')[1]:
             b = b'{"type":"error","error":{"message":"overloaded"}}'
@@ -81,7 +95,7 @@ home = os.path.abspath('h2'); os.mkdir(home)
 pid, fd = pty.fork()
 if pid == 0:
     env = dict(os.environ, HOME=home); env.pop('ANTHROPIC_API_KEY', None)
-    os.execve(os.environ['A'], ['ascode', 'claude'], env)
+    os.execve(os.environ['A'], ['ascode'], env)
 fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 40, 0, 0))
 out = b''
 def want(text, t=10):
@@ -93,6 +107,7 @@ def want(text, t=10):
         out += os.read(fd, 4096)
     seen = out; out = out.split(text.encode(), 1)[1]; return seen
 def send(t): time.sleep(0.2); os.write(fd, t.encode() + b'\r')
+want('who answers'); want('(Enter: claude): '); send('1')
 want('API key'); want('key: ')
 send(''); want('nothing came'); want('key: ')                       # an Enter by mistake does not leave
 send('\x1b[200~ sk-ant-pasted-777 \x1b[201~')
@@ -125,7 +140,7 @@ import os, pty, time
 pid, fd = pty.fork()
 if pid == 0:
     env = dict(os.environ); env.pop('ANTHROPIC_API_KEY', None)
-    os.execve(os.environ['A'], ['ascode'], env)
+    os.execve(os.environ['A'], ['ascode', 'claude'], env)          # a provider named: straight to its key
 out = b''
 while b'key: ' not in out: out += os.read(fd, 4096)
 time.sleep(0.2); os.write(fd, b'q\r')
@@ -140,4 +155,62 @@ PY
 # a piped talk ends at the end of the input
 printf '/exit\n' | HOME="$T/h2" "$A" > out5.txt 2>&1 || { echo "ascode test: piped: $(cat out5.txt)"; exit 1; }
 printf '' | HOME="$T/h2" timeout 10 "$A" > out5.txt 2>&1 || { echo "ascode test: the end of the input"; exit 1; }
+# another provider (chat completions): chosen in the setup, its models listed, a tool done, the result sent back
+: > req.log
+OA="http://127.0.0.1:$(cat port)/v1" A="$A" python3 - <<'PY' || { echo "ascode test: another provider"; exit 1; }
+import os, pty, select, time, json
+home = os.path.abspath('h4'); os.mkdir(home)
+pid, fd = pty.fork()
+if pid == 0:
+    env = dict(os.environ, HOME=home); env.pop('ANTHROPIC_API_KEY', None); env.pop('ASCODE_API_KEY', None)
+    os.execve(os.environ['A'], ['ascode', '--mode', 'auto'], env)
+out = b''
+def want(text, t=10):
+    global out
+    end = time.time() + t
+    while text.encode() not in out:
+        r, _, _ = select.select([fd], [], [], max(0, end - time.time()))
+        if not r: raise SystemExit('no %r in %r' % (text, out[-700:]))
+        try: out += os.read(fd, 4096)
+        except OSError: raise SystemExit('ascode ended while waiting for %r: %r' % (text, out[-700:]))
+    seen = out.split(text.encode(), 1)[0] + text.encode(); out = out.split(text.encode(), 1)[1]; return seen
+def send(t): time.sleep(0.2); os.write(fd, t.encode() + b'\r')
+menu = want('(Enter: claude): '); assert b'openrouter' in menu and b'custom' in menu, menu
+send('custom'); want('address: '); send(os.environ['OA']); want('key: '); send('oa-secret-5')
+listed = want('q leaves): '); assert b'vendor/small-model' in listed and b'oa-secret-5' not in listed, listed
+send('vendor'); some = want('q leaves): '); assert b'other/model-z' not in some, some
+send('2'); want('> ')
+send('write a file'); want('oa done'); want('> ')
+send('/config'); c = want('> '); assert b'custom' in c and b'oa-secret-5' not in c and b'key      set' in c, c
+send('/models other'); m = want('> '); assert b'other/model-z' in m and b'vendor/big-model' not in m, m
+send('/max 900'); want('900'); want('> ')
+send('/note always short'); want('> ')
+send('again'); want('oa done'); want('> ')
+send('/help'); h = want('/exit'); assert all(len(l) <= 40 for l in h.decode(errors='replace').split('\r\n')), h
+want('> '); send('/exit')
+assert os.waitpid(pid, 0)[1] == 0
+r = [json.loads(l) for l in open('req.log')]
+gets = [x for x in r if x['path'] == '/v1/models']
+assert gets and gets[0]['headers']['authorization'] == 'Bearer oa-secret-5', gets
+posts = [x for x in r if x['path'] == '/v1/chat/completions']
+first, second = posts[0]['body'], posts[1]['body']
+assert posts[0]['headers']['authorization'] == 'Bearer oa-secret-5'
+assert first['model'] == 'vendor/small-model' and 'max_tokens' not in first, first['model']
+assert [t['type'] for t in first['tools']] == ['function'] * 6 and [t['function']['name'] for t in first['tools']] == ['read', 'list', 'search', 'write', 'edit', 'run'], first['tools']
+assert first['tools'][3]['function']['parameters']['required'] == ['path', 'content']
+assert [m['role'] for m in first['messages']] == ['system', 'user']
+m = second['messages']
+assert [x['role'] for x in m] == ['system', 'user', 'assistant', 'tool'], m
+assert m[2]['tool_calls'][0]['id'] == 'call_9' and m[3] == {'role': 'tool', 'tool_call_id': 'call_9', 'content': 'wrote oa.txt'}, m
+assert open('oa.txt').read() == 'from {"oa"}\n'
+last = posts[-1]['body']
+assert last['max_tokens'] == 900 and 'always short' in last['messages'][0]['content'], last['messages'][0]
+cfg = open(home + '/.config/ascode/config').read()
+assert 'provider = custom' in cfg and 'model.custom = vendor/small-model' in cfg and 'oa-secret' not in cfg, cfg
+assert open(home + '/.config/ascode/key.custom').read() == 'oa-secret-5\n'
+PY
+HOME="$T/h4" "$A" --mode auto "one task" > out6.txt 2>&1 </dev/null && grep -q "oa done" out6.txt || { echo "ascode test: one task with the saved provider: $(cat out6.txt)"; exit 1; }
+out=$(HOME="$T/h5" ASCODE_API_KEY=zz "$A" --provider custom --url http://example.invalid/v1 --model m "x" 2>&1 </dev/null) && { echo "ascode test: a key over http must be refused"; exit 1; }
+echo "$out" | grep -q "only sent over https" || { echo "ascode test: the refusal: $out"; exit 1; }
+HOME="$T/h4" "$A" config > out7.txt 2>&1; grep -q "provider custom" out7.txt && ! grep -q "oa-secret" out7.txt || { echo "ascode test: config: $(cat out7.txt)"; exit 1; }
 echo "ascode test: ok"

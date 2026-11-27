@@ -7,7 +7,7 @@
 #import <stdlib>
 using stdlib;
 
-String ascode_version() { return "0.2.1"; }
+String ascode_version() { return "0.3.0"; }
 
 String g_mode;          // ask: ask before a change (write, edit, run); read: changes are refused; auto: changes inside the folder are done
 String g_root;          // the folder of the work: a path outside it is always asked, also in auto
@@ -216,57 +216,78 @@ i64 run_loop(String task) {
 
 i64 usage() {
     jout << "ascode: a harness for a model\n\n";
-    jout << "Usage: ascode [OPTIONS] [TASK]\n\n";
+    jout << "  ascode          a session (the\n                  first time:\n                  who, key, model)\n";
+    jout << "  ascode \"task\"   one task\n";
+    jout << "  ascode setup    choose again\n";
+    jout << "  ascode config   the settings\n\n";
     jout << "Options:\n";
-    jout << "  ascode      a session (the first\n              time asks the key)\n";
-    jout << "  --model claude[:ID]\n";
-    jout << "              Claude (default,\n              claude-opus-5-5); the\n              key is in\n              ~/.config/ascode/key\n";
-    jout << "  --model mock:FILE\n";
-    jout << "              a scripted model\n";
-    jout << "  --mode ask  ask before a\n";
-    jout << "              change (default)\n";
-    jout << "  --mode read refuse changes\n";
-    jout << "  --mode auto do the changes\n";
-    jout << "              inside the folder\n";
-    jout << "  --version   the version\n\n";
+    jout << "  --provider NAME claude openrouter\n    openai gemini groq deepseek\n    mistral together local ollama\n    custom\n";
+    jout << "  --model ID      its model\n";
+    jout << "  --url ADDRESS   local, custom\n";
+    jout << "  --mode ask      ask before a\n                  change (default)\n";
+    jout << "  --mode read     refuse changes\n";
+    jout << "  --mode auto     change inside\n                  the folder\n";
+    jout << "  --version       the version\n\n";
     jout << "Tools of the model: read list\n";
     jout << "search write edit run\n";
     return 0;
 }
 
+#import "config"
 #import "claude"
+#import "openai"
 #import "chat"
 
 i64 main() {
     String[] a = Env::args();
-    g_mode = "ask";
     g_root = "";
-    String model = "claude";
+    String model = "";
+    String provider = "";
+    String url = "";
+    String mode = "";
     String task = "";
     i64 i = 1;
     while i < a.len {
         if a[i] == "--version" || a[i] == "-V" { jout << "ascode " << ascode_version() << "\n"; return 0; }
         else if a[i] == "-h" || a[i] == "--help" { return usage(); }
         else if a[i] == "--model" && i + 1 < a.len { model = a[i + 1] + ""; i += 2; continue; }
-        else if a[i] == "--mode" && i + 1 < a.len { g_mode = a[i + 1] + ""; i += 2; continue; }
+        else if a[i] == "--provider" && i + 1 < a.len { provider = a[i + 1] + ""; i += 2; continue; }
+        else if a[i] == "--url" && i + 1 < a.len { url = a[i + 1] + ""; i += 2; continue; }
+        else if a[i] == "--mode" && i + 1 < a.len { mode = a[i + 1] + ""; i += 2; continue; }
         else { if task.len > 0 { task = task + " "; } task = task + a[i]; }
         i += 1;
     }
-    if g_mode != "ask" && g_mode != "read" && g_mode != "auto" { jerr << "ascode: the mode is ask, read or auto\n"; return 2; }
+    cfg_load();
+    if mode.len > 0 && mode != "ask" && mode != "read" && mode != "auto" { jerr << "ascode: the mode is ask, read or auto\n"; return 2; }
+    if mode.len > 0 { g_mode = mode + ""; } else { g_mode = cfg_mode + ""; }
     char cw[512];
     for q in 0..512 { cw[q] = 0; }
     Sys::getcwd(@cw, 512);
     g_root = (char^)@cw;
-    if task == "claude" || (task.starts_with("claude:") && !task.contains(" ")) { model = task + ""; task = ""; }
-    if model == "claude" || model.starts_with("claude:") {
-        String id = "";
-        if model.len > 7 { id = model.slice(7, model.len); }
-        if task.len == 0 { return chat(id); }
-        if !cl_open(id) { jerr << "ascode: no key. Run  ascode  once to give it,\nor put it in ~/.config/ascode/key\n"; return 1; }
-        jout << "ascode: " << cl_model << nl;
-        return cl_run(task);
+    if model.starts_with("mock:") {
+        if !mock_open(model.slice(5, model.len)) { jerr << "ascode: cannot read the script " << model.slice(5, model.len) << "\n"; return 1; }
+        return run_loop(task);
     }
-    if !model.starts_with("mock:") { jerr << "ascode: the model is claude or mock:FILE\n"; return 2; }
-    if !mock_open(model.slice(5, model.len)) { jerr << "ascode: cannot read the script " << model.slice(5, model.len) << "\n"; return 1; }
-    return run_loop(task);
+    // a provider named alone ( ascode claude ) is the same as --provider
+    if task == "claude" || task == "openrouter" || task == "local" || task == "ollama" { provider = task + ""; task = ""; }
+    if model == "claude" { provider = "claude"; model = ""; }
+    else if model.starts_with("claude:") { provider = "claude"; model = model.slice(7, model.len) + ""; }
+    if provider.len > 0 {
+        if !provider_known(provider) { jerr << "ascode: no provider " << provider << " (ascode --help)\n"; return 2; }
+        cfg_provider = provider + "";
+    }
+    if url.len > 0 { cfg_url = url + ""; }
+    if model.len > 0 { set_model_of(cfg_provider, model); }
+    if task == "config" { cl_model = model_of(cfg_provider); show_config(); return 0; }
+    bool first = false;
+    if !cfg_exists && provider.len == 0 { String k = read_key_of("claude"); first = k.len == 0; }
+    if task == "setup" { return chat(true); }
+    if task.len == 0 { return chat(first); }
+    cl_key = read_key_of(cfg_provider);
+    cl_model = model_of(cfg_provider);
+    cl_messages = arr(8);
+    if cl_key.len == 0 && provider_needs_key(cfg_provider) { jerr << "ascode: no key. Run  ascode setup\n"; return 1; }
+    if cl_model.len == 0 { jerr << "ascode: no model. Run  ascode setup\nor give --model ID\n"; return 1; }
+    jout << "ascode: " << cfg_provider << " " << cl_model << nl;
+    return run_model(task);
 }

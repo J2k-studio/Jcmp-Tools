@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+* **Added:** other providers: `openrouter`, `openai`, `gemini`, `groq`, `deepseek`, `mistral`, `together`, `local` (llama.cpp), `ollama` and `custom` (any address that speaks chat completions). `ascode setup` chooses who answers, the key and the model (listed from the provider).
+* **Added:** settings that stay (`~/.config/ascode/config`): `/provider`, `/models`, `/model`, `/url`, `/mode`, `/max`, `/note`, `/config`; `ascode config`; `--provider`, `--url`.
+* **Fixed:** a key is never sent over plain http (only https, or this machine itself).
+
 ## 0.2.1
 * **Added:** the key shows as stars while it is pasted; `q` leaves the question.
 * **Fixed:** one empty line ended the question (a pasted key could then go to the shell); marks and spaces round a pasted key were saved with it.
