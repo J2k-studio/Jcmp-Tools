@@ -14,7 +14,7 @@
 #import "pkg"
 #import "manage"
 
-String ex_version() { return "0.10.0"; }
+String ex_version() { return "0.11.0"; }
 
 i64 fail(String msg) {
     jerr << "ex: " << msg << "\n";
@@ -303,7 +303,7 @@ i64 usage() {
     jout << "Tools and programs:\n";
     jout << "  tools         what there is\n";
     jout << "  install NAME  get it\n";
-    jout << "  update [-n]   bring them up\n                to date\n";
+    jout << "  update [-n]   everything, the\n                app too\n";
     jout << "  unstall NAME  remove it\n";
     jout << "  search WORD   find one\n";
     jout << "  list          installed\n";
@@ -685,10 +685,6 @@ i64 main() {
         w.push("update");
         for i in 2..a.len { w.push(a[i] + ""); }
         i64 rc = cmd_tool(w, 1);
-        if env_or("EXSHELL", "") == "1" && app_newest() && app_code_here() < g_app_code {
-            jout << "a new app is there: ex app update" << nl;
-            offer_command("ex app update");
-        }
         String[] pw = arr(4);                                  // and the packages of ex-pkg
         pw.push("jc");
         pw.push("pkg");
@@ -696,6 +692,12 @@ i64 main() {
         for i in 2..a.len { if a[i] == "-n" { pw.push("-n"); } }
         pw.push("--quiet");                                    // nothing to say when there are no packages or they are up to date
         if cmd_pkg(pw) != 0 { rc = 1; }
+        if env_or("EXSHELL", "") == "1" && app_newest() && app_code_here() < g_app_code {          // the app last: its installer ends the sessions
+            bool dry = false;
+            for i in 2..a.len { if a[i] == "-n" { dry = true; } }
+            jout << nl << "the app:" << nl;
+            if app_update(dry) != 0 { rc = 1; }
+        }
         return rc;
     }
     if (a[1] == "unstall" || a[1] == "uninstall") && a.len >= 3 {

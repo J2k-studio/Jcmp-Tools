@@ -1,5 +1,9 @@
 # ex changelog
 
+## 0.11.0
+* **Changed:** `ex update` updates everything with one command: the tools, the programs and, in exshell, the app (the patch is fetched and Android asks you to tap Update); `ex update -n` only says what is newer.
+* **Fixed:** none.
+
 ## 0.10.0
 * **Added:** `ex unstall`, `ex search`, `ex list` work for packages too; a package installed now has its links and scripts pointed at the real folder (the packages were built for the folder of another app: `ssh`, `dropbearkey` and others were broken links).
 * **Changed:** one set of words for tools and packages: `ex install`, `ex unstall`, `ex search`, `ex tools` (both lists), `ex list` (all that is installed). `ex pkg ...` still works.

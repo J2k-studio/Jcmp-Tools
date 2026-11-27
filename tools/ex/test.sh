@@ -174,6 +174,12 @@ cmp -s "$X/home/.cache/exshell-9.9.apk" "$X/new2.apk" || { echo "ex test: the pa
 sed -i "s#^url .*#url file://$X/new2.apk#" "$X/app.txt"; printf 'other' > "$X/other.apk"; rm -f "$X/home/.cache/"*
 EXSHELL_APK="$X/other.apk" A 7 update > "$X/o" 2>&1 || { echo "ex test: fallback after a bad patch: $(cat "$X/o")"; exit 1; }
 grep -q "the whole file is fetched" "$X/o" && cmp -s "$X/home/.cache/exshell-9.9.apk" "$X/new2.apk" || { echo "ex test: fallback: $(cat "$X/o")"; exit 1; }
+# ex update does the app too, after the tools: with -n it only says so
+sed -i "s#^url .*#url file://$X/new2.apk#" "$X/app.txt"; rm -f "$X/ear.log" "$X/home/.cache/"*
+mkdir -p "$X/up"; cp "$J" "$X/up/ex"; : > "$X/tools.txt"; : > "$X/versions.txt"
+U1() { ( cd "$X/up" && env EXSHELL=1 EXSHELL_CODE=1 EX_APP_INDEX="file://$X/app.txt" JCMPTOOLS_RAW="file://$X" JC_PKG_ROOT="$X/pr" HOME="$X/home" TMPDIR="$X/tmp" PATH="$X/bin:$PATH" ./ex update ${1:-} ); }
+U1 -n > "$X/o" 2>&1; grep -q "ex app update installs it" "$X/o" && [ ! -e "$X/ear.log" ] || { echo "ex test: update -n and the app: $(cat "$X/o")"; exit 1; }
+U1 > "$X/o" 2>&1; [ -e "$X/ear.log" ] || { echo "ex test: update must update the app: $(cat "$X/o")"; exit 1; }
 # ex doctor says what is there and ends well
 printf 'ex 9.9.9\n' > "$U/mirror/versions.txt"
 ( cd "$U/bin" && JCMPTOOLS_RAW="file://$U/mirror" "$J" doctor ) > "$T/doc.txt" 2>&1 || { echo "ex test: doctor: $(cat "$T/doc.txt")"; exit 1; }

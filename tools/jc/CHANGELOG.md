@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.11.0
+* **Changed:** the same program as ex 0.11.0.
+* **Fixed:** none.
+
 ## 0.10.0
 * **Changed:** the same program as ex 0.10.0.
 * **Fixed:** none.
