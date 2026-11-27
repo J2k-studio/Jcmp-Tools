@@ -10,6 +10,7 @@ jsh|A small shell for J2K machines: line editing, ghost text, pipes, variables, 
 jbox|The basic commands in one program (dir cat cp mv rm mkdir grep sort ...); installs links so every shell finds them
 jpty|Run a program on a pseudo terminal, driven through two pipes (for apps and tools)
 coderin|A text editor for the terminal (colours for J2K, select, copy and paste, find)
+ascode|A harness for a model: read, edit, run, with a y before a change
 jex|The command of the language: fetch libraries, update the compiler (jex lib install NAME)
 jene|Make and run games with jex: jene -c NAME, -b, -rc
 jcmp|The compiler of Jex (ex install jexcmp: with jex and every library)

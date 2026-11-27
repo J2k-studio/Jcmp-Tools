@@ -1,0 +1,229 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// ascode: a harness for a model (like the claude command): the model asks for a tool (read, list, search, write, edit, run), ascode asks
+// the person when the tool changes something, does it, and gives the result back, until the model is done.
+//   ascode [--model mock:FILE] [--mode ask|read|auto] [TASK ...]
+// A1 (this version): the core, the tools, the permission modes and a scripted model for tests. The models claude (API) and llama come next.
+#import <stdlib>
+using stdlib;
+
+String ascode_version() { return "0.1.0"; }
+
+String g_mode;          // ask: ask before a change (write, edit, run); read: changes are refused; auto: changes inside the folder are done
+String g_root;          // the folder of the work: a path outside it is always asked, also in auto
+
+// ---------------------------------------------------------------- the person
+bool person_says_yes(String what) {
+    jout << "ascode: " << what << " [y/n] ";
+    String a = Input::line().trim();
+    return a == "y" || a == "Y" || a == "yes";
+}
+
+// a change (kind 1) is asked in ask, refused in read, done in auto when the path is inside the folder
+bool permitted(String what, String path, i64 kind) {
+    if kind == 0 { return true; }                                   // reading, listing, searching
+    if g_mode == "read" { jout << "ascode: refused (mode read): " << what << nl; return false; }
+    bool inside = path.len == 0 || (!path.starts_with("/") && !path.contains("..")) || path.starts_with(g_root);
+    if g_mode == "auto" && inside { return true; }
+    return person_says_yes(what);
+}
+
+// ---------------------------------------------------------------- the tools: each gives the text that goes back to the model
+String tool_read(String path) {
+    Result<String, Error> r = Fs::read_text(path);
+    if r.is_err() { return "error: cannot read " + path; }
+    return r.take();
+}
+
+String tool_list(String dir) {
+    if !Dir::exists(dir) { return "error: no folder " + dir; }
+    Result<String[], Error> r = Dir::list(dir);
+    if r.is_err() { return "error: cannot list " + dir; }
+    String[] names = r.take();
+    names.sort();
+    String out = "";
+    for i in 0..names.len {
+        String full = Path::join(dir, names[i]);
+        out = out + names[i];
+        if Dir::exists(full) { out = out + "/"; }
+        out = out + "\n";
+    }
+    return out;
+}
+
+// the lines of the files of a folder that hold the text (plain text, not a pattern): file:line: text
+String tool_search(String text, String dir) {
+    String out = "";
+    i64 hits = 0;
+    Result<String[], Error> r = Dir::list(dir);
+    if r.is_err() { return "error: cannot list " + dir; }
+    String[] names = r.take();
+    names.sort();
+    for i in 0..names.len {
+        String full = Path::join(dir, names[i]);
+        if Dir::exists(full) { continue; }
+        Result<String, Error> t = Fs::read_text(full);
+        if t.is_err() { continue; }
+        String[] ls = t.take().split("\n");
+        for k in 0..ls.len {
+            if ls[k].contains(text) && hits < 100 { out = out + full + ":" + stg(k + 1) + ": " + ls[k] + "\n"; hits += 1; }
+        }
+    }
+    if hits == 0 { return "no match"; }
+    return out;
+}
+
+String tool_write(String path, String text) {
+    if !permitted("write " + path + " (" + stg(text.len) + " bytes)", path, 1) { return "refused: the person did not allow it"; }
+    Result<i64, Error> w = Fs::write_text(path, text);
+    if w.is_err() { return "error: cannot write " + path; }
+    return "wrote " + path;
+}
+
+// the old text must be in the file exactly once (a second place would be a guess)
+String tool_edit(String path, String old, String fresh) {
+    Result<String, Error> r = Fs::read_text(path);
+    if r.is_err() { return "error: cannot read " + path; }
+    String text = r.take();
+    i64 parts = text.split(old).len;
+    if old.len == 0 || parts < 2 { return "error: the old text is not in " + path; }
+    if parts > 2 { return "error: the old text is in " + path + " " + stg(parts - 1) + " times (give more of the lines around it)"; }
+    if !permitted("edit " + path, path, 1) { return "refused: the person did not allow it"; }
+    Result<i64, Error> w = Fs::write_text(path, text.replace(old, fresh));
+    if w.is_err() { return "error: cannot write " + path; }
+    return "edited " + path;
+}
+
+// a command of the shell jsh; the output (and the errors) come back, at most 4000 bytes
+String tool_run(String cmd) {
+    if !permitted("run: " + cmd, "", 1) { return "refused: the person did not allow it"; }
+    String tmp = Path::join(Env::get("TMPDIR").or("/tmp"), "ascode_out." + stg(Sys::getpid()));
+    String[] args = arr(4);
+    args.push("-c");
+    args.push(cmd + " > " + tmp + " 2>&1");
+    Result<i64, Error> r = Proc::run("jsh", args);
+    String out = "";
+    Result<String, Error> t = Fs::read_text(tmp);
+    if t.is_ok() { out = t.take(); }
+    Fs::remove(tmp);
+    if out.len > 4000 { out = out.slice(0, 4000) + "\n... (cut)"; }
+    if r.is_err() { return "error: cannot start the shell\n" + out; }
+    return out + "exit code " + stg(r.take());
+}
+
+// ---------------------------------------------------------------- the model: a scripted one for tests (claude and llama come next)
+// lines:  say TEXT | tool NAME ARG1 | ARG2 | ARG3 | done        (the argument separator is " | ")
+String[] mock_lines;
+i64 mock_at;
+
+bool mock_open(String file) {
+    Result<String, Error> r = Fs::read_text(file);
+    if r.is_err() { return false; }
+    mock_lines = r.take().split("\n");
+    mock_at = 0;
+    return true;
+}
+
+// the next step of the model: kind 0 done, 1 says text, 2 asks for a tool (name and arguments in g_name, g_args)
+String g_text;
+String g_name;
+String[] g_args;
+
+i64 model_turn(String lastresult) {
+    String line = "";
+    bool have = false;
+    while mock_at < mock_lines.len && !have {
+        String cand = mock_lines[mock_at].trim();
+        mock_at += 1;
+        if cand.len > 0 && !cand.starts_with("#") { line = cand; have = true; }
+    }
+    if !have { return 0; }
+    if line == "done" { return 0; }
+    if line.starts_with("say ") { g_text = line.slice(4, line.len); return 1; }
+    if line.starts_with("tool ") {
+        String rest = line.slice(5, line.len);
+        i64 sp = rest.find(" ");
+        if sp < 0 { g_name = rest; g_args = arr(1); return 2; }
+        g_name = rest.slice(0, sp);
+        g_args = rest.slice(sp + 1, rest.len).split(" | ");
+        for i in 0..g_args.len { g_args[i] = g_args[i].replace("\\n", "\n"); }
+        return 2;
+    }
+    g_text = "(the script has a line that is not understood: " + line + ")";
+    return 1;
+}
+
+// ---------------------------------------------------------------- the loop
+String arg_of(i64 i) {
+    if i < g_args.len { return g_args[i] + ""; }
+    return "";
+}
+
+String do_tool(String name) {
+    if name == "read" { return tool_read(arg_of(0)); }
+    if name == "list" { String d = arg_of(0); if d.len == 0 { d = "."; } return tool_list(d); }
+    if name == "search" { String d = arg_of(1); if d.len == 0 { d = "."; } return tool_search(arg_of(0), d); }
+    if name == "write" { return tool_write(arg_of(0), arg_of(1)); }
+    if name == "edit" { return tool_edit(arg_of(0), arg_of(1), arg_of(2)); }
+    if name == "run" { return tool_run(arg_of(0)); }
+    return "error: there is no tool " + name + " (read list search write edit run)";
+}
+
+i64 run_loop(String task) {
+    jout << "ascode: " << task << nl;
+    String last = "";
+    for turn in 0..40 {
+        i64 k = model_turn(last);
+        if k == 0 { jout << "ascode: done" << nl; return 0; }
+        if k == 1 { jout << g_text << nl; last = ""; continue; }
+        jout << "> " << g_name << " " << arg_of(0) << nl;
+        last = do_tool(g_name);
+        String shown = last;
+        if shown.len > 300 { shown = shown.slice(0, 300) + "..."; }
+        jout << shown << nl;
+    }
+    jout << "ascode: stopped after 40 steps" << nl;
+    return 1;
+}
+
+i64 usage() {
+    jout << "ascode: a harness for a model\n\n";
+    jout << "Usage: ascode [OPTIONS] [TASK]\n\n";
+    jout << "Options:\n";
+    jout << "  --model mock:FILE\n";
+    jout << "              a scripted model\n";
+    jout << "  --mode ask  ask before a\n";
+    jout << "              change (default)\n";
+    jout << "  --mode read refuse changes\n";
+    jout << "  --mode auto do the changes\n";
+    jout << "              inside the folder\n";
+    jout << "  --version   the version\n\n";
+    jout << "Tools of the model: read list\n";
+    jout << "search write edit run\n";
+    return 0;
+}
+
+i64 main() {
+    String[] a = Env::args();
+    g_mode = "ask";
+    g_root = "";
+    String model = "";
+    String task = "";
+    i64 i = 1;
+    while i < a.len {
+        if a[i] == "--version" || a[i] == "-V" { jout << "ascode " << ascode_version() << "\n"; return 0; }
+        else if a[i] == "-h" || a[i] == "--help" { return usage(); }
+        else if a[i] == "--model" && i + 1 < a.len { model = a[i + 1] + ""; i += 2; continue; }
+        else if a[i] == "--mode" && i + 1 < a.len { g_mode = a[i + 1] + ""; i += 2; continue; }
+        else { if task.len > 0 { task = task + " "; } task = task + a[i]; }
+        i += 1;
+    }
+    if g_mode != "ask" && g_mode != "read" && g_mode != "auto" { jerr << "ascode: the mode is ask, read or auto\n"; return 2; }
+    char cw[512];
+    for q in 0..512 { cw[q] = 0; }
+    Sys::getcwd(@cw, 512);
+    g_root = (char^)@cw;
+    if !model.starts_with("mock:") { jerr << "ascode: a model is needed: --model mock:FILE (claude and llama come next)\n"; return 2; }
+    if !mock_open(model.slice(5, model.len)) { jerr << "ascode: cannot read the script " << model.slice(5, model.len) << "\n"; return 1; }
+    return run_loop(task);
+}

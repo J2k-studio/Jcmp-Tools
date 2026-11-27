@@ -9,6 +9,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [jget](tools/jget/README.md) | download files (https, progress bar), songs (`-m`), scripts (`-sh`, `-jsh`), the libraries of J2K (`-li`), the other tools (`jc install NAME`, also .tar.gz packed files) and `jget untar FILE` |
 | [makej](tools/makej/README.md) | the build tool: `makej`, `-j N` (many cores, a bar for each job and each core), `init`, `init -pro`, `init -game`, `init -ai` (a project that trains an AI into a `.jw`), `apk`, `pack` (.jc), `dist`, `targets` |
 | [jsh](tools/jsh/README.md) | the shell: line editing, ghost text, pipes, redirects, scripts (first line `[#jsh]`, `$1 $#`), aliases, `start PROGRAM` (a new tab), `jaric setting` in sections, `jaric -restart`, `jaric video` (MPL-2.0) |
+| [ascode](tools/ascode/README.md) | a harness for a model (like the claude command): tools, modes ask / read / auto (MPL-2.0) |
 | [jex](tools/jex/README.md) | the command of the language: `jex lib install NAME`, `jex update`, `jex doctor` (MPL-2.0) |
 | [jene](tools/jene/README.md) | make, build and run a game: `jene -c NAME`, `-b`, `-rc` (the game tool of Jexcmp; needs `ex install jex`) (MPL-2.0) |
 | [jbox](tools/jbox/README.md) | about 60 small commands in one program: `dir cat grep sort sed find tree rev paste printf base64 sha256sum ...` (MPL-2.0) |
