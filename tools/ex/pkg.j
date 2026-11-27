@@ -1,6 +1,6 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
 // distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-// pkg: the packages of Jcmp-pkg (git, clang, python ...): programs built for the prefix of Jaric. index.json lists them;
+// pkg: the packages of ex-pkg (git, clang, python ...): programs built for the prefix of Jaric. index.json lists them;
 // a package is a .tar.gz of the folder usr/ (with links); it is unpacked into the folder that holds usr/ (PREFIX without /usr),
 // and the names it put there are written to  usr/var/lib/jcpkg/NAME.list  so it can be removed.
 
@@ -222,7 +222,7 @@ i64 pkg_search(String index, String word) {
                 }
             }
             if found == 0 && word.len > 0 {
-                jout << "ex: no package of Jcmp-pkg matches '" << word << "'";
+                jout << "ex: no package matches '" << word << "'";
                 String near = near_names(word, all);
                 if near.len > 0 { jout << "; did you mean: " << near; }
                 jout << "\n(the tools of Jcmp-Tools are listed by  ex tools ; your own program is not in an index: it has to be published first)\n";

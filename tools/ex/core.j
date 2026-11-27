@@ -349,7 +349,7 @@ bool untar_plain(String path, String dir) {
             Sys::unlink(full.c());
             i64 lr = 0;
             if kind == '2' {
-                // a package of Jcmp-pkg (checked by its sha256) may point to a path of the prefix
+                // a package of ex-pkg (checked by its sha256) may point to a path of the prefix
                 if target.len == 0 || (target[0] == '/' && !tar_record) { err("jget: a link in the tar is not allowed: " + name + "\n"); ok = false; break; }
                 lr = Sys::call(36, (i64)target.c(), -100, (i64)full.c(), 0, 0, 0);
             } else {

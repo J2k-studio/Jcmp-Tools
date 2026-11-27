@@ -426,7 +426,7 @@ i64 cmd_tool(String[] av, i64 at) {
         bool known = false;
         String[] ls = text.split("\n");
         for i in 0..ls.len { if ls[i].starts_with(name + "|") { known = true; } }
-        if !known {                                                  // not a tool: maybe a package of Jcmp-pkg (git, clang ...)
+        if !known {                                                  // not a tool: maybe a package of ex-pkg (git, clang ...)
             String[] pw = arr(4);
             pw.push("jc");
             pw.push("pkg");

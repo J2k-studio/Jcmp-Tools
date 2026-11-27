@@ -56,7 +56,7 @@ FAKELOG="$T/fake.log"; export FAKELOG; : > "$FAKELOG"
 PATH="$T/fb:$PATH" "$J" install store.hello
 [ "$(cat "$FAKELOG")" = "jstore install store.hello" ] || { echo "ex test: a program of the store goes to jstore:"; cat "$FAKELOG"; exit 1; }
 
-# jc pkg: packages of Jcmp-pkg (a .tar.gz of usr/ with links, an index.json with a dependency), install, list, search, remove, bad checksum
+# jc pkg: packages of ex-pkg (a .tar.gz of usr/ with links, an index.json with a dependency), install, list, search, remove, bad checksum
 python3 - "$T" <<'PY'
 import sys, io, tarfile, hashlib, json, os
 t = sys.argv[1]
@@ -99,7 +99,7 @@ export JC_PKG_INDEX="$T/index.json" JC_PKG_ROOT="$T/pkgroot"
 "$J" pkg install nothing > /dev/null 2>&1 && { echo "ex test: an unknown package must fail"; exit 1; }
 unset JC_PKG_INDEX JC_PKG_ROOT
 
-# jc install NAME: not a tool, so a package of Jcmp-pkg
+# jc install NAME: not a tool, so a package of ex-pkg
 export JC_PKG_INDEX="$T/index.json" JC_PKG_ROOT="$T/pkgroot2"
 "$J" install beta > /dev/null 2>&1 || { echo "ex test: install of a package by name"; exit 1; }
 [ "$("$T/pkgroot2/usr/bin/beta")" = "beta" ] || { echo "ex test: install of a package by name: files"; exit 1; }

@@ -1,4 +1,4 @@
-# ex-pkg packages (was Jcmp-pkg)
+# ex-pkg packages (was ex-pkg)
 
 Packages for [Jaric](https://github.com/J2k-studio/Jcmp): programs that J2K does not (yet) replace — git, clang, python, ssh, java, rust ...
 `jc install NAME` (or `jc pkg install NAME`) reads `index.json`, installs what the package needs first, downloads each `.tar.gz`, checks its sha256 and unpacks it into the folder that holds `usr/` (the prefix of Jaric: the packages are built for it, so libraries are found without tricks). `jc pkg list | search | update | remove NAME` do the rest; the files of a package are listed in `usr/var/lib/jcpkg/NAME.list`. A name that is a tool of Jcmp-Tools is installed as the tool.
@@ -18,3 +18,5 @@ See [PACKAGES.md](PACKAGES.md) for the list of packages that are planned (git, c
 
 ## Status
 Started 2026-10-29. Nothing is published yet: the first goal is `git`, then `clang`, `python`, `dropbear` (ssh).
+
+The packages were in the repository Jcmp-pkg until 2026-11-27; it was removed after every file was moved here with the same SHA-256. The releases `pkg-rust` hold a build of rust 1.99.1 that is not in the index yet.

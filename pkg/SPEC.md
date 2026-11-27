@@ -8,7 +8,7 @@
       "name": "git",
       "version": "2.47.0",
       "arch": "aarch64",
-      "url": "https://github.com/J2k-studio/Jcmp-pkg/releases/download/git-2.47.0/git-2.47.0-aarch64.tar.gz",
+      "url": "https://github.com/J2k-studio/ex-pkg/releases/download/pkg-git/git-2.47.0-aarch64.tar.gz",
       "sha256": "<64 hex>",
       "size": 12345678,
       "unpacked": 45678901,

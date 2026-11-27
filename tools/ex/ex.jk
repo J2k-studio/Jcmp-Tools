@@ -625,7 +625,7 @@ i64 main() {
     if a[1] == "search" { a[1] = "pkg"; String[] sa = arr(a.len + 1); sa.push("ex"); sa.push("pkg"); sa.push("search"); for i in 2..a.len { sa.push(a[i] + ""); } return cmd_pkg(sa); }
     if a[1] == "remove" { a[1] = "unstall"; }
     if a[1] == "pack" { return cmd_pack(a); }
-    if a[1] == "pkg" { return cmd_pkg(a); }                    // the packages of Jcmp-pkg (git, clang, python ...)
+    if a[1] == "pkg" { return cmd_pkg(a); }                    // the packages of ex-pkg (git, clang, python ...)
     if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }
     if a[1] == "update" || a[1] == "upgrade" {                 // jsh and every installed tool with a newer version, then the programs of the store
         String[] w = arr(a.len + 2);
@@ -637,7 +637,7 @@ i64 main() {
             jout << "a new app is there: ex app update" << nl;
             offer_command("ex app update");
         }
-        String[] pw = arr(4);                                  // and the packages of Jcmp-pkg
+        String[] pw = arr(4);                                  // and the packages of ex-pkg
         pw.push("jc");
         pw.push("pkg");
         pw.push("update");
