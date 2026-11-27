@@ -41,8 +41,7 @@ for n in $names; do
     fi
     if [ -n "$err" ]; then bad=$((bad+1)); printf "%b\n" "$err"; else echo "ok   $n $ver"; fi
 done
-# versions.txt (NAME VERSION per line): what  jc update  compares with; written when every tool was checked
-if [ "$all" = 1 ]; then
-    for n in $(ls tools); do case "$n" in _*) continue ;; esac; [ -f "tools/$n/VERSION" ] && echo "$n $(tr -d ' \n' < tools/$n/VERSION)"; done > versions.txt
-fi
+# versions.txt (NAME VERSION per line): what  ex update  compares with. It is written on EVERY run, from the LATEST files (a run for some tools
+# once left it old, and  ex update  then said "everything is up to date" although newer releases were there)
+for n in $(ls tools); do case "$n" in _*) continue ;; esac; [ -f "tools/$n/LATEST" ] && echo "$n $(tr -d ' \n' < tools/$n/LATEST)"; done > versions.txt
 exit $bad
