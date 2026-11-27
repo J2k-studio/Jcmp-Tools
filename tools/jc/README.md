@@ -1,5 +1,7 @@
 # jc: install and run the programs of Jaric
 
+**`jc` is the old name of `ex`** (the same program, kept for two releases): use `ex` (`ex install ex`).
+
 A `.jc` is one file that is a whole program: a zip with `manifest.toml` (name, id, version, type, entry, permissions), the program (the entry) and `assets/`. `makej pack` and `makej dist` make it. `jc` unpacks it into `~/.local/share/jc/apps/ID` (`JC_ROOT` names another place), shows what it asks for, and runs it with a clean set of variables.
 
 ```

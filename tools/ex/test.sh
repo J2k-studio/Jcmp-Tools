@@ -1,0 +1,144 @@
+#!/bin/sh
+# ex: info, install (asks for the permissions; -y gives them; no terminal = refuse), run (JC_PERMS, JC_ASSETS), list, perm, remove, bad packages
+set -eu
+cd "$(dirname "$0")"; sh build.sh >/dev/null
+J="$PWD/_out/ex"
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+export JC_ROOT="$T/root"
+python3 - "$T" <<'PY'
+import sys, zipfile
+t = sys.argv[1]
+def make(name, manifest, extra=None):
+    z = zipfile.ZipFile(t + '/' + name, 'w', zipfile.ZIP_DEFLATED)
+    z.writestr('manifest.toml', manifest)
+    z.writestr('hello', "#!/bin/sh\necho \"hello perms=$JC_PERMS assets=$(ls $JC_ASSETS) home=$(basename $JC_HOME) args=$*\"\n")
+    z.writestr('assets/logo.txt', 'logo')
+    for n, d in (extra or {}).items(): z.writestr(n, d)
+    z.close()
+make('game.jc', 'name = "My Game"\nid = "game.mygame"\nversion = "1.0.0"\ntype = "game"\nentry = "hello"\npermissions = ["files", "audio"]\n')
+make('plain.jc', 'name = "Plain"\nid = "plain.one"\nversion = "2"\nentry = "hello"\npermissions = []\n')
+make('bad.jc', 'name = "Bad"\nid = "bad.one"\nversion = "1"\nentry = "hello"\npermissions = ["files", "rootkit"]\n')
+make('noentry.jc', 'name = "X"\nid = "x.one"\nversion = "1"\nentry = "missing"\npermissions = []\n')
+make('evil.jc', 'name = "Evil"\nid = "evil.one"\nversion = "1"\nentry = "hello"\npermissions = []\n', {'../escape.txt': 'x'})
+open(t + '/notzip.jc', 'w').write('this is not a zip')
+PY
+[ "$("$J" --version)" = "ex $(cat VERSION)" ] || { echo "ex test: version"; exit 1; }
+"$J" info "$T/game.jc" | grep -q "permissions:  files,audio" || { echo "ex test: info"; exit 1; }
+"$J" info "$T/notzip.jc" > /dev/null 2>&1 && { echo "ex test: a file that is not a zip must fail"; exit 1; }
+"$J" install "$T/game.jc" > /dev/null 2>&1 && { echo "ex test: permissions without a terminal and without -y must be refused"; exit 1; }
+"$J" install "$T/plain.jc" > /dev/null || { echo "ex test: a package without permissions installs without asking"; exit 1; }
+"$J" install "$T/game.jc" -y > /dev/null || { echo "ex test: install -y"; exit 1; }
+"$J" list | grep -q "game.mygame  1.0.0  My Game   permissions: files,audio" || { echo "ex test: list"; exit 1; }
+out=$("$J" run game.mygame a b)
+[ "$out" = "hello perms=files,audio assets=logo.txt home=game.mygame args=a b" ] || { echo "ex test: run said: $out"; exit 1; }
+"$J" perm game.mygame network on > /dev/null; "$J" run game.mygame | grep -q "perms=files,audio,network" || { echo "ex test: perm on"; exit 1; }
+"$J" perm game.mygame audio off > /dev/null; "$J" run game.mygame | grep -q "perms=files,network " || { echo "ex test: perm off"; exit 1; }
+"$J" perm game.mygame rootkit on > /dev/null 2>&1 && { echo "ex test: an unknown permission must be refused"; exit 1; }
+"$J" install "$T/bad.jc" -y > /dev/null 2>&1 && { echo "ex test: an unknown permission in a manifest must be refused"; exit 1; }
+"$J" install "$T/noentry.jc" -y > /dev/null 2>&1 && { echo "ex test: a missing entry must be refused"; exit 1; }
+"$J" install "$T/evil.jc" -y > /dev/null 2>&1; [ ! -e "$T/escape.txt" ] && [ ! -e "$T/root/escape.txt" ] && [ ! -e "$T/root/apps/escape.txt" ] || { echo "ex test: a name with .. must be skipped"; exit 1; }
+"$J" run "$T/game.jc" x | grep -q "args=x" || { echo "ex test: run of a package file"; exit 1; }
+"$J" remove game.mygame > /dev/null; "$J" list | grep -q "game.mygame" && { echo "ex test: remove"; exit 1; }
+"$J" run game.mygame > /dev/null 2>&1 && { echo "ex test: run of a removed program"; exit 1; }
+# tools: jc installs them itself (a mirror on this machine: JCMPTOOLS_RAW / JCMPTOOLS_DL); STORE.ID goes to jstore (a fake program on the PATH records its words)
+M="$T/mirror"; mkdir -p "$M/tools/foo" "$M/dl/foo-v1.0.0" "$T/tb" "$T/fb"
+printf '# tools\nfoo|a tool\n' > "$M/tools.txt"; echo 1.0.0 > "$M/tools/foo/LATEST"
+printf '#!/bin/sh\necho "foo 1.0.0"\n' > "$M/dl/foo-v1.0.0/foo"; ( cd "$M/dl/foo-v1.0.0" && sha256sum foo > SHA256SUMS )
+cp "$J" "$T/tb/ex"
+TE="JCMPTOOLS_RAW=file://$M JCMPTOOLS_DL=file://$M/dl"
+( cd "$T/tb" && env $TE ./ex install foo >/dev/null 2>&1 ); [ "$("$T/tb/foo")" = "foo 1.0.0" ] || { echo "ex test: jc install foo"; exit 1; }
+( cd "$T/tb" && env $TE ./ex tools ) | grep -q "foo" || { echo "ex test: jc tools"; exit 1; }
+( cd "$T/tb" && env $TE ./ex unstall foo >/dev/null 2>&1 ); [ ! -e "$T/tb/foo" ] || { echo "ex test: jc unstall foo"; exit 1; }
+( cd "$T/tb" && env $TE ./ex unstall ex >/dev/null 2>&1 ) && { echo "ex test: ex must not remove itself"; exit 1; }
+[ -e "$T/tb/ex" ] || { echo "ex test: ex is gone"; exit 1; }
+printf '#!/bin/sh\necho "jstore $*" >> "$FAKELOG"\n' > "$T/fb/jstore"; chmod 755 "$T/fb/jstore"
+FAKELOG="$T/fake.log"; export FAKELOG; : > "$FAKELOG"
+PATH="$T/fb:$PATH" "$J" install store.hello
+[ "$(cat "$FAKELOG")" = "jstore install store.hello" ] || { echo "ex test: a program of the store goes to jstore:"; cat "$FAKELOG"; exit 1; }
+
+# jc pkg: packages of Jcmp-pkg (a .tar.gz of usr/ with links, an index.json with a dependency), install, list, search, remove, bad checksum
+python3 - "$T" <<'PY'
+import sys, io, tarfile, hashlib, json, os
+t = sys.argv[1]
+def pack(name, files, links=(), hard=()):
+    p = t + '/' + name + '-1-aarch64.tar.gz'
+    with tarfile.open(p, 'w:gz', format=tarfile.GNU_FORMAT) as z:
+        d = tarfile.TarInfo('usr'); d.type = tarfile.DIRTYPE; d.mode = 0o755; z.addfile(d)
+        for n, data, mode in files:
+            i = tarfile.TarInfo(n); i.size = len(data); i.mode = mode; z.addfile(i, io.BytesIO(data))
+        for n, target in links:
+            i = tarfile.TarInfo(n); i.type = tarfile.SYMTYPE; i.linkname = target; z.addfile(i)
+        for n, target in hard:
+            i = tarfile.TarInfo(n); i.type = tarfile.LNKTYPE; i.linkname = target; z.addfile(i)
+    return p, hashlib.sha256(open(p, 'rb').read()).hexdigest()
+longdir = 'usr/share/' + 'x' * 120 + '/file.txt'
+pa, sa = pack('alpha', [('usr/bin/alpha', b'#!/bin/sh\necho alpha\n', 0o755), ('usr/lib/libalpha.so.1', b'lib', 0o644), (longdir, b'long', 0o644)],
+              links=[('usr/lib/libalpha.so', 'libalpha.so.1')], hard=[('usr/bin/alpha2', 'usr/bin/alpha')])
+pb, sb = pack('beta', [('usr/bin/beta', b'#!/bin/sh\necho beta\n', 0o755)])
+pe, se = pack('evil', [('usr/bin/evil', b'x', 0o755)], links=[('usr/lib/abs', '/etc')])
+idx = [{'name': 'alpha', 'version': '1', 'url': 'file://' + pa, 'sha256': sa, 'depends': ['beta']},
+       {'name': 'beta', 'version': '1', 'url': 'file://' + pb, 'sha256': sb, 'depends': []},
+       {'name': 'bad', 'version': '1', 'url': 'file://' + pb, 'sha256': '0' * 64, 'depends': []},
+       {'name': 'evil', 'version': '1', 'url': 'file://' + pe, 'sha256': se, 'depends': []}]
+json.dump(idx, open(t + '/index.json', 'w'))
+PY
+export JC_PKG_INDEX="$T/index.json" JC_PKG_ROOT="$T/pkgroot"
+"$J" pkg search | grep -q "^alpha  1" || { echo "ex test: pkg search"; exit 1; }
+"$J" pkg install alpha > /dev/null || { echo "ex test: pkg install"; exit 1; }
+[ "$("$T/pkgroot/usr/bin/alpha")" = "alpha" ] && [ "$("$T/pkgroot/usr/bin/beta")" = "beta" ] || { echo "ex test: pkg files and dependency"; exit 1; }
+[ "$("$T/pkgroot/usr/bin/alpha2")" = "alpha" ] || { echo "ex test: pkg hard link"; exit 1; }
+[ -L "$T/pkgroot/usr/lib/libalpha.so" ] && [ "$(cat "$T/pkgroot/usr/lib/libalpha.so")" = "lib" ] || { echo "ex test: pkg symbolic link"; exit 1; }
+[ "$(cat "$T"/pkgroot/usr/share/xxxxxxxxxx*/file.txt)" = "long" ] || { echo "ex test: pkg long name"; exit 1; }
+"$J" pkg list > "$T/plist"; grep -q "^alpha  1" "$T/plist" && grep -q "^beta  1" "$T/plist" || { echo "ex test: pkg list"; cat "$T/plist"; exit 1; }
+"$J" pkg remove alpha > /dev/null || { echo "ex test: pkg remove"; exit 1; }
+[ ! -e "$T/pkgroot/usr/bin/alpha" ] && [ ! -L "$T/pkgroot/usr/lib/libalpha.so" ] && [ -e "$T/pkgroot/usr/bin/beta" ] || { echo "ex test: pkg remove leaves the others"; exit 1; }
+"$J" pkg install bad > /dev/null 2>&1 && { echo "ex test: a wrong checksum must be refused"; exit 1; }
+[ ! -e "$T/pkgroot/usr/var/lib/jcpkg/bad.list" ] || { echo "ex test: bad package was recorded"; exit 1; }
+"$J" pkg install evil > /dev/null 2>&1 || { echo "ex test: a package may have an absolute link (to the prefix)"; exit 1; }
+[ -L "$T/pkgroot/usr/lib/abs" ] || { echo "ex test: absolute link not made"; exit 1; }
+"$J" pkg install nothing > /dev/null 2>&1 && { echo "ex test: an unknown package must fail"; exit 1; }
+unset JC_PKG_INDEX JC_PKG_ROOT
+
+# jc install NAME: not a tool, so a package of Jcmp-pkg
+export JC_PKG_INDEX="$T/index.json" JC_PKG_ROOT="$T/pkgroot2"
+"$J" install beta > /dev/null 2>&1 || { echo "ex test: install of a package by name"; exit 1; }
+[ "$("$T/pkgroot2/usr/bin/beta")" = "beta" ] || { echo "ex test: install of a package by name: files"; exit 1; }
+unset JC_PKG_INDEX JC_PKG_ROOT
+
+# jc pkg update: another version in the index = removed and installed again
+python3 - "$T" <<'PY'
+import sys, json
+t = sys.argv[1]
+idx = json.load(open(t + '/index.json'))
+for e in idx:
+    if e['name'] == 'beta': e['version'] = '2'
+json.dump(idx, open(t + '/index2.json', 'w'))
+PY
+export JC_PKG_INDEX="$T/index2.json" JC_PKG_ROOT="$T/pkgroot2"
+"$J" pkg update -n | grep -q "beta: 1 -> 2" || { echo "ex test: pkg update -n"; exit 1; }
+"$J" pkg list | grep -q "^beta  1" || { echo "ex test: pkg update -n must change nothing"; exit 1; }
+"$J" pkg update > /dev/null || { echo "ex test: pkg update"; exit 1; }
+"$J" pkg list | grep -q "^beta  2" && [ "$("$T/pkgroot2/usr/bin/beta")" = "beta" ] || { echo "ex test: pkg update result"; exit 1; }
+"$J" pkg update | grep -q "up to date" || { echo "ex test: pkg update twice"; exit 1; }
+unset JC_PKG_INDEX JC_PKG_ROOT
+
+# jc update asks quietly about packages: with none installed it prints nothing more and does not fetch the index (a wrong index address must not matter)
+P=$(mktemp -d)
+JC_PKG_ROOT="$P" JC_PKG_INDEX="$P/no-such-index.json" "$J" pkg update --quiet > "$P/q.txt" 2>&1 || { echo "ex test: pkg update --quiet with no packages"; exit 1; }
+[ ! -s "$P/q.txt" ] || { echo "ex test: pkg update --quiet printed: $(cat "$P/q.txt")"; exit 1; }
+
+# the settings of the app: ex talks by ESC ] 7777 ; words BEL
+say() { "$J" "$@" | od -An -c | tr -d ' \n'; }
+[ "$(say setting)" = '033]7777;settings\a' ] || { echo "ex test: setting: $(say setting)"; exit 1; }
+[ "$(say theme black)" = '033]7777;set;theme;black\a' ] || { echo "ex test: theme"; exit 1; }
+[ "$(say awake on)" = '033]7777;set;awake;on\a' ] || { echo "ex test: awake"; exit 1; }
+[ "$(say set size 32)" = '033]7777;set;size;32\a' ] || { echo "ex test: set"; exit 1; }
+long=$("$J" help | awk 'length($0) > 38' | wc -l)
+[ "$long" = 0 ] || { echo "ex test: a line of help is longer than 38 characters"; exit 1; }
+# ex update brings itself up to date (the app once ran a copy under another name that was never updated)
+U="$T/self"; mkdir -p "$U/bin" "$U/mirror/tools/ex" "$U/mirror/dl/ex-v9.9.9"
+cp "$J" "$U/bin/ex"; printf '# tools\nex|the commands\n' > "$U/mirror/tools.txt"; echo 9.9.9 > "$U/mirror/tools/ex/LATEST"
+printf '#!/bin/sh\necho "ex 9.9.9"\n' > "$U/mirror/dl/ex-v9.9.9/ex"; ( cd "$U/mirror/dl/ex-v9.9.9" && sha256sum ex > SHA256SUMS )
+( cd "$U/bin" && JC_PKG_ROOT="$U/pkg" JCMPTOOLS_RAW="file://$U/mirror" JCMPTOOLS_DL="file://$U/mirror/dl" ./ex update > "$U/up.log" 2>&1 ) || true
+[ "$("$U/bin/ex" --version)" = "ex 9.9.9" ] || { echo "ex test: ex update did not replace itself: $(cat "$U/up.log")"; exit 1; }
+echo "ex tests: ok"

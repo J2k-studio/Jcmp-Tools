@@ -192,9 +192,9 @@ i64 cmd_installed() {
 
 // ex tools | ex install NAME ... : the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...), put next to jget, checked with their SHA-256
 // where the files of Jcmp-Tools are: the repository (raw) and the releases; JCMPTOOLS_RAW and JCMPTOOLS_DL name others (a mirror, the tests)
-// the tool that was called jc is called ex (the registry keeps the old name so that old copies can update themselves)
+// the tool that was called jc is ex; the registry keeps jc (the same program) so that old copies find their update
 String shown_name(String n) {
-    if n == "jc" { return "ex"; }
+    if n == "jc" { return "jc (the old name of ex)"; }
     return n;
 }
 
@@ -241,7 +241,7 @@ String tool_installed_version(String dir, String name) {
     switch Proc::output(dir + "/" + name, va) {
         Result::Ok(t): {
             String[] w = t.trim().split(" ");
-            if w.len >= 2 && w[0] == name { return w[1] + ""; }
+            if w.len >= 2 && (w[0] == name || (name == "jc" && w[0] == "ex")) { return w[1] + ""; }
         }
         Result::Err(e): { }
     }
@@ -275,7 +275,7 @@ i64 tool_unstall(String[] av, i64 at, String dir) {
     i64 rc = 0;
     for k in at..av.len {
         String name = av[k];
-        if name == "jget" || name == "jc" { err("ex: " + name + " stays: ex uses it (delete the file by hand if you want to)\n"); rc = 1; continue; }
+        if name == "jget" || name == "ex" { err("ex: " + name + " stays: ex uses it (delete the file by hand if you want to)\n"); rc = 1; continue; }
         if name == "jsh" { err("ex: jsh is the shell: it stays (ex update brings it up to date)\n"); rc = 1; continue; }
         if !Fs::exists(dir + "/" + name) { err("ex: " + name + " is not installed here\n"); rc = 1; continue; }
         String[] extra = arr(4);

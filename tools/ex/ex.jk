@@ -1,16 +1,12 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
 // distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-// jc: install and run the programs of Jaric (.jc packages, made by  makej pack  or  makej dist).
-//   ex info FILE.jc              what is in a package: name, id, version, the permissions it asks for, the files
-//   ex install FILE.jc [-y]      unpack it into ~/.local/share/jc/apps/ID, show what it asks for and ask once (-y: yes)
-//   ex run ID|FILE.jc [args]     run an installed program (or a package that is not installed: it is installed first, asking once)
-//   ex list                      the installed programs with their version and the permissions they have
-//   ex perm ID [NAME on|off]     show or change the permissions of a program
-//   ex pkg install NAME | remove NAME | list | search [WORD]   the packages of Jcmp-pkg (programs built for Jaric: git, clang ...)
-//   ex remove ID                 delete a program (its folder under apps/)
+// ex: the commands of the system, one program (it was two: ex of the app for the settings, and jc for the tools).
+//   ex install NAME | update [-n] | unstall NAME | tools | search WORD | pkg ... | pack ...        tools, apps and packages
+//   ex info FILE.jc | install FILE.jc [-y] | run ID|FILE.jc [args] | list | perm ID [NAME on|off]  programs in a .jc file
+//   ex setting | set KEY [VALUE] | theme NAME | font NAME | size N | awake on|off                  the settings of exshell
+// The libraries of the language are the job of jex; building a project is the job of makej. `jc` is the old name (the same program).
 // A .jc is a zip file: manifest.toml (name, id, version, type, entry, permissions = ["files", "network", ...]), the program (entry) and assets/.
-// A program started by jc finds JC_ASSETS (its assets folder), JC_HOME (its own folder) and JC_PERMS (the permissions it has, with commas):
-// the libraries of Jaric look at JC_PERMS and refuse what is not allowed (a convention, not a wall: see docs/security.md of Jaric).
+// A program started by ex finds JC_ASSETS (its assets folder), JC_HOME (its own folder) and JC_PERMS (the permissions it has, with commas).
 #import <stdlib>
 #import <deflate>
 #import "zipcore"
@@ -18,7 +14,7 @@
 #import "pkg"
 #import "manage"
 
-String jc_version() { return "0.6.7"; }
+String ex_version() { return "0.7.0"; }
 
 i64 fail(String msg) {
     jerr << "ex: " << msg << "\n";
@@ -300,23 +296,121 @@ bool is_package_name(String what) {                        // FILE.jc or a path:
     return what.ends_with(".jc") || what.contains("/") || Fs::exists(what);
 }
 
-// the libraries and the tools: what the commands of manage.j print when they are used wrongly
+// the help (manage.j calls it when a command is used wrongly)
 i64 usage() {
-    jerr << "ex: pack list|install NAME | install NAME | update [-n] | unstall NAME | tools | list | info FILE.jc | run ID|FILE.jc | perm ID      tools and apps\n";
-    jerr << "    (the libraries of the language are managed by jex: jex lib install NAME)\n";
-    return 1;
+    jout << "ex: the commands of the system\n\n";
+    jout << "Usage: ex COMMAND\n\n";
+    jout << "Tools and apps:\n";
+    jout << "  tools         the list\n";
+    jout << "  install NAME  get a tool or\n                a package\n";
+    jout << "  update [-n]   bring them up\n                to date\n";
+    jout << "  unstall NAME  remove it\n";
+    jout << "  search WORD   find a package\n";
+    jout << "  pack list     sets of tools\n\n";
+    jout << "Programs in a .jc file:\n";
+    jout << "  info FILE.jc  what is in it\n";
+    jout << "  install FILE.jc [-y]\n";
+    jout << "  run ID        start it\n";
+    jout << "  list          the installed\n";
+    jout << "  perm ID       permissions\n\n";
+    jout << "The app (exshell):\n";
+    jout << "  setting       all settings\n";
+    jout << "  set KEY VALUE change one\n";
+    jout << "  theme NAME    the colours\n";
+    jout << "  font NAME     the letters\n";
+    jout << "  awake on|off  keep running\n\n";
+    jout << "Libraries: jex lib install NAME\n";
+    return 0;
+}
+
+// ------------------------------------------------------------ the settings of the app
+// The app listens for `ESC ] 7777 ; words BEL`.
+// writes a message of the standard to the terminal at once (the output buffer is emptied first, nothing waits for the end of the program)
+fnv say(str words) {
+    str s = "";
+    s.push(27);
+    s.append("]7777;" + words);
+    s.push(7);
+    jout << s;
+    Sys::write(1, null, 0);
+}
+
+// a setting by a key: with a value it is changed, without one the app writes what it is now and what it can be
+fn setting(str key, str value) {
+    if value == "" { say("get;" + key); } else { say("set;" + key + ";" + value); }
+    Time::sleep_ms(300);                                      // the answer comes on the screen: the prompt of the shell waits for it
+    return 0;
+}
+
+// the real path of a file (a drive path like u:/fomas/x.png becomes the path the app can open)
+str real_file(str name) {
+    i64 fd = Sys::open_read(name.c());
+    if fd < 0 { return ""; }
+    str link = "/proc/self/fd/" + stg(fd);
+    char buf[4096];
+    i64 n = Sys::readlink(link.c(), (char^)@buf, 4095);
+    Sys::close(fd);
+    if n <= 0 { return ""; }
+    buf[n] = 0;
+    str r = (char^)@buf;
+    return r + "";
+}
+
+// ex set KEY [VALUE] | ex set NAME... PICTURE.png COLS [ROWS]
+fn cmd_set(str[] a) {
+    str c = a[1];
+    if c == "set" && a.len > 3 {                                                 // ex set NAME [NAME ...] FILE.png COLS [ROWS [ROW [FPS]]]: NAME is idle, walk, jump or any other name; several names share the picture
+        int k = 0 - 1;
+        for int q = 3; q < a.len; q++ { if k < 0 && a[q].ends_with(".png") { k = q; } }
+        if k > 2 && a.len > k + 1 {
+            str real2 = real_file(a[k]);
+            if real2.len == 0 { jerr << "ex: there is no such file: " << a[k] << "\n"; return 1; }
+            str spec = real2;
+            for int q = k + 1; q < a.len; q++ { spec = spec + " " + a[q]; }
+            int rcs = 0;
+            for int q = 2; q < k; q++ { rcs = setting("mascot_anim_" + a[q], spec); }
+            return rcs;
+        }
+        if k > 2 { jerr << "ex: how many pictures side by side? ex set " << a[2] << " " << a[k] << " 6   (the number of columns; then rows)\n"; return 2; }
+    }
+    if c == "set" && a.len > 3 && a[2].ends_with(".png") {                       // ex set nun_idle.png 4 [ROWS]: that picture is the mascot, with 4 frames side by side
+        str real = real_file(a[2]);
+        if real.len == 0 { jerr << "ex: there is no such file: " << a[2] << "\n"; return 1; }
+        str rows = "1";
+        if a.len > 4 { rows = a[4]; }
+        return setting("mascot_sheet", real + " " + a[3] + " " + rows);
+    }
+    if c == "set" {
+        if a.len < 3 { jerr << "ex: usage: ex set KEY [VALUE]   (ex setting list shows the keys)\n"; return 2; }
+        str v = "";
+        if a.len > 3 { v = a[3]; }
+        return setting(a[2], v);
+    }
+    return 0;
 }
 
 i64 main() {
     String[] a = Env::args();
-    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "ex " << jc_version() << "\n"; return 0; }
-    if a.len < 2 || a[1] == "--help" || a[1] == "-h" || a[1] == "help" {
-        jout << "ex: install and update the tools and apps of exshell (the packages are .jc files)\n";
-        jout << "  ex info FILE.jc | install FILE.jc [-y] | run ID|FILE.jc [args] | list | perm ID [NAME on|off] | remove ID\n";
-        jout << "  ex tools | install NAME | update [-n] | unstall NAME   (the tools; the libraries of the language: jex lib ...)\n";
-        jout << "  ex install NAME (a tool of Jcmp-Tools) | install STORE.ID (jstore) | unstall NAME (remove a tool) | update [-n] (jsh and the tools and programs that have an update)\n";
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "ex " << ex_version() << "\n"; return 0; }
+    if a.len < 2 {
+        if env_or("PREFIX", "").contains("com.exshell") { say("settings"); return 0; }          // in the app: `ex` alone opens the settings
+        return usage();
+    }
+    if a[1] == "--help" || a[1] == "-h" || a[1] == "help" { return usage(); }
+    if a[1] == "setting" || a[1] == "settings" {
+        if a.len > 2 && a[2] == "list" { say("settings;list"); Time::sleep_ms(300); } else { say("settings"); }
         return 0;
     }
+    if a[1] == "set" { return (i64)cmd_set(a); }
+    String[] keys = "awake font theme size anim volume keys_bar storage mascot sparkle num_sprite_sheet mascot_name mascot_gender mascot_size mascot_dir mascot_sheet".split(" ");
+    String val = "";
+    if a.len > 2 { val = a[2] + ""; }
+    for i in 0..keys.len {                                                  // ex theme black, ex setfont pixel, ex awake on ...
+        String longer = "set" + keys[i];
+        if a[1] == keys[i] || a[1] == longer { return (i64)setting(keys[i] + "", val); }
+    }
+    if a[1] == "search" { a[1] = "pkg"; String[] sa = arr(a.len + 1); sa.push("ex"); sa.push("pkg"); sa.push("search"); for i in 2..a.len { sa.push(a[i] + ""); } return cmd_pkg(sa); }
+    if a[1] == "remove" { a[1] = "unstall"; }
     if a[1] == "pack" { return cmd_pack(a); }
     if a[1] == "pkg" { return cmd_pkg(a); }                    // the packages of Jcmp-pkg (git, clang, python ...)
     if a[1] == "info" && a.len >= 3 { return do_info(a[2]); }

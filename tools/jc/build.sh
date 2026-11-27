@@ -1,7 +1,8 @@
 #!/bin/sh
-# builds jc into _out/jc (needs jcmp 1.1.0.0 or newer; JCMP=path chooses the compiler)
+# jc is the old name of ex: it is built from the sources of ex (JCMP=path chooses the compiler)
 set -eu
 cd "$(dirname "$0")"
 mkdir -p _out
-"${JCMP:-jcmp}" jc.jk -o _out/jc
+here=$PWD
+( cd ../ex && "${JCMP:-jcmp}" ex.jk -o "$here/_out/jc" )
 echo "built _out/jc"

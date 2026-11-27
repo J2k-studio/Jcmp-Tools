@@ -1,5 +1,9 @@
 # jc changelog
 
+## 0.7.0
+* **Changed:** `jc` is the old name of `ex`: this is the same program, built from the sources of `ex`, and it stays for two releases. Use `ex`.
+* **Fixed:** none (see the changelog of `ex`).
+
 ## 0.6.7
 * **Added:** when `ex` proposes a command (a name that is close to another, or `ex update -n`), jsh shows it in grey at the next prompt and Tab takes it (jsh 0.13.0 and newer).
 
