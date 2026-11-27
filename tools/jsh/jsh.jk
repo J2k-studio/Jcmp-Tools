@@ -2029,10 +2029,6 @@ bool builtin(String[] a) {
             }
         }
         i64 cdr = Sys::chdir(target.c());
-        if cdr < 0 && !target.starts_with("/") && !target.starts_with(".") && !target.starts_with("~") {        // not here: a folder at the root of the system (cd bin/ -> /bin)
-            String viaroot = "/" + target;
-            if Dir::exists(viaroot) && Sys::chdir(viaroot.c()) >= 0 { cdr = 0; jout << esc() << "[38;2;130;130;130m(not here: went to " << viaroot << ")" << esc() << "[0m" << nl; }
-        }
         if cdr < 0 {
             String why = "cannot enter this folder";
             String atroot = "/" + target;
