@@ -6,7 +6,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 
 | tool | what it does |
 |---|---|
-| [jget](tools/jget/README.md) | download files (https, progress bar), songs (`-m`), scripts (`-sh`, `-jsh`), the libraries of J2K (`-li`), the other tools (`jc install NAME`, also .tar.gz packed files) and `jget untar FILE` |
+| [jget](tools/jget/README.md) | download files (https, progress bar), songs (`-m`), scripts (`-sh`, `-jsh`), the libraries of J2K (`-li`), the other tools (`ex install NAME`, also .tar.gz packed files) and `jget untar FILE` |
 | [makej](tools/makej/README.md) | the build tool: `makej`, `-j N` (many cores, a bar for each job and each core), `init`, `init -pro`, `init -game`, `init -ai` (a project that trains an AI into a `.jw`), `apk`, `pack` (.jc), `dist`, `targets` |
 | [jsh](tools/jsh/README.md) | the shell: line editing, ghost text, pipes, redirects, scripts (first line `[#jsh]`, `$1 $#`), aliases, `start PROGRAM` (a new tab), `jaric setting` in sections, `jaric -restart`, `jaric video` (MPL-2.0) |
 | [ascode](tools/ascode/README.md) | a harness for a model (like the claude command): tools, modes ask / read / auto (MPL-2.0) |
@@ -14,7 +14,6 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [jene](tools/jene/README.md) | make, build and run a game: `jene -c NAME`, `-b`, `-rc` (the game tool of Jexcmp; needs `ex install jex`) (MPL-2.0) |
 | [jbox](tools/jbox/README.md) | about 60 small commands in one program: `dir cat grep sort sed find tree rev paste printf base64 sha256sum ...` (MPL-2.0) |
 | [fcode](tools/fcode/README.md) | a text editor for the terminal with J2K colours, extensions and the compiler's errors (MPL-2.0) |
-| [coderin](tools/coderin/README.md) | the old name of `fcode` (the same program) |
 | [mujic](tools/mujic/README.md) | a music player with a typing box and a `/` menu: your songs, free songs to fetch, `/find`, `/import`, `/mv` (sort into folders), synced lyrics, `mujic -session` (own tab) |
 | [zipj](tools/zipj/README.md) | `zipj` makes zip files, `unj` opens them (a password, `-f`, `-o`) (MPL-2.0) |
 | [tarj](tools/tarj/README.md) | `tarj` makes and opens tar / tar.gz, `gzj` packs one file with gzip |
@@ -26,19 +25,16 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [cam](tools/cam/README.md) | `cam photo` and `cam scan`: the camera of the phone in the terminal of the Jaric app (photos, QR codes) (MPL-2.0) |
 | [jfile](tools/jfile/README.md) | `jfile`: the files of the phone (Downloads, Pictures, Documents ...) in a terminal: look, open, copy, move, delete, pictures and text (MPL-2.0) |
 | [ex](tools/ex/README.md) | the commands of the system: install and update tools, apps and packages, the settings of the app (MPL-2.0) |
-| [jc](tools/jc/README.md) | the old name of `ex` (the same program) |
 | [jgit](tools/jgit/README.md) | git in J2K: `jgit init / add / commit / status / log / diff / branch / switch`; the format of the repository is the one of git, both read each other (packs are read; no network yet) (MPL-2.0) |
-| [jamanager](tools/jamanager/README.md) | the task manager: `ps`, `top`, `mem`, `kill`, `drives`, `cache` (reads /proc) (MPL-2.0) |
 | [jash](tools/jash/README.md) | the settings of your programs in one file `~/.jash` and the command `jash list / get / set / unset / edit / import / reset` (MPL-2.0) |
 | [drive](tools/drive/README.md) | new drives: `drive new NAME [PATH]`, `drive remove NAME`, the list of `f:/ 0:/ r:/` and yours (`~/.jsh_drives`) |
 | [calc](tools/calc/README.md) | a calculator: sums, hex / binary / octal, `xor and or`, shifts, functions, variables (`calc "0xff xor 0x0f"`) |
-| [jaric-os](tools/jaric-os/README.md) | Jaric OS in the Jaric app: `jaric-os` shows the start screen and starts the operating system (a console on a disk made of a folder); an internal tool of the app, updated with `jc update` |
 | [neuron](tools/neuron/README.md) | small AI models on the phone, all in J2K: `neuron train / run / chat / install`; the assistant **xaiorin** (`xr`) runs in the background, answers `xr "question"` and can learn from the shell (off by default) |
 | [python](tools/python/README.md) | Python 3.14 (the official Android ARM64 build) started by a J2K launcher: `python3`, `pip`, ssl, sqlite3 |
 | [yt-dlp](tools/yt-dlp/README.md) | yt-dlp on that Python, for what you may download (mujic `/get ADDRESS` uses it) |
 | [jvp4](tools/jvp4/README.md) | a video player made only of J2K (own container reader and decoders; today `jvp4 info FILE`) |
 | [jpty](tools/jpty/README.md) | run a program on a pseudo terminal (for apps and tests) (MPL-2.0) |
-| [jcmp](tools/jcmp/README.md) | the compiler and its library, as a tool: `jc install jcmp` (always the newest release; makej and the other tools need 1.2.0.0 or newer) |
+| [jcmp](tools/jcmp/README.md) | the compiler and its library, as a tool: `ex install jcmp` (always the newest release; makej and the other tools need 1.2.0.0 or newer) |
 
 ## Install
 
@@ -47,13 +43,13 @@ curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- jget makej  # the tools you name
 curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- --all      # every tool
 ```
-Options after `sh -s --`: `--dir DIR` (default `$PREFIX/bin` on Termux, else `~/.local/bin`), `--version X.Y.Z`, `--list`, `--yes`. Every file is checked with its SHA-256. With `jget` installed: `jc tools`, `jc install NAME`, `jc install all` (and it links the second names: `unj`, `gzj`, the commands of jbox). In the Jaric app: `install NAME` in the shell.
-Libraries of J2K (`#import <name>`): `jc lib list`, `jc lib install gamej` (the game engine), `neuron` (small neural networks), `deflate` (gzip, CRC-32) and more.
+Options after `sh -s --`: `--dir DIR` (default `$PREFIX/bin` on Termux, else `~/.local/bin`), `--version X.Y.Z`, `--list`, `--yes`. Every file is checked with its SHA-256. With `jget` installed: `jc tools`, `ex install NAME`, `ex install all` (and it links the second names: `unj`, `gzj`, the commands of jbox). In the Jaric app: `install NAME` in the shell.
+Libraries of J2K (`#import <name>`): `ex lib list`, `ex lib install gamej` (the game engine), `neuron` (small neural networks), `deflate` (gzip, CRC-32) and more.
 
 ## How it all works (the short picture)
 
 ```
- you type -> jsh (the shell) -> a program (coderin, makej, mujic, your own ...)
+ you type -> jsh (the shell) -> a program (fcode, makej, mujic, your own ...)
                  |                      |  text goes to the terminal
                  |                      |  pictures, sound, video, settings: messages  ESC ] 7777 ; ... BEL
               jpty (a pseudo terminal)  v
@@ -67,7 +63,7 @@ Libraries of J2K (`#import <name>`): `jc lib list`, `jc lib install gamej` (the 
 ## How to write programs (a tour)
 
 ```
-coderin hello.jk                  # Esc leaves, Ctrl-S saves.  void main() { cout << "hi\n"; }
+fcode hello.jk                  # Esc leaves, Ctrl-S saves.  void main() { cout << "hi\n"; }
 jcmp hello.jk -o hello && ./hello
 makej init -pro mytool            # a project with the right structure (src/, tests/, docs/, manifest.toml ...)
 cd mytool && makej test && makej run
@@ -88,10 +84,10 @@ makej init -ai                    # a small neural network (library <neuron>)
 
 ## For the maker of a tool
 
-**Layout:** `tools/` holds only the tools; `extensions/` the extensions of coderin (`coderin -ex NAME`); `install.sh` and `install-NAME.sh` and the list `tools.txt` stay at the root (they have public addresses). A tool lives in `tools/NAME/` (its source, `README.md`, `CHANGELOG.md`, `VERSION`, `LATEST`, `test.sh`, `release.sh`). A release has the tag `NAME-vX.Y.Z` with the file `NAME` and `SHA256SUMS`.
+**Layout:** `tools/` holds only the tools; `extensions/` the extensions of fcode (`fcode -ex NAME`); `install.sh` and `install-NAME.sh` and the list `tools.txt` stay at the root (they have public addresses). A tool lives in `tools/NAME/` (its source, `README.md`, `CHANGELOG.md`, `VERSION`, `LATEST`, `test.sh`, `release.sh`). A release has the tag `NAME-vX.Y.Z` with the file `NAME` and `SHA256SUMS`.
 **The guide with every command and examples: [docs/GUIDE.md](docs/GUIDE.md). The rules every tool follows: [docs/STANDARD.md](docs/STANDARD.md).**
 
 The old address `github.com/J2k-studio/Jget` leads here.
 
 ## Licences
-The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox, jpty, coderin, zipj, tarj, imgj, authj, cam, jearlink, mulap, jrawser, jfile and mujic** are under the Mozilla Public License 2.0: each of their folders has the text.
+The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox, jpty, fcode, zipj, tarj, imgj, authj, cam, jearlink, mulap, jrawser, jfile and mujic** are under the Mozilla Public License 2.0: each of their folders has the text.
