@@ -26,6 +26,7 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [jfile](tools/jfile/README.md) | `jfile`: the files of the phone (Downloads, Pictures, Documents ...) in a terminal: look, open, copy, move, delete, pictures and text (MPL-2.0) |
 | [ex](tools/ex/README.md) | the commands of the system: install and update tools, apps and packages, the settings of the app (MPL-2.0) |
 | [jgit](tools/jgit/README.md) | git in J2K: `jgit init / add / commit / status / log / diff / branch / switch`; the format of the repository is the one of git, both read each other (packs are read; no network yet) (MPL-2.0) |
+| [jurl](tools/jurl/README.md) | download from the web (like curl): `jurl LINK` saves the file and says its name; `-o -O -X -H -d -I -L`, https (MPL-2.0) |
 | [jash](tools/jash/README.md) | the settings of your programs in one file `~/.jash` and the command `jash list / get / set / unset / edit / import / reset` (MPL-2.0) |
 | [drive](tools/drive/README.md) | new drives: `drive new NAME [PATH]`, `drive remove NAME`, the list of `f:/ 0:/ r:/` and yours (`~/.jsh_drives`) |
 | [calc](tools/calc/README.md) | a calculator: sums, hex / binary / octal, `xor and or`, shifts, functions, variables (`calc "0xff xor 0x0f"`) |
