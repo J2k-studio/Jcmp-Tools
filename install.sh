@@ -1,8 +1,8 @@
 #!/bin/sh
-# install.sh -- install tools of Jcmp-Tools (github.com/J2k-studio/Jcmp-Tools): each is one file, checked with its SHA-256 before it is put in a folder.
-#   curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh                 asks which tools (a menu), or installs jget when there is no terminal
-#   curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- jget        the tools you name
-#   curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- --all       every tool
+# install.sh -- install tools of ex-pkg (github.com/J2k-studio/ex-pkg): each is one file, checked with its SHA-256 before it is put in a folder.
+#   curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh                 asks which tools (a menu), or installs jget when there is no terminal
+#   curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s -- jget        the tools you name
+#   curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s -- --all       every tool
 # Options:  --dir DIR   the folder (default: $PREFIX/bin on Termux, else ~/.local/bin)      --version X.Y.Z   a version of the tool(s) named (one tool)
 #           --list      the tools and what they are                                          --yes   never ask (install jget when no tool is named)
 # One tool at a time: install-NAME.sh (install-jget.sh) does the same as  install.sh NAME.
@@ -10,7 +10,7 @@
 # the Library of jcmp, python-android, xr and xaiorin of neuron ...) that are unpacked next to them.
 # Environment for tests and mirrors: JCMPTOOLS_RAW=URL (the files of the repository), JCMPTOOLS_DL=URL (the folders NAME-vX.Y.Z of the releases; file:///folder works).
 set -eu
-REPO="J2k-studio/Jcmp-Tools"
+REPO="J2k-studio/ex-pkg"
 RAW="${JCMPTOOLS_RAW:-https://raw.githubusercontent.com/$REPO/main}"
 DL="${JCMPTOOLS_DL:-https://github.com/$REPO/releases/download}"
 BINDIR=""; VERSION=""; ALL=0; LIST=0; YES=0; NAMES=""
@@ -38,7 +38,7 @@ if [ -z "${NAMES# }" ]; then
         TRY=0
         while [ "$TRY" -lt 3 ] && [ -z "${NAMES# }" ]; do
             TRY=$((TRY+1))
-            echo "Jcmp-Tools:" > /dev/tty
+            echo "ex-pkg:" > /dev/tty
             i=1
             # one short line per tool: the name and the text up to the first ':' or '(' , cut to the width of the screen
             grep -v '^#' "$TMP/tools.txt" | while IFS='|' read -r n d; do

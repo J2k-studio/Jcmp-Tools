@@ -4,7 +4,7 @@
 
 **The trained model is here too** (`assistant.jw`, 560 KB), so you can use it at once:
 ```
-curl -fsSL -o assistant.jw https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools/neuron/example/xaiorin/assistant.jw
+curl -fsSL -o assistant.jw https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/tools/neuron/example/xaiorin/assistant.jw
 neuron install assistant.jw
 xr start
 xr "how do i play music"

@@ -19,7 +19,7 @@ perms = perms or '-'
 dest = f'apps/{ident.split(".")[-1]}-{ver}.jc'
 shutil.copy(pkg, dest)
 h = hashlib.sha256(open(dest, 'rb').read()).hexdigest()
-url = 'https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/store/' + dest
+url = 'https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/store/' + dest
 lines = [l for l in open('index.txt').read().split('\n') if l and not l.startswith(f'{ident} {ver} ')]
 lines.append(f'{ident} {ver} {url} {h} {perms} {name}')
 head = [l for l in lines if l.startswith('#')]

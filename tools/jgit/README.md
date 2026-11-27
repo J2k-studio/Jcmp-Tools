@@ -12,6 +12,7 @@ jgit diff                the lines that changed since the last add (+ and -)
 jgit cat [-r] HASH|HEAD|NAME  an object: a commit or a file as text, a tree as a list; -r the raw bytes
 jgit branch [NAME]       the branches / make one at the last commit
 jgit clone URL [DIR]     copy a repository from a server (https:// or http://; also git@host:user/repo is read as https)
+jgit clone --depth 1 URL only the newest commit: much faster for a big repository
 jgit remote [-v] | add NAME URL | remove NAME      the servers of this repository
 jgit fetch [NAME]        bring the new branches of the server (refs/remotes/NAME/...)
 jgit pull                fetch and move the branch forward when only the server has changes (no merge yet)
@@ -21,6 +22,8 @@ jgit switch NAME         go to a branch (it refuses while a file has changes tha
 ```
 Who you are: `export JGIT_NAME="Your Name" JGIT_EMAIL="you@example.org"` or `[user]` in `.git/config` / `~/.gitconfig`. Times are written as UTC (+0000).
 
+A big repository takes a while: jgit shows what has arrived. To get only the files as they are now, use `--depth 1`.
+
 Packed repositories (after `git gc` or a `git clone`) are read: the idx and pack files and the deltas, checked byte for byte against git.
 
 **Not yet (said clearly, not guessed):** the address must be https:// or http:// (no ssh), a pull does not merge (it says so when both sides changed), no tags or shallow clones, no merge or rebase, no `.gitignore`, only index version 2. For those, use `git` if you have it.
@@ -28,7 +31,7 @@ Packed repositories (after `git gc` or a `git clone`) are read: the idx and pack
 ## Install
 ```
 jc install jgit                                                       # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jgit     # with curl
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s jgit     # with curl
 ```
 In jsh: `jc install jgit`.
 

@@ -109,7 +109,7 @@ i64 forward_to_jc(String[] av) {
     }
     Result<i64, Error> r = Proc::run("jc", a);
     if !r.is_ok() {
-        err("jget: jget only downloads now: tools and libraries are installed by jc, and jc is not here.\n  get it:  curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jc\n");
+        err("jget: jget only downloads now: tools and libraries are installed by jc, and jc is not here.\n  get it:  curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s jc\n");
         return 2;
     }
     return r.take();
@@ -300,7 +300,7 @@ i64 cmd_update_self() {
     if me.len == 0 { err("jget: cannot find where this program is\n"); return 1; }
     // the newest version of jget is the text of tools/jget/LATEST in the repository of the tools (a release of another tool cannot be mistaken for it)
     String lv = me + ".latest";
-    if !download("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools/jget/LATEST", lv, true) { return 1; }
+    if !download("https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/tools/jget/LATEST", lv, true) { return 1; }
     String ver = "";
     switch Fs::read_text(lv) {
         Result::Ok(t): { ver = t.trim(); }
@@ -308,7 +308,7 @@ i64 cmd_update_self() {
     }
     Fs::remove(lv);
     if ver.len == 0 { err("jget: cannot read the newest version\n"); return 1; }
-    String base = "https://github.com/J2k-studio/Jcmp-Tools/releases/download/jget-v" + ver;
+    String base = "https://github.com/J2k-studio/ex-pkg/releases/download/jget-v" + ver;
     String tmp = me + ".new";
     String sums = me + ".sums";
     if !download(base + "/SHA256SUMS", sums, true) { return 1; }

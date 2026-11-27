@@ -42,7 +42,7 @@ Without these options `jget URL` is a download with a progress bar, as before.
 ## Install
 
 ```
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install-jget.sh | sh
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install-jget.sh | sh
 ```
 
 (Linux ARM64, for example Termux; the program is one file.) `jget --version` shows the version.
@@ -51,14 +51,14 @@ curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install-
 
 jget is written in J2K and needs the compiler `jcmp` (0.9.187 or newer) with its library: `jcmp tools/jget/jget.jk -o jget`. `tools/jget/test.sh` builds it and runs the tests (it needs `python3` for a local web server).
 
-## Tools of Jcmp-Tools
+## Tools of ex-pkg
 
 `jget tool list` shows them and `jget tool coderin` (or several: `jget tool jsh jbox makej`) puts them next to jget, after a check of their SHA-256. No curl and no `sh` script are needed, so it works inside the Jaric app too.
 
 ## Install
 ```
 jget --install                                                       # a jget you already have puts itself in your commands folder
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jget     # with curl, the first time
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s jget     # with curl, the first time
 ```
 Update later with `jget --update`. In jsh: `jc install jget`.
 
@@ -69,4 +69,4 @@ Update later with `jget --update`. In jsh: `jc install jget`.
 4. Open an archive: `jget untar FILE.tar.gz`.
 5. A script from the net: `jget -sh URL` or `jget -jsh URL` shows the first lines and asks before it runs (`jaric setting`: run scripts from the net).
 
-License: the license of the repository (the file `LICENSE` at the root of Jcmp-Tools). Build: `J2K_PATH=path sh build.sh` (the library deflate). Test: `sh test.sh`.
+License: the license of the repository (the file `LICENSE` at the root of ex-pkg). Build: `J2K_PATH=path sh build.sh` (the library deflate). Test: `sh test.sh`.

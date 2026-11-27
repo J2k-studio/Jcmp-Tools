@@ -775,7 +775,7 @@ i64 main() {
         }
         w.push("jc");
         for i in 2..a.len { w.push(a[i] + ""); }
-        return cmd_tool(w, 1);                                   // a tool of Jcmp-Tools
+        return cmd_tool(w, 1);                                   // a tool of ex-pkg
     }
     if a[1] == "install" && a.len >= 3 {
         bool yes = false;

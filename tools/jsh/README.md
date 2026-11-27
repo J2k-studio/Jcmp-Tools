@@ -3,7 +3,7 @@
 A shell written in J2K, on the J2K library only. It is the shell of the Jaric project and works on any Linux ARM64 machine.
 
 * Line editing (arrows, Home / End, Delete, Ctrl-A / E / U / D / C; UTF-8 aware, so a Thai vowel is erased alone) and history; **grey ghost text** while you type (the newest history line that continues yours, else a command or file name) and **Tab** takes it (with no ghost, Tab lists the choices); a prompt with the folder and `>>` (red `[status]` after a failure).
-* Built-ins: `cd pwd echo history exit help export unset env alias unalias type which source . install`; `install coderin makej` fetches tools from Jcmp-Tools with jget (`install` alone lists them)
+* Built-ins: `cd pwd echo history exit help export unset env alias unalias type which source . install`; `install coderin makej` fetches tools from ex-pkg with jget (`install` alone lists them)
 * Programs with arguments, found in `$PATH`; for the others jsh runs [jbox](../jbox/README.md) (`ls cat grep sort ...`).
 * Pipes `a | b`, redirection `> >> <`, background `&`, `$?`, `$NAME`, `~`, globs `* ?`, quotes `'..'` `".."`, comments `#`.
 * Several lines in one command: Ctrl-J (the key New line of the Jaric app) starts another line, Enter runs them all.
@@ -30,7 +30,7 @@ Put in `~/.jshrc`: `export JSH_COLOR_MARK=sky` (also `JSH_COLOR_NAME` for `jc`, 
 ## Install
 ```
 jc install jsh                                                        # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jsh     # with curl (no jget needed)
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s jsh     # with curl (no jget needed)
 ```
 In jsh: `jc install jsh`. Both check the SHA-256 of the file before anything is installed. Update later with the same command.
 

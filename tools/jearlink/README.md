@@ -17,7 +17,7 @@ jearlink -ntf Done "the build is ready"
 ## Install
 ```
 jc install jearlink                                                         # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jearlink     # with curl (no jget needed)
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s jearlink     # with curl (no jget needed)
 ```
 Both check the SHA-256 of the file before anything is installed.
 

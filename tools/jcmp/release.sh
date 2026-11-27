@@ -1,7 +1,7 @@
 #!/bin/sh
-# release.sh JCMP LIBRARY_FOLDER VERSION : the compiler of a release of github.com/J2k-studio/Jcmp as a tool of Jcmp-Tools:
+# release.sh JCMP LIBRARY_FOLDER VERSION : the compiler of a release of github.com/J2k-studio/Jcmp as a tool of ex-pkg:
 #   dist/jcmp (the program), dist/jcmp-files.tar (its folder Library, the pair of the compiler) and SHA256SUMS.
-#   Then: gh release create jcmp-vX.Y.Z.W dist/* --repo J2k-studio/Jcmp-Tools --title ...
+#   Then: gh release create jcmp-vX.Y.Z.W dist/* --repo J2k-studio/ex-pkg --title ...
 set -eu
 cd "$(dirname "$0")"
 JCMP=$1; LIB=$2; VER=$3

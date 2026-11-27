@@ -23,7 +23,7 @@ A program reads its settings with `jash get SECTION.KEY`; a script can too: `col
 ## Install
 ```
 jc install jash                                                       # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jash     # with curl
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s jash     # with curl
 ```
 In jsh: `jc install jash`.
 

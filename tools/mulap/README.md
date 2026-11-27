@@ -24,7 +24,7 @@ track snare ....x.......x...  gain 0.9
 ## Install
 ```
 jc install mulap                                                       # with jget
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s mulap     # with curl (no jget needed)
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s mulap     # with curl (no jget needed)
 ```
 Both check the SHA-256 of the file before anything is installed.
 

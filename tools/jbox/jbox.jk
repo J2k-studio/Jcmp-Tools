@@ -2146,7 +2146,7 @@ String man_find(String name, bool^ from_net) {
         if Fs::exists(places[i]) { Result<String, Error> r = Fs::read_text(places[i]); if r.is_ok() { return r.take(); } }
     }
     String[] urls = arr(6);
-    urls.push("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools/" + name + "/README.md");
+    urls.push("https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/tools/" + name + "/README.md");
     urls.push("https://raw.githubusercontent.com/J2k-studio/Jcmp-libs/main/docs/" + name + ".md");
     if name == "language" { urls.push("https://raw.githubusercontent.com/J2k-studio/Jcmp/main/docs/LANGUAGE.md"); }
     if name == "usage" { urls.push("https://raw.githubusercontent.com/J2k-studio/Jcmp/main/docs/USAGE.md"); }
@@ -2207,7 +2207,7 @@ i64 do_man(String[] a) {
         out.push("Also: man language, man usage (the language J2K and the compiler jcmp)."); st.push(0);
         out.push(""); st.push(0);
         out.push("The tools:"); st.push(1);
-        Result<String, Error> tt = Net::http_try_get("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools.txt");
+        Result<String, Error> tt = Net::http_try_get("https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/tools.txt");
         if tt.is_ok() {
             String[] tl = tt.take().split("\n");
             for i in 0..tl.len { if tl[i].len > 0 && !tl[i].starts_with("#") { i64 bar = tl[i].find("|"); if bar > 0 { out.push("  " + tl[i].slice(0, bar) + "   " + tl[i].slice(bar + 1, tl[i].len)); st.push(0); } } }

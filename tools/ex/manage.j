@@ -190,8 +190,8 @@ i64 cmd_installed() {
     return 0;
 }
 
-// ex tools | ex install NAME ... : the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...), put next to jget, checked with their SHA-256
-// where the files of Jcmp-Tools are: the repository (raw) and the releases; JCMPTOOLS_RAW and JCMPTOOLS_DL name others (a mirror, the tests)
+// ex tools | ex install NAME ... : the tools of ex-pkg (jsh, jbox, coderin, makej ...), put next to jget, checked with their SHA-256
+// where the files of ex-pkg are: the repository (raw) and the releases; JCMPTOOLS_RAW and JCMPTOOLS_DL name others (a mirror, the tests)
 // the tool that was called jc is ex; the registry keeps jc (the same program) so that old copies find their update
 String shown_name(String n) {
     if n == "jc" { return "jc (the old name of ex)"; }

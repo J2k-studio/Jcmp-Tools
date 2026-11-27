@@ -1,9 +1,9 @@
 #!/bin/sh
-# release.sh JCMP ANDROID_TARBALL [CERT_PEM] : the tool python of Jcmp-Tools
+# release.sh JCMP ANDROID_TARBALL [CERT_PEM] : the tool python of ex-pkg
 #   dist/python (the launcher, python.jk built with -dyn), dist/python-files.tar (the folder python-android: the Python of the
 #   Android build of python.org without its tests, idle, tkinter and C headers; etc/cert.pem), dist/SHA256SUMS.
 #   ANDROID_TARBALL = python-3.14.0-aarch64-linux-android.tar.gz from https://www.python.org/ftp/python/3.14.0/
-#   Then: gh release create python-vX.Y.Z dist/* --repo J2k-studio/Jcmp-Tools --title ...
+#   Then: gh release create python-vX.Y.Z dist/* --repo J2k-studio/ex-pkg --title ...
 set -eu
 cd "$(dirname "$0")"
 JCMP=$1; TARBALL=$2; CERT=${3:-/data/data/com.termux/files/usr/etc/tls/cert.pem}

@@ -38,7 +38,7 @@ using stdlib;
 #import "core"
 #import "request"
 
-String jurl_version() { return "0.1.2"; }
+String jurl_version() { return "0.2.0"; }
 
 // the folder for songs: $MUJIC_DIR, else ~/music
 String music_folder() {
@@ -93,10 +93,11 @@ i64 usage() {
     return 1;
 }
 
-// the old forms  jurl tool ...  and  jurl -li ...  are sent to jc (it installs the tools and the libraries since jurl 1.0.0)
-i64 forward_to_jc(String[] av) {
+// the old forms  jurl tool ...  and  jurl -li ...  are sent to ex (the tools) and jex (the libraries): jurl only downloads
+i64 forward_on(String[] av) {
     String[] a = arr(8);
     String first = av[1];
+    String who = "ex";
     if first == "tool" {
         if av.len <= 2 { a.push("list"); }
         else if av[2] == "list" { a.push("list"); }
@@ -104,15 +105,18 @@ i64 forward_to_jc(String[] av) {
         else if av[2] == "unstall" || av[2] == "uninstall" || av[2] == "remove" { a.push("unstall"); for k in 3..av.len { a.push(av[k] + ""); } }
         else { a.push("install"); for k in 2..av.len { a.push(av[k] + ""); } }
     } else {
+        who = "jex";
         a.push("lib");
         for k in 2..av.len { a.push(av[k] + ""); }
     }
-    Result<i64, Error> r = Proc::run("jc", a);
-    if !r.is_ok() {
-        err("jurl: jurl only downloads now: tools and libraries are installed by jc, and jc is not here.\n  get it:  curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s jc\n");
+    Result<i64, Error> r = Proc::run(who, a);
+    i64 code = 127;
+    if r.is_ok() { code = r.take(); }
+    if code == 127 {
+        err("jurl: jurl only downloads: tools are installed by ex and libraries by jex, and " + who + " is not here.\n  get it:  curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s " + who + "\n");
         return 2;
     }
-    return r.take();
+    return code;
 }
 
 bool is_address(String s) {
@@ -132,6 +136,18 @@ bool is_program(String path) {
 
 // after a download: a script or a program that is not executable becomes executable (where it can be read);
 // one that already is executable is left alone; -x does it for any file
+// a person at a terminal is told where the file went ( jurl LINK  saves it under the name in the address); a script hears nothing
+void tell_saved(String to) {
+    if to == "-" || g_quiet == 1 || Sys::isatty(2) != 0 { return; }
+    i64 st[18];
+    if Sys::stat(to.c(), @st) != 0 { return; }
+    i64 n = st[6];
+    String size = stg(n) + " B";
+    if n >= 1048576 { size = stg(n / 1048576) + "." + stg((n % 1048576) * 10 / 1048576) + " MB"; }
+    else if n >= 1024 { size = stg(n / 1024) + "." + stg((n % 1024) * 10 / 1024) + " KB"; }
+    err("saved " + to + " (" + size + ")\n");
+}
+
 void after_download(String to) {
     if to == "-" { return; }
     i64 st[18];
@@ -211,7 +227,7 @@ i64 cmd_fetch(String[] av, i64 at) {
             err("jurl: " + urls[u] + ": again (" + str(again) + " of " + str(retries) + ")\n");
             ok = download(urls[u], dest, g_quiet == 1);
         }
-        if ok { after_download(dest); done += 1; } else { rc = 1; }
+        if ok { after_download(dest); tell_saved(dest); done += 1; } else { rc = 1; }
     }
     if urls.len > 1 { err("jurl: " + str(done) + " of " + str(urls.len) + " downloaded\n"); }
     return rc;
@@ -300,7 +316,7 @@ i64 cmd_update_self() {
     if me.len == 0 { err("jurl: cannot find where this program is\n"); return 1; }
     // the newest version of jurl is the text of tools/jurl/LATEST in the repository of the tools (a release of another tool cannot be mistaken for it)
     String lv = me + ".latest";
-    if !download("https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/tools/jurl/LATEST", lv, true) { return 1; }
+    if !download("https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/tools/jurl/LATEST", lv, true) { return 1; }
     String ver = "";
     switch Fs::read_text(lv) {
         Result::Ok(t): { ver = t.trim(); }
@@ -308,7 +324,7 @@ i64 cmd_update_self() {
     }
     Fs::remove(lv);
     if ver.len == 0 { err("jurl: cannot read the newest version\n"); return 1; }
-    String base = "https://github.com/J2k-studio/Jcmp-Tools/releases/download/jurl-v" + ver;
+    String base = "https://github.com/J2k-studio/ex-pkg/releases/download/jurl-v" + ver;
     String tmp = me + ".new";
     String sums = me + ".sums";
     if !download(base + "/SHA256SUMS", sums, true) { return 1; }
@@ -353,7 +369,7 @@ i64 main() {
     String first = av[1];
     if first == "--version" || first == "-V" { jout << "jurl " << jurl_version() << nl; return 0; }
     if first == "--help" { usage(); return 0; }
-    if first == "-li" || first == "tool" { return forward_to_jc(av); }
+    if first == "-li" || first == "tool" { return forward_on(av); }
     if first == "-sh" { return cmd_run_script(av, 2, "sh"); }
     if first == "-jsh" { return cmd_run_script(av, 2, "jsh"); }
     if first == "untar" {                                  // jurl untar FILE [DIR] : a .tar or a gzip-packed tar (.tar.gz, .tgz)

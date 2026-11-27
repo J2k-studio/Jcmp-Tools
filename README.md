@@ -1,6 +1,6 @@
-<p align="center"><img src="docs/banner.svg" alt="Jcmp-Tools" width="100%"></p>
+<p align="center"><img src="docs/banner.svg" alt="ex-pkg" width="100%"></p>
 
-# Jcmp-Tools
+# ex-pkg
 
 Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compiler `jcmp`, written in J2K. Each tool is one program (one file) for Linux ARM64 (Termux, the **Jaric app**, a Linux machine). Together with the app they are **Jaric OS in its console mode**: a shell, packages, an editor, a player, a build tool, and a protocol that lets programs ask the system for pictures, sound and settings.
 
@@ -39,9 +39,9 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 ## Install
 
 ```
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh                 # a menu
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- jget makej  # the tools you name
-curl -fsSL https://raw.githubusercontent.com/J2k-studio/Jcmp-Tools/main/install.sh | sh -s -- --all      # every tool
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh                 # a menu
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s -- jget makej  # the tools you name
+curl -fsSL https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/install.sh | sh -s -- --all      # every tool
 ```
 Options after `sh -s --`: `--dir DIR` (default `$PREFIX/bin` on Termux, else `~/.local/bin`), `--version X.Y.Z`, `--list`, `--yes`. Every file is checked with its SHA-256. With `jget` installed: `jc tools`, `ex install NAME`, `ex install all` (and it links the second names: `unj`, `gzj`, the commands of jbox). In the Jaric app: `install NAME` in the shell.
 Libraries of J2K (`#import <name>`): `ex lib list`, `ex lib install gamej` (the game engine), `neuron` (small neural networks), `deflate` (gzip, CRC-32) and more.
