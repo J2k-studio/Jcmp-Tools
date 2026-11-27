@@ -23,6 +23,17 @@
 * **Changed:** the tool that was called `jc` is called `ex` in its messages (`installed ex 0.6.1 in ...`); the registry keeps the old name inside so that old copies still find their update.
 * **Added:** `ex install jex` pointed to the tool jcmp (changed again in 0.6.6).
 
+## 0.6.0
+* **Added:** `ex pack list` / `ex pack install`; tools, packages and packs come from the repository ex-pkg.
+* **Fixed:** none.
+
+## 0.5.7
+* **Added:** `ex pkg list` shows the packages that can be installed too.
+* **Fixed:** none.
+
+## 0.5.6
+* **Changed:** the messages say `ex:` (`ex: no package named ...`, `ex pkg search`).
+
 ## 0.5.5
 * **Added:** `jc lib install NAME` also installs the libraries that NAME imports (`#import <...>`) and that are not here yet (for example opengl3 brings native); it says `needs X: installing it too`.
 * **Fixed:** a program that imported opengl3 failed with "library not found 'native'" and no way to fix it.

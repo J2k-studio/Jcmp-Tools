@@ -1,5 +1,9 @@
 # jamanager changelog
 
+## 0.3.0
+* **Added:** the task manager is a window in the Jaric app.
+* **Fixed:** none.
+
 ## 0.2.1
 * **Fixed:** the tab of the caches measures at most 1500 entries of a folder (a big folder of temporary files made the screen wait); the test waits for the tab.
 

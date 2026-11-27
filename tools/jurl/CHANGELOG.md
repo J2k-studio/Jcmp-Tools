@@ -6,6 +6,9 @@
 ## 0.1.1
 * **Fixed:** every message, the help and the self-update say `jurl` (they said `jget`).
 
+## 0.1.0
+* **Added:** `jurl`, the download tool (it was `jget`): `jurl URL`, `-o -O -P -X -H -d -I -i -L`, https, a progress bar.
+
 ## 1.2.0
 * **Added:** more ways to download. Several addresses at once (`jget URL URL ...`, each saved under its own name and the exit code says when one failed), `-P DIR` (into a folder, made when missing), `-l LIST` (the addresses are in a file, one a line, `#` is a comment), `-r N` (try a failed download again up to N times; `URL1|URL2` is a mirror list, tried in order). Tests for each.
 * **Fixed:** none.

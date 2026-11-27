@@ -1,5 +1,45 @@
 # mujic changelog
 
+## 0.15.1
+* **Added:** it reads the shared settings of `jaric settings`.
+* **Fixed:** none.
+
+## 0.15.0
+* **Added:** albums.
+* **Fixed:** none.
+
+## 0.14.0
+* **Added:** the folder of songs (jsong) is the library.
+* **Fixed:** none.
+
+## 0.13.0
+* **Added:** lyrics from folders of `.lrc` files, found by name.
+* **Fixed:** none.
+
+## 0.12.0
+* **Added:** a start page (terminal, window, CD deck), `mujic mode`.
+* **Fixed:** none.
+
+## 0.11.0
+* **Added:** colour themes.
+* **Fixed:** a song was listed twice.
+
+## 0.10.0
+* **Added:** `mujic cd` (the CD deck).
+* **Fixed:** none.
+
+## 0.9.0
+* **Added:** `mujic window`.
+* **Fixed:** none.
+
+## 0.8.0
+* **Added:** the playlist plays in the background, next and previous.
+* **Fixed:** none.
+
+## 0.7.0
+* **Added:** play in the background (`-b`, `bg`), pause, resume, stop, play a file of any folder.
+* **Fixed:** `mujic play Blonde.mp3` found nothing.
+
 ## 0.6.0
 * **Changed:** the songs that `/scan` finds go into the list at once and stay there (the file `.library` in the music folder keeps their paths); the list shows them by name. `mujic scan --add` does the same from the command line.
 * **Added:** `/remove NAME` (and `mujic remove [-f] NAME`) takes a song out of the list; the file stays. A song of the music folder is the file itself, so it needs `-f`, which deletes the file (and its `.lrc` / `.txt`). `/mv` refuses a scanned song (it is not in the music folder).

@@ -1,5 +1,9 @@
 # jfile changelog
 
+## 0.3.0
+* **Added:** the Files window in the app.
+* **Fixed:** none.
+
 ## 0.2.0
 * **Added:** the places are a list of your own: `n` in the places makes a new folder in `u:/` and keeps it as a place, `+` in a folder keeps that folder as a place, `d` takes one of yours away (`~/.jfile_places`); a standard folder that is not there yet (Documents, Pictures, ...) is made when you ask; a Desktop place.
 * **Fixed:** none.
