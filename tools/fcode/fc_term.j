@@ -76,6 +76,7 @@ i64 read_key(i64 ms) {
         i64 mod = 0;
         if p2 == 2 { mod = K_SHIFT; }
         else if p2 == 5 { mod = K_CTRL; }
+        else if p2 == 3 && (last == 67 || last == 68) { mod = K_ALT; }
         if last == 65 { return K_UP + mod; }
         if last == 66 { return K_DOWN + mod; }
         if last == 67 { return K_RIGHT + mod; }

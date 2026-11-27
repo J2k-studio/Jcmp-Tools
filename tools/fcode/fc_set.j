@@ -144,7 +144,7 @@ void command_bar() {
     String[] w = c.split(" ");
     String cmd = w[0];
     if cmd == "save" { save(); }
-    else if cmd == "quit" { if dirty { msg = "unsaved changes: use Ctrl-Q twice, or  q!"; } else { quit_asked = 2; } }
+    else if cmd == "quit" { if any_dirty() { msg = "unsaved changes: use Ctrl-Q twice, or  q!"; } else { quit_asked = 2; } }
     else if cmd == "q!" { quit_asked = 2; }
     else if cmd == "goto" && w.len > 1 { i64 n = w[1].to_int(); if n < 1 { n = 1; } if n > lines.len { n = lines.len; } move_to(n - 1, 0, false); }
     else if cmd == "find" && w.len > 1 { find_next(c.slice(5, c.len), cy, cx + 1); }

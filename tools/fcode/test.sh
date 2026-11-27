@@ -98,4 +98,17 @@ rm -rf "$BT"
 mkdir -p old/.config/coderin; printf 'autopair = off\n' > old/.config/coderin/settings
 ( cd old && ( sleep 0.3; printf '('; sleep 0.2; printf '\023'; sleep 0.4; printf '\021' ) | HOME="$PWD" $PTY -w 80 -h 24 "$ED" o.txt > /dev/null )
 [ "$(cat old/o.txt)" = '(' ] || { echo "fcode test: the settings of coderin"; cat -A old/o.txt; exit 1; }
+# several files: Alt+Right goes to the next one; each keeps its text, cursor and undo; a quit asks when a file that is not shown has changes
+mkdir -p many && cd many && printf '1\n' > a.txt && printf '2\n' > b.txt
+( sleep 0.3; printf '\033[F'; sleep 0.1; printf 'x'; sleep 0.2; printf '\033[1;3C'; sleep 0.2; printf '\033[F'; sleep 0.1; printf 'y'; sleep 0.2; printf '\023'; sleep 0.3
+  printf '\033[1;3C'; sleep 0.2; printf 'z'; sleep 0.2; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 40 -h 30 "$ED" a.txt b.txt > /dev/null
+[ "$(cat a.txt)" = '1xz' ] && [ "$(cat b.txt)" = '2y' ] || { echo "fcode test: two files: a=$(cat a.txt) b=$(cat b.txt)"; exit 1; }
+printf '1\n' > a.txt && printf '2\n' > b.txt
+( sleep 0.3; printf 'q'; sleep 0.2; printf '\033[1;3C'; sleep 0.2; printf 'w'; sleep 0.2; printf '\032'; sleep 0.2; printf '\023'; sleep 0.3; printf '\033[1;3D'; sleep 0.2; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 40 -h 30 "$ED" a.txt b.txt > /dev/null
+[ "$(cat a.txt)" = 'q1' ] && [ "$(cat b.txt)" = '2' ] || { echo "fcode test: undo belongs to its file: a=$(cat a.txt) b=$(cat b.txt)"; exit 1; }
+printf '1\n' > a.txt && printf '2\n' > b.txt
+( sleep 0.3; printf 'k'; sleep 0.2; printf '\033[1;3C'; sleep 0.2; printf '\021'; sleep 0.5; printf '\033[1;3C'; sleep 0.2; printf '\023'; sleep 0.3; printf '\021' ) | $PTY -w 40 -h 30 "$ED" a.txt b.txt > frames
+grep -aq 'unsaved' frames || { echo "fcode test: a hidden file with changes: the quit must ask"; exit 1; }
+[ "$(cat a.txt)" = 'k1' ] || { echo "fcode test: the quit lost a hidden file: $(cat a.txt)"; exit 1; }
+cd ..
 echo "fcode test: ok"

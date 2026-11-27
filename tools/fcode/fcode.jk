@@ -84,6 +84,7 @@ i64 K_ESC = 1013;
 i64 K_F = 1500;               // + n : the function key Fn (F1 .. F12)
 i64 K_SHIFT = 100;            // + K_UP .. K_END : the arrow with Shift
 i64 K_CTRL = 200;             // + K_UP .. K_END : the arrow with Ctrl
+i64 K_ALT = 300;              // + K_RIGHT, K_LEFT : the arrow with Alt
 
 String esc() {
     String e = "";
@@ -103,10 +104,13 @@ String esc() {
 #import "fc_set"
 #import "fc_mouse"
 #import "fc_popup"
+#import "fc_buf"
 
 void handle_key(i64 k) {
+    if k == K_ALT + K_RIGHT { buffer_step(1); return; }               // the next file, the one before
+    if k == K_ALT + K_LEFT { buffer_step(0 - 1); return; }
     if k == K_ESC {                                                  // Esc leaves, like Ctrl-Q (an open menu or prompt took it before)
-        if dirty && quit_asked == 0 { msg = "unsaved changes: Esc again leaves without saving (Ctrl-S saves)"; quit_asked = 1; return; }
+        if any_dirty() && quit_asked == 0 { msg = "unsaved changes: Esc again leaves without saving (Ctrl-S saves)"; quit_asked = 1; return; }
         quit_asked = 2;
         return;
     }
@@ -224,7 +228,7 @@ void handle_key(i64 k) {
     }
     if act == "save" { save(); return; }                                // Ctrl-S
     if act == "quit" {                                              // Ctrl-Q
-        if dirty && quit_asked == 0 { msg = "unsaved changes: Ctrl-Q again quits without saving"; quit_asked = 1; return; }
+        if any_dirty() && quit_asked == 0 { msg = "unsaved changes: Ctrl-Q again quits without saving"; quit_asked = 1; return; }
         quit_asked = 2;
         return;
     }
@@ -355,7 +359,7 @@ i64 main() {
     }
     if a.len > 2 && a[1] == "--example" { jout << example_text(a[2].to_int()); return 0; }          // the text of an example (the tests compile them)
     if a.len > 1 && a[1] == "-ex" { return ex_mode(a); }
-    if a.len < 2 { jerr << "usage: fcode FILE   |   fcode -ex [NAME]\n"; return 2; }
+    if a.len < 2 { jerr << "usage: fcode FILE...   |   fcode -ex [NAME]\n"; return 2; }
     if Sys::isatty(0) != 0 { jerr << "fcode: it needs a terminal\n"; return 2; }
     path = a[1];
     clip = "";
@@ -374,7 +378,9 @@ i64 main() {
     choose_default_scheme();
     load_settings();
     load_bindings();
-    load(path);
+    buffer_first(path);
+    for k in 2..a.len { buffer_open(a[k]); }
+    buffer_switch(0);
     raw_mode(true);
     read_size();
     String e = esc();
