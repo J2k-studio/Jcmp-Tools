@@ -1,0 +1,4 @@
+version 0.1.83.63
+code 1795775893
+sha256 6f176b42b12cd854f33b9c4ec7e7b91078e3c022d1db57d87ec5e522ddf9d8a3
+url https://github.com/J2k-studio/exshell/releases/download/app-v0.1.83.63/exshell.apk
