@@ -291,6 +291,31 @@ i64 tool_unstall(String[] av, i64 at, String dir) {
     return rc;
 }
 
+// the standard look of a list (docs/STANDARD.md): "  name   description", the description wrapped between words at the width of the screen
+// (38 when the output goes to a terminal that does not say), the next lines under the first word of the description; not wrapped in a pipe
+void print_item(String name, String desc, i64 namew) {
+    i64 cols = Term::cols();
+    if cols < 20 { cols = 38; }
+    String head = "  " + name;
+    while head.len < namew + 2 { head = head + " "; }
+    if Sys::isatty(1) != 0 { jout << head << desc << nl; return; }        // (isatty gives 0 for a terminal)
+    String pad = "";
+    while pad.len < head.len { pad = pad + " "; }
+    i64 room = cols - head.len;
+    if room < 12 { room = 12; }
+    String[] words = desc.split(" ");
+    String line = head;
+    String cur = "";
+    for i in 0..words.len {
+        String w = words[i] + "";
+        if w.len == 0 { continue; }
+        if cur.len > 0 && cur.len + 1 + w.len > room { jout << line << cur << nl; line = pad; cur = ""; }
+        if cur.len > 0 { cur = cur + " "; }
+        cur = cur + w;
+    }
+    jout << line << cur << nl;
+}
+
 i64 cmd_tool(String[] av, i64 at) {
     String me = self_path();
     if me.len == 0 { err("ex: cannot find where this program is\n"); return 1; }
@@ -311,7 +336,7 @@ i64 cmd_tool(String[] av, i64 at) {
         for i in 0..ls.len {
             if ls[i].len == 0 || ls[i][0] == '#' { continue; }
             String[] parts = ls[i].split("|");
-            if parts.len >= 2 { jout << "  " << parts[0] << "   " << parts[1] << nl; }
+            if parts.len >= 2 { print_item(parts[0] + "", parts[1] + "", 11); }
         }
         if av.len <= at { jout << "ex install NAME installs one (more than one: ex install jsh jbox coderin)" << nl; }
         return 0;
