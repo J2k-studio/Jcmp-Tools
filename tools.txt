@@ -21,7 +21,6 @@ jrawser|Jrawser, the browser of the Jaric app: tabs, bookmarks, history, downloa
 mulap|Record songs and make beats: a plan of a beat becomes a sound file (the engine; pads and recording come next)
 jearlink|The apps of the phone from the terminal: open links, share, install an apk (-ins), call, start apps, notifications (-viw -snd -sh -cll -ap -aps -ntf)
 cam|The camera of the phone for the Jaric app terminal: photos and reading QR codes
-jfile|The files of the phone in a terminal: Downloads, Pictures, Documents ...; look, open, copy, move, delete
 mujic|A music player for the terminal: your songs, free songs to fetch, synced lyrics (mujic)
 jvp4|A video player made only of J2K (today: jvp4 info reads mp4 / mov files)
 yt-dlp|Downloads audio and video from many sites with yt-dlp (needs the tool python); use it only for what you may download

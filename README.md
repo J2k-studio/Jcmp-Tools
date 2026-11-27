@@ -23,7 +23,6 @@ Tools for the [J2K language](https://github.com/J2k-studio/Jcmp) and its compile
 | [mulap](tools/mulap/README.md) | `mulap render PLAN.mlp OUT.wav`: make beats from a plan of tracks (kick, snare, hat ...): the engine of the app to record songs and make beats (MPL-2.0) |
 | [jearlink](tools/jearlink/README.md) | `jearlink -viw -snd -sh -cll -ap -aps -ntf`: the apps and notifications of the phone from the Jaric app terminal (MPL-2.0) |
 | [cam](tools/cam/README.md) | `cam photo` and `cam scan`: the camera of the phone in the terminal of the Jaric app (photos, QR codes) (MPL-2.0) |
-| [jfile](tools/jfile/README.md) | `jfile`: the files of the phone (Downloads, Pictures, Documents ...) in a terminal: look, open, copy, move, delete, pictures and text (MPL-2.0) |
 | [ex](tools/ex/README.md) | the commands of the system: install and update tools, apps and packages, the settings of the app (MPL-2.0) |
 | [jgit](tools/jgit/README.md) | git in J2K: `jgit init / add / commit / status / log / diff / branch / switch`; the format of the repository is the one of git, both read each other (packs are read; no network yet) (MPL-2.0) |
 | [jurl](tools/jurl/README.md) | download from the web (like curl): `jurl LINK` saves the file and says its name; `-o -O -X -H -d -I -L`, https (MPL-2.0) |
@@ -91,4 +90,4 @@ makej init -ai                    # a small neural network (library <neuron>)
 The old address `github.com/J2k-studio/Jget` leads here.
 
 ## Licences
-The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox, jpty, fcode, zipj, tarj, imgj, authj, cam, jearlink, mulap, jrawser, jfile and mujic** are under the Mozilla Public License 2.0: each of their folders has the text.
+The repository (jget, makej and the scripts) is under the licence in `LICENSE`. **jsh, jbox, jpty, fcode, zipj, tarj, imgj, authj, cam, jearlink, mulap, jrawser and mujic** are under the Mozilla Public License 2.0: each of their folders has the text.

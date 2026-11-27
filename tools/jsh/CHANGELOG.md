@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.2
+* **Added:** none.
+* **Fixed:** the start screen and the tips named tools that were taken out (jfile, jmanager).
+
 ## 0.15.1
 * **Added:** programs of the packages get `GIT_EXEC_PATH`, `GIT_TEMPLATE_DIR`, `SSL_CERT_FILE`, `GIT_SSL_CAINFO`, `CURL_CA_BUNDLE` and `TERMINFO` under `$PREFIX`.
 * **Fixed:** `git clone https://...` ("remote-https is not a git command") and Python `https` in the packages; a variable text of an added variable could be reused before the program started.

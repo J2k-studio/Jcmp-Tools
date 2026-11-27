@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.15.1"; }
+String jsh_version() { return "0.15.2"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -1490,7 +1490,7 @@ String typo_hint(String name) {
         if have_program("jcmp") { return "  (the compiler is jcmp: did you mean jcmp?)"; }
         return "  (ex install jexcmp)";
     }
-    String tools = "jex jene ascode jurl jget makej jsh jbox jpty fcode jcmp zipj unj tarj gzj imgj authj cam jfile jgit mujic jvp4 python yt-dlp neuron calc drive jash jstore";
+    String tools = "jex jene ascode jurl jget makej jsh jbox jpty fcode jcmp zipj unj tarj gzj imgj authj cam jgit mujic jvp4 python yt-dlp neuron calc drive jash jstore";
     String[] tl = tools.split(" ");
     for i in 0..tl.len { if tl[i] == name { return "  (a tool of Jaric: ex install " + tl[i] + ")"; } }
     i64 limit = 1;
@@ -3422,9 +3422,7 @@ void cover() {
     tips.push("cam scans a QR code: touch the link on the card, or choose Open with.");
     tips.push("jearlink -ntf Done \"ready\" shows a notification; chain it: makej && jearlink -ntf ok");
     tips.push("man NAME shows the manual of a tool; man alone lists them.");
-    tips.push("jmanager shows the programs, the memory and the caches; it can stop a program.");
     tips.push("mujic plays your songs; /scan finds the songs of the phone.");
-    tips.push("jfile browses the folders: pictures and text open inside it.");
     tips.push("ex install NAME gets a tool; ex list shows what is installed.");
     tips.push("cmd1 && cmd2 runs the second only when the first worked; cmd1 || cmd2 when it failed.");
     tips.push("A script is a text file: put #jsh on its first line and run it by its name.");
@@ -3449,7 +3447,7 @@ void cover() {
     jout << "  " << e << "[96mex doctor" << e << "[0m      is all well\n";
     jout << "  " << e << "[96mcam" << e << "[0m            camera and QR\n";
     jout << "  " << e << "[96mmujic" << e << "[0m          music\n";
-    jout << "  " << e << "[96mjfile" << e << "[0m          files\n";
+    jout << "  " << e << "[96mfcode FILE" << e << "[0m     edit a file\n";
     jout << "  " << e << "[96mhelp" << e << "[0m           all commands\n\n";
     i64 cols = 40;
     String rest = "Tip: " + tip;

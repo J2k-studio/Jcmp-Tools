@@ -15,7 +15,7 @@
 #import "manage"
 #import "exapi"
 
-String ex_version() { return "0.14.0"; }
+String ex_version() { return "0.14.1"; }
 
 i64 fail(String msg) {
     jerr << "ex: " << msg << "\n";
@@ -727,6 +727,10 @@ i64 main() {
         return 0;
     }
     if a[1] == "doctor" { return doctor(); }
+    if a[1] == "install" && a.len >= 3 && a[2] == "mascot" {                      // the mascot of the app: it is off until it is asked for
+        if !person_agrees("install the mascot?  (ex unstall mascot takes it away)") { jout << "nothing was installed" << nl; return 0; }
+        return (i64)setting("mascot", "on");
+    }
     if is_app_word(a[1]) { return cmd_app(a); }
     if a[1] == "app" {
         bool dry = a.len < 3 || a[2] != "update";

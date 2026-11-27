@@ -5,7 +5,7 @@ authj 0.3.0
 calc 0.2.0
 cam 0.3.1
 drive 0.4.0
-ex 0.14.0
+ex 0.14.1
 fcode 0.6.0
 imgj 0.2.0
 jash 0.1.1
@@ -14,12 +14,11 @@ jcmp 1.2.41.4
 jearlink 0.2.0
 jene 0.1.2
 jex 0.1.1
-jfile 0.3.0
 jget 1.2.0
 jgit 0.5.1
 jpty 0.1.1
 jrawser 0.1.0
-jsh 0.15.1
+jsh 0.15.2
 jurl 0.2.0
 jvp4 0.1.0
 jx86 0.1.0

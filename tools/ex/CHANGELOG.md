@@ -1,5 +1,9 @@
 # ex changelog
 
+## 0.14.1
+* **Added:** `ex install mascot` turns the mascot of the app on (it is off in a new app).
+* **Fixed:** none.
+
 ## 0.14.0
 * **Added:** `install`, `update` and `unstall` ask `[y/n]` first at a terminal; `-y` does not ask (a script is not asked).
 * **Added:** `ex update NAME...` updates only those (a tool, a package or `app`).

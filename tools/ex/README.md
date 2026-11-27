@@ -27,7 +27,7 @@ At a terminal `ex install`, `ex update` and `ex unstall` show what they will do 
 | `ex update jsh` | only `jsh` (several names work; `app` is the app) |
 | `ex update -n` | only show |
 | `ex install git -y` | no question (`--yes` too) |
-| `ex unstall mascot` | turns the mascot of the app off (`ex set mascot on` brings it back) |
+| `ex install mascot` / `ex unstall mascot` | the mascot of the app on / off (a new app starts without it) |
 
 A script that runs `ex` has nobody to ask, so it goes on as before.
 

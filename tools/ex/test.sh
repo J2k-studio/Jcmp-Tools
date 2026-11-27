@@ -309,5 +309,7 @@ AX y unstall foo; grep -q "ASKED 1" "$Q/o" && [ ! -e "$Q/bin/foo" ] || bad "unst
 old; AX n unstall foo -y; grep -q "ASKED 0" "$Q/o" && [ ! -e "$Q/bin/foo" ] || bad "unstall -y"
 AX n pkg remove beta; grep -q "ASKED 1" "$Q/o" && [ -x "$Q/pkg/usr/bin/beta" ] || bad "package remove, no"
 AX y unstall mascos; grep -q "ASKED 1" "$Q/o" && grep -q "mascot;off" "$Q/o" || bad "unstall mascot"
+AX n install mascot; grep -q "ASKED 1" "$Q/o" && ! grep -q "mascot;on" "$Q/o" || bad "install mascot, no"
+AX y install mascot; grep -q "mascot;on" "$Q/o" || bad "install mascot, yes"
 old; ( env JCMPTOOLS_RAW="file://$Q/mirror" JCMPTOOLS_DL="file://$Q/mirror/dl" EXSHELL= "$Q/bin/ex" install baz < /dev/null > "$Q/o" 2>&1 ) && [ -x "$Q/bin/baz" ] || bad "a script is not asked"
 echo "ex tests: ok"
