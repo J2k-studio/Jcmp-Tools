@@ -1,5 +1,28 @@
 # jc changelog
 
+## 0.6.7
+* **Added:** when `ex` proposes a command (a name that is close to another, or `ex update -n`), jsh shows it in grey at the next prompt and Tab takes it (jsh 0.13.0 and newer).
+
+## 0.6.6
+* **Changed:** `jex` is the command of the language that fetches the libraries, a tool of its own (`ex install jex`); `ex install jexcmp` installs the compiler jcmp, the command jex and every library; jene is not bundled (`ex install jene`). This replaces the aliases of 0.6.3 - 0.6.5 that made `jex` mean the compiler.
+
+## 0.6.5
+* **Changed:** `ex install jex` installed the compiler and `jene` together (changed again in 0.6.6).
+
+## 0.6.4
+* **Added:** `ex install jexcmp` installs the compiler and then every library of the index.
+* **Changed:** the store `jstore` left the repository: `ex update` no longer calls it.
+
+## 0.6.3
+* **Added:** `jene` is a tool of the registry; `ex install jex` pointed to it (changed again in 0.6.6).
+
+## 0.6.2
+* **Changed:** `ex tools` is a list with the name and then the description wrapped between words at the width of the screen (it was one long line that the screen cut inside words); in a pipe it stays one line for each tool.
+
+## 0.6.1
+* **Changed:** the tool that was called `jc` is called `ex` in its messages (`installed ex 0.6.1 in ...`); the registry keeps the old name inside so that old copies still find their update.
+* **Added:** `ex install jex` pointed to the tool jcmp (changed again in 0.6.6).
+
 ## 0.5.5
 * **Added:** `jc lib install NAME` also installs the libraries that NAME imports (`#import <...>`) and that are not here yet (for example opengl3 brings native); it says `needs X: installing it too`.
 * **Fixed:** a program that imported opengl3 failed with "library not found 'native'" and no way to fix it.

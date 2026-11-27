@@ -291,6 +291,14 @@ i64 tool_unstall(String[] av, i64 at, String dir) {
     return rc;
 }
 
+// jsh shows the command that a message proposes in grey at its next prompt (Tab takes it): it is written into the file $JSH_HINT_FILE
+void offer_command(String c) {
+    switch Env::get("JSH_HINT_FILE") {
+        Option::Some(f): { if f.len > 0 { Fs::write_text(f, c + "\n"); } }
+        Option::None: { }
+    }
+}
+
 // ex install jexcmp: the compiler and then every library of the index (so that  #import <name>  works at once)
 i64 install_all_libs() {
     String dir = lib_dir();
@@ -407,7 +415,7 @@ i64 cmd_tool(String[] av, i64 at) {
             shown += 1;
         }
         if shown == 0 { jout << "everything is up to date" << nl; return 0; }
-        if dry { jout << "(ex update installs them)" << nl; return 0; }
+        if dry { jout << "(ex update installs them)" << nl; offer_command("ex update"); return 0; }
     }
     i64 rc = 0;
     bool with_libs = false;
@@ -429,7 +437,13 @@ i64 cmd_tool(String[] av, i64 at) {
                 for i in 0..ls.len { String[] tw = ls[i].split("|"); if tw.len > 0 { tn.push(tw[0] + ""); } }
                 String near = near_names(name + "", tn);
                 String hint = "";
-                if near.len > 0 { hint = "; did you mean: " + near; }
+                if near.len > 0 {
+                    hint = "; did you mean: " + near;
+                    i64 comma = near.find(",");
+                    String first = near + "";
+                    if comma >= 0 { first = near.slice(0, comma); }
+                    offer_command("ex install " + first);
+                }
                 err("ex: there is no tool or package '" + name + "'" + hint + " (ex tools, ex pkg search)\n");
                 rc = 1;
             }

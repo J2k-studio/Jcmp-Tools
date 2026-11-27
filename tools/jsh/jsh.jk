@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.14"; }
+String jsh_version() { return "0.13.0"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -380,7 +380,32 @@ String var_guess(String line) {
     return "";
 }
 
+// the command that the last message proposed ("ex install jene", "jcmp"): it waits in grey at the next prompt, Tab takes it
+String g_next;
+
+// a program (jsh itself for a command that is not found, ex, ...) writes the command it proposes into the file $JSH_HINT_FILE
+void offer_command(String c) {
+    String f = getv("JSH_HINT_FILE");
+    if f.len > 0 && c.len > 0 { Fs::write_text(f, c + "\n"); }
+}
+
+void take_offer() {
+    g_next = "";
+    String f = getv("JSH_HINT_FILE");
+    if f.len == 0 || !Fs::exists(f) { return; }
+    Result<String, Error> r = Fs::read_text(f);
+    if r.is_ok() {
+        String all = r.take();
+        String[] ls = all.split("\n");
+        if ls.len > 0 { g_next = ls[0].trim(); }
+        for i in 0..g_next.len { if g_next[i] >= 0 && g_next[i] < 32 { g_next = ""; break; } }       // never a control letter
+        if g_next.len > 200 { g_next = ""; }
+    }
+    Fs::remove(f);
+}
+
 String suggestion_for(String line) {
+    if g_next.len > line.len && g_next.starts_with(line) { return g_next.slice(line.len, g_next.len); }
     if line.len == 0 { return ""; }
     String sg = sub_guess(line);
     if sg.len > 0 { return sg; }
@@ -667,6 +692,7 @@ bool read_command(String prompt) {
     redraw_row = 0;
     redraw_end = 0;
     jout << prompt;
+    if g_next.len > 0 { redraw(shown, line, cursor); }
     while true {
         i64 k = read.key();
         if k < 0 { jout << "\n"; set_icrnl(true); return false; }
@@ -1418,7 +1444,11 @@ i64 edit_distance(String a, String b) {
 // of the commands or of the tools (one change for a short name, two for a long one)
 String typo_hint(String name) {
     if name.len < 2 || name.len > 30 { return ""; }
-    String tools = "jc jget makej jsh jbox jpty coderin jcmp zipj unj tarj gzj imgj authj cam jfile jmanager jamanager jgit mujic jvp4 python yt-dlp neuron calc drive jash jstore";
+    if name == "jexcmp" || name == "jexc" {
+        if have_program("jcmp") { return "  (the compiler is jcmp: did you mean jcmp?)"; }
+        return "  (ex install jexcmp)";
+    }
+    String tools = "jex jene ascode jurl jget makej jsh jbox jpty coderin jcmp zipj unj tarj gzj imgj authj cam jfile jmanager jamanager jgit mujic jvp4 python yt-dlp neuron calc drive jash jstore";
     String[] tl = tools.split(" ");
     for i in 0..tl.len { if tl[i] == name { return "  (a tool of Jaric: ex install " + tl[i] + ")"; } }
     i64 limit = 1;
@@ -1443,6 +1473,24 @@ String typo_hint(String name) {
         if !here { return "  (did you mean " + pick + "? ex install " + pick + ")"; }
     }
     return "  (did you mean " + pick + "?)";
+}
+
+// the command inside a hint: "... ex install X)" -> ex install X;  "(did you mean Y?)" -> Y with the same words;  "run it as ./Y" -> ./Y ...
+String command_of_hint(String hint, String[] argv) {
+    i64 at = hint.find("ex install ");
+    if at >= 0 {
+        String c = "";
+        for i in at..hint.len { if hint[i] == ')' || hint[i] == ':' { break; } c.push(hint[i]); }
+        return c;
+    }
+    String word = "";
+    i64 m = hint.find("did you mean ");
+    if m >= 0 {
+        for i in m + 13..hint.len { if hint[i] == '?' || hint[i] == ' ' { break; } word.push(hint[i]); }
+    } else if hint.find("run it as ./") >= 0 { word = "./" + argv[0]; }
+    if word.len == 0 { return ""; }
+    for i in 1..argv.len { word = word + " " + argv[i]; }
+    return word;
 }
 
 // one program: fork, set the files, exec (the PATH is searched)
@@ -1501,11 +1549,12 @@ i64 spawn(String[] argv, i64 in_fd, i64 out_fd, i64 out_flags_append, String in_
         }
         String hint = "";
         if is_jbox_name(argv[0]) { hint = "  (ex install jbox)"; }
-        if argv[0] == "jcmp" { hint = "  (ex install jcmp: the language)"; }
+        if argv[0] == "jcmp" { hint = "  (ex install jexcmp)"; }
         if argv[0] == "makej" || argv[0] == "coderin" || argv[0] == "jget" { hint = "  (ex install " + argv[0] + ")"; }
         if hint.len == 0 && file_mode_of(argv[0]) >= 0 { hint = "  (there is a file with this name in this folder: run it as ./" + argv[0] + ")"; }
         if hint.len == 0 { hint = typo_hint(argv[0]); }
         jerr << "jsh: " << argv[0] << ": command not found" << hint << "\n";
+        offer_command(command_of_hint(hint, argv));
         Sys::exit(127);
     }
     Mem::free(av);
@@ -3398,6 +3447,9 @@ i64 main() {
     if findv("USER") < 0 { setv("USER", "exshell"); }
     if findv("TERM") < 0 { setv("TERM", "xterm-256color"); }
     setv("SHELL", "jsh");
+    String tmpdir = getv("TMPDIR");
+    if tmpdir.len == 0 { tmpdir = getv("HOME"); }
+    setv("JSH_HINT_FILE", tmpdir + "/.jsh_hint." + stg(Sys::getpid()));
     setv("PWD", cwd0);
     String[] cmdline = Env::args();
     if cmdline.len > 1 && (cmdline[1] == "--version" || cmdline[1] == "-V") { jout << "jsh " << jsh_version() << "\n"; return 0; }
@@ -3434,6 +3486,7 @@ i64 main() {
         String line = "";
         if tty {
             reap_jobs(true);
+            take_offer();
             if !read_command(prompt_text()) { break; }
             line = got_line;
         } else {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.0
+* **Added:** a command that a message proposes (`jsh: jexcmp: command not found (ex install jexcmp)`, a "did you mean", or a program that writes into `$JSH_HINT_FILE`, as `ex` does) waits in grey at the next prompt; Tab takes it.
+* **Fixed:** the hints for a command that is not found know `jex`, `jene`, `ascode`, `jurl` and `jexcmp` (it proposed `jcmp` for the compiler that is not installed instead of `ex install jexcmp`).
+
 ## 0.12.14
 * **Changed:** `help` is a list of short titled sections (no line longer than 38 characters), not one long line that the screen cut in the middle of a word.
 * **Added:** a script that starts with `#!/bin/sh` (or bash, dash, ash, zsh, env sh) or whose name ends in `.sh` is run by jsh itself (the phone has no /bin/sh: `./install.sh` said "wrong format"); the words `set` (options ignored, `set -- a b`), `shift`, `local`, `trap` (ignored) and `command -v NAME`.
