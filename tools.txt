@@ -28,4 +28,4 @@ jash|The settings of your programs in one file (~/.jash) and the command to read
 neuron|Small AI models on the phone: train a GPT (attention) or a small model on your text, chat with it, run GGUF models, the assistant xaiorin (xr)
 jgit|git written in J2K: init, add, commit, status, log, diff, branch, switch; the repositories are the repositories of git, also packed ones clone (--depth 1), fetch, pull, push over https
 drive|New drives for Jaric: a new place or a name for a folder (drive, drive new NAME [PATH], drive remove NAME)
-calc|A calculator: a screen with keys to tap, or calc "0xff xor 0x0f" (hex, binary, bit operations, functions, variables)
+calc|A calculator on the keyboard: dec hex bin oct sci, logic and bits, science functions and constants (calc "0xff xor 0x0f")

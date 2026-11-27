@@ -2,7 +2,7 @@ apkj 0.2.0
 ascode 0.3.0
 ask 0.1.0
 authj 0.3.0
-calc 0.2.0
+calc 0.3.0
 cam 0.3.1
 drive 0.4.0
 ex 0.14.1

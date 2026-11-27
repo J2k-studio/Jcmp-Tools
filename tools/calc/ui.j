@@ -1,22 +1,18 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
 // distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-// ui: the calculator on the screen: what was reckoned above, the line being typed with its result, and keys that are typed or tapped.
+// ui: the calculator on the screen, typed on the keyboard: what was reckoned above, the line being typed, and its result in every form.
 
 i64 sc_rows;
 i64 sc_cols;
 String ui_line;               // the line being typed
+i64 ui_at;                    // the cursor in it
 String ui_note;               // the message of an error ("" = none)
 String[] ui_expr;             // what was reckoned ...
 String[] ui_res;              // ... and what it gave
-bool ui_done;                 // = was the last key: an operator goes on from the answer
+bool ui_done;                 // Enter was the last thing: an operator goes on from the answer
 i64 ui_recall;                // where Up and Down are in the history
 bool ui_over;
-i64[] key_top;                // the tapped keys of the screen: first and last row, first and last column, the number of the key
-i64[] key_bot;
-i64[] key_from;
-i64[] key_to;
-i64[] key_no;
-String[] key_label;
+bool ui_help;                 // the help is shown
 
 void raw_mode(bool on) {
     char t[64];
@@ -66,29 +62,80 @@ void put_row(String text) {
     frame.append("\x1b[0m\x1b[K");
 }
 
-String key_colour(String k) {
-    if k == "=" { return "\x1b[30;48;5;114m"; }
-    if k == "C" || k == "DEL" || k == "off" { return "\x1b[97;48;5;124m"; }
-    if k.len == 1 && ((k[0] >= '0' && k[0] <= '9') || k == ".") { return "\x1b[97;48;5;240m"; }
-    return "\x1b[97;48;5;24m";
+String[] ui_forms;             // the rows of the result in its forms
+
+// a form of the result, cut into rows of the width of the screen
+void add_form(String name, String value, i64 w) {
+    i64 room = w - 7;
+    i64 from = 0;
+    String head = "  " + name + " ";
+    while from < value.len {
+        i64 to = from + room;
+        if to > value.len { to = value.len; }
+        ui_forms.push(head + value.slice(from, to));
+        head = "      ";
+        from = to;
+    }
+}
+
+// the result in every form: dec, hex, bin, oct for a whole number, and the form of science
+void forms(i64 w) {
+    String sci = "";
+    if r_f { sci = fmt_sci(r_d); add_form("sci", sci, w); return; }
+    String dec = stg(r_i);
+    add_form("dec", dec, w);
+    String hex = "0x" + to_base(r_i, 16, 64);
+    add_form("hex", hex, w);
+    String bin = group4(to_base(r_i, 2, 64));
+    add_form("bin", bin, w);
+    String oct = "0o" + to_base(r_i, 8, 64);
+    add_form("oct", oct, w);
+    sci = fmt_sci((double)r_i);
+    add_form("sci", sci, w);
+    if r_i >= 33 && r_i < 127 { String ch = "'"; ch.push((char)r_i); ch.push('\''); add_form("chr", ch, w); }
+}
+
+void draw_help(i64 w) {
+    String[] h = help_lines();
+    put_row("\x1b[1m calc: help");
+    for i in 0..h.len { if at_row < sc_rows - 1 { put_row(" " + tail_of(h[i], w - 1)); } }
+    while at_row < sc_rows - 1 { put_row(""); }
+    put_row("\x1b[2m any key goes back");
 }
 
 void draw() {
     read_size();
     frame = "\x1b[?25l";
     at_row = 0;
-    key_top = arr(32); key_bot = arr(32); key_from = arr(32); key_to = arr(32); key_no = arr(32);
     i64 w = sc_cols - 1;
-    i64 key_rows = 7;
-    if sc_rows < 15 { key_rows = 5; }
-    i64 tall = 1;
-    if sc_rows >= 9 + key_rows * 2 { tall = 2; }
-    i64 history = sc_rows - 6 - key_rows * tall;          // the rows above the line
-    if history < 1 { history = 1; }
-    String title = " calc";
-    String how = "Ctrl-Q leaves ";
+    if ui_help {
+        draw_help(w);
+        jout << frame;
+        return;
+    }
+    // the result of the line first: it says how many rows are left for the history
+    String result = "";
+    ui_forms = arr(16);
+    bool have = false;
+    if ui_note.len > 0 { result = "\x1b[91m" + right_of(ui_note, w); }
+    else {
+        if ui_line.len > 0 { have = eval_value(ui_line, false); }
+        else if ui_done && ui_res.len > 0 { r_f = ans_f; r_i = ans_i; r_d = ans_d; have = true; }
+        if have {
+            String v = "= " + value_text();
+            result = "\x1b[92;1m" + right_of(v, w);
+            forms(w);
+        }
+    }
+    i64 most = sc_rows - 5;                      // title, rule, line, result and one row of history stay
+    i64 shown = ui_forms.len;
+    if shown > most { shown = most; }
+    i64 history = sc_rows - 4 - shown;
+    String title = " calc [";
+    if degrees_mode { title.append("deg]"); } else { title.append("rad]"); }
+    String how = "help  Ctrl-Q ";
+    if w < 28 { how = "help "; }
     put_row("\x1b[1m" + title + "\x1b[0m\x1b[2m" + right_of(how, w - title.len));
-    // the history, the newest at the bottom: two rows for each
     i64 pairs = history / 2;
     i64 first = ui_expr.len - pairs;
     if first < 0 { first = 0; }
@@ -101,81 +148,68 @@ void draw() {
     String rule = "";
     for i in 0..w { rule.push('-'); }
     put_row("\x1b[2m" + rule);
-    put_row("\x1b[1m> " + tail_of(ui_line, w - 3) + "_");
-    String result = "";
-    String bases = "";
-    bool have = false;
-    if ui_note.len > 0 { result = "\x1b[91m" + right_of(ui_note, w); }
-    else {
-        if ui_line.len > 0 { have = eval_value(ui_line, false); }
-        else if ui_done && ui_res.len > 0 { r_f = ans_f; r_i = ans_i; r_d = ans_d; have = true; }
-        if have {
-            result = "\x1b[92;1m" + right_of("= " + value_text(), w);
-            if !r_f {
-                bases = "hex 0x" + to_base(r_i, 16, 64);
-                String both = bases + "  bin " + group4(to_base(r_i, 2, 64));
-                if both.len <= w { bases = both + ""; }
-            }
-        }
-    }
+    // the line: the part round the cursor
+    i64 room = w - 3;
+    i64 from = 0;
+    if ui_at > room { from = ui_at - room; }
+    i64 to = from + room;
+    if to > ui_line.len { to = ui_line.len; }
+    put_row("\x1b[1m> " + ui_line.slice(from, to));
+    i64 line_row = at_row;
     put_row(result);
-    put_row("\x1b[36m" + right_of(bases, w));
-    // the keys
-    i64 cw = sc_cols / 4;
-    if cw > 12 { cw = 12; }
-    for kr in 0..key_rows {
-        i64 top = at_row + 1;
-        for line in 0..tall {
-            String row = "";
-            for c in 0..4 {
-                String label = key_label[kr * 4 + c] + "";
-                String text = "";
-                if line == 0 { text = label + ""; }
-                i64 inner = cw - 1;
-                i64 left = (inner - text.len) / 2;
-                row.append(key_colour(label) + spaces(left) + text + spaces(inner - left - text.len) + "\x1b[0m ");
-            }
-            put_row(row);
-        }
-        for c in 0..4 {
-            key_top.push(top); key_bot.push(at_row);
-            key_from.push(c * cw + 1); key_to.push(c * cw + cw - 1);
-            key_no.push(kr * 4 + c);
-        }
-    }
+    for i in 0..shown { put_row("\x1b[36m" + ui_forms[i]); }
     while at_row < sc_rows { put_row(""); }
+    frame.append("\x1b[" + stg(line_row) + ";" + stg(3 + ui_at - from) + "H\x1b[?25h");
     jout << frame;
 }
 
 // ---- what the keys do
-bool is_operator(String k) { return k == "+" || k == "-" || k == "*" || k == "/" || k == "%" || k == "&" || k == "|" || k == "**" || k == " mod " || k == " xor "; }
+bool is_operator(char c) { return c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '&' || c == '|' || c == '<' || c == '>'; }
 
-void ui_type(String k) {
+void ui_type(char c) {
     ui_note = "";
-    if ui_done && ui_line.len == 0 && is_operator(k) && ui_res.len > 0 { ui_line = "ans"; }
+    if ui_done && ui_line.len == 0 && is_operator(c) && ui_res.len > 0 { ui_line = "ans"; ui_at = 3; }
     ui_done = false;
-    ui_line.append(k);
+    String left = ui_line.slice(0, ui_at);
+    left.push(c);
+    left.append(ui_line.slice(ui_at, ui_line.len));
+    ui_line = left;
+    ui_at += 1;
 }
 
-void ui_equals() {
-    if ui_line.len == 0 { return; }
+void ui_set(String line) { ui_line = line + ""; ui_at = ui_line.len; ui_note = ""; ui_done = false; }
+
+void ui_clear() { ui_set(""); }
+
+// the character before the cursor (back) or under it
+void ui_delete(bool back) {
+    ui_note = "";
+    ui_done = false;
+    i64 p = ui_at;
+    if back { p -= 1; }
+    if p < 0 || p >= ui_line.len { return; }
+    String left = ui_line.slice(0, p);
+    left.append(ui_line.slice(p + 1, ui_line.len));
+    ui_line = left;
+    ui_at = p;
+}
+
+void ui_enter() {
+    String t = ui_line.trim();
+    if t.len == 0 { return; }
+    if t == "help" || t == "?" { ui_help = true; ui_clear(); return; }
+    if t == "quit" || t == "exit" || t == "q" { ui_over = true; return; }
+    if t == "deg" { degrees_mode = true; ui_clear(); return; }
+    if t == "rad" { degrees_mode = false; ui_clear(); return; }
+    if t == "clear" { ui_expr = arr(8); ui_res = arr(8); ui_recall = 0; ui_clear(); return; }
     if !eval_value(ui_line, true) { ui_note = err + ""; return; }
     ui_expr.push(ui_line + "");
     ui_res.push(value_text());
-    ans_f = r_f; ans_i = r_i; ans_d = r_d;            // what is shown after = (also for  x = 5)
-    ui_line = "";
-    ui_note = "";
+    ans_f = r_f; ans_i = r_i; ans_d = r_d;            // what is shown after Enter (also for  x = 5)
+    ui_clear();
     ui_done = true;
     ui_recall = ui_expr.len;
 }
-
-void ui_delete() {
-    ui_note = "";
-    ui_done = false;
-    if ui_line.len > 0 { ui_line = ui_line.slice(0, ui_line.len - 1); }
-}
-
-void ui_clear() { ui_line = ""; ui_note = ""; ui_done = false; }
 
 void ui_go(i64 step) {
     if ui_expr.len == 0 { return; }
@@ -183,85 +217,53 @@ void ui_go(i64 step) {
     if n < 0 { n = 0; }
     if n >= ui_expr.len { ui_recall = ui_expr.len; ui_clear(); return; }
     ui_recall = n;
-    ui_line = ui_expr[n] + "";
-    ui_note = "";
-    ui_done = false;
+    ui_set(ui_expr[n]);
 }
 
-void ui_press(String label) {
-    if label == "C" { ui_clear(); }
-    else if label == "DEL" { ui_delete(); }
-    else if label == "=" { ui_equals(); }
-    else if label == "off" { ui_over = true; }
-    else if label == "sqrt" { ui_type("sqrt("); }
-    else if label == "mod" || label == "xor" { ui_type(" " + label + " "); }
-    else { ui_type(label); }
-}
-
-void ui_tap(i64 x, i64 y) {
-    for i in 0..key_no.len {
-        if y >= key_top[i] && y <= key_bot[i] && x >= key_from[i] && x <= key_to[i] { ui_press(key_label[key_no[i]]); return; }
-    }
-}
-
-// the bytes that arrived together: keys, arrows, taps
+// the bytes that arrived together: letters, arrows and the other keys
 void ui_input(char^ b, i64 n) {
+    if ui_help { ui_help = false; return; }
     i64 i = 0;
     while i < n {
         i64 c = b[i] & 255;
         if c == 27 {
-            if i + 1 >= n || b[i + 1] != '[' { ui_clear(); i += 1; continue; }
+            if i + 1 >= n || (b[i + 1] != '[' && b[i + 1] != 'O') { ui_clear(); i += 1; continue; }
+            if b[i + 1] == 'O' && i + 2 < n && b[i + 2] == 'P' { ui_help = true; i += 3; continue; }       // F1
             i64 j = i + 2;
-            if j < n && b[j] == '<' {                      // a tap: ESC [ < button ; column ; row  M (down) or m (up)
-                j += 1;
-                i64[] v = arr(4);
-                i64 num = 0;
-                while j < n && b[j] != 'M' && b[j] != 'm' {
-                    if b[j] == ';' { v.push(num); num = 0; }
-                    else { num = num * 10 + (b[j] - '0'); }
-                    j += 1;
-                }
-                v.push(num);
-                if j < n && b[j] == 'M' && v.len == 3 && v[0] == 0 { ui_tap(v[1], v[2]); }
-                i = j + 1;
-                continue;
+            i64 num = 0;
+            while j < n && !(b[j] >= '@' && b[j] <= '~') { if b[j] >= '0' && b[j] <= '9' { num = num * 10 + (b[j] - '0'); } j += 1; }
+            if j < n {
+                char k = b[j];
+                if k == 'A' { ui_go(0 - 1); }
+                else if k == 'B' { ui_go(1); }
+                else if k == 'C' { if ui_at < ui_line.len { ui_at += 1; } }
+                else if k == 'D' { if ui_at > 0 { ui_at -= 1; } }
+                else if k == 'H' { ui_at = 0; }
+                else if k == 'F' { ui_at = ui_line.len; }
+                else if k == '~' && num == 3 { ui_delete(false); }
+                else if k == '~' && (num == 1 || num == 7) { ui_at = 0; }
+                else if k == '~' && (num == 4 || num == 8) { ui_at = ui_line.len; }
             }
-            while j < n && !(b[j] >= '@' && b[j] <= '~') { j += 1; }
-            if j < n && b[j] == 'A' { ui_go(0 - 1); }
-            else if j < n && b[j] == 'B' { ui_go(1); }
             i = j + 1;
             continue;
         }
         if c == 17 || c == 3 || c == 4 { ui_over = true; }
-        else if c == 13 || c == 10 { ui_equals(); }
-        else if c == '=' && ui_line.len == 0 && ui_done && ui_expr.len > 0 {          // a second = : it was a comparison (==)
-            ui_res.pop();
-            ui_line = ui_expr.pop() + "==";
-            ui_done = false;
-        }
-        else if c == '=' && ui_line.len > 0 && !is_name_only(ui_line) && !compare_begun(ui_line) { ui_equals(); }
-        else if c == 127 || c == 8 { ui_delete(); }
+        else if c == 13 || c == 10 { ui_enter(); }
+        else if c == 127 || c == 8 { ui_delete(true); }
+        else if c == 1 { ui_at = 0; }
+        else if c == 5 { ui_at = ui_line.len; }
+        else if c == 21 { ui_clear(); }
         else if c == 12 { ui_expr = arr(8); ui_res = arr(8); ui_recall = 0; ui_clear(); }
-        else if c >= 32 && c < 127 { String one = ""; one.push((char)c); ui_type(one); }
+        else if c >= 32 && c < 127 { ui_type((char)c); }
+        if ui_help || ui_over { return; }
         i += 1;
     }
 }
 
-// the line ends in the first half of  <=  >=  !=  ==
-bool compare_begun(String s) { char c = s[s.len - 1]; return c == '<' || c == '>' || c == '!' || c == '='; }
-
-// a line that is only a name (so that  =  after it makes a variable)
-bool is_name_only(String s) {
-    if s.len == 0 || !is_name_start(s[0]) { return false; }
-    for i in 0..s.len { if !is_name_char(s[i]) && s[i] != ' ' { return false; } }
-    return true;
-}
-
 i64 screen() {
-    key_label = "C ( ) DEL 7 8 9 / 4 5 6 * 1 2 3 - 0 . = + sqrt ** mod ans xor & | off".split(" ");
-    ui_line = ""; ui_note = ""; ui_expr = arr(8); ui_res = arr(8); ui_done = false; ui_recall = 0; ui_over = false;
+    ui_line = ""; ui_at = 0; ui_note = ""; ui_expr = arr(8); ui_res = arr(8); ui_done = false; ui_recall = 0; ui_over = false; ui_help = false;
     raw_mode(true);
-    jout << "\x1b[?1049h\x1b[?1000h\x1b[?1006h\x1b[2J";
+    jout << "\x1b[?1049h\x1b[2J";
     while !ui_over {
         draw();
         char b[128];
@@ -269,7 +271,7 @@ i64 screen() {
         if n <= 0 { break; }
         ui_input(@b, n);
     }
-    jout << "\x1b[?1006l\x1b[?1000l\x1b[0m\x1b[?25h\x1b[?1049l";
+    jout << "\x1b[0m\x1b[?25h\x1b[?1049l";
     raw_mode(false);
     return 0;
 }

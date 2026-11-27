@@ -1,5 +1,11 @@
 # calc changelog
 
+## 0.3.0
+* **Added:** logic (`&& || !`, `nand nor xnor`, `imp`), bit tools (`bit setbit clrbit togbit mask signed rotl rotr clz ctz parity`), science (`n!`, `ncr npr logb root asinh acosh atanh sign int frac`), constants (`c0 g0 G h hbar qe me mp NA kB Rgas phi`), `deg` / `rad`.
+* **Added:** every result also in science form (`sci`); the screen shows dec, hex, bin, oct, sci and the character.
+* **Changed:** the screen is typed on the keyboard, with a cursor in the line; the keys to tap are gone. `&&` and `||` now give true or false (the bit forms are `&` and `|`).
+* **Fixed:** your variable `h` (and others) comes before a constant of the same name.
+
 ## 0.2.0
 * **Added:** `calc` alone is a calculator on the whole screen: the history, the line with its result as you type, hex and binary, keys to tap or type. The old prompt is `calc -l` (pipes work as before).
 * **Fixed:** none.

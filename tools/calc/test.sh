@@ -4,7 +4,7 @@ set -eu
 cd "$(dirname "$0")"; sh build.sh >/dev/null
 J="$PWD/_out/calc"
 chk() { [ "$("$J" -q "$1" 2>&1)" = "$2" ] || { echo "calc test: $1 gave '$("$J" -q "$1" 2>&1)', wanted '$2'"; exit 1; }; }
-[ "$("$J" --version)" = "calc 0.2.0" ] || { echo "calc test: version"; exit 1; }
+[ "$("$J" --version)" = "calc 0.3.0" ] || { echo "calc test: version"; exit 1; }
 chk "1 + 2 * 3" 7
 chk "(1 + 2) * 3" 9
 chk "0xff xor 0x0f" 240
@@ -35,6 +35,44 @@ chk "5 > 3" 1
 chk "5 == 6" 0
 chk "1e3 + 0.5" 1000.5
 chk "abs(0 - 7)" 7
+# logic: && || ! give 1 or 0; and or not are bit by bit; nand nor xnor
+chk "5 && 2" 1
+chk "5 && 0" 0
+chk "0 || 7" 1
+chk "!5" 0
+chk "!0 && 1" 1
+chk "5 != 4 && 3 > 1" 1
+chk "5 & 2" 0
+chk "0b1100 nand 0b1010" -9
+chk "0b1100 nor 0b1010" -15
+chk "0b1100 xnor 0b1010" -7
+chk "nand(1, 1) & 1" 0
+chk "imp(1, 0)" 0
+chk "bit(0b100, 2)" 1
+chk "setbit(0, 3)" 8
+chk "clrbit(15, 0)" 14
+chk "togbit(5, 1)" 7
+chk "rotl(0x80000000, 1, 32)" 1
+chk "rotr(1, 1, 8)" 128
+chk "clz(1, 8)" 7
+chk "ctz(8)" 3
+chk "parity(7)" 1
+chk "signed(0xff, 8)" -1
+chk "mask(0x1234, 8)" 52
+# science
+chk "5!" 120
+chk "3! + 1" 7
+chk "ncr(5, 2)" 10
+chk "npr(5, 2)" 20
+chk "logb(8, 2)" 3
+chk "root(27, 3)" 3
+chk "sign(0 - 9)" -1
+chk "int(7.9)" 7
+chk "frac(2.5)" 0.5
+chk "c0" 299792458
+chk "g0" 9.80665
+chk "qe" 1.602176634e-19
+chk "h = 3" 3
 # the answer shows every base for a whole number
 "$J" 255 | grep -q "hex  0xff" || { echo "calc test: hex"; exit 1; }
 "$J" 255 | grep -q "bin  0b1111_1111" || { echo "calc test: bin"; exit 1; }
