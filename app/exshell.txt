@@ -1,5 +1,6 @@
-version 0.1.84.65
-code 1795776491
-sha256 19ebb2b0c1be9a818e06506800078259a7ec7650900dcb88a44671ba7a2a111e
-url https://github.com/J2k-studio/exshell/releases/download/app-v0.1.84.65/exshell.apk
-patch 1795775893 103ac2f6be6dad366688203a639d08f2839c858eff41ab7744288306a0a2f423 https://github.com/J2k-studio/exshell/releases/download/app-v0.1.84.65/from-1795775893.patch
+version 0.1.86.66
+code 1795777697
+sha256 972dc96e98e1f621245025412a9d1fd2ad5dfd6325c1e4f19c83a6c52c0c359d
+url https://github.com/J2k-studio/exshell/releases/download/app-v0.1.86.66/exshell.apk
+patch 1795776491 e82e2d38da4bb3b5c4c919cda4427af3617dee2ff9764b3c2277348481518a2f https://github.com/J2k-studio/exshell/releases/download/app-v0.1.86.66/from-1795776491.patch
+patch 1795775893 55f2366744daeea89e8cea7e19a28e01492096b1707bf1ace1ddea54aa8d9cb5 https://github.com/J2k-studio/exshell/releases/download/app-v0.1.86.66/from-1795775893.patch
