@@ -10,7 +10,7 @@ jsh|A small shell for J2K machines: line editing, ghost text, pipes, variables, 
 jbox|The basic commands in one program (dir cat cp mv rm mkdir grep sort ...); installs links so every shell finds them
 jpty|Run a program on a pseudo terminal, driven through two pipes (for apps and tools)
 coderin|A text editor for the terminal (colours for J2K, select, copy and paste, find)
-jene|Make, build and run a game (the game tool of Jexcmp; needs ex install jex)
+jene|jex games: jene -c NAME, -b, -rc (comes with ex install jex)
 jcmp|Jex, the language, and its compiler jcmp with the library (ex install jex or jcmp)
 apkj|Builds an Android apk of a J2K app with no Android tools (zip, binary manifest, signing); makej apk uses it
 zipj|Make and open zip files (zipj, unj): folders, a password, deflate, also .gz
