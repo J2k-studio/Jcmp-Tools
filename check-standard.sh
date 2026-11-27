@@ -22,7 +22,7 @@ for n in $names; do
     [ "$top" = "$ver" ] || add "the newest section of CHANGELOG.md is '$top', VERSION is '$ver'"
     if [ -f "$d/README.md" ]; then
         grep -q '^## Install' "$d/README.md" || add "README.md has no section '## Install'"
-        grep -q "jc install .*$n" "$d/README.md" || add "README.md does not show  jc install $n"
+        grep -q "\(jc\|ex\) install .*$n" "$d/README.md" || add "README.md does not show  ex install $n"
         grep -q "install.sh | sh -s .*$n" "$d/README.md" || add "README.md does not show the curl install of $n"
         grep -q '^## A short lesson' "$d/README.md" || add "README.md has no section '## A short lesson'"
         # a tool with several commands needs a guide: a section '## Commands' or a file docs/GUIDE.md (only a note for now: the older tools are being written)

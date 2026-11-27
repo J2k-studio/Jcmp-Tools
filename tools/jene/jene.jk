@@ -1,0 +1,152 @@
+// jene 0.1.0 -- the command of jengine: make, build and run a game project.
+//   jene -c Name     create the folder Name with its structure and a game that runs
+//   jene -b          build the project of this folder (the program goes to bin/)
+//   jene -rc         run it in the console (terminal backend)
+//   jene -rec        reset the cache (build/ and .jene-cache/)
+// The project file Name.jene is short TOML (docs: design 35 of the compiler repository).
+#import <stdlib>
+
+String base_main() {
+    String s = "#import <stdlib>\n#import <gamej>\n";
+    s += "// A game: the arrows move the square, Esc ends.\n";
+    s += "int main() {\n";
+    s += "    Game g = Game::open(\"NAME\");\n";
+    s += "    double x = 20.0;\n";
+    s += "    while g.running() {\n";
+    s += "        g.begin();\n";
+    s += "        if g.held(Key::left()) { x -= 40.0 * g.dt; }\n";
+    s += "        if g.held(Key::right()) { x += 40.0 * g.dt; }\n";
+    s += "        g.clear(Game::rgb(10, 20, 40));\n";
+    s += "        g.rect((int)x, 30, 6, 6, Game::rgb(255, 200, 60));\n";
+    s += "        g.end();\n";
+    s += "    }\n";
+    s += "    g.close();\n";
+    s += "    return 0;\n";
+    s += "}\n";
+    return s.replace("NAME", "%NAME%");
+}
+
+String base_jene(String name) {
+    String s = "# " + name + ".jene : what the project is and what it uses. Add a line for each asset.\n";
+    s += "[project]\n";
+    s += "name = \"" + name + "\"\n";
+    s += "version = \"0.0.1\"\n";
+    s += "backend = \"terminal\"\n";
+    s += "target = [\"arm64\"]\n";
+    s += "main = \"src/main.jk\"\n\n";
+    s += "camera.main = { mode = \"ortho\", size = 100 }\n";
+    s += "# image.hero = { path = \"assets/sprites/hero.png\", atlas = \"32x32\", used-in = [\"main\"] }\n";
+    s += "# sound.jump = { path = \"assets/audio/jump.wav\", group = \"sfx\", used-in = [\"main\"] }\n";
+    s += "# apk = { id = \"com.example.name\", icon = \"android/icon.png\", orientation = \"landscape\" }\n";
+    return s;
+}
+
+// the value of  key = "value"  in the [project] part of the file text (empty if not there)
+String project_value(String text, String key) {
+    String[] lines = text.split("\n");
+    for int i = 0; i < lines.len; i++ {
+        String l = lines[i].trim();
+        String k1 = key + " =";
+        String k2 = key + "=";
+        if l.starts_with(k1) || l.starts_with(k2) {
+            String[] kv = l.split("=");
+            String v = kv[1].trim();
+            if v.starts_with("\"") {
+                String[] q = v.split("\"");
+                return q[1];
+            }
+            return v;
+        }
+    }
+    return "";
+}
+
+// the name of the .jene file in this folder ("" if there is none)
+String find_project() {
+    String[] names = Dir::list(".").take();
+    for int i = 0; i < names.len; i++ {
+        if names[i].ends_with(".jene") { return names[i]; }
+    }
+    return "";
+}
+
+int cmd_create(String name) {
+    if Dir::exists(name) { jout << "jene: the folder " << name << " exists already\n"; return 1; }
+    Dir::make_all(name);
+    Dir::make_all(name + "/src");
+    Dir::make_all(name + "/bin");
+    Dir::make_all(name + "/android");
+    Dir::make_all(name + "/assets/images");
+    Dir::make_all(name + "/assets/sprites");
+    Dir::make_all(name + "/assets/audio");
+    Dir::make_all(name + "/assets/fonts");
+    Dir::make_all(name + "/assets/scenes");
+    Dir::make_all(name + "/assets/shaders");
+    Fs::write_text(name + "/" + name + ".jene", base_jene(name));
+    Fs::write_text(name + "/src/main.jk", base_main().replace("%NAME%", name));
+    Fs::write_text(name + "/.gitignore", "build/\n.jene-cache/\nbin/\n");
+    jout << "jene: made " << name << "/ (cd " << name << "; jene -b; jene -rc)\n";
+    return 0;
+}
+
+int cmd_build() {
+    String file = find_project();
+    if file == "" { jout << "jene: no .jene file in this folder (jene -c Name makes a project)\n"; return 1; }
+    String text = Fs::read_text(file).take();
+    String name = project_value(text, "name");
+    String main_src = project_value(text, "main");
+    if name == "" || main_src == "" { jout << "jene: " << file << " needs name and main in [project]\n"; return 1; }
+    Dir::make_all("bin");
+    String[] args = arr(4);
+    args.push(main_src);
+    args.push("-o");
+    args.push("bin/" + name);
+    Result<i64, Error> pr = Proc::run("jcmp", args);
+    if pr.is_err() { jerr << "jene: the compiler jcmp was not found (ex install jex)\n"; return 1; }
+    i64 r = pr.take();
+    if r != 0 { jout << "jene: build failed\n"; return 1; }
+    jout << "jene: built bin/" << name << "\n";
+    return 0;
+}
+
+int cmd_run() {
+    String file = find_project();
+    if file == "" { jout << "jene: no .jene file in this folder\n"; return 1; }
+    String name = project_value(Fs::read_text(file).take(), "name");
+    String[] none = arr(1);
+    return (int)Proc::run("bin/" + name, none).take();
+}
+
+int cmd_reset() {
+    String[] args = arr(4);
+    args.push("-rf");
+    args.push("build");
+    args.push(".jene-cache");
+    Proc::run("rm", args);
+    jout << "jene: cache reset\n";
+    return 0;
+}
+
+int main() {
+    String[] a = Env::args();
+    if a.len > 1 && (a[1] == "--version" || a[1] == "-V") { jout << "jene 0.1.0\n"; return 0; }
+    if a.len < 2 || a[1] == "-h" || a[1] == "--help" {
+        jout << "jene: make, build and run a game\n";
+        jout << "(the game tool of Jexcmp)\n\n";
+        jout << "Usage: jene OPTION [NAME]\n\n";
+        jout << "Options:\n";
+        jout << "  -c NAME   new project in\n            the folder NAME\n";
+        jout << "  -b        build it (bin/)\n";
+        jout << "  -rc       run in the console\n";
+        jout << "  -rec      reset the cache\n";
+        jout << "  --version the version\n\n";
+        jout << "It needs the compiler: ex install jex\n";
+        return 0;
+    }
+    if a[1] == "-c" && a.len >= 3 { return cmd_create(a[2]); }
+    if a[1] == "-b" { return cmd_build(); }
+    if a[1] == "-rc" { return cmd_run(); }
+    if a[1] == "-rec" { return cmd_reset(); }
+    jerr << "jene: unknown option " << a[1] << " (jene -h)\n";
+    return 2;
+}

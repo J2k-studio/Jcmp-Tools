@@ -18,7 +18,7 @@
 #import "pkg"
 #import "manage"
 
-String jc_version() { return "0.6.2"; }
+String jc_version() { return "0.6.3"; }
 
 i64 fail(String msg) {
     jerr << "ex: " << msg << "\n";
