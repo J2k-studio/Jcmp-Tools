@@ -146,7 +146,7 @@ X="$T/app"; mkdir -p "$X/bin" "$X/home" "$X/tmp"
 printf 'not really an app\n' > "$X/new.apk"
 printf 'version 9.9\ncode 2000000000\nsha256 %s\nurl file://%s\n' "$(sha256sum "$X/new.apk" | cut -d' ' -f1)" "$X/new.apk" > "$X/app.txt"
 printf '#!/bin/sh\necho "$*" > "%s"\n' "$X/ear.log" > "$X/bin/jearlink"; chmod 755 "$X/bin/jearlink"
-A() { env EXSHELL=1 EXSHELL_CODE="$1" EXSHELL_VERSION=1.0 EX_APP_INDEX="file://$X/app.txt" HOME="$X/home" TMPDIR="$X/tmp" PATH="$X/bin:$PATH" "$J" app ${2:-} ${3:-}; }
+A() { env EXSHELL=1 EXSHELL_APK="${EXSHELL_APK:-}" EXSHELL_CODE="$1" EXSHELL_VERSION=1.0 EX_APP_INDEX="file://$X/app.txt" HOME="$X/home" TMPDIR="$X/tmp" PATH="$X/bin:$PATH" "$J" app ${2:-} ${3:-}; }
 A 1 update -n | grep -q "app newest: 9.9" || { echo "ex test: app update -n"; exit 1; }
 [ ! -e "$X/ear.log" ] || { echo "ex test: -n must install nothing"; exit 1; }
 A 1 update > "$X/o" 2>&1 || { echo "ex test: app update: $(cat "$X/o")"; exit 1; }
@@ -155,6 +155,25 @@ A 2000000000 update | grep -q "up to date" || { echo "ex test: the same app must
 sed -i 's/^sha256 .*/sha256 0000000000000000000000000000000000000000000000000000000000000000/' "$X/app.txt"; rm -f "$X/ear.log"
 A 1 update > /dev/null 2>&1 && { echo "ex test: a wrong checksum of the app must fail"; exit 1; }
 [ ! -e "$X/ear.log" ] || { echo "ex test: a wrong app must not be installed"; exit 1; }
+# a patch: only the patch is fetched and the new app is made from the installed one (the patch is made by apkpatch.py of exshell, or here by hand)
+rm -f "$X/ear.log" "$X/home/.cache/"*
+python3 - "$X" <<'PY'
+import sys, struct, hashlib
+x = sys.argv[1]
+old = bytes(range(256)) * 400
+new = old[:50000] + b'CHANGED PART' + old[50100:]
+patch = b'EXPATCH1' + struct.pack('<I', len(new)) + b'C' + struct.pack('<II', 0, 50000) + b'I' + struct.pack('<I', 12) + b'CHANGED PART' + b'C' + struct.pack('<II', 50100, len(old) - 50100) + b'E'
+open(x + '/old.apk', 'wb').write(old); open(x + '/new2.apk', 'wb').write(new); open(x + '/p', 'wb').write(patch)
+h = lambda b: hashlib.sha256(b).hexdigest()
+# the whole file is NOT there: it works only when the patch is used
+open(x + '/app.txt', 'w').write('version 9.9\ncode 2000000000\nsha256 %s\nurl file://%s/missing.apk\npatch 7 %s file://%s/p\n' % (h(new), x, h(patch), x))
+PY
+EXSHELL_APK="$X/old.apk" A 7 update > "$X/o" 2>&1 || { echo "ex test: patch update: $(cat "$X/o")"; exit 1; }
+cmp -s "$X/home/.cache/exshell-9.9.apk" "$X/new2.apk" || { echo "ex test: the patched app differs"; exit 1; }
+# a patch that does not fit the installed app: the whole file is fetched instead
+sed -i "s#^url .*#url file://$X/new2.apk#" "$X/app.txt"; printf 'other' > "$X/other.apk"; rm -f "$X/home/.cache/"*
+EXSHELL_APK="$X/other.apk" A 7 update > "$X/o" 2>&1 || { echo "ex test: fallback after a bad patch: $(cat "$X/o")"; exit 1; }
+grep -q "the whole file is fetched" "$X/o" && cmp -s "$X/home/.cache/exshell-9.9.apk" "$X/new2.apk" || { echo "ex test: fallback: $(cat "$X/o")"; exit 1; }
 # ex doctor says what is there and ends well
 printf 'ex 9.9.9\n' > "$U/mirror/versions.txt"
 ( cd "$U/bin" && JCMPTOOLS_RAW="file://$U/mirror" "$J" doctor ) > "$T/doc.txt" 2>&1 || { echo "ex test: doctor: $(cat "$T/doc.txt")"; exit 1; }

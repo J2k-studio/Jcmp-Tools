@@ -14,7 +14,7 @@
 #import "pkg"
 #import "manage"
 
-String ex_version() { return "0.8.0"; }
+String ex_version() { return "0.9.0"; }
 
 i64 fail(String msg) {
     jerr << "ex: " << msg << "\n";
@@ -326,19 +326,25 @@ i64 usage() {
 }
 
 // ------------------------------------------------------------ the app itself and a check of the system
-// where the newest app is described: lines  "version X"  "code N"  "sha256 H"  "url U"  (EX_APP_INDEX names another file, for the tests)
+// where the newest app is described: lines  "version X"  "code N"  "sha256 H"  "url U"  and for older apps  "patch FROMCODE SHA256 URL"
+// (EX_APP_INDEX names another file, for the tests)
 String app_index_address() { return env_or("EX_APP_INDEX", "https://raw.githubusercontent.com/J2k-studio/ex-pkg/main/app/exshell.txt"); }
 
 String g_app_version;
 String g_app_sha;
 String g_app_url;
 i64 g_app_code;
+String g_patch_sha;          // the patch from the installed app to the newest one, when there is one
+String g_patch_url;
 
 i64 digits_of(String t) {
     i64 n = 0;
     for i in 0..t.len { if t[i] < '0' || t[i] > '9' { break; } n = n * 10 + (t[i] - '0'); }
     return n;
 }
+
+// the number of the installed app; 0 when the app does not say (older builds) or this is not the app
+i64 app_code_here() { return digits_of(env_or("EXSHELL_CODE", "")); }
 
 bool app_newest() {
     String f = env_or("TMPDIR", env_or("HOME", ".")) + "/.ex_app." + stg(Sys::getpid());
@@ -347,6 +353,9 @@ bool app_newest() {
     g_app_sha = "";
     g_app_url = "";
     g_app_code = 0;
+    g_patch_sha = "";
+    g_patch_url = "";
+    i64 mine = app_code_here();
     switch Fs::read_text(f) {
         Result::Ok(t): {
             String[] ls = t.split("\n");
@@ -357,6 +366,10 @@ bool app_newest() {
                 if w[0] == "sha256" { g_app_sha = w[1] + ""; }
                 if w[0] == "url" { g_app_url = w[1] + ""; }
                 if w[0] == "code" { g_app_code = digits_of(w[1] + ""); }
+                if w[0] == "patch" && w.len >= 4 && mine > 0 {
+                    String from = w[1] + "";
+                    if digits_of(from) == mine { g_patch_sha = w[2] + ""; g_patch_url = w[3] + ""; }
+                }
             }
         }
         Result::Err(e): { }
@@ -365,8 +378,82 @@ bool app_newest() {
     return g_app_version.len > 0 && g_app_url.len > 0 && g_app_sha.len == 64 && g_app_code > 0;
 }
 
-// the number of the installed app; 0 when the app does not say (older builds) or this is not the app
-i64 app_code_here() { return digits_of(env_or("EXSHELL_CODE", "")); }
+// the bytes of a file (any bytes)
+bool all_bytes(String path, String out) {
+    i64 fd = Sys::open_read(path.c());
+    if fd < 0 { return false; }
+    char buf[16384];
+    i64 n = Sys::read(fd, @buf, 16384);
+    while n > 0 {
+        for i in 0..n { out.push(buf[i]); }
+        n = Sys::read(fd, @buf, 16384);
+    }
+    Sys::close(fd);
+    return n == 0;
+}
+
+i64 le32_at(String s, i64 at) { return ((i64)s[at] & 255) | (((i64)s[at + 1] & 255) << 8) | (((i64)s[at + 2] & 255) << 16) | (((i64)s[at + 3] & 255) << 24); }
+
+// "EXPATCH1" new_size, then 'C' offset length (copy of the old file) | 'I' length bytes (new bytes) | 'E' (the end); made by tools/apkpatch.py
+// of exshell. false when the patch is damaged or does not belong to this old file.
+bool apply_patch(String old, String patch, String out) {
+    if patch.len < 13 || !patch.starts_with("EXPATCH1") { return false; }
+    i64 size = le32_at(patch, 8);
+    i64 q = 12;
+    while q < patch.len {
+        char op = patch[q];
+        if op == 'E' { return out.len == size; }
+        if op == 'C' {
+            if q + 9 > patch.len { return false; }
+            i64 off = le32_at(patch, q + 1);
+            i64 n = le32_at(patch, q + 5);
+            if off < 0 || n < 0 || off + n > old.len || out.len + n > size { return false; }
+            String part = old.slice(off, off + n);
+            out.append(part);
+            q += 9;
+        } else if op == 'I' {
+            if q + 5 > patch.len { return false; }
+            i64 n = le32_at(patch, q + 1);
+            if n < 0 || q + 5 + n > patch.len || out.len + n > size { return false; }
+            String part = patch.slice(q + 5, q + 5 + n);
+            out.append(part);
+            q += 5 + n;
+        } else { return false; }
+    }
+    return false;
+}
+
+bool file_is(String path, String sha) {
+    String got = "";
+    switch Sha256::file(path) {
+        Result::Ok(h): { got = h; }
+        Result::Err(e): { }
+    }
+    return got == sha;
+}
+
+// the newest app made from the installed one and the patch: only what changed is downloaded. false: the whole file has to be fetched
+bool app_from_patch(String apk) {
+    String mine = env_or("EXSHELL_APK", "");
+    if g_patch_url.len == 0 || mine.len == 0 || !Fs::exists(mine) { return false; }
+    String pf = apk + ".patch";
+    jout << "only the patch is downloaded" << nl;
+    if !download(g_patch_url, pf, false) { return false; }
+    bool ok = file_is(pf, g_patch_sha);
+    if ok {
+        String old = "";
+        String patch = "";
+        String made = "";
+        ok = all_bytes(mine, old) && all_bytes(pf, patch) && apply_patch(old, patch, made);
+        if ok {
+            Result<i64, Error> w = Fs::write_text(apk, made);
+            ok = w.is_ok() && file_is(apk, g_app_sha);
+        }
+    }
+    Fs::remove(pf);
+    if !ok { Fs::remove(apk); jout << "the patch did not make the new app: the whole file is fetched" << nl; }
+    return ok;
+}
 
 i64 app_update(bool dry) {
     if env_or("EXSHELL", "") != "1" { return fail("this is not the terminal of exshell"); }
@@ -380,13 +467,10 @@ i64 app_update(bool dry) {
     String dir = env_or("HOME", ".") + "/.cache";
     Dir::make_all(dir);
     String apk = dir + "/exshell-" + g_app_version + ".apk";
-    if !download(g_app_url, apk, false) { return fail("the download did not finish"); }
-    String got = "";
-    switch Sha256::file(apk) {
-        Result::Ok(h): { got = h; }
-        Result::Err(e): { }
+    if !app_from_patch(apk) {
+        if !download(g_app_url, apk, false) { return fail("the download did not finish"); }
+        if !file_is(apk, g_app_sha) { Fs::remove(apk); return fail("the checksum of the app does not match, nothing was installed"); }
     }
-    if got != g_app_sha { Fs::remove(apk); return fail("the checksum of the app does not match, nothing was installed"); }
     jout << "the installer of Android opens: tap Update" << nl;
     jout << "(the sessions end when the app is replaced)" << nl;
     String[] ia = arr(3);

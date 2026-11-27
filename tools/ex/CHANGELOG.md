@@ -1,5 +1,9 @@
 # ex changelog
 
+## 0.9.0
+* **Changed:** `ex app update` downloads only a patch (what differs from the installed app) and makes the new APK from the app on the phone; the whole file is fetched only when there is no patch or it does not fit. Android still asks to tap Update.
+* **Fixed:** none.
+
 ## 0.8.0
 * **Added:** `ex app` and `ex app update`: the app of exshell updates itself (the new APK is downloaded, its SHA-256 checked, and the installer of Android opens); `ex update` says when a newer app is there. `ex doctor`: the network, the versions of the main tools and of the app, the storage and the free space, with what to do.
 * **Fixed:** none.
