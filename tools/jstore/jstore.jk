@@ -11,7 +11,7 @@
 // Needs the tools jget (download) and jc (install). Design: docs/security.md of the Jaric project.
 #import <stdlib>
 
-String jstore_version() { return "0.2.0"; }
+String jstore_version() { return "0.2.1"; }
 
 i64 fail(String msg) {
     jerr << "jstore: " << msg << "\n";
@@ -236,7 +236,7 @@ i64 do_update(String[] a) {
         jout << g_id[i] << ": " << g_have_ver[k] << " -> " << g_ver[i] << "\n";
         if yes { if install_one(i, true) != 0 { rc = 1; } }
     }
-    if n == 0 { jout << "everything is up to date\n"; }
+    if n == 0 { jout << "the store: up to date\n"; }
     else if !yes { jout << "(jstore update -y installs them; more permissions than before are asked again by jc)\n"; }
     return rc;
 }

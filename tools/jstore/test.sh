@@ -23,7 +23,7 @@ g = make('game', '2.0', '["audio", "files"]')
 open(f'{t}/index.txt', 'w').write(f'# a test index\napp.hello 1.0 {t}/hello-1.0.jc {a1} - Hello program\napp.hello 1.1 {t}/hello-1.1.jc {a2} - Hello program\napp.game 2.0 {t}/game-2.0.jc {g} files,audio A Game\napp.bad 1.0 {t}/hello-1.0.jc {"0"*64} - Bad checksum\n')
 PY
 export JSTORE_INDEX="$T/index.txt"
-[ "$("$J" --version)" = "jstore 0.2.0" ] || { echo "jstore test: version"; exit 1; }
+[ "$("$J" --version)" = "jstore $(cat VERSION)" ] || { echo "jstore test: version"; exit 1; }
 out=$("$J" list)
 echo "$out" | grep -q "app.hello  1.1  Hello program   \[no permissions\]" || { echo "jstore test: list: $out"; exit 1; }
 echo "$out" | grep -q "app.game  2.0  A Game   \[files,audio\]" || { echo "jstore test: list perms"; exit 1; }
