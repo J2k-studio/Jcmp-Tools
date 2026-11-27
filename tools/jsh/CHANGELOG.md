@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.1
+* **Changed:** the start page lists `ex doctor`; a tip names `jurl` (it named the old `jget`).
+* **Fixed:** none.
+
 ## 0.13.0
 * **Added:** a command that a message proposes (`jsh: jexcmp: command not found (ex install jexcmp)`, a "did you mean", or a program that writes into `$JSH_HINT_FILE`, as `ex` does) waits in grey at the next prompt; Tab takes it.
 * **Fixed:** the hints for a command that is not found know `jex`, `jene`, `ascode`, `jurl` and `jexcmp` (it proposed `jcmp` for the compiler that is not installed instead of `ex install jexcmp`).

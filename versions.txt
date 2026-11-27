@@ -25,7 +25,7 @@ jmaip 0.3.0
 jnote 0.1.0
 jpty 0.1.1
 jrawser 0.1.0
-jsh 0.13.0
+jsh 0.13.1
 jurl 0.1.2
 jvp4 0.1.0
 jx86 0.1.0

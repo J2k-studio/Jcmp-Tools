@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.13.0"; }
+String jsh_version() { return "0.13.1"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -3402,7 +3402,8 @@ void cover() {
     tips.push("cmd1 && cmd2 runs the second only when the first worked; cmd1 || cmd2 when it failed.");
     tips.push("A script is a text file: put #jsh on its first line and run it by its name.");
     tips.push("In braces after a dollar: name%.txt cuts the end of a variable, name:-x gives x when it is empty.");
-    tips.push("jget URL downloads a file with a progress bar.");
+    tips.push("jurl URL downloads a file with a progress bar.");
+    tips.push("ex doctor says what is in place and what to do.");
     tips.push("jgit clone URL gets a repository; authj keeps your two-step codes.");
     tips.push("!! is not needed: the up arrow brings back the last line, and Tab completes it.");
     tips.push("help shows all the commands of the shell; type a name wrongly and jsh guesses.");
@@ -3418,6 +3419,7 @@ void cover() {
     jout << e << "[2m  shell jsh " << jsh_version() << e << "[0m\n\n";
     jout << e << "[1m  Start here" << e << "[0m\n";
     jout << "  " << e << "[96mex install X" << e << "[0m   get a tool\n";
+    jout << "  " << e << "[96mex doctor" << e << "[0m      is all well\n";
     jout << "  " << e << "[96mcam" << e << "[0m            camera and QR\n";
     jout << "  " << e << "[96mmujic" << e << "[0m          music\n";
     jout << "  " << e << "[96mjfile" << e << "[0m          files\n";
