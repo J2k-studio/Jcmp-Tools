@@ -71,6 +71,16 @@ i64 do_unj(String[] a) {
         jerr << "  -o DIR     open into DIR                    -l  only list                -p  the password (without it, it is asked when needed)\n";
         return 2;
     }
+    String lf = file.lower();
+    if lf.ends_with(".tar") || lf.ends_with(".tar.gz") || lf.ends_with(".tgz") {         // a tar archive: tarj opens it (and the gzip around it) in one step
+        String[] ta = arr(8);
+        ta.push("x"); ta.push(file);
+        if outdir.len > 0 { ta.push("-o"); ta.push(outdir); }
+        if quiet { ta.push("-q"); }
+        Result<i64, Error> tr = Proc::run("tarj", ta);
+        if tr.is_ok() { return tr.take(); }
+        return fail("unj", "a tar archive is opened by tarj: ex install tarj");
+    }
     bool rok = false;
     String z = read_bin(file, @rok);
     if !rok { return fail("unj", "cannot read " + file); }
@@ -206,7 +216,7 @@ i64 do_zipj(String[] a) {
 
 i64 main() {
     String[] args = Env::args();
-    if args.len > 1 && args[1] == "--version" { jout << "zipj 0.1.1\n"; return 0; }
+    if args.len > 1 && args[1] == "--version" { jout << "zipj 0.1.2\n"; return 0; }
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") {
         jout << "zipj OUT.zip FILES-OR-FOLDERS... [-p] [-P PASSWORD] [-q]    make a zip file (folders go in with everything inside; -p asks for a password)\n";
         jout << "unj FILE.zip [-f] [-o FOLDER] [-p PASSWORD] [-l] [-q] [names...]    open one (-f into a folder named like the file, -l only list)\n";

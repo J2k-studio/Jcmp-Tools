@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.14
+* **Changed:** `help` is a list of short titled sections (no line longer than 38 characters), not one long line that the screen cut in the middle of a word.
+* **Added:** a script that starts with `#!/bin/sh` (or bash, dash, ash, zsh, env sh) or whose name ends in `.sh` is run by jsh itself (the phone has no /bin/sh: `./install.sh` said "wrong format"); the words `set` (options ignored, `set -- a b`), `shift`, `local`, `trap` (ignored) and `command -v NAME`.
+* **Added:** while typing, the word after `ex` or `jaric` is checked: a right one stays white, a start of one gets its rest in grey, a wrong one is red with `(did you mean ...?)`.
+* **Known gaps (next):** `{ ...; }` groups after `||` / `&&`, and the redirect of the words above (`command -v x > /dev/null`), so the Jexcmp `install.sh` does not run completely yet; use `ex install jex`.
+* **Added:** the colour of the first word while typing: a tool, built-in, alias or program is bold green; a folder is bold blue; when nothing is found it is bold red.
+
 ## 0.12.13
 * **Changed:** `cd` alone steps out one level of the drive: from `u:/fomas` to `u:/`, and from `u:/` to home (`f:/`); it went home at once.
 

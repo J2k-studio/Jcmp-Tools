@@ -2423,7 +2423,7 @@ i64 do_ip(String[] a) {
 
 i64 main() {
     String[] args = Env::args();
-    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.15.2\n"; return 0; }
+    if args.len > 1 && (args[1] == "--version" || args[1] == "-V") { jout << "jbox 0.16.0\n"; return 0; }
     String self_name = Path::name(args[0]);
     if args.len > 1 && (args[1] == "--help" || args[1] == "-h") && self_name == "jbox" { return do_help(); }
     if args.len > 1 && (args[1] == "--install" || args[1] == "--post-install") { return do_install(args); }

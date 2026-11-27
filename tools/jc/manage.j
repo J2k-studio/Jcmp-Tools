@@ -133,7 +133,7 @@ i64 cmd_install(String name) {
     }
     String target = dir + "/" + name + ".j";
     switch Fs::rename(tmp, target) {
-        Result::Ok(x): { jout << "installed " << name << " " << e[1] << " in " << target << nl; install_deps(target, dir); return 0; }
+        Result::Ok(x): { jout << "installed " << shown_name(name) << " " << e[1] << " in " << target << nl; install_deps(target, dir); return 0; }
         Result::Err(er): { err("ex: cannot install: " + er.message + "\n"); return 1; }
     }
     return 1;
@@ -192,6 +192,12 @@ i64 cmd_installed() {
 
 // ex tools | ex install NAME ... : the tools of Jcmp-Tools (jsh, jbox, coderin, makej ...), put next to jget, checked with their SHA-256
 // where the files of Jcmp-Tools are: the repository (raw) and the releases; JCMPTOOLS_RAW and JCMPTOOLS_DL name others (a mirror, the tests)
+// the tool that was called jc is called ex (the registry keeps the old name so that old copies can update themselves)
+String shown_name(String n) {
+    if n == "jc" { return "ex"; }
+    return n;
+}
+
 String tools_raw() {
     switch Env::get("JCMPTOOLS_RAW") { Option::Some(v): { if v.len > 0 { return v; } } Option::None: { } }
     return "https://raw.githubusercontent.com/J2k-studio/ex-pkg/main";
@@ -350,7 +356,7 @@ i64 cmd_tool(String[] av, i64 at) {
             if !newer { continue; }
             String from = have;
             if from.len == 0 { from = "(not installed)"; }
-            jout << name << ": " << from << " -> " << lat << nl;
+            jout << shown_name(name) << ": " << from << " -> " << lat << nl;
             wanted.push(name);
             shown += 1;
         }
@@ -443,7 +449,7 @@ i64 cmd_tool(String[] av, i64 at) {
             Fs::remove(sums + ".keep");
         }
         Fs::write_text(dir + "/." + name + ".version", ver);
-        jout << "installed " << name << " " << ver << " in " << dir << nl;
+        jout << "installed " << shown_name(name) << " " << ver << " in " << dir << nl;
         if name == "jbox" || name == "zipj" || name == "tarj" || name == "jamanager" || name == "island" {                                             // its commands as links next to it
             String[] ja = arr(2);
             ja.push("--install");

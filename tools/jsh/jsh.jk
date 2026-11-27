@@ -4,7 +4,7 @@
 #import <stdlib>
 using Input;
 
-String jsh_version() { return "0.12.13"; }
+String jsh_version() { return "0.12.14"; }
 String[] history;
 i64 last_status;
 i64 running;
@@ -382,6 +382,10 @@ String var_guess(String line) {
 
 String suggestion_for(String line) {
     if line.len == 0 { return ""; }
+    String sg = sub_guess(line);
+    if sg.len > 0 { return sg; }
+    String ph = path_hint(line);
+    if ph.len > 0 { return ph; }
     String v = var_guess(line);
     if v.len > 0 { return v; }
     String h = history_guess(line);
@@ -418,6 +422,168 @@ bool command_known(String w) {
     return ok;
 }
 
+// the words that come after a command (its subcommands): a right one is left plain (white), a wrong one is red and a guess is shown in grey
+String[] subs_for(String w) {
+    String[] r = arr(24);
+    if w == "ex" {
+        String[] l = "install list update unstall uninstall remove upgrade tools pkg info search set setting settings lib libs run perm pack help".split(" ");
+        for i in 0..l.len { r.push(l[i] + ""); }
+    } else if w == "jaric" {
+        String[] l = "theme font core setting settings".split(" ");
+        for i in 0..l.len { r.push(l[i] + ""); }
+    }
+    return r;
+}
+
+// the second word of a line: its start and end (-1 when there is none)
+i64 second_start;
+i64 second_end;
+void find_second(String line) {
+    second_start = 0 - 1;
+    second_end = 0 - 1;
+    i64 i = 0;
+    while i < line.len && line[i] == ' ' { i += 1; }
+    while i < line.len && line[i] != ' ' { i += 1; }
+    while i < line.len && line[i] == ' ' { i += 1; }
+    if i >= line.len { return; }
+    second_start = i;
+    while i < line.len && line[i] != ' ' { i += 1; }
+    second_end = i;
+}
+
+String first_word_of(String line) {
+    i64 i = 0;
+    while i < line.len && line[i] == ' ' { i += 1; }
+    i64 st = i;
+    while i < line.len && line[i] != ' ' { i += 1; }
+    return line.slice(st, i);
+}
+
+// 0 plain (right, or being typed), 1 wrong
+i64 sub_state(String line) {
+    find_second(line);
+    if second_start < 0 { return 0; }
+    String[] subs = subs_for(first_word_of(line));
+    if subs.len == 0 { return 0; }
+    String w = line.slice(second_start, second_end);
+    if w.starts_with("-") { return 0; }
+    bool typing = second_end == line.len;                          // the word is not finished: a start of a right word is fine
+    for i in 0..subs.len {
+        if subs[i] == w { return 0; }
+        if typing && subs[i].starts_with(w) { return 0; }
+    }
+    return 1;
+}
+
+// the grey guess after the cursor: the rest of a subcommand that is being typed, or "(did you mean ...?)" for a wrong one
+String sub_guess(String line) {
+    find_second(line);
+    if second_start < 0 { return ""; }
+    String[] subs = subs_for(first_word_of(line));
+    if subs.len == 0 { return ""; }
+    String w = line.slice(second_start, second_end);
+    if w.starts_with("-") || second_end != line.len { return ""; }
+    for i in 0..subs.len { if subs[i].len > w.len && subs[i].starts_with(w) { return subs[i].slice(w.len, subs[i].len); } }
+    if sub_state(line) == 1 {
+        String pick = "";
+        i64 best = 4;
+        for i in 0..subs.len {
+            i64 d = edit_distance(w, subs[i]);
+            if d < best { best = d; pick = subs[i] + ""; }
+        }
+        if pick.len > 0 { return "  (did you mean " + pick + "?)"; }
+    }
+    return "";
+}
+
+// commands whose words are paths: a path that is a folder is blue, a file is plain, one that is not there is red (a new name as the last word of cp / mv / ln is fine)
+bool takes_paths(String c) {
+    String names = " cd ls dir cat head tail less wc rm cp mv ln chmod stat du tree diff cmp hex coderin touch mkdir rmdir ";
+    return names.contains(" " + c + " ");
+}
+
+// 0 plain, 1 folder, 2 not found, 3 the start of a name that is there (still typing)
+i64 path_state(String w, bool typing, bool dest, String cmd) {
+    if w.len == 0 || w.starts_with("-") || w.starts_with("~") || w.starts_with("$") { return 0; }
+    for i in 0..w.len { if w[i] == '*' || w[i] == '?' || w[i] == '[' || w[i] == '=' || w[i] == '"' || w[i] == 39 { return 0; } }
+    if cmd == "mkdir" || cmd == "touch" { dest = true; }
+    if Dir::exists(w) { return 1; }
+    if cmd == "cd" { if Fs::exists(w) { return 2; } }
+    else if Fs::exists(w) { return 0; }
+    i64 slash = 0 - 1;
+    for i in 0..w.len { if w[i] == '/' { slash = i; } }
+    String dir = ".";
+    String part = w;
+    if slash >= 0 { dir = w.slice(0, slash + 1); part = w.slice(slash + 1, w.len); }
+    if !Dir::exists(dir) { return 2; }
+    if dest && !typing { return 0; }                                // a new name in a folder that is there
+    if typing {
+        Result<String[], Error> r = Dir::list(dir);
+        if r.is_ok() {
+            String[] names = r.take();
+            for i in 0..names.len { if names[i].starts_with(part) { return 3; } }
+        }
+        if dest { return 0; }
+    }
+    return 2;
+}
+
+// the words after the first one, coloured by what they are
+String colour_tail_from(String line, i64 from) {
+    String t = colour_tail(line, from);
+    return t;
+}
+
+String colour_tail(String line, i64 from) {
+    String first = first_word_of(line);
+    if !takes_paths(first) { return line.slice(from, line.len); }
+    for i in 0..line.len { if line[i] == '"' || line[i] == 39 || line[i] == '|' || line[i] == '>' || line[i] == '<' || line[i] == ';' || line[i] == '&' { return line.slice(from, line.len); } }
+    String[] words = line.slice(from, line.len).split(" ");
+    i64 lastw = 0 - 1;
+    for i in 0..words.len { if words[i].len > 0 { lastw = i; } }
+    bool typing = line.len > 0 && line[line.len - 1] != ' ';
+    String out = "";
+    for i in 0..words.len {
+        if i > 0 { out = out + " "; }
+        String w = words[i] + "";
+        if w.len == 0 { continue; }
+        bool dest = (first == "cp" || first == "mv" || first == "ln") && i == lastw && lastw > 0;
+        i64 st = path_state(w, typing && i == lastw, dest, first);
+        if st == 1 { out = out + esc() + "[1;38;2;100;165;255m" + w + esc() + "[0m"; }
+        else if st == 2 { out = out + esc() + "[1;38;2;255;85;85m" + w + esc() + "[0m"; }
+        else { out = out + w; }
+    }
+    return out;
+}
+
+// a grey line of words after the cursor that says what the last word is: the place where it leads
+String path_hint(String line) {
+    String first = first_word_of(line);
+    if !takes_paths(first) || line.len == 0 || line[line.len - 1] == ' ' { return ""; }
+    String[] words = line.split(" ");
+    String w = words[words.len - 1] + "";
+    if words.len < 2 || w.len == 0 || w.starts_with("-") { return ""; }
+    if Dir::exists(w) { return ""; }
+    if Fs::exists(w) {
+        if first == "cd" { return "  (a file, not a folder)"; }
+        return "";
+    }
+    bool dest = (first == "cp" || first == "mv" || first == "ln") && words.len >= 3;
+    i64 st = path_state(w, true, dest, first);
+    if st == 3 { return ""; }
+    if st == 2 { return "  (not found)"; }
+    if dest { return "  (a new name)"; }
+    return "";
+}
+
+// the colour of the first word (the rule of the app): a tool, a built-in, an alias or a program is green; if it is none of them, what is it? a folder
+// is blue; if nothing is found it is red. Bold and bright, so that it stands out.
+String word_colour(String w) {
+    if command_known(w) { return "[1;38;2;120;230;130m"; }
+    if w.len > 0 && Dir::exists(w) { return "[1;38;2;100;165;255m"; }
+    return "[1;38;2;255;85;85m";
+}
+
 i64 redraw_row;              // the row of the cursor, counted from the first row of the typed line (a long line wraps over several rows)
 i64 redraw_end;              // the row where the printed text ends
 
@@ -433,9 +599,13 @@ void redraw(String prompt, String line, i64 cursor) {
     while we < line.len && line[we] != ' ' { we += 1; }
     jout << "\r";
     if we < line.len && we > ws && Sys::isatty(1) == 0 {
-        String code = "[38;2;120;220;130m";
-        if !command_known(line.slice(ws, we)) { code = "[38;2;255;110;110m"; }
-        jout << prompt << line.slice(0, ws) << esc() << code << line.slice(ws, we) << esc() << "[0m" << line.slice(we, line.len);
+        String code = word_colour(line.slice(ws, we));
+        jout << prompt << line.slice(0, ws) << esc() << code << line.slice(ws, we) << esc() << "[0m";
+        if sub_state(line) == 1 && second_start > 0 {                          // a wrong word after a command: red
+            jout << line.slice(we, second_start) << esc() << "[1;38;2;255;85;85m" << line.slice(second_start, second_end) << esc() << "[0m" << line.slice(second_end, line.len);
+        } else {
+            if second_start < 0 || sub_state(line) == 0 { jout << line.slice(we, we + 0) << colour_tail_from(line, we); } else { jout << line.slice(we, line.len); }
+        }
     } else {
         jout << prompt << line;
     }
@@ -1715,7 +1885,7 @@ bool have_program(String name) {
 }
 
 bool is_builtin_name(String n) {
-    return n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
+    return n == "set" || n == "shift" || n == "local" || n == "trap" || n == "command" || n == "exit" || n == "cd" || n == "pwd" || n == "echo" || n == "history" || n == "help" || n == "export" || n == "unset"
         || n == "env" || n == "jaric" || n == "drive" || n == "start" || n == "install" || n == "update" || n == "unstall" || n == "login" || n == "signin" || n == "passwd" || n == "logout" || n == "signout" || n == "break" || n == "continue" || n == "read" || n == "jobs" || n == "wait" || n == "kill" || n == "fg" || n == "bg" || n == "test" || n == "[" || n == "[[" || n == "return" || n == "jaric-core" || n == "jaric-setup-folder" || n == "alias" || n == "unalias" || n == "type" || n == "which" || n == "source" || n == ".";
 }
 bool is_jbox_name(String n) {
@@ -1754,7 +1924,18 @@ bool looks_like_jsh(String path) {
     String first = text;
     if nl >= 0 { first = text.slice(0, nl); }
     first = first.trim();
-    return first == "[#jsh]" || first == "#jsh" || first == "#!jsh";
+    if first == "[#jsh]" || first == "#jsh" || first == "#!jsh" { return true; }
+    // a shell script of the usual kind (#!/bin/sh, #!/usr/bin/env bash, a name ending in .sh): the phone has no /bin/sh, so jsh runs it
+    if path.ends_with(".sh") { return true; }
+    if first.starts_with("#!") {
+        String[] w = first.slice(2, first.len).trim().split(" ");
+        String prog = w[w.len - 1] + "";
+        String w0 = Path::name(w[0] + "");
+        if w0 != "env" { prog = w[0] + ""; }
+        String b = Path::name(prog);
+        return b == "sh" || b == "bash" || b == "dash" || b == "ash" || b == "zsh";
+    }
+    return false;
 }
 
 // the pid of a job: %N (the Nth, 1 is the first), %% or %+ (the last), or a plain number; -1 when there is no such job
@@ -1840,7 +2021,12 @@ bool builtin(String[] a) {
             }
         }
         if Sys::chdir(target.c()) < 0 {
-            jerr << "jsh: cd: " << target << ": cannot enter this folder\n";
+            String why = "cannot enter this folder";
+            String atroot = "/" + target;
+            if !target.starts_with("/") && Dir::exists(atroot) { why = "no such folder here; there is /" + target + " (cd /" + target + ")"; }
+            else if !Fs::exists(target) { why = "no such folder"; }
+            else if !Dir::exists(target) { why = "this is a file, not a folder"; }
+            jerr << "jsh: cd: " << target << ": " << why << "\n";
             bcode = 1;
             if target.starts_with("/sdcard") || target.starts_with("/storage") {        // the files of the phone: the app asks to be allowed (once)
                 jout << esc() << "]7777;setup-folder" << (char)7;
@@ -2209,6 +2395,46 @@ bool builtin(String[] a) {
             else if is_jbox_name(what) { jout << what << " is a jbox command\n"; }
             else { jerr << "jsh: " << what << ": not found\n"; bcode = 1; }
         }
+        return true;
+    }
+    // the small POSIX words that scripts such as install.sh need
+    if name == "set" {                                         // set -e -u -x ...: accepted and ignored; set -- a b c: the positional parameters
+        bcode = 0;
+        if a.len >= 2 && a[1] == "--" {
+            for i in 1..10 { setv(stg(i), ""); }
+            for i in 2..a.len { if i - 1 < 10 { setv(stg(i - 1), a[i]); } }
+            setv("#", stg(a.len - 2));
+        }
+        return true;
+    }
+    if name == "shift" {
+        i64 n = 1;
+        if a.len >= 2 && is_number(a[1]) { n = (i64)a[1].to_int(); }
+        i64 cnt = 0;
+        String cs = getv("#");
+        if is_number(cs) { cnt = (i64)cs.to_int(); }
+        if n > cnt { bcode = 1; return true; }
+        for i in 1..10 {
+            String nv = "";
+            if i + n < 10 { nv = getv(stg(i + n)); }
+            setv(stg(i), nv);
+        }
+        setv("#", stg(cnt - n));
+        bcode = 0;
+        return true;
+    }
+    if name == "local" {                                       // a variable of a function: here it is the same as an assignment
+        for i in 1..a.len {
+            i64 eq = a[i].find("=");
+            if eq > 0 { setv(a[i].slice(0, eq), a[i].slice(eq + 1, a[i].len)); } else { setv(a[i], ""); }
+        }
+        bcode = 0;
+        return true;
+    }
+    if name == "trap" { bcode = 0; return true; }              // signals of a script are not handled here
+    if name == "command" && a.len >= 3 && a[1] == "-v" {
+        String w = a[2];
+        if is_builtin_name(w) || is_jbox_name(w) || find_alias(w) >= 0 || have_program(w) { jout << w << "\n"; bcode = 0; } else { bcode = 1; }
         return true;
     }
     if name == "source" || name == "." {

@@ -156,7 +156,20 @@ bool download_one(String address, String to, bool quiet) {
 }
 
 // spec = one address, or several separated by | (the same file on several servers): the first that works
-bool download(String spec, String to, bool quiet) {
+// a page of github.com (https://github.com/USER/REPO/blob/REF/PATH) is the web page, not the file: the file is at raw.githubusercontent.com/USER/REPO/REF/PATH
+String github_raw(String u) {
+    String p = "https://github.com/";
+    if !u.starts_with(p) { return u; }
+    String[] w = u.slice(p.len, u.len).split("/");
+    if w.len < 5 || w[2] != "blob" { return u; }
+    String r = "https://raw.githubusercontent.com/" + w[0] + "/" + w[1] + "/" + w[3];
+    for i in 4..w.len { r = r + "/" + w[i]; }
+    jerr << "jurl: " << u << " is a web page; the file is " << r << nl;
+    return r;
+}
+
+bool download(String spec0, String to, bool quiet) {
+    String spec = github_raw(spec0);
     String[] list = spec.split("|");
     for i in 0..list.len {
         if list[i].trim().len > 0 {

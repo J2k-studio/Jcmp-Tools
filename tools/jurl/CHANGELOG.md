@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.2
+* **Fixed:** a link to a page of github.com (`.../blob/REF/PATH`) gave the web page (HTML), so `jurl URL | sh` said "syntax error"; jurl now takes the file from raw.githubusercontent.com and says so.
+
 ## 0.1.1
 * **Fixed:** every message, the help and the self-update say `jurl` (they said `jget`).
 

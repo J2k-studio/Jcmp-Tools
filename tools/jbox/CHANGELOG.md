@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.16.0
+* **Added:** `ip addr` and `ip link` (also `ifconfig`): the interfaces with their flags, mtu, IPv4 address and prefix, made with ioctl, because Android does not let an app open a netlink socket (the real `ip` says "Cannot bind netlink socket"). Routes and changes need root and are refused with a clear message.
+
 ## 0.15.2
 * **Changed:** `dir` lists the folders first (in order of the letters), then the files (in order of the letters); it sorted all by letters only.
 
