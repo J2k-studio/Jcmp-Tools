@@ -1,4 +1,4 @@
-# fcode: a modern code editor for the terminal (design, waiting for the owner's approval)
+# fcode: a modern code editor for the terminal (design, approved by the owner 2026-11-27)
 
 Name: **fcode** (the owner, 2026-11-27). It takes the place of coderin, the editor of today.
 
